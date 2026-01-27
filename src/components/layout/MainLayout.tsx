@@ -9,7 +9,6 @@ import {
   Box,
   AppBar,
   Toolbar,
-  Typography,
   IconButton,
   Button,
   useTheme,
@@ -76,8 +75,11 @@ export default function MainLayout() {
               onClick={() => handleMenuClick(item.path)}
               sx={{
                 '&.Mui-selected': {
-                  backgroundColor: 'rgba(255, 149, 0, 0.15)',
-                  borderLeft: `4px solid ${theme.palette.primary.main}`,
+                  backgroundColor: 'rgba(200, 217, 0, 0.15)',
+                  borderLeft: `4px solid #c8d900`,
+                  '&:hover': {
+                    backgroundColor: 'rgba(200, 217, 0, 0.25)',
+                  },
                 },
               }}
             >
@@ -85,6 +87,7 @@ export default function MainLayout() {
                 primary={item.text}
                 primaryTypographyProps={{
                   fontWeight: location.pathname === item.path ? 600 : 400,
+                  color: location.pathname === item.path ? '#c8d900' : 'inherit',
                 }}
               />
             </ListItemButton>
@@ -110,20 +113,22 @@ export default function MainLayout() {
             sx={{
               display: 'flex',
               alignItems: 'center',
-              gap: 1.5,
               mr: { xs: 2, md: 4 },
             }}
           >
             <Box
               sx={{
-                background: 'linear-gradient(135deg, #b8d432 0%, #7cb342 100%)',
-                borderRadius: '8px',
-                p: 0.8,
+                background: '#1a1a1a',
+                borderRadius: '12px',
+                px: 1.8,
+                py: 1.2,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minWidth: 40,
-                minHeight: 40,
+                minWidth: 70,
+                minHeight: 60,
+                border: '2.5px solid #c8d900',
+                boxShadow: '0 0 15px rgba(200, 217, 0, 0.5)',
               }}
             >
               <Box
@@ -131,23 +136,12 @@ export default function MainLayout() {
                 src="/LogoComware.png"
                 alt="COMWARE Logo"
                 sx={{
-                  height: 28,
-                  width: 28,
+                  height: 52,
+                  width: 52,
                   objectFit: 'contain',
                 }}
               />
             </Box>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 700,
-                color: '#fff',
-                fontSize: { xs: '1rem', md: '1.25rem' },
-                display: { xs: 'none', sm: 'block' },
-              }}
-            >
-              COMWARE
-            </Typography>
           </Box>
 
           {/* Desktop Navigation Menu */}
@@ -166,7 +160,7 @@ export default function MainLayout() {
                   key={item.text}
                   onClick={() => handleMenuClick(item.path)}
                   sx={{
-                    color: isActive ? '#ff9500' : '#fff',
+                    color: isActive ? '#c8d900' : '#fff',
                     fontWeight: isActive ? 600 : 400,
                     fontSize: '0.875rem',
                     px: 2,
@@ -185,8 +179,9 @@ export default function MainLayout() {
                           left: '10%',
                           right: '10%',
                           height: '3px',
-                          background: '#ff9500',
+                          background: '#c8d900',
                           borderRadius: '3px 3px 0 0',
+                          boxShadow: '0 0 8px rgba(200, 217, 0, 0.5)',
                         }
                       : {},
                   }}
@@ -217,15 +212,18 @@ export default function MainLayout() {
           >
             <IconButton
               sx={{
-                background: 'linear-gradient(135deg, #b8d432 0%, #7cb342 100%)',
-                width: 40,
-                height: 40,
+                background: '#1a1a1a',
+                border: '2px solid #c8d900',
+                width: 44,
+                height: 44,
+                boxShadow: '0 0 10px rgba(200, 217, 0, 0.3)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #a8c422 0%, #6ca332 100%)',
+                  background: '#2a2a2a',
+                  boxShadow: '0 0 15px rgba(200, 217, 0, 0.5)',
                 },
               }}
             >
-              <AccountCircleIcon sx={{ color: '#fff', fontSize: 24 }} />
+              <AccountCircleIcon sx={{ color: '#c8d900', fontSize: 26 }} />
             </IconButton>
           </Box>
         </Toolbar>
