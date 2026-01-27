@@ -10,7 +10,6 @@ import {
   Button,
   TextField,
   MenuItem,
-  Grid,
   Chip,
   Dialog,
   DialogTitle,
@@ -35,7 +34,7 @@ export default function IdentificacionPage() {
 
   const { data, isLoading } = useGetRiesgosQuery({
     busqueda: debouncedSearch,
-    clasificacion: clasificacion === 'all' ? undefined : clasificacion,
+    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as any),
   });
 
   const columns: GridColDef[] = [
@@ -110,8 +109,8 @@ export default function IdentificacionPage() {
       </Box>
 
       {/* Filters */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+        <Box sx={{ flex: '1 1 300px' }}>
           <TextField
             fullWidth
             label="Buscar riesgos"
@@ -119,8 +118,8 @@ export default function IdentificacionPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box sx={{ flex: '0 1 200px', minWidth: 200 }}>
           <TextField
             fullWidth
             select
@@ -132,8 +131,8 @@ export default function IdentificacionPage() {
             <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Positiva</MenuItem>
             <MenuItem value={CLASIFICACION_RIESGO.NEGATIVA}>Negativa</MenuItem>
           </TextField>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Data Grid */}
       <AppDataGrid
@@ -157,36 +156,36 @@ export default function IdentificacionPage() {
                 {selectedRiesgo.descripcion}
               </Typography>
 
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                <Box sx={{ width: '48%' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Clasificación
                   </Typography>
                   <Typography variant="body1">
                     {selectedRiesgo.clasificacion}
                   </Typography>
-                </Grid>
-                <Grid item xs={6}>
+                </Box>
+                <Box sx={{ width: '48%' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Proceso
                   </Typography>
                   <Typography variant="body1">{selectedRiesgo.proceso}</Typography>
-                </Grid>
-                <Grid item xs={6}>
+                </Box>
+                <Box sx={{ width: '48%' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Zona
                   </Typography>
                   <Typography variant="body1">{selectedRiesgo.zona}</Typography>
-                </Grid>
-                <Grid item xs={6}>
+                </Box>
+                <Box sx={{ width: '48%' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Tipología Nivel I
                   </Typography>
                   <Typography variant="body1">
                     {selectedRiesgo.tipologiaNivelI || '-'}
                   </Typography>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </Box>
           )}
         </DialogContent>

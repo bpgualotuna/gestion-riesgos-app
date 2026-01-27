@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   Paper,
   TextField,
@@ -22,8 +21,8 @@ import { CLASIFICACION_RIESGO } from '../../../utils/constants';
 export default function MapaPage() {
   const [clasificacion, setClasificacion] = useState<string>('all');
 
-  const { data: puntos, isLoading } = useGetPuntosMapaQuery({
-    clasificacion: clasificacion === 'all' ? undefined : clasificacion,
+  const { data: puntos } = useGetPuntosMapaQuery({
+    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as any),
   });
 
   // Create 5x5 matrix
@@ -64,21 +63,19 @@ export default function MapaPage() {
       {/* Filter */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                select
-                label="Clasificación"
-                value={clasificacion}
-                onChange={(e) => setClasificacion(e.target.value)}
-              >
-                <MenuItem value="all">Todas</MenuItem>
-                <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Positiva</MenuItem>
-                <MenuItem value={CLASIFICACION_RIESGO.NEGATIVA}>Negativa</MenuItem>
-              </TextField>
-            </Grid>
-          </Grid>
+          <Box sx={{ maxWidth: 300 }}>
+            <TextField
+              fullWidth
+              select
+              label="Clasificación"
+              value={clasificacion}
+              onChange={(e) => setClasificacion(e.target.value)}
+            >
+              <MenuItem value="all">Todas</MenuItem>
+              <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Positiva</MenuItem>
+              <MenuItem value={CLASIFICACION_RIESGO.NEGATIVA}>Negativa</MenuItem>
+            </TextField>
+          </Box>
         </CardContent>
       </Card>
 
@@ -88,60 +85,52 @@ export default function MapaPage() {
           <Typography variant="h6" gutterBottom fontWeight={600}>
             Leyenda
           </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={6} sm={3}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: colors.risk.critical.main,
-                    borderRadius: 1,
-                  }}
-                />
-                <Typography variant="body2">Crítico (≥20)</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: colors.risk.high.main,
-                    borderRadius: 1,
-                  }}
-                />
-                <Typography variant="body2">Alto (≥15)</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: colors.risk.medium.main,
-                    borderRadius: 1,
-                  }}
-                />
-                <Typography variant="body2">Medio (≥10)</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: colors.risk.low.main,
-                    borderRadius: 1,
-                  }}
-                />
-                <Typography variant="body2">Bajo (&lt;10)</Typography>
-              </Box>
-            </Grid>
-          </Grid>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  backgroundColor: colors.risk.critical.main,
+                  borderRadius: 1,
+                }}
+              />
+              <Typography variant="body2">Crítico (≥20)</Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  backgroundColor: colors.risk.high.main,
+                  borderRadius: 1,
+                }}
+              />
+              <Typography variant="body2">Alto (≥15)</Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  backgroundColor: colors.risk.medium.main,
+                  borderRadius: 1,
+                }}
+              />
+              <Typography variant="body2">Medio (≥10)</Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  backgroundColor: colors.risk.low.main,
+                  borderRadius: 1,
+                }}
+              />
+              <Typography variant="body2">Bajo (&lt;10)</Typography>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 

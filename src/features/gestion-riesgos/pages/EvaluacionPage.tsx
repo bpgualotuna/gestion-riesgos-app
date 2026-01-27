@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Slider,
   Button,
   Autocomplete,
@@ -157,9 +156,9 @@ export default function EvaluacionPage() {
                 Cada dimensión tiene un peso específico en el cálculo global
               </Typography>
 
-              <Grid container spacing={3}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                 {DIMENSIONES_IMPACTO.map((dimension) => (
-                  <Grid item xs={12} md={6} key={dimension.key}>
+                  <Box sx={{ flex: '1 1 300px', minWidth: 300 }} key={dimension.key}>
                     <Box>
                       <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                         <Typography variant="body2" fontWeight={500}>
@@ -193,9 +192,9 @@ export default function EvaluacionPage() {
                         {LABELS_IMPACTO[impactos[dimension.key as keyof Impactos] as keyof typeof LABELS_IMPACTO]}
                       </Typography>
                     </Box>
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             </CardContent>
           </Card>
 
@@ -243,8 +242,8 @@ export default function EvaluacionPage() {
               Los valores se calculan automáticamente usando las fórmulas Excel traducidas
             </Typography>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={3}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              <Box sx={{ flex: '1 1 200px' }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
                     Impacto Global
@@ -256,9 +255,9 @@ export default function EvaluacionPage() {
                     Ponderado por pesos
                   </Typography>
                 </Box>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={3}>
+              <Box sx={{ flex: '1 1 200px' }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
                     Impacto Máximo
@@ -270,9 +269,9 @@ export default function EvaluacionPage() {
                     Mayor valor de impacto
                   </Typography>
                 </Box>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={3}>
+              <Box sx={{ flex: '1 1 200px' }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
                     Riesgo Inherente
@@ -285,9 +284,9 @@ export default function EvaluacionPage() {
                     {resultados.riesgoInherente !== 3.99 && `${resultados.impactoMaximo} × ${probabilidad}`}
                   </Typography>
                 </Box>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={3}>
+              <Box sx={{ flex: '1 1 200px' }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
                     Nivel de Riesgo
@@ -304,8 +303,8 @@ export default function EvaluacionPage() {
                     }}
                   />
                 </Box>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             {/* Explanation */}
             <Alert severity="info" sx={{ mt: 3 }}>

@@ -3,7 +3,7 @@
  * Overview with statistics and recent risks
  */
 
-import { Box, Card, CardContent, Typography, Chip, Stack } from '@mui/material';
+import { Box, Card, CardContent, Typography, Chip } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   Warning as WarningIcon,

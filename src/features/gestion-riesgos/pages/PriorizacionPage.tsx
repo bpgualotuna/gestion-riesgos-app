@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   Button,
   Dialog,
@@ -43,14 +42,14 @@ export default function PriorizacionPage() {
       field: 'riesgo.numero',
       headerName: 'Nro',
       width: 80,
-      valueGetter: (value, row) => row.riesgo?.numero || '-',
+      valueGetter: (_value, row) => row.riesgo?.numero || '-',
     },
     {
       field: 'riesgo.descripcion',
       headerName: 'Descripción del Riesgo',
       flex: 1,
       minWidth: 300,
-      valueGetter: (value, row) => row.riesgo?.descripcion || '-',
+      valueGetter: (_value, row) => row.riesgo?.descripcion || '-',
     },
     {
       field: 'evaluacion.nivelRiesgo',
@@ -147,8 +146,8 @@ export default function PriorizacionPage() {
       </Typography>
 
       {/* Summary Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+        <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -159,8 +158,8 @@ export default function PriorizacionPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -171,8 +170,8 @@ export default function PriorizacionPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -183,8 +182,8 @@ export default function PriorizacionPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -195,8 +194,8 @@ export default function PriorizacionPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Data Grid */}
       <AppDataGrid
@@ -225,32 +224,28 @@ export default function PriorizacionPage() {
                 {selectedPriorizacion.riesgo?.descripcion}
               </Typography>
 
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    select
-                    label="Respuesta al Riesgo"
-                    value={respuesta}
-                    onChange={(e) => setRespuesta(e.target.value as RespuestaRiesgo)}
-                  >
-                    {RESPUESTAS_RIESGO.map((r) => (
-                      <MenuItem key={r} value={r}>
-                        {r}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Responsable"
-                    value={responsable}
-                    onChange={(e) => setResponsable(e.target.value)}
-                    placeholder="Nombre del responsable"
-                  />
-                </Grid>
-              </Grid>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Respuesta al Riesgo"
+                  value={respuesta}
+                  onChange={(e) => setRespuesta(e.target.value as RespuestaRiesgo)}
+                >
+                  {RESPUESTAS_RIESGO.map((r) => (
+                    <MenuItem key={r} value={r}>
+                      {r}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  fullWidth
+                  label="Responsable"
+                  value={responsable}
+                  onChange={(e) => setResponsable(e.target.value)}
+                  placeholder="Nombre del responsable"
+                />
+              </Box>
             </Box>
           )}
         </DialogContent>
