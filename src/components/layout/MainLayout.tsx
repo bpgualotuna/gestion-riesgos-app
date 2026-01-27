@@ -18,6 +18,11 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  Menu,
+  MenuItem,
+  Typography,
+  Tooltip,
+  Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -28,8 +33,10 @@ import {
   PriorityHigh as PriorityIcon,
   Description as DescriptionIcon,
   AccountCircle as AccountCircleIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MenuItem {
   text: string;
@@ -50,8 +57,10 @@ export default function MainLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -62,6 +71,20 @@ export default function MainLayout() {
     if (isMobile) {
       setMobileOpen(false);
     }
+  };
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    handleUserMenuClose();
+    logout();
+    navigate('/login');
   };
 
   // Mobile drawer content
@@ -208,23 +231,65 @@ export default function MainLayout() {
               display: { xs: 'none', md: 'flex' },
               alignItems: 'center',
               ml: 'auto',
+              gap: 1.5,
             }}
           >
-            <IconButton
-              sx={{
-                background: '#1a1a1a',
-                border: '2px solid #c8d900',
-                width: 44,
-                height: 44,
-                boxShadow: '0 0 10px rgba(200, 217, 0, 0.3)',
-                '&:hover': {
-                  background: '#2a2a2a',
-                  boxShadow: '0 0 15px rgba(200, 217, 0, 0.5)',
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography variant="body2" fontWeight={600} sx={{ color: '#fff' }}>
+                {user?.fullName}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                {user?.position}
+              </Typography>
+            </Box>
+            <Tooltip title="Perfil de usuario">
+              <IconButton
+                onClick={handleUserMenuOpen}
+                sx={{
+                  background: '#1a1a1a',
+                  border: '2px solid #c8d900',
+                  width: 44,
+                  height: 44,
+                  boxShadow: '0 0 10px rgba(200, 217, 0, 0.3)',
+                  '&:hover': {
+                    background: '#2a2a2a',
+                    boxShadow: '0 0 15px rgba(200, 217, 0, 0.5)',
+                  },
+                }}
+              >
+                <AccountCircleIcon sx={{ color: '#c8d900', fontSize: 26 }} />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleUserMenuClose}
+              PaperProps={{
+                sx: {
+                  mt: 1.5,
+                  minWidth: 250,
+                  borderRadius: 2,
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
                 },
               }}
             >
-              <AccountCircleIcon sx={{ color: '#c8d900', fontSize: 26 }} />
-            </IconButton>
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  {user?.fullName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {user?.email}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {user?.department}
+                </Typography>
+              </Box>
+              <Divider />
+              <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
+                <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
+                Cerrar Sesión
+              </MenuItem>
+            </Menu>
           </Box>
         </Toolbar>
       </AppBar>

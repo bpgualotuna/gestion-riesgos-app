@@ -8,6 +8,10 @@ import { ROUTES } from '../utils/constants';
 // Layouts
 import MainLayout from '../components/layout/MainLayout';
 
+// Auth Components
+import ProtectedRoute from '../components/auth/ProtectedRoute';
+import LoginPage from '../features/auth/pages/LoginPage';
+
 // Pages
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import IdentificacionPage from '../features/gestion-riesgos/pages/IdentificacionPage';
@@ -18,8 +22,16 @@ import NormatividadPage from '../features/gestion-riesgos/pages/NormatividadPage
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <MainLayout />,
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
@@ -52,3 +64,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
