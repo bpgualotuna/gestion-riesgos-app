@@ -1,0 +1,60 @@
+/**
+ * CSS Variables - COMWARE Brand Colors
+ * Extracted from Logo-colores.jpeg
+ * 
+ * To change colors globally, modify the values in :root
+ */
+
+:root {
+  /* Primary Brand Colors (from COMWARE logo) */
+  --color-primary-orange: #FF9500;
+  --color-primary-yellow-green: #B8D900;
+  --color-primary-blue: #0080FF;
+  
+  /* Gradient (logo arc) */
+  --gradient-brand: linear-gradient(135deg, var(--color-primary-orange) 0%, var(--color-primary-yellow-green) 50%, var(--color-primary-blue) 100%);
+  
+  /* Risk Level Colors */
+  --color-risk-critical: #D32F2F;
+  --color-risk-high: #F57C00;
+  --color-risk-medium: #FBC02D;
+  --color-risk-low: #388E3C;
+  --color-risk-minimal: #1976D2;
+  
+  /* Neutral Colors */
+  --color-background-default: #0A0E27;
+  --color-background-paper: #151B3D;
+  --color-background-elevated: #1E2749;
+  --color-text-primary: rgba(255, 255, 255, 0.95);
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-divider: rgba(255, 255, 255, 0.12);
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* Apply background to body */
+body {
+  background-color: var(--color-background-default);
+  color: var(--color-text-primary);
+}
+
+/* Utility classes for quick color application */
+.bg-primary-orange { background-color: var(--color-primary-orange); }
+.bg-primary-yellow-green { background-color: var(--color-primary-yellow-green); }
+.bg-primary-blue { background-color: var(--color-primary-blue); }
+.bg-gradient-brand { background: var(--gradient-brand); }
+
+.text-primary-orange { color: var(--color-primary-orange); }
+.text-primary-yellow-green { color: var(--color-primary-yellow-green); }
+.text-primary-blue { color: var(--color-primary-blue); }

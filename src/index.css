@@ -1,0 +1,64 @@
+/* Global Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    "Roboto",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ff9500;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ffb84d;
+}
+
+/* Custom Risk Level Classes */
+.risk-critical {
+  background-color: #d32f2f !important;
+  color: white !important;
+}
+
+.risk-high {
+  background-color: #f57c00 !important;
+  color: white !important;
+}
+
+.risk-medium {
+  background-color: #fbc02d !important;
+  color: black !important;
+}
+
+.risk-low {
+  background-color: #388e3c !important;
+  color: white !important;
+}
