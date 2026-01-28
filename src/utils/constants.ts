@@ -101,11 +101,18 @@ export type NivelCumplimiento = typeof NIVELES_CUMPLIMIENTO[number];
 export const ROUTES = {
   HOME: '/',
   DASHBOARD: '/dashboard',
+  FICHA: '/ficha',
   IDENTIFICACION: '/identificacion',
   EVALUACION: '/evaluacion',
   MAPA: '/mapa',
   PRIORIZACION: '/priorizacion',
   NORMATIVIDAD: '/normatividad',
+  CONTEXTO_EXTERNO: '/contexto-externo',
+  CONTEXTO_INTERNO: '/contexto-interno',
+  DOFA: '/dofa',
+  ANALISIS_PROCESO: '/analisis-proceso',
+  BENCHMARKING: '/benchmarking',
+  AYUDA: '/ayuda',
   LOGIN: '/login',
 } as const;
 

@@ -23,23 +23,23 @@ code {
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
-/* Scrollbar Styling */
+/* Scrollbar Styling - Gradiente del logo */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: #E8E8E8;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ff9500;
+  background: #1976d2;
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #ffb84d;
+  background: #1565c0;
 }
 
 /* Custom Risk Level Classes */

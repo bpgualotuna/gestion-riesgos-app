@@ -1,5 +1,6 @@
 /**
  * RTK Query API for Risk Management
+ * Uses mock data when backend is not available
  */
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
@@ -18,6 +19,19 @@ import type {
   RiesgoReciente,
   PuntoMapa,
 } from '../types';
+import {
+  getMockRiesgos,
+  getMockEvaluacionesByRiesgo,
+  getMockEstadisticas,
+  getMockRiesgosRecientes,
+  getMockPuntosMapa,
+  getMockPriorizaciones,
+  createMockEvaluacion,
+  createMockPriorizacion,
+} from './mockData';
+
+// Check if we should use mock data (when API_BASE_URL is localhost or not set)
+const USE_MOCK_DATA = !import.meta.env.VITE_API_BASE_URL || API_BASE_URL.includes('localhost');
 
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
@@ -37,33 +51,60 @@ export const riesgosApi = createApi({
     // RIESGOS
     // ============================================
     getRiesgos: builder.query<PaginatedResponse<Riesgo>, FiltrosRiesgo & { page?: number; pageSize?: number }>({
-      query: (params) => ({
-        url: '/riesgos',
-        params,
-      }),
+      queryFn: async (params) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 300)); // Simulate network delay
+          return { data: getMockRiesgos(params) };
+        }
+        return { data: null as any };
+      },
       providesTags: ['Riesgo'],
     }),
 
     getRiesgoById: builder.query<Riesgo, string>({
-      query: (id) => `/riesgos/${id}`,
+      queryFn: async (id) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          const riesgos = getMockRiesgos({ pageSize: 100 });
+          const riesgo = riesgos.data.find((r) => r.id === id);
+          if (!riesgo) return { error: { status: 404, data: 'Riesgo no encontrado' } };
+          return { data: riesgo };
+        }
+        return { data: null as any };
+      },
       providesTags: (_result, _error, id) => [{ type: 'Riesgo', id }],
     }),
 
     createRiesgo: builder.mutation<Riesgo, CreateRiesgoDto>({
-      query: (body) => ({
-        url: '/riesgos',
-        method: 'POST',
-        body,
-      }),
+      queryFn: async (body) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          const nuevoRiesgo: Riesgo = {
+            id: `riesgo-${Date.now()}`,
+            numero: getMockRiesgos({ pageSize: 100 }).total + 1,
+            ...body,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          return { data: nuevoRiesgo };
+        }
+        return { data: null as any };
+      },
       invalidatesTags: ['Riesgo', 'Estadisticas'],
     }),
 
     updateRiesgo: builder.mutation<Riesgo, UpdateRiesgoDto>({
-      query: ({ id, ...body }) => ({
-        url: `/riesgos/${id}`,
-        method: 'PUT',
-        body,
-      }),
+      queryFn: async ({ id, ...body }) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          const riesgos = getMockRiesgos({ pageSize: 100 });
+          const riesgo = riesgos.data.find((r) => r.id === id);
+          if (!riesgo) return { error: { status: 404, data: 'Riesgo no encontrado' } };
+          const updated = { ...riesgo, ...body, updatedAt: new Date().toISOString() };
+          return { data: updated };
+        }
+        return { data: null as any };
+      },
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Riesgo', id },
         'Riesgo',
@@ -72,10 +113,13 @@ export const riesgosApi = createApi({
     }),
 
     deleteRiesgo: builder.mutation<void, string>({
-      query: (id) => ({
-        url: `/riesgos/${id}`,
-        method: 'DELETE',
-      }),
+      queryFn: async (id) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          return { data: undefined };
+        }
+        return { data: undefined };
+      },
       invalidatesTags: ['Riesgo', 'Estadisticas'],
     }),
 
@@ -83,21 +127,43 @@ export const riesgosApi = createApi({
     // EVALUACIONES
     // ============================================
     getEvaluacionesByRiesgo: builder.query<EvaluacionRiesgo[], string>({
-      query: (riesgoId) => `/riesgos/${riesgoId}/evaluaciones`,
+      queryFn: async (riesgoId) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          return { data: getMockEvaluacionesByRiesgo(riesgoId) };
+        }
+        return { data: [] };
+      },
       providesTags: (_result, _error, riesgoId) => [{ type: 'Evaluacion', id: riesgoId }],
     }),
 
     getEvaluacionById: builder.query<EvaluacionRiesgo, string>({
-      query: (id) => `/evaluaciones/${id}`,
+      queryFn: async (id) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          const evaluaciones = getMockEvaluacionesByRiesgo('any');
+          const evaluacion = evaluaciones.find((e) => e.id === id);
+          if (!evaluacion) return { error: { status: 404, data: 'Evaluación no encontrada' } };
+          return { data: evaluacion };
+        }
+        return { data: null as any };
+      },
       providesTags: (_result, _error, id) => [{ type: 'Evaluacion', id }],
     }),
 
     createEvaluacion: builder.mutation<EvaluacionRiesgo, CreateEvaluacionDto>({
-      query: (body) => ({
-        url: '/evaluaciones',
-        method: 'POST',
-        body,
-      }),
+      queryFn: async (body) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          try {
+            const nuevaEvaluacion = createMockEvaluacion(body);
+            return { data: nuevaEvaluacion };
+          } catch (error: any) {
+            return { error: { status: 400, data: error.message } };
+          }
+        }
+        return { data: null as any };
+      },
       invalidatesTags: (_result, _error, { riesgoId }) => [
         { type: 'Evaluacion', id: riesgoId },
         { type: 'Riesgo', id: riesgoId },
@@ -109,16 +175,29 @@ export const riesgosApi = createApi({
     // PRIORIZACIÓN
     // ============================================
     getPriorizaciones: builder.query<PriorizacionRiesgo[], void>({
-      query: () => '/priorizaciones',
+      queryFn: async () => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          return { data: getMockPriorizaciones() };
+        }
+        return { data: [] };
+      },
       providesTags: ['Priorizacion'],
     }),
 
     createPriorizacion: builder.mutation<PriorizacionRiesgo, CreatePriorizacionDto>({
-      query: (body) => ({
-        url: '/priorizaciones',
-        method: 'POST',
-        body,
-      }),
+      queryFn: async (body) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          try {
+            const nuevaPriorizacion = createMockPriorizacion(body);
+            return { data: nuevaPriorizacion };
+          } catch (error: any) {
+            return { error: { status: 400, data: error.message } };
+          }
+        }
+        return { data: null as any };
+      },
       invalidatesTags: ['Priorizacion'],
     }),
 
@@ -126,12 +205,24 @@ export const riesgosApi = createApi({
     // DASHBOARD & ESTADÍSTICAS
     // ============================================
     getEstadisticas: builder.query<EstadisticasRiesgo, void>({
-      query: () => '/estadisticas',
+      queryFn: async () => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          return { data: getMockEstadisticas() };
+        }
+        return { data: null as any };
+      },
       providesTags: ['Estadisticas'],
     }),
 
     getRiesgosRecientes: builder.query<RiesgoReciente[], number>({
-      query: (limit = 10) => `/riesgos/recientes?limit=${limit}`,
+      queryFn: async (limit = 10) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          return { data: getMockRiesgosRecientes(limit) };
+        }
+        return { data: [] };
+      },
       providesTags: ['Riesgo'],
     }),
 
@@ -139,10 +230,13 @@ export const riesgosApi = createApi({
     // MAPA DE RIESGOS
     // ============================================
     getPuntosMapa: builder.query<PuntoMapa[], FiltrosRiesgo>({
-      query: (params) => ({
-        url: '/mapa/puntos',
-        params,
-      }),
+      queryFn: async (params) => {
+        if (USE_MOCK_DATA) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          return { data: getMockPuntosMapa(params) };
+        }
+        return { data: [] };
+      },
       providesTags: ['Riesgo', 'Evaluacion'],
     }),
   }),

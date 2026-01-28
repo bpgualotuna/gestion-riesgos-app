@@ -9,7 +9,7 @@ import { typography } from './typography';
 
 const themeOptions = {
   palette: {
-    mode: 'dark' as const,
+    mode: 'light' as const,
     primary: {
       main: colors.primary.main,
       light: colors.primary.light,
@@ -44,13 +44,21 @@ const themeOptions = {
         root: {
           borderRadius: 8,
           textTransform: 'none',
-          fontWeight: 500,
-          padding: '8px 16px',
+          fontWeight: 600,
+          padding: '10px 24px',
         },
         contained: {
-          boxShadow: 'none',
+          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.3)',
           '&:hover': {
-            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)',
+            boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.4)',
+            transform: 'translateY(-1px)',
+          },
+          transition: 'all 0.2s ease-in-out',
+        },
+        containedPrimary: {
+          background: colors.primary.main,
+          '&:hover': {
+            background: colors.primary.dark,
           },
         },
       },
@@ -80,8 +88,9 @@ const themeOptions = {
     MuiAppBar: {
       styleOverrides: {
         root: {
-          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-          backgroundImage: colors.gradient.horizontal,
+          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.3)',
+          background: colors.background.elevated,
+          borderBottom: `2px solid ${colors.primary.main}`,
         },
       },
     },
@@ -122,7 +131,7 @@ const themeOptions = {
             borderBottom: `2px solid ${colors.primary.main}`,
           },
           '& .MuiDataGrid-row:hover': {
-            backgroundColor: 'rgba(255, 149, 0, 0.08)',
+            backgroundColor: 'rgba(200, 217, 0, 0.1)',
           },
         },
       },

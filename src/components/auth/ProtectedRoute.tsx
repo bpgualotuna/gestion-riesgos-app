@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%)',
+          background: '#E8E8E8',
         }}
       >
         <CircularProgress sx={{ color: '#c8d900' }} size={60} />

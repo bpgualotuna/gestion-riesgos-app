@@ -231,7 +231,7 @@ export default function EvaluacionPage() {
             sx={{
               p: 3,
               mb: 3,
-              background: `linear-gradient(135deg, ${getRiskColor(resultados.nivelRiesgo)}15 0%, ${getRiskColor(resultados.nivelRiesgo)}05 100%)`,
+              backgroundColor: `${getRiskColor(resultados.nivelRiesgo)}15`,
               border: `2px solid ${getRiskColor(resultados.nivelRiesgo)}`,
             }}
           >

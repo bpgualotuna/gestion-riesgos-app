@@ -79,18 +79,8 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%)',
+        background: '#E8E8E8',
         position: 'relative',
-        overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: '-50%',
-          right: '-50%',
-          width: '100%',
-          height: '100%',
-          background: 'radial-gradient(circle, rgba(200, 217, 0, 0.1) 0%, transparent 70%)',
-        },
       }}
     >
       <Card
@@ -108,32 +98,20 @@ export default function LoginPage() {
           {/* Logo Section */}
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Box
+              component="img"
+              src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+              alt="COMWARE Logo"
               sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#1a1a1a',
-                borderRadius: '12px',
-                p: 3,
+                height: 'auto',
+                width: 'auto',
+                maxHeight: 120,
+                maxWidth: 300,
+                objectFit: 'contain',
                 mb: 2,
-                border: '2.5px solid #c8d900',
-                boxShadow: '0 0 20px rgba(200, 217, 0, 0.3)',
-                minWidth: 180,
-                minHeight: 120,
+                mx: 'auto',
+                display: 'block',
               }}
-            >
-              <Box
-                component="img"
-                src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
-                alt="COMWARE Logo"
-                sx={{
-                  height: 'auto',
-                  width: '100%',
-                  maxWidth: 150,
-                  objectFit: 'contain',
-                }}
-              />
-            </Box>
+            />
             <Typography variant="h4" fontWeight={700} gutterBottom>
               COMWARE
             </Typography>
@@ -208,11 +186,11 @@ export default function LoginPage() {
                 mt: 3,
                 mb: 2,
                 py: 1.5,
-                background: 'linear-gradient(135deg, #c8d900 0%, #a8b900 100%)',
-                color: '#1a1a1a',
+                background: '#1976d2',
+                color: '#fff',
                 fontWeight: 600,
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #b8c900 0%, #98a900 100%)',
+                  background: '#1565c0',
                 },
                 '&:disabled': {
                   background: '#ccc',

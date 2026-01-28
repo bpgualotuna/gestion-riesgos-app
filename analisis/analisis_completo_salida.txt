@@ -1,0 +1,1099 @@
+﻿python : C:\Users\kevin\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-pack
+ages\Python313\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Data Validation extension is not 
+supported and will be removed
+En C:\Users\kevin\AppData\Local\Temp\ps-script-db09ba9c-927b-4b7e-8e4e-06eaf9773934.ps1: 91 Carácter: 36
++ ... inds\CONWARE\dasborad; python analizar_hojas_completo.py 2>&1 | Out-F ...
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\kevin\...will be removed:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  warn(msg)
+C:\Users\kevin\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Pyth
+on313\site-packages\openpyxl\reader\drawings.py:67: UserWarning: wmf image format is not supported so the image is 
+being dropped
+  warn(msg)
+========================================================================================================================
+AN┴LISIS COMPLETO HOJA POR HOJA
+========================================================================================================================
+
+========================================================================================================================
+HOJA: Introducci¾n
+========================================================================================================================
+Dimensiones: A1:K87
+Filas: 87, Columnas: 11
+
+ESTRUCTURA DE DATOS:
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 27 valores, tipos: {'str': 27}
+    Ejemplos: ['INSTRUCCIONES GENERALES', 'En el presente archivo encontrarß la Herramienta d', 'A. El levantamiento de la matriz de riesgos operac', 'B. Adicionalmente, esta herramienta debe usarse de', 'C. Las hojas que tienen etiqueta color Azul Oscuro']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: 1. Ficha
+========================================================================================================================
+Dimensiones: B2:J41
+Filas: 41, Columnas: 10
+
+ESTRUCTURA DE DATOS:
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 19 valores, tipos: {'str': 18, 'datetime': 1}
+    Ejemplos: ['HERRAMIENTA DE GESTION DE RIESGOS OPERACIONALES, F', 'HOJA DE DILIGENCIAMIENTO MANDATARIO', 'Diligencie la siguiente informaci¾n:', 'Nombre de la Vicepresidencia/Gerencia Alta:', 'Nombre de la Gerencia: ']
+  Columna C: 8 valores, tipos: {'str': 8}
+    Ejemplos: ['Gesti¾n Financiera y Administrativa', 'Direcci¾n Financiera Administrativa', 'Talento Humano', 'Katherine Chßvez', '1,0']
+  Columna D: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Subdivisi¾n', 'Analista de Talento Humano', 'Director Financiero Administrativo', 'Contadora', 'DESCRIPCIËN DEL CAMBIO']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: 2. Inventario de Normatividad
+========================================================================================================================
+Dimensiones: A1:M32
+Filas: 32, Columnas: 13
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 6
+  Encabezados encontrados (13):
+    1. Nro.
+    2. Nombre de la regulaci¾n aplicable
+    3. Proyecto, Requerida, Existente
+    4. Regulador
+    5. Sanciones Penales/Civiles/Econ¾micas por Incumplimiento
+    6. Plazo para implementaci¾n 
+(En caso de ser proyecto/requerid
+    7. Cumplimiento Total
+    8. Cumplimiento Parcial
+    9. No cumple
+    10. Detalle del incumplimiento
+    11. Riesgo Identificado
+    12. Clasificaci¾n 
+Riesgo con consecuencia positiva (Oportunidad
+    13. Comentarios Adicionales
+
+  DATOS DE MUESTRA (filas 7 a 16):
+    Fila 7: A7=1, B7='C¾digo del Trabajo
+Art. 2 û Obligatoriedad del tra', C7='Existente', D7='Ministerio de Trabajo', E7='Art. 326 Constituci¾n Ecuatoriana, indemnizaci¾n p', F7='N/A', G7='X', K7='Demandas por parte de los colaboradores por el inc', L7='Riesgo Negativo'
+    Fila 8: A8=2, B8='C¾digo del Trabajo
+Art. 3 û Libertad de trabajo y ', C8='Existente', D8='Ministerio de Trabajo', E8='Art. 326 Constituci¾n Ecuatoriana, indemnizaci¾n p', F8='N/A', G8='X', K8='Demandas por parte de los colaboradores por el inc', L8='Riesgo Negativo'
+    Fila 9: A9=3, B9='C¾digo del Trabajo
+Art. 8 û Contrato individual de', C9='Existente', D9='Ministerio de Trabajo', E9='El empleador deberß pagar todos los beneficios lab', F9='N/A', G9='X', K9='Demandas por parte de los colaboradores por el inc', L9='Riesgo Negativo'
+    Fila 10: A10=4, B10='C¾digo del Trabajo
+ Art. 42 û Obligaciones del emp', C10='Existente', D10='Ministerio de Trabajo', E10=' Pago de multas al MDT (entre 3 y 20 salarios bßsi', F10='N/A', G10='X', K10='La posibilidad de incurrir en multas y sanciones e', L10='Riesgo Negativo'
+    Fila 11: A11=5, B11='C¾digo del Trabajo
+ Art. 47 û Jornada mßxima de tr', C11='Existente', D11='Ministerio de Trabajo', E11='Pago retroactivo de horas extras con recargos + mu', F11='N/A', G11='X', K11='Demandas por parte de los colaboradores por el inc', L11='Riesgo Negativo'
+    Fila 12: A12=6, B12='C¾digo del Trabajo
+ Art. 172 û Causales de termina', C12='Existente', D12='Ministerio de Trabajo', E12='Pago de indemnizaci¾n (3 meses + 1 por cada a±o), ', F12='N/A', G12='X', K12='La posibilidad de incurrir en multas y sanciones e', L12='Riesgo Negativo'
+    Fila 13: A13=7, B13='C¾digo del Trabajo
+ Art. 173 û Causas para que el ', C13='Existente', D13='Ministerio de Trabajo', E13='Resoluci¾n del MDT a favor del trabajador, sancion', F13='N/A', G13='X', K13='Demandas por parte de los colaboradores por el inc', L13='Riesgo Negativo'
+    Fila 14: A14=8, B14='C¾digo del Trabajo
+ Art. 174 û Casos en los que el', C14='Existente', D14='Ministerio de Trabajo', E14='El empleador debe reintegrar al trabajador, pagar ', F14='N/A', G14='X', K14='Demandas por parte de los colaboradores por el inc', L14='Riesgo Negativo'
+    Fila 15: A15=9, B15='Decreto Ejecutivo No. 255 (Reglamento de Seguridad', C15='Existente', D15='Ministerio de Trabajo', E15='Demandas, sanciones, pÚrdida de reputaci¾n, observ', F15='N/A', G15='X', K15='Demandas por parte de los colaboradores por el inc', L15='Riesgo Negativo'
+    Fila 16: A16=10, B16='Decreto Ejecutivo No. 255 (Reglamento de Seguridad', C16='Existente', D16='Ministerio de Trabajo', E16='Demandas, sanciones, pÚrdida de reputaci¾n y obser', F16='N/A', G16='X', K16='La posibilidad de incurrir en multas y sanciones e', L16='Riesgo Negativo'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+VALIDACIONES DE DATOS: 3
+  Rango: C7:C32
+    Tipo: list
+    F¾rmula: "Proyecto,Requerida,Existente"
+  Rango: G7:G18 G19:I32 H8:I18 I7
+    Tipo: list
+    F¾rmula: "X"
+  Rango: L7:L32
+    Tipo: list
+    F¾rmula: "Riesgo Positivo, Riesgo Negativo"
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 17 valores, tipos: {'str': 5, 'int': 12}
+    Ejemplos: ['INSTRUCCIONES - HOJA DE DILIGENCIAMIENTO MANDATORI', '1. Listar las normatividades que afectan a la unid', '2. Identificar posibles riesgos derivados de estas', '3. Diligenciar la informaci¾n del cuadro de acuerd', 'Nro.']
+  Columna B: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Nombre de la regulaci¾n aplicable', 'C¾digo del Trabajo\nArt. 2 û Obligatoriedad del tra', 'C¾digo del Trabajo\nArt. 3 û Libertad de trabajo y ', 'C¾digo del Trabajo\nArt. 8 û Contrato individual de', 'C¾digo del Trabajo\n Art. 42 û Obligaciones del emp']
+  Columna C: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Proyecto, Requerida, Existente', 'Existente', 'Existente', 'Existente', 'Existente']
+  Columna D: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Regulador', 'Ministerio de Trabajo', 'Ministerio de Trabajo', 'Ministerio de Trabajo', 'Ministerio de Trabajo']
+  Columna E: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Sanciones Penales/Civiles/Econ¾micas por Incumplim', 'Art. 326 Constituci¾n Ecuatoriana, indemnizaci¾n p', 'Art. 326 Constituci¾n Ecuatoriana, indemnizaci¾n p', 'El empleador deberß pagar todos los beneficios lab', ' Pago de multas al MDT (entre 3 y 20 salarios bßsi']
+  Columna F: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Plazo para implementaci¾n \n(En caso de ser proyect', 'N/A', 'N/A', 'N/A', 'N/A']
+  Columna G: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Cumplimiento Total', 'X', 'X', 'X', 'X']
+  Columna K: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Riesgo Identificado', 'Demandas por parte de los colaboradores por el inc', 'Demandas por parte de los colaboradores por el inc', 'Demandas por parte de los colaboradores por el inc', 'La posibilidad de incurrir en multas y sanciones e']
+  Columna L: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Clasificaci¾n \nRiesgo con consecuencia positiva (O', 'Riesgo Negativo', 'Riesgo Negativo', 'Riesgo Negativo', 'Riesgo Negativo']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Anßlisis de Proceso
+========================================================================================================================
+Dimensiones: A1:R42
+Filas: 42, Columnas: 18
+
+ESTRUCTURA DE DATOS:
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 7 valores, tipos: {'str': 7}
+    Ejemplos: ['Instrucciones', 'Por medio de esta tÚcnica se desarrolla un diagram', '1. Realizar una reuni¾n de entendimiento con el lÝ', '2. Buscar en el share point de mejoramiento contin', '3. Dada la informaci¾n anterior construir y/o actu']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Anßlisis de Contexto Externo
+========================================================================================================================
+Dimensiones: A1:H7
+Filas: 7, Columnas: 8
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 6
+  Encabezados encontrados (7):
+    1. Econ¾mico
+    2. Cultural y social
+    3. Legal/ Regulatorio
+    4. Tecnol¾gico
+    5. Ambiental
+    6. Grupos de InterÚs Externos
+    7. Otros factores externos
+
+  DATOS DE MUESTRA (filas 7 a 7):
+    Fila 7: B7='Alta demanda del mercado por perfiles especializad', C7='Preferencia del sector laboral tecnol¾gico por mod', D7='La compa±Ýa mantiene un proceso documental que ase', E7='Gesti¾n del talento humano mediante plataformas in', F7='N/A', G7='El ßrea de Talento Humano interact·a de manera per', H7='N/A'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Encuesta
+========================================================================================================================
+Dimensiones: A1:H4
+Filas: 4, Columnas: 8
+
+ESTRUCTURA DE DATOS:
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Benchmarking
+========================================================================================================================
+Dimensiones: A1:M37
+Filas: 37, Columnas: 13
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 5
+  Encabezados encontrados (3):
+    1. Empresa 1
+    2. Empresa 2
+    3. Empresa 3
+
+  DATOS DE MUESTRA (filas 6 a 15):
+    Fila 6: A6='Nro.', B6='Riesgos', D6='Nro.', E6='Riesgos', G6='Nro.', H6='Riesgos'
+    Fila 7: A7=1, D7=1, G7=1
+    Fila 8: A8=2, D8=2, G8=2
+    Fila 9: A9=3, D9=3, G9=3
+    Fila 10: A10=4, D10=4, G10=4
+    Fila 11: A11=5, D11=5, G11=5
+    Fila 12: A12=6, D12=6, G12=6
+    Fila 13: A13=7, D13=7, G13=7
+    Fila 14: A14=8, D14=8, G14=8
+    Fila 15: A15=9, D15=9, G15=9
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+VALIDACIONES DE DATOS: 2
+  Rango: E52:E101
+    Tipo: list
+    F¾rmula: "1,2,3,4,5,6,7,8,9,10"
+  Rango: D52
+    Tipo: list
+    F¾rmula: "Riesgo Positivo, Riesgo Negativo"
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 34 valores, tipos: {'str': 4, 'int': 30}
+    Ejemplos: ['Instrucciones', '1. En este espacio documentar el benchmarking de r', 'Empresa 1', 'Nro.', '1']
+  Columna D: 32 valores, tipos: {'str': 2, 'int': 30}
+    Ejemplos: ['Empresa 2', 'Nro.', '1', '2', '3']
+  Columna G: 32 valores, tipos: {'str': 2, 'int': 30}
+    Ejemplos: ['Empresa 3', 'Nro.', '1', '2', '3']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Anßlisis de Contexto Interno
+========================================================================================================================
+Dimensiones: A1:K7
+Filas: 7, Columnas: 11
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 6
+  Encabezados encontrados (10):
+    1. Financieros
+    2. Gente
+    3. Procesos
+    4. Activos FÝsicos
+    5. Cadena de Suministro
+    6. Informaci¾n
+    7. Sistemas
+    8. Proyectos
+    9. Impuestos
+    10. Grupos de InterÚs Internos
+
+  DATOS DE MUESTRA (filas 7 a 7):
+    Fila 7: B7='El ßrea de Talento Humano administra, controla y o', C7='El ┴rea de Talento Humano es responsable de fortal', D7='Talento Humano cuenta con polÝticas y procedimient', E7='Talento Humano coordina los procesos de asignaci¾n', F7='N/A', G7='Talento Humano gestiona el control de accesos y as', H7='Subutilizaci¾n de las funcionalidades disponibles ', I7='N/A', J7='N/A', K7='AP: El proceso de Talento Humano cuenta con person'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: DOFA
+========================================================================================================================
+Dimensiones: A1:H38
+Filas: 38, Columnas: 8
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 8
+  Encabezados encontrados (4):
+    1. No.
+    2. Oportunidades
+    3. No.
+    4. Amenazas
+
+  DATOS DE MUESTRA (filas 9 a 18):
+    Fila 9: D9=1, E9='Tendencia del mercado hacia modelos de trabajo hÝb', F9=1, G9='Alta demanda del mercado por perfiles tecnol¾gicos'
+    Fila 10: D10=2, E10='Avances tecnol¾gicos y plataformas integradas que ', F10=2, G10='Rigidez del marco laboral ecuatoriano, con riesgo '
+    Fila 11: D11=3, E11='Creciente valoraci¾n de la cultura organizacional ', F11=3, G11='Incremento de horas extras por carga de proyectos '
+    Fila 12: D12=4, E12='Posibilidad de optimizar costos mediante esquemas ', F12=4, G12='Cambios normativos o tecnol¾gicos en plataformas d'
+    Fila 13: D13=5, F13=5
+    Fila 14: D14=6, F14=6
+    Fila 15: D15=7, F15=7
+    Fila 16: D16=8, F16=8
+    Fila 17: D17=9, F17=9
+    Fila 18: D18=10, F18=10
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 19 valores, tipos: {'str': 3, 'int': 16}
+    Ejemplos: ['MATRIZ DOFA', 'No.', '1', '2', '3']
+  Columna B: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Fortalezas', 'Cultura organizacional orientada al bienestar, des', 'Procesos de Talento Humano formalizados, documenta', 'Uso de plataformas tecnol¾gicas para la gesti¾n de', 'Buena relaci¾n con las ßreas internas y la alta di']
+  Columna D: 30 valores, tipos: {'str': 3, 'int': 27}
+    Ejemplos: ['No.', '1', '2', '3', '4']
+  Columna E: 13 valores, tipos: {'str': 13}
+    Ejemplos: ['Oportunidades', 'Tendencia del mercado hacia modelos de trabajo hÝb', 'Avances tecnol¾gicos y plataformas integradas que ', 'Creciente valoraci¾n de la cultura organizacional ', 'Posibilidad de optimizar costos mediante esquemas ']
+  Columna F: 30 valores, tipos: {'str': 3, 'int': 27}
+    Ejemplos: ['No.', '1', '2', '3', '4']
+  Columna G: 14 valores, tipos: {'str': 14}
+    Ejemplos: ['Amenazas', 'Alta demanda del mercado por perfiles tecnol¾gicos', 'Rigidez del marco laboral ecuatoriano, con riesgo ', 'Incremento de horas extras por carga de proyectos ', 'Cambios normativos o tecnol¾gicos en plataformas d']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: 3. Identificaci¾n
+========================================================================================================================
+Dimensiones: A1:W508
+Filas: 508, Columnas: 23
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 8
+  Encabezados encontrados (14):
+    1. Nro.
+    2. DESCRIPCIËN DEL RIESGO
+    3. CLASIFICACIËN
+RIESGO CON CONSECUENCIA POSITIVA (OPORTUNIDAD)
+    4. PROCESO
+    5. ZONA
+    6. TIPOLOGIA NIVEL I
+    7. TIPOLOGIA NIVEL II
+    8. TIPOLOGIA NIVEL III
+    9. TIPOLOGIA NIVEL IV
+    10. CAUSA DEL RIESGO
+    11. FUENTE DE CAUSA DE RIESGO
+    12. FUENTE DE CAUSA DE RIESGO (Salud Ocupacional/Ambiental)
+    13. FUENTE DE CAUSA DE RIESGO LAFT
+    14. AREAS A LAS QUE AFECTA EL RIESGO (Salud Ocupacional/Ambienta
+
+  DATOS DE MUESTRA (filas 9 a 18):
+    Fila 9: A9=1, B9='Probabilidad de afectar la continuidad operativa y', C9='Riesgo con consecuencia negativa', D9='Gesti¾n Talento Humano', F9='Operacional', G9='Procesos', J9='Falta de actualizaci¾n o cumplimiento de las polÝt', K9='Personas'
+    Fila 10: J10='Selecci¾n de candidatos que no cumplen los requisi', K10='Personas'
+    Fila 11: J11='Falta de planes de sucesi¾n definidos que permitan', K11='Proceso'
+    Fila 12: J12='Pruebas psicomÚtricas o tÚcnicas mal aplicadas o i', K12='TecnologÝa'
+    Fila 13: J13='Perfiles de cargo desactualizados o incompletos, q', K13='Personas'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+VALIDACIONES DE DATOS: 1
+  Rango: C9:C508
+    Tipo: list
+    F¾rmula: "Riesgo con consecuencia positiva,Riesgo con consecuencia negativa"
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 16 valores, tipos: {'str': 6, 'int': 10}
+    Ejemplos: ['INSTRUCCIONES - HOJA DE DILIGENCIAMIENTO MANDATORI', '1. De acuerdo a los riesgos identificados en una o', '2. La hoja "Inventario de normatividad" debe ser s', '3. Los riesgos deben ser redactados de la siguient', '4. Validar los riesgos identificados en el taller ']
+  Columna J: 15 valores, tipos: {'str': 15}
+    Ejemplos: ['CAUSA DEL RIESGO', 'Falta de actualizaci¾n o cumplimiento de las polÝt', 'Selecci¾n de candidatos que no cumplen los requisi', 'Falta de planes de sucesi¾n definidos que permitan', 'Pruebas psicomÚtricas o tÚcnicas mal aplicadas o i']
+  Columna K: 15 valores, tipos: {'str': 15}
+    Ejemplos: ['FUENTE DE CAUSA DE RIESGO', 'Personas', 'Personas', 'Proceso', 'TecnologÝa']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: 4. Evaluaci¾n
+========================================================================================================================
+Dimensiones: B1:CC2403
+Filas: 2403, Columnas: 81
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 9
+  Encabezados encontrados (23):
+    1. ID
+RIESGO
+    2. Nro.
+    3. VICEPRESIDENCIA/ GERENCIA ALTA
+    4. SIGLA
+    5. GERENCIA
+    6. SIGLA
+    7. SUBDIVISION
+    8. SIGLA
+    9. ZONA
+    10. PROCESO
+    11. MACROPROCESO
+    12. DESCRIPCIËN DEL RIESGO
+    13. CLASIFICACIËN
+RIESGO CON CONSECUENCIA POSITIVA (OPORTUNIDAD)
+    14. TIPOLOGIA NIVEL I
+    15. TIPOLOGIA NIVEL II
+    16. TIPOLOGIA NIVEL III
+    17. TIPOLOGIA NIVEL IV
+    18. CAUSA DEL RIESGO
+    19. FUENTE DE CAUSA DE RIESGO
+    20. FUENTE DE CAUSA DE RIESGO (HSEQ)
+
+  DATOS DE MUESTRA (filas 10 a 19):
+    Fila 10: X10='Procesos'
+    Fila 11: B11='=+CONCATENATE(C11,E11)', C11=1, D11='=+'1. Ficha'!$C$7', E11='=+IFERROR((VLOOKUP(D11,Listas!$A$3:$B$9,2,0)),0)', F11='=+'1. Ficha'!$C$8', H11='=+'1. Ficha'!$C$9', J11='=+'3. Identificaci¾n'!E9', K11='=+'3. Identificaci¾n'!D9', L11='=+VLOOKUP(K11,Listas!$H$3:$I$16,2,0)', M11='=+'3. Identificaci¾n'!B9', N11='=+'3. Identificaci¾n'!C9', O11='=+'3. Identificaci¾n'!F9', P11='=+'3. Identificaci¾n'!G9', Q11='=+'3. Identificaci¾n'!H9', R11='=+'3. Identificaci¾n'!I9'
+    Fila 12: Q12='=+'3. Identificaci¾n'!H10', R12='=+'3. Identificaci¾n'!I10', S12='=+'3. Identificaci¾n'!J10', T12='=+'3. Identificaci¾n'!K10', U12='=+'3. Identificaci¾n'!L10', V12='=+'3. Identificaci¾n'!M10', W12=3
+    Fila 13: Q13='=+'3. Identificaci¾n'!H11', R13='=+'3. Identificaci¾n'!I11', S13='=+'3. Identificaci¾n'!J11', T13='=+'3. Identificaci¾n'!K11', U13='=+'3. Identificaci¾n'!L11', V13='=+'3. Identificaci¾n'!M11', W13=2
+    Fila 14: Q14='=+'3. Identificaci¾n'!H12', R14='=+'3. Identificaci¾n'!I12', S14='=+'3. Identificaci¾n'!J12', T14='=+'3. Identificaci¾n'!K12', U14='=+'3. Identificaci¾n'!L12', V14='=+'3. Identificaci¾n'!M12', W14=3
+    Fila 15: Q15='=+'3. Identificaci¾n'!H13', R15='=+'3. Identificaci¾n'!I13', S15='=+'3. Identificaci¾n'!J13', T15='=+'3. Identificaci¾n'!K13', U15='=+'3. Identificaci¾n'!L13', V15='=+'3. Identificaci¾n'!M13', W15=3
+    Fila 16: Q16='=+'3. Identificaci¾n'!H14', R16='=+'3. Identificaci¾n'!I14'
+    Fila 17: Q17='=+'3. Identificaci¾n'!H15', R17='=+'3. Identificaci¾n'!I15'
+    Fila 18: Q18='=+'3. Identificaci¾n'!H16', R18='=+'3. Identificaci¾n'!I16', T18='=+'3. Identificaci¾n'!K16', U18='=+'3. Identificaci¾n'!L16', V18='=+'3. Identificaci¾n'!M16'
+    Fila 19: Q19='=+'3. Identificaci¾n'!H17', R19='=+'3. Identificaci¾n'!I17', T19='=+'3. Identificaci¾n'!K17', U19='=+'3. Identificaci¾n'!L17', V19='=+'3. Identificaci¾n'!M17'
+
+FËRMULAS:
+  Total de f¾rmulas: 10685
+  F¾rmulas ·nicas: 9850
+  Distribuci¾n por tipo:
+    OTRA: 4349
+      (mostrando primeras 5 de 4349)
+      BW4: =+Formulas!L4
+      BW5: =+Formulas!L5
+      D11: =+'1. Ficha'!$C$7
+      F11: =+'1. Ficha'!$C$8
+      H11: =+'1. Ficha'!$C$9
+    IF: 3507
+      (mostrando primeras 5 de 3507)
+      AE11: =+IF(AND(AD11=2,W11=2),3.99,AD11*W11)
+      AO11: =+IF(AND(AN11=2,AG11=2),3.99,AN11*AG11)
+      AQ11: =IF(OR(AF11=3,AF11=2,AF11=1,AF11=3.99,N11="Riesgo con consecuencia positiva"),"N
+      BV11: =+IF(BU11<[5]Formulas!$E$12,"Inefectivo",IF(AND(BU11>=[5]Formulas!$E$12,BU11<[5]
+      BW11: =+IFERROR(IF(BT11=$BW$5,[5]Formulas!$B$13,IF(AND(BT11=$BW$4,BV11="Altamente Efec
+    VLOOKUP: 2634
+      (mostrando primeras 5 de 2634)
+      E11: =+IFERROR((VLOOKUP(D11,Listas!$A$3:$B$9,2,0)),0)
+      L11: =+VLOOKUP(K11,Listas!$H$3:$I$16,2,0)
+      BK11: =+VLOOKUP(BJ11,[5]Formulas!$B$3:$C$5,2,0)
+      BM11: =+VLOOKUP(BL11,[5]Formulas!$D$3:$E$5,2,0)
+      BO11: =+VLOOKUP(BN11,[5]Formulas!$F$3:$G$5,2,0)
+    MAX/MIN: 145
+      (mostrando primeras 5 de 145)
+      AF11: =+MAX(AE11:AE20)
+      AP11: =+MAX(AO11:AO20)
+      CB11: =+MAX(CA11:CA20)
+      AF21: =+MAX(AE21:AE30)
+      CB21: =+MAX(CA21:CA30)
+    CONCATENATE: 50
+      (mostrando primeras 5 de 50)
+      B11: =+CONCATENATE(C11,E11)
+      B21: =+CONCATENATE(C21,E21)
+      B31: =+CONCATENATE(C31,E31)
+      B41: =+CONCATENATE(C41,E41)
+      B51: =+CONCATENATE(C51,E51)
+
+VALIDACIONES DE DATOS: 3
+  Rango: AR11:BF38 AR39:BG1048576 BG11:BG21 BG23:BG36 BG38 BH511:BJ1048576 BI11:BI510 BK11:BK1048576 BL511:BL1048576 BM11:BM1048576 BN511:BN1048576 BO11:BO1048576 BP511:BP1048576 BQ11:BQ39 BQ41:BQ1048576 BR511:BR1048576 BS11:BS1048576 BT511:BT1048576 BU11:BZ1048576
+    Tipo: None
+  Rango: W11:AC17 W18:W60 W61:AC67 W68:W510 X21:AC27 X31:AC37 X41:AC47 X51:AC57 X71:AC77 X81:AC87 X91:AC97 X101:AC107 X111:AC117 X121:AC127 X131:AC137 X141:AC147 X151:AC157 X161:AC167 X171:AC177 X181:AC187 X191:AC197 X201:AC207 X211:AC217 X221:AC227 X231:AC237 X241:AC247 X251:AC257 X261:AC267 X271:AC277 X281:AC287 X291:AC297 X301:AC307 X311:AC317 X321:AC327 X331:AC337 X341:AC347 X351:AC357 X361:AC367 X371:AC377 X381:AC387 X391:AC397 X401:AC407 X411:AC417 X421:AC427 X431:AC437 X441:AC447 X451:AC457 X461:AC467 X471:AC477 X481:AC487 X491:AC497 X501:AC507 AG11:AG510 AH11:AM17 AH21:AM27 AH31:AM37 AH41:AM47 AH51:AM57 AH61:AM67 AH71:AM77 AH81:AM87 AH91:AM97 AH101:AM107 AH111:AM117 AH121:AM127 AH131:AM137 AH141:AM147 AH151:AM157 AH161:AM167 AH171:AM177 AH181:AM187 AH191:AM197 AH201:AM207 AH211:AM217 AH221:AM227 AH231:AM237 AH241:AM247 AH251:AM257 AH261:AM267 AH271:AM277 AH281:AM287 AH291:AM297 AH301:AM307 AH311:AM317 AH321:AM327 AH331:AM337 AH341:AM347 AH351:AM357 AH361:AM367 AH371:AM377 AH381:AM387 AH391:AM397 AH401:AM407 AH411:AM417 AH421:AM427 AH431:AM437 AH441:AM447 AH451:AM457 AH461:AM467 AH471:AM477 AH481:AM487 AH491:AM497 AH501:AM507
+    Tipo: list
+    F¾rmula: "1,2,3,4,5"
+  Rango: BH11:BH510
+    Tipo: list
+    F¾rmula: "FRECUENCIA,IMPACTO,AMBAS"
+
+FORMATOS CONDICIONALES: 717 rangos
+  Total de reglas: 3059
+  Rango: <ConditionalFormatting AQ11:AQ30>, Reglas: 15
+  Rango: <ConditionalFormatting AF11:AF30>, Reglas: 16
+  Rango: <ConditionalFormatting AG11:AM20 AO11:AO20>, Reglas: 1
+  Rango: <ConditionalFormatting AP11:AP20>, Reglas: 4
+  Rango: <ConditionalFormatting AG11:AP20>, Reglas: 1
+  Rango: <ConditionalFormatting AQ31:AQ40>, Reglas: 18
+  Rango: <ConditionalFormatting AQ41:AQ50>, Reglas: 18
+  Rango: <ConditionalFormatting AQ51:AQ60>, Reglas: 18
+  Rango: <ConditionalFormatting AQ61:AQ70>, Reglas: 18
+  Rango: <ConditionalFormatting AQ71:AQ80>, Reglas: 18
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 17 valores, tipos: {'str': 17}
+    Ejemplos: ['INSTRUCCIONES - HOJA DE DILIGENCIAMIENTO MANDATORI', '1. Diligenciar la informaci¾n de las columnas resa', '2. La explicaci¾n de cada columna se encuentra en ', '3. Todas las columnas en gris deben ser diligencia', '4. No borrar, ni incluir columnas, filas, etc., y ']
+  Columna C: 10 valores, tipos: {'str': 7, 'int': 3}
+    Ejemplos: ['Nro.', '1', '=+C11+1', '3', '=+C31+1']
+  Columna D: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['VICEPRESIDENCIA/ GERENCIA ALTA', "=+'1. Ficha'!$C$7", "=+'1. Ficha'!$C$7", "=+'1. Ficha'!$C$7", "=+'1. Ficha'!$C$7"]
+  Columna E: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['SIGLA', '=+IFERROR((VLOOKUP(D11,Listas!$A$3:$B$9,2,0)),0)', '=+IFERROR((VLOOKUP(D21,Listas!$A$3:$B$9,2,0)),0)', '=+IFERROR((VLOOKUP(D31,Listas!$A$3:$B$9,2,0)),0)', '=+IFERROR((VLOOKUP(D41,Listas!$A$3:$B$9,2,0)),0)']
+  Columna F: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['GERENCIA', "=+'1. Ficha'!$C$8", "=+'1. Ficha'!$C$8", "=+'1. Ficha'!$C$8", "=+'1. Ficha'!$C$8"]
+  Columna H: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['SUBDIVISION', "=+'1. Ficha'!$C$9", "=+'1. Ficha'!$C$9", "=+'1. Ficha'!$C$9", "=+'1. Ficha'!$C$9"]
+  Columna J: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['ZONA', "=+'3. Identificaci¾n'!E9", "=+'3. Identificaci¾n'!E19", "=+'3. Identificaci¾n'!E29", "=+'3. Identificaci¾n'!E39"]
+  Columna K: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PROCESO', "=+'3. Identificaci¾n'!D9", "=+'3. Identificaci¾n'!D19", "=+'3. Identificaci¾n'!D29", "=+'3. Identificaci¾n'!D39"]
+  Columna L: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['MACROPROCESO', '=+VLOOKUP(K11,Listas!$H$3:$I$16,2,0)', '=+VLOOKUP(K21,Listas!$H$3:$I$16,2,0)', '=+VLOOKUP(K31,Listas!$H$3:$I$16,2,0)', '=+VLOOKUP(K41,Listas!$H$3:$I$16,2,0)']
+  Columna N: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['CLASIFICACIËN\nRIESGO CON CONSECUENCIA POSITIVA (OP', "=+'3. Identificaci¾n'!C9", "=+'3. Identificaci¾n'!C29", "=+'3. Identificaci¾n'!C39", "=+'3. Identificaci¾n'!C49"]
+  Columna O: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['TIPOLOGIA NIVEL I', "=+'3. Identificaci¾n'!F9", "=+'3. Identificaci¾n'!F29", "=+'3. Identificaci¾n'!F39", "=+'3. Identificaci¾n'!F49"]
+  Columna P: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['TIPOLOGIA NIVEL II', "=+'3. Identificaci¾n'!G9", "=+'3. Identificaci¾n'!G29", "=+'3. Identificaci¾n'!G39", "=+'3. Identificaci¾n'!G49"]
+  Columna Q: 80 valores, tipos: {'str': 80}
+    Ejemplos: ['TIPOLOGIA NIVEL III', "=+'3. Identificaci¾n'!H9", "=+'3. Identificaci¾n'!H10", "=+'3. Identificaci¾n'!H11", "=+'3. Identificaci¾n'!H12"]
+  Columna R: 80 valores, tipos: {'str': 80}
+    Ejemplos: ['TIPOLOGIA NIVEL IV', "=+'3. Identificaci¾n'!I9", "=+'3. Identificaci¾n'!I10", "=+'3. Identificaci¾n'!I11", "=+'3. Identificaci¾n'!I12"]
+  Columna S: 21 valores, tipos: {'str': 21}
+    Ejemplos: ['CAUSA DEL RIESGO', "=+'3. Identificaci¾n'!J9", "=+'3. Identificaci¾n'!J10", "=+'3. Identificaci¾n'!J11", "=+'3. Identificaci¾n'!J12"]
+  Columna T: 38 valores, tipos: {'str': 38}
+    Ejemplos: ['FUENTE DE CAUSA DE RIESGO', "=+'3. Identificaci¾n'!K9", "=+'3. Identificaci¾n'!K10", "=+'3. Identificaci¾n'!K11", "=+'3. Identificaci¾n'!K12"]
+  Columna U: 38 valores, tipos: {'str': 38}
+    Ejemplos: ['FUENTE DE CAUSA DE RIESGO (HSEQ)', "=+'3. Identificaci¾n'!L9", "=+'3. Identificaci¾n'!L10", "=+'3. Identificaci¾n'!L11", "=+'3. Identificaci¾n'!L12"]
+  Columna V: 38 valores, tipos: {'str': 38}
+    Ejemplos: ['FUENTE DE CAUSA DE RIESGO LAFT', "=+'3. Identificaci¾n'!M9", "=+'3. Identificaci¾n'!M10", "=+'3. Identificaci¾n'!M11", "=+'3. Identificaci¾n'!M12"]
+  Columna W: 16 valores, tipos: {'str': 2, 'int': 14}
+    Ejemplos: ['EVALUACIËN INHERENTE - RIESGO CONSECUENCIAS NEGATI', 'FRECUENCIA', '3', '3', '2']
+  Columna X: 6 valores, tipos: {'str': 2, 'int': 4}
+    Ejemplos: ['IMPACTO', 'Procesos', '3', '3', '4']
+  Columna AD: 61 valores, tipos: {'str': 60, 'int': 1}
+    Ejemplos: ['CALIFICACION GLOBAL IMPACTO', '=+ROUNDUP((X11*14%+Y11*22%+Z11*22%+AA11*10%+AB11*1', '=+AD11', '=+AD12', '=+AD13']
+  Columna AE: 66 valores, tipos: {'str': 66}
+    Ejemplos: ['CALIFICACION INHERENTE POR CAUSA', '=+IF(AND(AD11=2,W11=2),3.99,AD11*W11)', '=+IF(AND(AD12=2,W12=2),3.99,AD12*W12)', '=+IF(AND(AD13=2,W13=2),3.99,AD13*W13)', '=+IF(AND(AD14=2,W14=2),3.99,AD14*W14)']
+  Columna AF: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['CALIFICACION INHERENTE GLOBAL DEL RIESGO', '=+MAX(AE11:AE20)', '=+MAX(AE21:AE30)', '=+MAX(AE31:AE40)', '=+MAX(AE41:AE50)']
+  Columna AN: 80 valores, tipos: {'str': 80}
+    Ejemplos: ['CALIFICACION GLOBAL IMPACTO', '=+ROUNDUP((AH11*14%+AI11*22%+AJ11*22%+AK11*10%+AL1', '=+AN11', '=+AN11', '=+AN11']
+  Columna AO: 80 valores, tipos: {'str': 80}
+    Ejemplos: ['CALIFICACION INHERENTE POR CAUSA', '=+IF(AND(AN11=2,AG11=2),3.99,AN11*AG11)', '=+IF(AND(AN12=2,AG12=2),3.99,AN12*AG12)', '=+IF(AND(AN13=2,AG13=2),3.99,AN13*AG13)', '=+IF(AND(AN14=2,AG14=2),3.99,AN14*AG14)']
+  Columna AP: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['CALIFICACION INHERENTE GLOBAL DEL RIESGO', '=+MAX(AO11:AO20)', '=+MAX(AO31:AO40)', '=+MAX(AO41:AO50)', '=+MAX(AO51:AO60)']
+  Columna AQ: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['REQUIERE CONTROLES?', '=IF(OR(AF11=3,AF11=2,AF11=1,AF11=3.99,N11="Riesgo ', '=IF(OR(AF21=3,AF21=2,AF21=1,AF21=3.99,N21="Riesgo ', '=IF(OR(AF31=3,AF31=2,AF31=1,AF31=3.99,N31="Riesgo ', '=IF(OR(AF41=3,AF41=2,AF41=1,AF41=3.99,N41="Riesgo ']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Formulas
+========================================================================================================================
+Dimensiones: B1:O34
+Filas: 34, Columnas: 15
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 2
+  Encabezados encontrados (12):
+    1. Aplicabilidad
+    2. Peso Var
+    3. Cobertura
+    4. Peso Var
+    5. Facilidad de uso
+    6. Peso Var
+    7. Segregaci¾n
+    8. Peso Var
+    9. Naturaleza
+    10. Peso Var
+    11. Desviaciones
+    12. IND
+
+  DATOS DE MUESTRA (filas 3 a 12):
+    Fila 3: B3='Cuenta con procedimientos documentados y se deja e', C3=1, D3='La frecuencia del control tiene una periodicidad d', E3=1, F3='La complejidad del control es coherente con el rie', G3=1, H3='SI', I3=1, J3='Automßtico', K3=0.8, L3='El control ha fallado 0 veces durante el ·ltimo a±', M3='A', N3='N/A'
+    Fila 4: B4='Cuenta con procedimientos documentados total o par', C4=0.3, D4='La frecuencia del control tiene una periodicidad d', E4=0.7, F4='El control es muy complejo en su ejecuci¾n en comp', G4=0.7, H4='NO', I4=0, J4='Semiautomßtico', K4=0.6, L4='Se han encontrado desviaciones en el desempe±o del', M4='B', N4='Si la respuesta es esta el control no puede ser Al', O4='Probar anualmente sino recalibrar metodologia'
+    Fila 5: B5='No se deja evidencia de su ejecuci¾n, ni se cuenta', C5=0, D5='La frecuencia del control es eventual o a discreci', E5=0.1, F5='El control es muy sencillo en comparaci¾n con el r', G5=0.3, H5='N/A', I5=1, J5='Manual', K5=0.4, L5='El control falla la mayorÝa de las veces', M5='C', N5='Si la respuesta es esta el control inmediatamente '
+    Fila 6: B6='Peso criterios en calificaci¾n', C6=0.25, E6=0.25, G6=0.1, I6=0.2, K6=0.2
+    Fila 8: B8='Evaluaci¾n Control', C8='Rango de puntaje', E8='LÝmite Inferior', F8='Estandarizaci¾n'
+    Fila 9: B9='Altamente Efectivo', C9='85%-96%', E9=0.85, F9=0.81
+    Fila 10: B10='Efectivo', C10='66%-84%', E10=0.66, F10=0.61
+    Fila 11: B11='Medianamente Efectivo', C11='46%-65%', E11=0.46, F11=0.33
+    Fila 12: B12='Baja Efectividad', C12='26%-45%', E12=0.26, F12=0.2
+
+FËRMULAS:
+  Total de f¾rmulas: 4
+  F¾rmulas ·nicas: 4
+  Distribuci¾n por tipo:
+    OTRA: 4
+      G24: =+(H24*$G$23)/$H$23
+      G25: =+(H25*$G$23)/$H$23
+      G26: =+(H26*$G$23)/$H$23
+      G27: =+(H27*$G$23)/$H$23
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 23 valores, tipos: {'str': 23}
+    Ejemplos: ['Aplicabilidad', 'Cuenta con procedimientos documentados y se deja e', 'Cuenta con procedimientos documentados total o par', 'No se deja evidencia de su ejecuci¾n, ni se cuenta', 'Peso criterios en calificaci¾n']
+  Columna C: 23 valores, tipos: {'str': 13, 'int': 4, 'float': 6}
+    Ejemplos: ['Peso Var', '1', '0.3', '0', '0.25']
+  Columna D: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Cobertura', 'La frecuencia del control tiene una periodicidad d', 'La frecuencia del control tiene una periodicidad d', 'La frecuencia del control es eventual o a discreci', 'Complejidad']
+  Columna E: 23 valores, tipos: {'str': 4, 'int': 4, 'float': 15}
+    Ejemplos: ['Peso Var', '1', '0.7', '0.1', '0.25']
+  Columna F: 21 valores, tipos: {'str': 11, 'float': 5, 'int': 5}
+    Ejemplos: ['Facilidad de uso', 'La complejidad del control es coherente con el rie', 'El control es muy complejo en su ejecuci¾n en comp', 'El control es muy sencillo en comparaci¾n con el r', 'Estandarizaci¾n']
+  Columna G: 17 valores, tipos: {'str': 7, 'int': 3, 'float': 7}
+    Ejemplos: ['Peso Var', '1', '0.7', '0.3', '0.1']
+  Columna H: 15 valores, tipos: {'str': 10, 'int': 5}
+    Ejemplos: ['Segregaci¾n', 'SI', 'NO', 'N/A', 'Persistencia']
+  Columna I: 11 valores, tipos: {'str': 2, 'int': 5, 'float': 4}
+    Ejemplos: ['Peso Var', '1', '0', '1', '0.2']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: 5.Mapa de riesgos
+========================================================================================================================
+Dimensiones: B1:AA125
+Filas: 125, Columnas: 27
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 4
+  Encabezados encontrados (4):
+    1. Consecuencias Negativas
+    2. Consecuencias Positivas
+    3. Consecuencias Negativas
+    4. Consecuencias Positivas
+
+  DATOS DE MUESTRA (filas 5 a 14):
+    Fila 5: D5='Frecuencia/Probabilidad', I5='Frecuencia/Probabilidad', R5='Frecuencia/Probabilidad', W5='Frecuencia/Probabilidad'
+    Fila 6: D6=1, E6=2, F6=3, G6=4, H6=5, I6=1, J6=2, K6=3, L6=4, M6=5, R6=1, S6=2, T6=3, U6=4, V6=5
+    Fila 7: B7='Impacto ', D7='Muy Bajo ', E7='Bajo  ', F7='Moderada ', G7='Alta  ', H7='Muy Alta  ', I7='Muy Bajo ', J7='Bajo  ', K7='Moderada ', L7='Alta  ', M7='Muy Alta  ', P7='Impacto ', R7='Muy Bajo ', S7='Bajo  ', T7='Moderada '
+    Fila 8: B8='Extremo ', C8=5, P8='Extremo ', Q8=5
+    Fila 9: B9='Grave  ', C9=4, P9='Grave  ', Q9=4
+    Fila 10: B10='Moderado  ', C10=3, E10='- 3GFA', F10='- 1GFA', G10='- 2GFA
+- 4GFA', P10='Moderado  ', Q10=3, S10='- 1GFA'
+    Fila 11: B11='Leve  ', C11=2, P11='Leve  ', Q11=2, S11='- 2GFA
+- 3GFA
+- 4GFA'
+    Fila 12: B12='No Significativo  ', C12=1, P12='No Significativo  ', Q12=1
+    Fila 14: D14='Exposici¾n Riesgo', F14='Cantidad de Riesgos', I14='Exposici¾n Riesgo', K14='Cantidad de Riesgos', R14='Exposici¾n Riesgo', T14='Cantidad de Riesgos', W14='Exposici¾n Riesgo'
+
+FËRMULAS:
+  Total de f¾rmulas: 4
+  F¾rmulas ·nicas: 4
+  Distribuci¾n por tipo:
+    SUM: 4
+      K19: =SUM(K15:K18)
+      Y19: =+SUM(Y15:Y18)
+      F20: =+SUM(F15:F19)
+      T20: =+SUM(T15:T19)
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Esta hoja se actualiza automßticamente presionando', 'MAPA DE RIESGOS INHERENTE', 'Presionar para dibujar los mapas de calor automati', 'Impacto ', 'Extremo ']
+  Columna D: 13 valores, tipos: {'str': 12, 'int': 1}
+    Ejemplos: ['Consecuencias Negativas', 'Frecuencia/Probabilidad', '1', 'Muy Bajo ', 'Exposici¾n Riesgo']
+  Columna E: 79 valores, tipos: {'int': 75, 'str': 4}
+    Ejemplos: ['2', 'Bajo  ', '- 3GFA', 'Priorizaci¾n', '1']
+  Columna F: 13 valores, tipos: {'int': 3, 'str': 10}
+    Ejemplos: ['3', 'Moderada ', '- 1GFA', 'Cantidad de Riesgos', '2']
+  Columna G: 54 valores, tipos: {'int': 51, 'str': 3}
+    Ejemplos: ['4', 'Alta  ', '- 2GFA\n- 4GFA', 'Priorizaci¾n', '1']
+  Columna I: 6 valores, tipos: {'str': 5, 'int': 1}
+    Ejemplos: ['Consecuencias Positivas', 'Frecuencia/Probabilidad', '1', 'Muy Bajo ', 'Exposici¾n Riesgo']
+  Columna P: 7 valores, tipos: {'str': 7}
+    Ejemplos: ['MAPA DE RIESGOS RESIDUAL', 'Impacto ', 'Extremo ', 'Grave  ', 'Moderado  ']
+  Columna R: 6 valores, tipos: {'str': 5, 'int': 1}
+    Ejemplos: ['Consecuencias Negativas', 'Frecuencia/Probabilidad', '1', 'Muy Bajo ', 'Exposici¾n Riesgo']
+  Columna T: 6 valores, tipos: {'int': 3, 'str': 3}
+    Ejemplos: ['3', 'Moderada ', 'Cantidad de Riesgos', '1', '3']
+  Columna W: 6 valores, tipos: {'str': 5, 'int': 1}
+    Ejemplos: ['Consecuencias Positivas', 'Frecuencia/Probabilidad', '1', 'Muy Bajo ', 'Exposici¾n Riesgo']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: 6. Priorizaci¾n y Respuesta
+========================================================================================================================
+Dimensiones: B1:AF510
+Filas: 510, Columnas: 32
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 8
+  Encabezados encontrados (3):
+    1. PRIORIZACION DE RIESGOS
+    2. RESPUESTA AL RIESGO
+    3. PLAN DE ACCIËN
+
+  DATOS DE MUESTRA (filas 9 a 18):
+    Fila 9: B9='ID
+RIESGO', C9='DESCRIPCIËN DEL RIESGO', D9='CLASIFICACIËN
+RIESGO CON CONSECUENCIA POSITIVA (OP', E9='EN CASO DE TRATARSE DE UNA OPORTUNIDAD. SE PERSEGU', F9='CALIFICACIËN FINAL DEL RIESGO RESIDUAL', G9='PRIORIZACION DE ACUERDO A CALIFICACIËN RESIDUAL', H9='DE ACUERDO CON LA PRIORIZACION DE PUNTAJE?', I9='REQUIERE EVALUACIËN ADICIONAL DE PRIORIZACIËN DE R', J9='CRITERIOS DE PRIORIZACION', R9='PUNTAJE DE PRIORIZACION', S9='PRIORIZACION FINAL TALLER DE TRABAJO', T9='JUSTIFICACIËN DE LA PRIORIZACIËN DEL RIESGO', U9='DEBE IMPLEMENTAR KRI?', V9='ID DEL KRI', W9='FECHA ESTIMADA DE IMPLEMENTACIËN DEL KRI
+DD/MM/AAA'
+    Fila 10: J10='CAPACIDAD DE ADAPTABILIDAD', K10='PUNTAJE DE LA VARIABLE', L10='COMPLEJIDAD DEL RIESGO', M10='PUNTAJE DE LA VARIABLE', N10='VELOCIDAD', O10='PUNTAJE DE LA VARIABLE', P10='PERSISTENCIA', Q10='PUNTAJE DE LA VARIABLE'
+    Fila 11: B11='=+'4. Evaluaci¾n'!B11', C11='=+'4. Evaluaci¾n'!M11', D11='=+'4. Evaluaci¾n'!N11', F11='=+'4. Evaluaci¾n'!CC11', G11='=+IFERROR(VLOOKUP(B11,'5.Mapa de riesgos'!$J$14:$K', I11='=+IF(H11="SI","SI","NO")', K11='=+VLOOKUP(J11,Formulas!$B$16:$C$19,2,0)', M11='=+VLOOKUP(L11,Formulas!$D$16:$E$19,2,0)', O11='=+VLOOKUP(N11,Formulas!$F$16:$G$19,2,0)', Q11='=+VLOOKUP(P11,Formulas!$H$16:$I$19,2,0)', R11='=+IFERROR(Formulas!$C$20*K11+M11*Formulas!$E$20+O1', U11='=+IF(AND(X11="Aceptar",OR(F11=25,F11=20,F11=15,F11', V11='=+CONCATENATE("KRI",B11)', X11='REDUCIR'
+
+FËRMULAS:
+  Total de f¾rmulas: 1158
+  F¾rmulas ·nicas: 1158
+  Distribuci¾n por tipo:
+    CONCATENATE: 550
+      (mostrando primeras 5 de 550)
+      V11: =+CONCATENATE("KRI",B11)
+      AF11: =+CONCATENATE("PA",$B$11,AE11)
+      AF12: =+CONCATENATE("PA",$B$11,AE12)
+      AF13: =+CONCATENATE("PA",$B$11,AE13)
+      AF14: =+CONCATENATE("PA",$B$11,AE14)
+    VLOOKUP: 250
+      (mostrando primeras 5 de 250)
+      G11: =+IFERROR(VLOOKUP(B11,'5.Mapa de riesgos'!$J$14:$K$64,2,0),0)
+      K11: =+VLOOKUP(J11,Formulas!$B$16:$C$19,2,0)
+      M11: =+VLOOKUP(L11,Formulas!$D$16:$E$19,2,0)
+      O11: =+VLOOKUP(N11,Formulas!$F$16:$G$19,2,0)
+      Q11: =+VLOOKUP(P11,Formulas!$H$16:$I$19,2,0)
+    OTRA: 208
+      (mostrando primeras 5 de 208)
+      B11: =+'4. Evaluaci¾n'!B11
+      C11: =+'4. Evaluaci¾n'!M11
+      D11: =+'4. Evaluaci¾n'!N11
+      F11: =+'4. Evaluaci¾n'!CC11
+      B21: =+'4. Evaluaci¾n'!B21
+    IF: 150
+      (mostrando primeras 5 de 150)
+      I11: =+IF(H11="SI","SI","NO")
+      R11: =+IFERROR(Formulas!$C$20*K11+M11*Formulas!$E$20+O11*Formulas!$G$20+Q11*Formulas!
+      U11: =+IF(AND(X11="Aceptar",OR(F11=25,F11=20,F11=15,F11=16,F11=10,F11=12,F11=5)),"DEB
+      I21: =+IF(H21="SI","SI","NO")
+      R21: =+IFERROR(Formulas!$C$20*K21+M21*Formulas!$E$20+O21*Formulas!$G$20+Q21*Formulas!
+
+VALIDACIONES DE DATOS: 4
+  Rango: E11:E510 H11:H17 H21:H27 H31:H37 H41:H47 H51:H57 H61:H67 H71:H77 H81:H87 H91:H97 H101:H107 H111:H117 H121:H127 H131:H137 H141:H147 H151:H157 H161:H167 H171:H177 H181:H187 H191:H197 H201:H207 H211:H217 H221:H227 H231:H237 H241:H247 H251:H257 H261:H267 H271:H277 H281:H287 H291:H297 H301:H307 H311:H317 H321:H327 H331:H337 H341:H347 H351:H357 H361:H367 H371:H377 H381:H387 H391:H397 H401:H407 H411:H417 H421:H427 H431:H437 H441:H447 H451:H457 H461:H467 H471:H477 H481:H487 H491:H497 H501:H507
+    Tipo: list
+    F¾rmula: "SI,NO"
+  Rango: X11:X510
+    Tipo: list
+    F¾rmula: "ACEPTAR,EVITAR,EXPLOTAR,REDUCIR,COMPARTIR"
+  Rango: Y11:Y510
+    Tipo: list
+    F¾rmula: "VICEPRESIDENCIA,PRESIDENCIA,COMIT╔,LIDER DE PROCESO"
+  Rango: Z11:Z510
+    Tipo: date
+    F¾rmula: 43451
+
+FORMATOS CONDICIONALES: 553 rangos
+  Total de reglas: 1812
+  Rango: <ConditionalFormatting AB12:AD20>, Reglas: 1
+  Rango: <ConditionalFormatting J11:J20>, Reglas: 1
+  Rango: <ConditionalFormatting L11:L20>, Reglas: 2
+  Rango: <ConditionalFormatting N11:N20>, Reglas: 3
+  Rango: <ConditionalFormatting P11:P20>, Reglas: 3
+  Rango: <ConditionalFormatting R11:R20>, Reglas: 3
+  Rango: <ConditionalFormatting F11:F510>, Reglas: 10
+  Rango: <ConditionalFormatting U11:W20>, Reglas: 2
+  Rango: <ConditionalFormatting D11:D20>, Reglas: 18
+  Rango: <ConditionalFormatting AE11:AE12>, Reglas: 1
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 16 valores, tipos: {'str': 16}
+    Ejemplos: ['Instrucciones', '1. Por metodologÝa los riesgos que quedaron en la ', '3. De acuerdo al puntaje de priorizaci¾n de la Col', '4. Para los riesgos clasificados en la Zonas Amari', '5. Para el diligenciamiento de la Columna X. Ver l']
+  Columna C: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['DESCRIPCIËN DEL RIESGO', "=+'4. Evaluaci¾n'!M11", "=+'4. Evaluaci¾n'!M21", "=+'4. Evaluaci¾n'!M31", "=+'4. Evaluaci¾n'!M41"]
+  Columna D: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['CLASIFICACIËN\nRIESGO CON CONSECUENCIA POSITIVA (OP', "=+'4. Evaluaci¾n'!N11", "=+'4. Evaluaci¾n'!N21", "=+'4. Evaluaci¾n'!N31", "=+'4. Evaluaci¾n'!N41"]
+  Columna F: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['CALIFICACIËN FINAL DEL RIESGO RESIDUAL', "=+'4. Evaluaci¾n'!CC11", "=+'4. Evaluaci¾n'!CC21", "=+'4. Evaluaci¾n'!CC31", "=+'4. Evaluaci¾n'!CC41"]
+  Columna G: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PRIORIZACION DE ACUERDO A CALIFICACIËN RESIDUAL', "=+IFERROR(VLOOKUP(B11,'5.Mapa de riesgos'!$J$14:$K", "=+IFERROR(VLOOKUP(B21,'5.Mapa de riesgos'!$J$14:$K", "=+IFERROR(VLOOKUP(B31,'5.Mapa de riesgos'!$J$14:$K", "=+IFERROR(VLOOKUP(B41,'5.Mapa de riesgos'!$J$14:$K"]
+  Columna I: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['REQUIERE EVALUACIËN ADICIONAL DE PRIORIZACIËN DE R', '=+IF(H11="SI","SI","NO")', '=+IF(H21="SI","SI","NO")', '=+IF(H31="SI","SI","NO")', '=+IF(H41="SI","SI","NO")']
+  Columna K: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PUNTAJE DE LA VARIABLE', '=+VLOOKUP(J11,Formulas!$B$16:$C$19,2,0)', '=+VLOOKUP(J21,Formulas!$B$16:$C$19,2,0)', '=+VLOOKUP(J31,Formulas!$B$16:$C$19,2,0)', '=+VLOOKUP(J41,Formulas!$B$16:$C$19,2,0)']
+  Columna M: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PUNTAJE DE LA VARIABLE', '=+VLOOKUP(L11,Formulas!$D$16:$E$19,2,0)', '=+VLOOKUP(L21,Formulas!$D$16:$E$19,2,0)', '=+VLOOKUP(L31,Formulas!$D$16:$E$19,2,0)', '=+VLOOKUP(L41,Formulas!$D$16:$E$19,2,0)']
+  Columna O: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PUNTAJE DE LA VARIABLE', '=+VLOOKUP(N11,Formulas!$F$16:$G$19,2,0)', '=+VLOOKUP(N21,Formulas!$F$16:$G$19,2,0)', '=+VLOOKUP(N31,Formulas!$F$16:$G$19,2,0)', '=+VLOOKUP(N41,Formulas!$F$16:$G$19,2,0)']
+  Columna Q: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PUNTAJE DE LA VARIABLE', '=+VLOOKUP(P11,Formulas!$H$16:$I$19,2,0)', '=+VLOOKUP(P21,Formulas!$H$16:$I$19,2,0)', '=+VLOOKUP(P31,Formulas!$H$16:$I$19,2,0)', '=+VLOOKUP(P41,Formulas!$H$16:$I$19,2,0)']
+  Columna R: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['PUNTAJE DE PRIORIZACION', '=+IFERROR(Formulas!$C$20*K11+M11*Formulas!$E$20+O1', '=+IFERROR(Formulas!$C$20*K21+M21*Formulas!$E$20+O2', '=+IFERROR(Formulas!$C$20*K31+M31*Formulas!$E$20+O3', '=+IFERROR(Formulas!$C$20*K41+M41*Formulas!$E$20+O4']
+  Columna U: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['DEBE IMPLEMENTAR KRI?', '=+IF(AND(X11="Aceptar",OR(F11=25,F11=20,F11=15,F11', '=+IF(AND(X21="Aceptar",OR(F21=25,F21=20,F21=15,F21', '=+IF(AND(X31="Aceptar",OR(F31=25,F31=20,F31=15,F31', '=+IF(AND(X41="Aceptar",OR(F41=25,F41=20,F41=15,F41']
+  Columna V: 10 valores, tipos: {'str': 10}
+    Ejemplos: ['ID DEL KRI', '=+CONCATENATE("KRI",B11)', '=+CONCATENATE("KRI",B21)', '=+CONCATENATE("KRI",B31)', '=+CONCATENATE("KRI",B41)']
+  Columna AB: 7 valores, tipos: {'str': 7}
+    Ejemplos: ['PLAN DE ACCIËN', 'DESCRIPCIËN DEL PLAN DE ACCIËN \n(NO DILIGENCIAR SI', 'PA. La Analista de Talento Humano implementarß un ', "=+'4. Evaluaci¾n'!BG24", "=+'4. Evaluaci¾n'!BG44"]
+  Columna AC: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['RESPONSABLE', 'Analista de Talento Humano', "=+'4. Evaluaci¾n'!BI24", "=+'4. Evaluaci¾n'!BI44", "=+'4. Evaluaci¾n'!BI53"]
+  Columna AD: 6 valores, tipos: {'str': 1, 'datetime': 5}
+    Ejemplos: ['FECHA ESTIMADA FINALIZACIËN DEL PLAN DE ACCIËN\nDD/', '2026-12-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00']
+  Columna AE: 90 valores, tipos: {'str': 1, 'int': 89}
+    Ejemplos: ['ID PA', '1', '2', '3', '4']
+  Columna AF: 90 valores, tipos: {'str': 90}
+    Ejemplos: ['ID DEL PLAN DE ACCIËN', '=+CONCATENATE("PA",$B$11,AE11)', '=+CONCATENATE("PA",$B$11,AE12)', '=+CONCATENATE("PA",$B$11,AE13)', '=+CONCATENATE("PA",$B$11,AE14)']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Parßmetros de Valoraci¾n
+========================================================================================================================
+Dimensiones: B2:M17
+Filas: 17, Columnas: 13
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 3
+  Encabezados encontrados (10):
+    1. Calificaci¾n/ Impacto
+    2. Personas
+    3. Legal/Normativo
+    4. Ambiental
+    5. Procesos
+    6. Reputacional (*)
+    7. Econ¾mico
+    8. Tecnol¾gico
+    9. Calificaci¾n/ Probabilidad
+    10. Frecuencia
+
+  DATOS DE MUESTRA (filas 4 a 13):
+    Fila 4: B4=1, C4='-Lesi¾n Leve (Primeros auxilios dentro de la empre', D4='- Queja ante autoridad administrativa. (-)
+- Sin m', E4='Sin afectaci¾n ambiental. Sin modificaciones en el', F4='MÝnima afectaci¾n en el tiempo, calidad y/o eficie', G4='No se ve afectada la confianza y credibilidad en n', H4='Variaci¾n (+ ¾ -) en los recursos financieros de h', I4='-Hay una afectaci¾n no significativa de la segurid', K4=1, L4='La actividad que causa el riesgo tiene una frecuen', M4='Raro - PodrÝa pasar, pero probablemente nunca lo h'
+    Fila 5: K5=2, L5='La actividad que causa el riesgo tiene una frecuen', M5='Improbable - Improbable que ocurra bajo circunstan'
+    Fila 6: B6=2, C6='- Lesi¾n Menor (sin incapacidad - primeros auxilio', D6='- Observaciones por parte del ente regulador con p', E6='- El evento ocasiona (-) ¾ ayuda a mejorar (+) las', F6='Impacto bajo en el tiempo de la ejecuci¾n del proc', G6='El hecho afecta (+ ¾ -) la confianza y credibilida', H6='Variaci¾n (+ ¾ -) en los recursos financieros de h', I6='-Hay una afectaci¾n en menor grado de la seguridad', K6=3, L6='La actividad que causa el riesgo tiene una frecuen', M6='Posible - PodrÝa ocurrir en cualquier momento'
+    Fila 7: K7=4, L7='La actividad que causa el riesgo tiene una frecuen', M7='Probable - Se espera que ocurra en cualquier momen'
+    Fila 8: B8=3, C8='- Incapacidad Temporal (>1 dÝa): Eventos que afect', D8='- Indemnizaciones, multas o sanciones por incumpli', E8='- El evento ocasiona (-) ¾ ayuda a mejorar (+) emi', F8='Impacto moderado en el tiempo de ejecuci¾n del pro', G8='El hecho afecta (+ ¾ -) la confianza y credibilida', H8='Variaci¾n (+ ¾ -) en los recursos financieros de d', I8='-Se genera una afectaci¾n importante en la segurid', K8=5, L8='La actividad que causa el riesgo tiene una frecuen', M8='Esperado - Se espera que ocurra regularmente bajo '
+    Fila 10: B10=4, C10='- Incapacidad permanente (parcial o total): Evento', D10='- Junta Directiva y representantes legales resulta', E10='- El evento ocasiona (-) ¾ ayuda a mejorar (+) emi', F10='Impacto mayor en el tiempo de ejecuci¾n del proces', G10='El hecho afecta  (+ ¾ -) la confianza y credibilid', H10='Variaci¾n (+ ¾ -) en los recursos financieros de h', I10='-Se presenta una afectaci¾n grave a la seguridad d'
+    Fila 12: B12=5, C12='- Una o mßs fatalidades por accidente o enfermedad', D12='- Intervenci¾n por parte del ente regulador (-)
+- ', E12='- El evento ocasiona (-) ¾ ayuda a mejorar (+) emi', F12='Impacto importante en el tiempo de ejecuci¾n del p', G12='El hecho afecta (+ ¾ -) la confianza y credibilida', H12='Variaci¾n (+ ¾ -) en los recursos financieros supe', I12='-Se presenta una afectaci¾n crÝtica a la seguridad'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 9 valores, tipos: {'str': 4, 'int': 5}
+    Ejemplos: ['Tabla de Impacto', 'Calificaci¾n/ Impacto', '1', '2', '3']
+  Columna C: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Personas', '-Lesi¾n Leve (Primeros auxilios dentro de la empre', '- Lesi¾n Menor (sin incapacidad - primeros auxilio', '- Incapacidad Temporal (>1 dÝa): Eventos que afect', '- Incapacidad permanente (parcial o total): Evento']
+  Columna D: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Legal/Normativo', '- Queja ante autoridad administrativa. (-)\n- Sin m', '- Observaciones por parte del ente regulador con p', '- Indemnizaciones, multas o sanciones por incumpli', '- Junta Directiva y representantes legales resulta']
+  Columna E: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Ambiental', 'Sin afectaci¾n ambiental. Sin modificaciones en el', '- El evento ocasiona (-) ¾ ayuda a mejorar (+) las', '- El evento ocasiona (-) ¾ ayuda a mejorar (+) emi', '- El evento ocasiona (-) ¾ ayuda a mejorar (+) emi']
+  Columna F: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Procesos', 'MÝnima afectaci¾n en el tiempo, calidad y/o eficie', 'Impacto bajo en el tiempo de la ejecuci¾n del proc', 'Impacto moderado en el tiempo de ejecuci¾n del pro', 'Impacto mayor en el tiempo de ejecuci¾n del proces']
+  Columna G: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Reputacional (*)', 'No se ve afectada la confianza y credibilidad en n', 'El hecho afecta (+ ¾ -) la confianza y credibilida', 'El hecho afecta (+ ¾ -) la confianza y credibilida', 'El hecho afecta  (+ ¾ -) la confianza y credibilid']
+  Columna H: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Econ¾mico', 'Variaci¾n (+ ¾ -) en los recursos financieros de h', 'Variaci¾n (+ ¾ -) en los recursos financieros de h', 'Variaci¾n (+ ¾ -) en los recursos financieros de d', 'Variaci¾n (+ ¾ -) en los recursos financieros de h']
+  Columna I: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Tecnol¾gico', '-Hay una afectaci¾n no significativa de la segurid', '-Hay una afectaci¾n en menor grado de la seguridad', '-Se genera una afectaci¾n importante en la segurid', '-Se presenta una afectaci¾n grave a la seguridad d']
+  Columna K: 7 valores, tipos: {'str': 2, 'int': 5}
+    Ejemplos: ['Tabla de Frecuencia', 'Calificaci¾n/ Probabilidad', '1', '2', '3']
+  Columna L: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Frecuencia', 'La actividad que causa el riesgo tiene una frecuen', 'La actividad que causa el riesgo tiene una frecuen', 'La actividad que causa el riesgo tiene una frecuen', 'La actividad que causa el riesgo tiene una frecuen']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Listas
+========================================================================================================================
+Dimensiones: A2:K10
+Filas: 10, Columnas: 11
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 2
+  Encabezados encontrados (7):
+    1. Vicepresidencia/ Gerencia alta
+    2. Sigla
+    3. Zona
+    4. Proceso
+    5. Macroproceso
+    6. Fuente
+    7. Fuente LAFT
+
+  DATOS DE MUESTRA (filas 3 a 10):
+    Fila 3: A3='Abastecimiento', B3='AB', G3='Nacional', H3='Abastecimiento', I3='Misional', J3='Personas', K3='N/A'
+    Fila 4: A4='Gesti¾n de proveedores y adquisiciones', B4='GPA', G4='Sur', H4='Gesti¾n de proveedores y adquisiciones', I4='Misional', J4='Proceso', K4='Contrapartes'
+    Fila 5: A5='Gesti¾n de proyectos e implementaci¾n', B5='GPI', G5='Oriente', H5='Gesti¾n de proyectos e implementaci¾n', I5='Misional', J5='TecnologÝa', K5='Productos'
+    Fila 6: A6='Gesti¾n de Soporte y Post Venta', B6='GSP', G6='Occidente', H6='Gesti¾n de Soporte y Post Venta', I6='Misional', J6='Infraestructura', K6='Canales de distribuci¾n'
+    Fila 7: A7='Gesti¾n Financiera y Administrativa', B7='GFA', G7='Norte', H7='Gesti¾n Financiera y Administrativa', I7='Soporte', J7='Externos', K7='Jurisdicci¾n Territorial'
+    Fila 8: A8='Gesti¾n de TIC'S', B8='GTI', G8='Central', H8='Gesti¾n de TIC'S', I8='Soporte'
+    Fila 9: A9='Seguridad de la informaci¾n', B9='GSI', G9='Norte y Oriente', H9='Seguridad de la informaci¾n', I9='Soporte'
+    Fila 10: A10='Gesti¾n Talento Humano', B10='GTH', H10='Gesti¾n Talento Humano', I10='Soporte'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Vicepresidencia/ Gerencia alta', 'Abastecimiento', 'Gesti¾n de proveedores y adquisiciones', 'Gesti¾n de proyectos e implementaci¾n', 'Gesti¾n de Soporte y Post Venta']
+  Columna B: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Sigla', 'AB', 'GPA', 'GPI', 'GSP']
+  Columna G: 8 valores, tipos: {'str': 8}
+    Ejemplos: ['Zona', 'Nacional', 'Sur', 'Oriente', 'Occidente']
+  Columna H: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Proceso', 'Abastecimiento', 'Gesti¾n de proveedores y adquisiciones', 'Gesti¾n de proyectos e implementaci¾n', 'Gesti¾n de Soporte y Post Venta']
+  Columna I: 9 valores, tipos: {'str': 9}
+    Ejemplos: ['Macroproceso', 'Misional', 'Misional', 'Misional', 'Misional']
+  Columna J: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Fuente', 'Personas', 'Proceso', 'TecnologÝa', 'Infraestructura']
+  Columna K: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Fuente LAFT', 'N/A', 'Contrapartes', 'Productos', 'Canales de distribuci¾n']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Tabla de atribuciones
+========================================================================================================================
+Dimensiones: B1:G15
+Filas: 15, Columnas: 7
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 4
+  Encabezados encontrados (6):
+    1. Respuesta/Severidad
+    2. Extrema
+    3. Muy Alta
+    4. Alta
+    5. Moderada
+    6. Baja
+
+  DATOS DE MUESTRA (filas 5 a 14):
+    Fila 6: B6='Aceptar', C6='ComitÚ de AuditorÝa y Riesgos, previa validaci¾n d', D6='ComitÚ de AuditorÝa y Riesgos, previa validaci¾n d', E6='ComitÚ de AuditorÝa y Riesgos, previa validaci¾n d', F6='LÝder del proceso', G6='LÝder del proceso'
+    Fila 7: B7='Evitar', C7='Presidencia, previa validaci¾n de la Vicepresidenc', D7='Presidencia, previa validaci¾n de la Vicepresidenc', E7='Vicepresidencia del proceso', F7='LÝder del proceso ', G7='LÝder del proceso '
+    Fila 8: B8='Reducir', C8='LÝder del proceso ', D8='LÝder del proceso ', E8='LÝder del proceso ', F8='LÝder del proceso ', G8='LÝder del proceso '
+    Fila 9: B9='Compartir', C9='LÝder del proceso ', D9='LÝder del proceso ', E9='LÝder del proceso ', F9='LÝder del proceso ', G9='LÝder del proceso ááá'
+    Fila 11: B11='Para las oportunidades, se debe tener en cuenta lo'
+    Fila 13: C13='Excelente Oportunidad', D13='Muy buena Oportunidad', E13='Oportunidad Marginal', F13='Oportunidad Deficiente'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 8 valores, tipos: {'str': 8}
+    Ejemplos: ['Esta tabla indica las atribuciones para las difere', 'Tabla de Atribuciones para la Respuesta a los Ries', 'Respuesta/Severidad', 'Aceptar', 'Evitar']
+  Columna C: 7 valores, tipos: {'str': 7}
+    Ejemplos: ['Extrema', 'ComitÚ de AuditorÝa y Riesgos, previa validaci¾n d', 'Presidencia, previa validaci¾n de la Vicepresidenc', 'LÝder del proceso ', 'LÝder del proceso ']
+  Columna D: 6 valores, tipos: {'str': 6}
+    Ejemplos: ['Muy Alta', 'ComitÚ de AuditorÝa y Riesgos, previa validaci¾n d', 'Presidencia, previa validaci¾n de la Vicepresidenc', 'LÝder del proceso ', 'LÝder del proceso ']
+  Columna E: 7 valores, tipos: {'str': 7}
+    Ejemplos: ['Alta', 'ComitÚ de AuditorÝa y Riesgos, previa validaci¾n d', 'Vicepresidencia del proceso', 'LÝder del proceso ', 'LÝder del proceso ']
+  Columna F: 7 valores, tipos: {'str': 7}
+    Ejemplos: ['Moderada', 'LÝder del proceso', 'LÝder del proceso ', 'LÝder del proceso ', 'LÝder del proceso ']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Tipologias Nivel I
+========================================================================================================================
+Dimensiones: A1:B5
+Filas: 5, Columnas: 2
+
+ESTRUCTURA DE DATOS:
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: Tipologias Nivel II
+========================================================================================================================
+Dimensiones: A1:F31
+Filas: 31, Columnas: 6
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 1
+  Encabezados encontrados (4):
+    1. Nivel II
+    2. Descripci¾n
+    3. Nivel II
+    4. Descripci¾n
+
+  DATOS DE MUESTRA (filas 2 a 11):
+    Fila 2: A2='PolÝtico', B2=' Es el riesgo que emerge debido a la exposici¾n de', D2='Procesos', E2=' Son los riesgos relacionados con la inexistencia,', F2='OPERACIONAL'
+    Fila 3: A3='Mercado', B3=' Cambios en las condiciones macroecon¾micas y/o se', D3='Sistema de gesti¾n en seguridad y salud en el trab', E3=' Son los riesgos relacionados con el recurso human'
+    Fila 4: A4='Competencia', B4=' Acciones de competidores o nuevos jugadores en el', D4='Recurso Humano', E4=' Fallas en la operaci¾n causadas por colaboradores'
+    Fila 5: A5='Continuidad del negocio', B5=' Eventos mayores (natural u ocasionado por el homb', D5='Social', E5=' Potencial pÚrdida producto del da±o en la calidad'
+    Fila 6: A6='Alianzas', B6=' Alianzas comerciales ineficientes y/o inefectivas', D6='Ambiental', E6=' Riesgos asociados a los da±os ocasionados al medi'
+    Fila 7: A7='Canales de distribuci¾n', B7=' Fallas en los canales de distribuci¾n que afectan', D7='Seguridad en la cadena de suministro', E7=' Son los riesgos asociados con el da±o, pÚrdida y/'
+    Fila 8: A8='Capacidad Industrial', B8=' Riesgos de obsolescencia tecnol¾gica y/o ineficie', D8='FÝsico', E8=' Riesgo de pÚrdida y/o da±o en los activos fÝsicos'
+    Fila 9: A9='Satisfacci¾n del cliente', B9=' Fallo en la identificaci¾n de preferencias/necesi', D9='Informaci¾n', E9=' Brechas en la confidencialidad, integridad y/o di'
+    Fila 10: A10='Talento Humano', B10=' Riesgo asociado con la falta y/o pÚrdida de funci', D10='Sistemas', E10=' Es el riesgo de fallas, u otra deficiencia en las'
+    Fila 11: A11='Alineaci¾n EstratÚgica', B11=' Inexistencia, desconocimiento y/o falta de alinea', D11='Fraude Externo', E11=' Es el riesgo de que una persona natural y/o jurÝd'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna A: 17 valores, tipos: {'str': 17}
+    Ejemplos: ['Nivel II', 'PolÝtico', 'Mercado', 'Competencia', 'Continuidad del negocio']
+  Columna B: 17 valores, tipos: {'str': 17}
+    Ejemplos: ['Descripci¾n', ' Es el riesgo que emerge debido a la exposici¾n de', ' Cambios en las condiciones macroecon¾micas y/o se', ' Acciones de competidores o nuevos jugadores en el', ' Eventos mayores (natural u ocasionado por el homb']
+  Columna D: 23 valores, tipos: {'str': 23}
+    Ejemplos: ['Nivel II', 'Procesos', 'Sistema de gesti¾n en seguridad y salud en el trab', 'Recurso Humano', 'Social']
+  Columna E: 23 valores, tipos: {'str': 23}
+    Ejemplos: ['Descripci¾n', ' Son los riesgos relacionados con la inexistencia,', ' Son los riesgos relacionados con el recurso human', ' Fallas en la operaci¾n causadas por colaboradores', ' Potencial pÚrdida producto del da±o en la calidad']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: TipologÝas III-IV SO y Ambien
+========================================================================================================================
+Dimensiones: B2:M295
+Filas: 295, Columnas: 13
+
+ESTRUCTURA DE DATOS:
+  Fila de encabezados: 3
+  Encabezados encontrados (5):
+    1. TIPO DE RIESGO NIVEL III
+    2. TIPO DE RIESGO NIVEL IV
+    3. DESCRIPCIËN
+    4. FUENTE / CAUSA
+    5. EFECTO O CONSECUENCIA 
+
+  DATOS DE MUESTRA (filas 4 a 13):
+    Fila 5: B5='FÝsicos', C5='Ruido', D5='Exposici¾n A Ruido Provenientes De..', E5='Ejemplo:
+1. Otras ßreas durante pruebas de dinam¾m', F5='Enfermedades Sistema Auditivo, Fatiga. PÚrdida de '
+    Fila 6: B6='FÝsicos', C6='Vibraci¾n', D6='Exposici¾n A Vibraciones Provenientes De..', E6='Ejemplo:
+1. Motortool
+2. Pulidora
+3. Hidro lavador', F6='Traumas Oseo Musculares, Dolor de espalda, Debilit'
+    Fila 7: B7='FÝsicos', C7='Temperatura Ambiental Alta', D7='Exposici¾n a Temperatura ambiental alta provenient', E7='Ejemplo:
+1. Trabajos cerca a hornos.
+2. Trabajo co', F7='Deshidrataci¾n, Disconfort, Quemaduras En La Piel,'
+    Fila 8: B8='FÝsicos', C8='Temperatura Ambiental Baja', D8='Exposici¾n a Temperatura ambiental baja provenient', E8='Ejemplo:
+1. Trabajos en cuartos frÝos o similares.', F8='Deshidrataci¾n, Disconfort, Quemaduras En La Piel,'
+    Fila 9: B9='FÝsicos', C9='Temperatura Ambiental Cambios', D9='Cambios Bruscos De Temperatura Ambiental debidos A', E9='
+', F9='Desmayos, Calambres, Etc.'
+    Fila 10: B10='FÝsicos', C10='Presi¾n ambiental', D10='Exposici¾n a presiones anormales o diferentes a la', E10='Ej.: 
+1. Trabajos como buzo industrial.
+2. Trabajo', F10='Perdida Del Conocimiento, Lesiones Temporales O Pe'
+    Fila 11: B11='FÝsicos', C11='Radiaciones No Ionizantes', D11='Exposici¾n a Radiaciones No Ionizantes Proveniente', F11='Indique la consecuencia de acuerdo al tipo de radi'
+    Fila 12: B12='FÝsicos', C12='Radiaciones Ionizantes', D12='Exposiciones A Radiaciones Ionizantes Provenientes', F12='Indique la consecuencia de acuerdo al tipo de radi'
+    Fila 13: B13='FÝsicos', C13='Iluminaci¾n', D13='Iluminaci¾n sub estßndar En Sitio De Trabajo Debid', E13='Deficiente estado de las luminarias, Deficiencia d', F13='Cansancio, Fatiga Visual, Accidentes De Trabajo'
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+  Columna B: 96 valores, tipos: {'str': 96}
+    Ejemplos: ['TIPO DE RIESGO NIVEL III', 'FÝsicos', 'FÝsicos', 'FÝsicos', 'FÝsicos']
+  Columna C: 96 valores, tipos: {'str': 96}
+    Ejemplos: ['TIPO DE RIESGO NIVEL IV', 'Ruido', 'Vibraci¾n', 'Temperatura Ambiental Alta', 'Temperatura Ambiental Baja']
+  Columna D: 96 valores, tipos: {'str': 96}
+    Ejemplos: ['DESCRIPCIËN', 'Exposici¾n A Ruido Provenientes De..', 'Exposici¾n A Vibraciones Provenientes De..', 'Exposici¾n a Temperatura ambiental alta provenient', 'Exposici¾n a Temperatura ambiental baja provenient']
+  Columna E: 51 valores, tipos: {'str': 51}
+    Ejemplos: ['FUENTE / CAUSA', 'Ejemplo:\n1. Otras ßreas durante pruebas de dinam¾m', 'Ejemplo:\n1. Motortool\n2. Pulidora\n3. Hidro lavador', 'Ejemplo:\n1. Trabajos cerca a hornos.\n2. Trabajo co', 'Ejemplo:\n1. Trabajos en cuartos frÝos o similares.']
+  Columna F: 96 valores, tipos: {'str': 96}
+    Ejemplos: ['EFECTO O CONSECUENCIA ', 'Enfermedades Sistema Auditivo, Fatiga. PÚrdida de ', 'Traumas Oseo Musculares, Dolor de espalda, Debilit', 'Deshidrataci¾n, Disconfort, Quemaduras En La Piel,', 'Deshidrataci¾n, Disconfort, Quemaduras En La Piel,']
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+HOJA: TipologÝas III-Seg. Informacion
+========================================================================================================================
+Dimensiones: A1:B5
+Filas: 5, Columnas: 2
+
+ESTRUCTURA DE DATOS:
+
+FËRMULAS:
+  Total de f¾rmulas: 0
+  F¾rmulas ·nicas: 0
+  Distribuci¾n por tipo:
+
+AN┴LISIS DE COLUMNAS:
+
+RANGOS NOMBRADOS:
+
+========================================================================================================================
+RESUMEN GENERAL
+========================================================================================================================
+Total de hojas analizadas: 21
+Total de f¾rmulas: 11851
+Total de validaciones: 13
+Total de formatos condicionales: 20
+Total de referencias cruzadas: 3145
+
+Hojas ordenadas por complejidad (n·mero de f¾rmulas):
+  4. Evaluaci¾n: 10685 f¾rmulas
+  6. Priorizaci¾n y Respuesta: 1158 f¾rmulas
+  Formulas: 4 f¾rmulas
+  5.Mapa de riesgos: 4 f¾rmulas
+
+Anßlisis guardado en: analisis_completo_hojas.json

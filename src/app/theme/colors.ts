@@ -1,34 +1,33 @@
 /**
  * COMWARE Color Palette
- * Extracted from Logo-colores.jpeg
+ * Colores serios y profesionales sin gradientes
  */
 
 export const colors = {
-  // Colores Corporativos COMWARE
+  // Colores Corporativos COMWARE (colores serios y profesionales)
   primary: {
-    main: "#FF9500", // Naranja principal
-    light: "#FFB84D",
-    dark: "#CC7700",
+    main: "#1976d2", // Azul profesional
+    light: "#42a5f5",
+    dark: "#1565c0",
     contrastText: "#FFFFFF",
   },
   secondary: {
-    main: "#B8D900", // Verde-Amarillo
-    light: "#D4F54D",
-    dark: "#93AD00",
-    contrastText: "#000000",
-  },
-  accent: {
-    main: "#0080FF", // Azul
-    light: "#4DA6FF",
-    dark: "#0066CC",
+    main: "#424242", // Gris oscuro profesional
+    light: "#616161",
+    dark: "#212121",
     contrastText: "#FFFFFF",
   },
-
-  // Gradiente Corporativo
-  gradient: {
-    main: "linear-gradient(135deg, #FF9500 0%, #B8D900 50%, #0080FF 100%)",
-    horizontal: "linear-gradient(90deg, #FF9500 0%, #B8D900 50%, #0080FF 100%)",
-    vertical: "linear-gradient(180deg, #FF9500 0%, #B8D900 50%, #0080FF 100%)",
+  accent: {
+    main: "#546e7a", // Gris azulado
+    light: "#78909c",
+    dark: "#37474f",
+    contrastText: "#FFFFFF",
+  },
+  tertiary: {
+    main: "#455a64", // Gris azulado oscuro
+    light: "#607d8b",
+    dark: "#263238",
+    contrastText: "#FFFFFF",
   },
 
   // Niveles de Riesgo (Semáforo)
@@ -59,25 +58,27 @@ export const colors = {
     },
   },
 
-  // Grises y Neutros
+  // Grises y Neutros (del logo: COM gris oscuro, WARE gris claro)
   grey: {
-    50: "#fafafa",
-    100: "#f5f5f5",
-    200: "#eeeeee",
-    300: "#e0e0e0",
-    400: "#bdbdbd",
-    500: "#9e9e9e",
-    600: "#757575",
-    700: "#616161",
-    800: "#424242",
-    900: "#212121",
+    50: "#f5f5f5",
+    100: "#e8e8e8",
+    200: "#d0d0d0",
+    300: "#b8b8b8",
+    400: "#a0a0a0",
+    500: "#888888", // Gris medio
+    600: "#707070", // Gris claro del logo (WARE)
+    700: "#585858", // Gris oscuro del logo (COM)
+    800: "#404040",
+    900: "#1a1a1a", // Casi negro
   },
 
-  // Fondos y Superficies (Dark Mode)
+  // Fondos y Superficies (Fondo gris claro del logo)
   background: {
-    default: "#121212",
-    paper: "#1e1e1e",
-    elevated: "#2a2a2a",
+    default: "#E8E8E8", // Gris claro del fondo del logo
+    paper: "#F5F5F5",
+    elevated: "#FFFFFF",
+    card: "#FFFFFF",
+    sidebar: "#F0F0F0",
   },
 
   // Estados
@@ -106,15 +107,17 @@ export const colors = {
     contrastText: "#FFFFFF",
   },
 
-  // Texto
+  // Texto (del logo: COM gris oscuro, WARE gris claro)
   text: {
-    primary: "rgba(255, 255, 255, 0.87)",
-    secondary: "rgba(255, 255, 255, 0.60)",
-    disabled: "rgba(255, 255, 255, 0.38)",
+    primary: "rgba(0, 0, 0, 0.87)", // Texto oscuro sobre fondo claro
+    secondary: "rgba(0, 0, 0, 0.60)",
+    disabled: "rgba(0, 0, 0, 0.38)",
+    com: "#585858", // Gris oscuro del COM
+    ware: "#707070", // Gris claro del WARE
   },
 
   // Divisores
-  divider: "rgba(255, 255, 255, 0.12)",
+  divider: "rgba(0, 0, 0, 0.12)",
 };
 
 // Helper para obtener color de nivel de riesgo

@@ -14,11 +14,18 @@ import LoginPage from '../features/auth/pages/LoginPage';
 
 // Pages
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
+import FichaPage from '../features/gestion-riesgos/pages/FichaPage';
 import IdentificacionPage from '../features/gestion-riesgos/pages/IdentificacionPage';
 import EvaluacionPage from '../features/gestion-riesgos/pages/EvaluacionPage';
 import MapaPage from '../features/gestion-riesgos/pages/MapaPage';
 import PriorizacionPage from '../features/gestion-riesgos/pages/PriorizacionPage';
 import NormatividadPage from '../features/gestion-riesgos/pages/NormatividadPage';
+import ContextoExternoPage from '../features/gestion-riesgos/pages/ContextoExternoPage';
+import ContextoInternoPage from '../features/gestion-riesgos/pages/ContextoInternoPage';
+import DofaPage from '../features/gestion-riesgos/pages/DofaPage';
+import AnalisisProcesoPage from '../features/gestion-riesgos/pages/AnalisisProcesoPage';
+import BenchmarkingPage from '../features/gestion-riesgos/pages/BenchmarkingPage';
+import AyudaPage from '../features/gestion-riesgos/pages/AyudaPage';
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +49,10 @@ export const router = createBrowserRouter([
         element: <DashboardPage />,
       },
       {
+        path: ROUTES.FICHA,
+        element: <FichaPage />,
+      },
+      {
         path: ROUTES.IDENTIFICACION,
         element: <IdentificacionPage />,
       },
@@ -60,6 +71,30 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.NORMATIVIDAD,
         element: <NormatividadPage />,
+      },
+      {
+        path: ROUTES.CONTEXTO_EXTERNO,
+        element: <ContextoExternoPage />,
+      },
+      {
+        path: ROUTES.CONTEXTO_INTERNO,
+        element: <ContextoInternoPage />,
+      },
+      {
+        path: ROUTES.DOFA,
+        element: <DofaPage />,
+      },
+      {
+        path: ROUTES.ANALISIS_PROCESO,
+        element: <AnalisisProcesoPage />,
+      },
+      {
+        path: ROUTES.BENCHMARKING,
+        element: <BenchmarkingPage />,
+      },
+      {
+        path: ROUTES.AYUDA,
+        element: <AyudaPage />,
       },
     ],
   },
