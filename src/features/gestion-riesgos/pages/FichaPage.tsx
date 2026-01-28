@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Grid,
   Alert,
   Paper,
   Divider,
@@ -126,8 +125,8 @@ export default function FichaPage() {
         </Box>
 
         <CardContent sx={{ p: 4 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+            <Box>
               <TextField
                 fullWidth
                 label="Vicepresidencia / Gerencia Alta"
@@ -141,9 +140,9 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={6}>
+            <Box>
               <TextField
                 fullWidth
                 label="Gerencia"
@@ -157,9 +156,9 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={6}>
+            <Box>
               <TextField
                 fullWidth
                 label="Subdivisión"
@@ -172,9 +171,9 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={6}>
+            <Box>
               <TextField
                 fullWidth
                 label="Fecha"
@@ -189,19 +188,19 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <Divider sx={{ my: 2 }} />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
                 Responsable del Proceso
               </Typography>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={6}>
+            <Box>
               <TextField
                 fullWidth
                 label="Responsable del Proceso"
@@ -215,9 +214,9 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={6}>
+            <Box>
               <TextField
                 fullWidth
                 label="Cargo"
@@ -230,19 +229,19 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <Divider sx={{ my: 2 }} />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
                 Objetivo del Proceso
               </Typography>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField
                 fullWidth
                 label="Objetivo del Proceso"
@@ -258,9 +257,9 @@ export default function FichaPage() {
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
                 <Button
                   variant="outlined"
@@ -301,8 +300,8 @@ export default function FichaPage() {
                   Guardar Ficha
                 </Button>
               </Box>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
     </Box>

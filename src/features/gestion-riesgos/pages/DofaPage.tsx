@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Grid,
   Tabs,
   Tab,
   Paper,
@@ -132,28 +131,25 @@ export default function DofaPage() {
           Agregar
         </Button>
       </Box>
-      <Grid container spacing={2}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {items.map((item, index) => (
-          <Grid item xs={12} key={item.id}>
-            <TextField
-              fullWidth
-              label={`${title} ${index + 1}`}
-              value={item.descripcion}
-              onChange={(e) => handleChange(tipo, item.id, e.target.value)}
-              multiline
-              rows={3}
-              variant="outlined"
-            />
-          </Grid>
+          <TextField
+            key={item.id}
+            fullWidth
+            label={`${title} ${index + 1}`}
+            value={item.descripcion}
+            onChange={(e) => handleChange(tipo, item.id, e.target.value)}
+            multiline
+            rows={3}
+            variant="outlined"
+          />
         ))}
         {items.length === 0 && (
-          <Grid item xs={12}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              No hay elementos registrados. Haz clic en "Agregar" para comenzar.
-            </Typography>
-          </Grid>
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            No hay elementos registrados. Haz clic en "Agregar" para comenzar.
+          </Typography>
         )}
-      </Grid>
+      </Box>
     </Box>
   );
 
@@ -203,4 +199,3 @@ export default function DofaPage() {
     </Box>
   );
 }
-

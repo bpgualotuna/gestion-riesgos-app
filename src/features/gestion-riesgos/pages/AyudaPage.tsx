@@ -16,7 +16,6 @@ import {
   ListItemText,
   Divider,
   Chip,
-  Grid,
   Paper,
 } from '@mui/material';
 import { 
@@ -98,9 +97,9 @@ export default function AyudaPage() {
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 3 }}>
         {/* Info Card */}
-        <Grid item xs={12} md={4}>
+        <Box>
           <Card
             elevation={0}
             sx={{
@@ -167,10 +166,10 @@ export default function AyudaPage() {
               </List>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Sections Card */}
-        <Grid item xs={12} md={8}>
+        <Box>
           <Card
             elevation={0}
             sx={{
@@ -241,10 +240,10 @@ export default function AyudaPage() {
               ))}
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Instructions Card */}
-        <Grid item xs={12}>
+        <Box sx={{ gridColumn: '1 / -1' }}>
           <Card
             elevation={0}
             sx={{
@@ -266,7 +265,7 @@ export default function AyudaPage() {
               </Typography>
             </Box>
             <CardContent sx={{ p: 3 }}>
-              <Grid container spacing={2}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
                 {[
                   { step: 1, text: 'Complete la Ficha del Proceso', subtext: 'Información básica requerida para el sistema' },
                   { step: 2, text: 'Registre las Normatividades Aplicables', subtext: 'Catálogo de regulaciones y su estado de cumplimiento' },
@@ -275,7 +274,7 @@ export default function AyudaPage() {
                   { step: 5, text: 'Visualice el Mapa de Riesgos', subtext: 'Matriz de probabilidad vs impacto' },
                   { step: 6, text: 'Priorice y Asigne Respuestas', subtext: 'Definición de estrategias y responsables' },
                 ].map((item) => (
-                  <Grid item xs={12} md={6} key={item.step}>
+                  <Box key={item.step}>
                     <Paper
                       elevation={0}
                       sx={{
@@ -297,7 +296,6 @@ export default function AyudaPage() {
                           sx={{
                             background: '#1976d2',
                             color: '#fff',
-                            color: 'white',
                             fontWeight: 700,
                             minWidth: 32,
                             height: 32,
@@ -313,13 +311,13 @@ export default function AyudaPage() {
                         </Box>
                       </Box>
                     </Paper>
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 }

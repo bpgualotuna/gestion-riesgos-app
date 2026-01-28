@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Grid,
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 import { useNotification } from '../../../hooks/useNotification';
@@ -69,146 +68,123 @@ export default function ContextoInternoPage() {
 
       <Card>
         <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Financieros"
-                value={formData.financieros}
-                onChange={handleChange('financieros')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+            <TextField
+              fullWidth
+              label="Financieros"
+              value={formData.financieros}
+              onChange={handleChange('financieros')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Gente"
-                value={formData.gente}
-                onChange={handleChange('gente')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Gente"
+              value={formData.gente}
+              onChange={handleChange('gente')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Procesos"
-                value={formData.procesos}
-                onChange={handleChange('procesos')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Procesos"
+              value={formData.procesos}
+              onChange={handleChange('procesos')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Activos Físicos"
-                value={formData.activosFisicos}
-                onChange={handleChange('activosFisicos')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Activos Físicos"
+              value={formData.activosFisicos}
+              onChange={handleChange('activosFisicos')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Cadena de Suministro"
-                value={formData.cadenaSuministro}
-                onChange={handleChange('cadenaSuministro')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Cadena de Suministro"
+              value={formData.cadenaSuministro}
+              onChange={handleChange('cadenaSuministro')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Información"
-                value={formData.informacion}
-                onChange={handleChange('informacion')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Información"
+              value={formData.informacion}
+              onChange={handleChange('informacion')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Sistemas"
-                value={formData.sistemas}
-                onChange={handleChange('sistemas')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Sistemas"
+              value={formData.sistemas}
+              onChange={handleChange('sistemas')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Proyectos"
-                value={formData.proyectos}
-                onChange={handleChange('proyectos')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Proyectos"
+              value={formData.proyectos}
+              onChange={handleChange('proyectos')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Impuestos"
-                value={formData.impuestos}
-                onChange={handleChange('impuestos')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Impuestos"
+              value={formData.impuestos}
+              onChange={handleChange('impuestos')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Grupos de Interés Internos"
-                value={formData.gruposInteresInternos}
-                onChange={handleChange('gruposInteresInternos')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Grupos de Interés Internos"
+              value={formData.gruposInteresInternos}
+              onChange={handleChange('gruposInteresInternos')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSave}
-                  sx={{
-                    background: '#1976d2',
-                    color: '#fff',
-                  }}
-                >
-                  Guardar Análisis
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+            <Box sx={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                sx={{
+                  background: '#1976d2',
+                  color: '#fff',
+                }}
+              >
+                Guardar Análisis
+              </Button>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
     </Box>
   );
 }
-

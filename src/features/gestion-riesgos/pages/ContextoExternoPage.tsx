@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Grid,
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 import { useNotification } from '../../../hooks/useNotification';
@@ -63,110 +62,93 @@ export default function ContextoExternoPage() {
 
       <Card>
         <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Económico"
-                value={formData.economico}
-                onChange={handleChange('economico')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <TextField
+              fullWidth
+              label="Económico"
+              value={formData.economico}
+              onChange={handleChange('economico')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Cultural y Social"
-                value={formData.culturalSocial}
-                onChange={handleChange('culturalSocial')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Cultural y Social"
+              value={formData.culturalSocial}
+              onChange={handleChange('culturalSocial')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Legal/Regulatorio"
-                value={formData.legalRegulatorio}
-                onChange={handleChange('legalRegulatorio')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Legal/Regulatorio"
+              value={formData.legalRegulatorio}
+              onChange={handleChange('legalRegulatorio')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Tecnológico"
-                value={formData.tecnologico}
-                onChange={handleChange('tecnologico')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Tecnológico"
+              value={formData.tecnologico}
+              onChange={handleChange('tecnologico')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Ambiental"
-                value={formData.ambiental}
-                onChange={handleChange('ambiental')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Ambiental"
+              value={formData.ambiental}
+              onChange={handleChange('ambiental')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Grupos de Interés Externos"
-                value={formData.gruposInteresExternos}
-                onChange={handleChange('gruposInteresExternos')}
-                multiline
-                rows={4}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Grupos de Interés Externos"
+              value={formData.gruposInteresExternos}
+              onChange={handleChange('gruposInteresExternos')}
+              multiline
+              rows={4}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Otros Factores Externos"
-                value={formData.otrosFactores}
-                onChange={handleChange('otrosFactores')}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Otros Factores Externos"
+              value={formData.otrosFactores}
+              onChange={handleChange('otrosFactores')}
+              multiline
+              rows={3}
+              variant="outlined"
+            />
 
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSave}
-                  sx={{
-                    background: '#1976d2',
-                    color: '#fff',
-                  }}
-                >
-                  Guardar Análisis
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                sx={{
+                  background: '#1976d2',
+                  color: '#fff',
+                }}
+              >
+                Guardar Análisis
+              </Button>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
     </Box>
   );
 }
-

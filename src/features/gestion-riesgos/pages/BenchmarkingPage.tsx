@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -93,79 +92,76 @@ export default function BenchmarkingPage() {
         </Button>
       </Box>
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
         {empresasData.map((empresaData) => (
-          <Grid item xs={12} md={4} key={empresaData.nombre}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" fontWeight={600}>
-                    {empresaData.nombre}
-                  </Typography>
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleAdd(empresaData.nombre)}
-                    sx={{
-                      background: '#1976d2',
-            color: '#fff',
-                    }}
-                  >
-                    Agregar
-                  </Button>
-                </Box>
+          <Card key={empresaData.nombre}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  {empresaData.nombre}
+                </Typography>
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAdd(empresaData.nombre)}
+                  sx={{
+                    background: '#1976d2',
+                    color: '#fff',
+                  }}
+                >
+                  Agregar
+                </Button>
+              </Box>
 
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Nro.</TableCell>
-                        <TableCell>Riesgo</TableCell>
-                        <TableCell>Acción</TableCell>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nro.</TableCell>
+                      <TableCell>Riesgo</TableCell>
+                      <TableCell>Acción</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {empresaData.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.numero}</TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            value={item.riesgo}
+                            onChange={(e) => handleChange(item.id, 'riesgo', e.target.value)}
+                            placeholder="Descripción del riesgo"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {empresaData.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.numero}</TableCell>
-                          <TableCell>
-                            <TextField
-                              size="small"
-                              fullWidth
-                              value={item.riesgo}
-                              onChange={(e) => handleChange(item.id, 'riesgo', e.target.value)}
-                              placeholder="Descripción del riesgo"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(item.id)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {empresaData.items.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              No hay riesgos registrados. Haz clic en "Agregar" para comenzar.
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
-          </Grid>
+                    ))}
+                    {empresaData.items.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No hay riesgos registrados. Haz clic en "Agregar" para comenzar.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
         ))}
-      </Grid>
+      </Box>
     </Box>
   );
 }
-

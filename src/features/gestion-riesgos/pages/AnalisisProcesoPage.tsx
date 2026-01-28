@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Grid,
   Paper,
   List,
   ListItem,
@@ -77,9 +76,9 @@ export default function AnalisisProcesoPage() {
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 3 }}>
         {/* Instructions Card */}
-        <Grid item xs={12} md={4}>
+        <Box>
           <Card
             elevation={0}
             sx={{
@@ -117,7 +116,6 @@ export default function AnalisisProcesoPage() {
                         sx={{
                           background: '#1976d2',
                           color: '#fff',
-                          color: 'white',
                           fontWeight: 600,
                           width: 24,
                           height: 24,
@@ -137,10 +135,10 @@ export default function AnalisisProcesoPage() {
               </List>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Main Editor Card */}
-        <Grid item xs={12} md={8}>
+        <Box>
           <Card
             elevation={0}
             sx={{
@@ -165,8 +163,8 @@ export default function AnalisisProcesoPage() {
             </Box>
 
             <CardContent sx={{ p: 4 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box>
                   <TextField
                     fullWidth
                     label="Descripción del Proceso"
@@ -182,9 +180,9 @@ export default function AnalisisProcesoPage() {
                       },
                     }}
                   />
-                </Grid>
+                </Box>
 
-                <Grid item xs={12}>
+                <Box>
                   <Paper
                     elevation={0}
                     sx={{
@@ -208,9 +206,9 @@ export default function AnalisisProcesoPage() {
                       </Box>
                     </Box>
                   </Paper>
-                </Grid>
+                </Box>
 
-                <Grid item xs={12}>
+                <Box>
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                     <Button
                       variant="outlined"
@@ -247,12 +245,12 @@ export default function AnalisisProcesoPage() {
                       Guardar Análisis
                     </Button>
                   </Box>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 }

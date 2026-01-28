@@ -531,8 +531,8 @@ export function createMockEvaluacion(data: {
 
   const nuevaEvaluacion: EvaluacionRiesgo = {
     id: `eval-${Date.now()}`,
-    riesgoId: data.riesgoId,
     ...data,
+    riesgoId: data.riesgoId,
     impactoGlobal: calcularImpactoGlobal(impactos),
     impactoMaximo,
     riesgoInherente,

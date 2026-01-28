@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-  Grid,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -194,16 +193,16 @@ export default function NormatividadPage() {
           {selectedNormatividad ? 'Editar Normatividad' : 'Nueva Normatividad'}
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField
                 fullWidth
                 label="Nombre de la Regulación Aplicable"
                 defaultValue={selectedNormatividad?.nombre || ''}
                 variant="outlined"
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Box>
+            <Box>
               <TextField
                 fullWidth
                 select
@@ -217,16 +216,16 @@ export default function NormatividadPage() {
                   </MenuItem>
                 ))}
               </TextField>
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Box>
+            <Box>
               <TextField
                 fullWidth
                 label="Regulador"
                 defaultValue={selectedNormatividad?.regulador || ''}
                 variant="outlined"
               />
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField
                 fullWidth
                 label="Sanciones Penales/Civiles/Económicas"
@@ -235,16 +234,16 @@ export default function NormatividadPage() {
                 defaultValue={selectedNormatividad?.sanciones || ''}
                 variant="outlined"
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Box>
+            <Box>
               <TextField
                 fullWidth
                 label="Plazo para Implementación"
                 defaultValue={selectedNormatividad?.plazoImplementacion || ''}
                 variant="outlined"
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Box>
+            <Box>
               <TextField
                 fullWidth
                 select
@@ -258,8 +257,8 @@ export default function NormatividadPage() {
                   </MenuItem>
                 ))}
               </TextField>
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField
                 fullWidth
                 label="Detalle del Incumplimiento"
@@ -268,8 +267,8 @@ export default function NormatividadPage() {
                 defaultValue={selectedNormatividad?.detalleIncumplimiento || ''}
                 variant="outlined"
               />
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField
                 fullWidth
                 label="Riesgo Identificado"
@@ -278,8 +277,8 @@ export default function NormatividadPage() {
                 defaultValue={selectedNormatividad?.riesgoIdentificado || ''}
                 variant="outlined"
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Box>
+            <Box>
               <TextField
                 fullWidth
                 select
@@ -290,8 +289,8 @@ export default function NormatividadPage() {
                 <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Riesgo Positivo</MenuItem>
                 <MenuItem value={CLASIFICACION_RIESGO.NEGATIVA}>Riesgo Negativo</MenuItem>
               </TextField>
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField
                 fullWidth
                 label="Comentarios Adicionales"
@@ -300,8 +299,8 @@ export default function NormatividadPage() {
                 defaultValue={selectedNormatividad?.comentarios || ''}
                 variant="outlined"
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
