@@ -114,19 +114,22 @@ export default function LoginPage() {
                 justifyContent: 'center',
                 background: '#1a1a1a',
                 borderRadius: '12px',
-                p: 2,
+                p: 3,
                 mb: 2,
                 border: '2.5px solid #c8d900',
                 boxShadow: '0 0 20px rgba(200, 217, 0, 0.3)',
+                minWidth: 180,
+                minHeight: 120,
               }}
             >
               <Box
                 component="img"
-                src="/LogoComware.png"
+                src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
                 alt="COMWARE Logo"
                 sx={{
-                  height: 60,
-                  width: 60,
+                  height: 'auto',
+                  width: '100%',
+                  maxWidth: 150,
                   objectFit: 'contain',
                 }}
               />

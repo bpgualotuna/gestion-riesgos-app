@@ -143,24 +143,25 @@ export default function MainLayout() {
               sx={{
                 background: '#1a1a1a',
                 borderRadius: '12px',
-                px: 1.8,
-                py: 1.2,
+                px: 2.5,
+                py: 2,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minWidth: 70,
-                minHeight: 60,
+                minWidth: 120,
+                minHeight: 80,
                 border: '2.5px solid #c8d900',
                 boxShadow: '0 0 15px rgba(200, 217, 0, 0.5)',
               }}
             >
               <Box
                 component="img"
-                src="/LogoComware.png"
+                src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
                 alt="COMWARE Logo"
                 sx={{
-                  height: 52,
-                  width: 52,
+                  height: 'auto',
+                  width: '100%',
+                  maxWidth: 100,
                   objectFit: 'contain',
                 }}
               />
