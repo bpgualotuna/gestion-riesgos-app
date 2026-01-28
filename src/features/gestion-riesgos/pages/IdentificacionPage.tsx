@@ -20,9 +20,9 @@ import { Add as AddIcon } from '@mui/icons-material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetRiesgosQuery } from '../api/riesgosApi';
 import AppDataGrid from '../../../components/ui/AppDataGrid';
-import { CLASIFICACION_RIESGO } from '../../../utils/constants';
+import { CLASIFICACION_RIESGO, type ClasificacionRiesgo } from '../../../utils/constants';
 import { useDebounce } from '../../../hooks/useDebounce';
-import type { Riesgo } from '../types';
+import type { Riesgo, FiltrosRiesgo } from '../types';
 
 export default function IdentificacionPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,10 +32,12 @@ export default function IdentificacionPage() {
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  const { data, isLoading } = useGetRiesgosQuery({
+  const filtros: FiltrosRiesgo = {
     busqueda: debouncedSearch,
-    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as any),
-  });
+    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as ClasificacionRiesgo),
+  };
+
+  const { data, isLoading } = useGetRiesgosQuery(filtros);
 
   const columns: GridColDef[] = [
     {

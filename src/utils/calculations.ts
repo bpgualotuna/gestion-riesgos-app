@@ -227,13 +227,13 @@ export function generarIdRiesgo(vicepresidencia: string, gerencia: string): stri
 /**
  * Simula VLOOKUP de Excel
  */
-export function vlookup<T>(
-  valor: any,
+export function vlookup<T, K extends keyof T>(
+  valor: T[K],
   tabla: T[],
-  columnaBusqueda: keyof T,
+  columnaBusqueda: K,
   columnaResultado: keyof T,
-  valorPorDefecto: any = null
-): any {
+  valorPorDefecto: T[keyof T] | null = null
+): T[keyof T] | null {
   const fila = tabla.find((fila) => fila[columnaBusqueda] === valor);
   return fila ? fila[columnaResultado] : valorPorDefecto;
 }

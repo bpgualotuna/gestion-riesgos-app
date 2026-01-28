@@ -16,14 +16,17 @@ import {
 } from '@mui/material';
 import { useGetPuntosMapaQuery } from '../api/riesgosApi';
 import { colors } from '../../../app/theme/colors';
-import { CLASIFICACION_RIESGO } from '../../../utils/constants';
+import { CLASIFICACION_RIESGO, type ClasificacionRiesgo } from '../../../utils/constants';
+import type { FiltrosRiesgo } from '../types';
 
 export default function MapaPage() {
   const [clasificacion, setClasificacion] = useState<string>('all');
 
-  const { data: puntos } = useGetPuntosMapaQuery({
-    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as any),
-  });
+  const filtros: FiltrosRiesgo = {
+    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as ClasificacionRiesgo),
+  };
+
+  const { data: puntos } = useGetPuntosMapaQuery(filtros);
 
   // Create 5x5 matrix
   const matriz: { [key: string]: typeof puntos } = {};
