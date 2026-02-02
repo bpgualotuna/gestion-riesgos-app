@@ -1,44 +1,20 @@
 # Sistema de Autenticación - COMWARE
 
-## 📋 Usuarios de Prueba
+## 📋 Usuario de Prueba
 
-El sistema cuenta con 3 usuarios predefinidos con diferentes roles y permisos:
+El sistema cuenta con un único usuario para gestión de procesos:
 
-### 1. Administrador
+### Dueño de Procesos
 
-- **Usuario:** `admin`
-- **Contraseña:** `admin123`
-- **Nombre Completo:** Carlos Administrador
-- **Email:** admin@comware.com
-- **Rol:** Admin
-- **Departamento:** Tecnología
-- **Posición:** Administrador del Sistema
+- **Usuario:** `dueño_procesos`
+- **Contraseña:** `dueño123`
+- **Nombre Completo:** Dueño de Procesos
+- **Email:** dueño@comware.com
+- **Rol:** Dueño de Procesos
+- **Departamento:** Gestión de Procesos
+- **Posición:** Dueño de Procesos
 - **Teléfono:** +57 300 123 4567
-- **Permisos:** Acceso completo al sistema
-
-### 2. Gerente
-
-- **Usuario:** `manager`
-- **Contraseña:** `manager123`
-- **Nombre Completo:** María Gerente
-- **Email:** manager@comware.com
-- **Rol:** Manager
-- **Departamento:** Talento Humano
-- **Posición:** Gerente de Riesgos
-- **Teléfono:** +57 301 234 5678
-- **Permisos:** Gestión de riesgos y reportes
-
-### 3. Analista
-
-- **Usuario:** `analyst`
-- **Contraseña:** `analyst123`
-- **Nombre Completo:** Juan Analista
-- **Email:** analyst@comware.com
-- **Rol:** Analyst
-- **Departamento:** Talento Humano
-- **Posición:** Analista de Riesgos
-- **Teléfono:** +57 302 345 6789
-- **Permisos:** Análisis y evaluación de riesgos
+- **Permisos:** Gestión completa de procesos (crear, editar, eliminar procesos)
 
 ## 🔐 Características de Autenticación
 

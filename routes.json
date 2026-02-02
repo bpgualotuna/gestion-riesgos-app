@@ -1,0 +1,13 @@
+{
+  "/api/procesos": "/procesos",
+  "/api/riesgos": "/riesgos",
+  "/api/evaluaciones": "/evaluaciones",
+  "/api/priorizaciones": "/priorizaciones",
+  "/api/planesAccion": "/planesAccion",
+  "/api/tareas": "/tareas",
+  "/api/notificaciones": "/notificaciones",
+  "/api/observaciones": "/observaciones",
+  "/api/historial": "/historial",
+  "/api/areas": "/areas"
+}
+

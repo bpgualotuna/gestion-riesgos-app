@@ -31,7 +31,11 @@ import {
   AccountTree as AccountTreeIcon,
   CompareArrows as CompareArrowsIcon,
   Search as SearchIcon,
+  SupervisorAccount as SupervisorAccountIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useGetProcesosQuery } from '../api/riesgosApi';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 
 const secciones = [
   {
@@ -77,6 +81,14 @@ const secciones = [
 ];
 
 export default function AyudaPage() {
+  const { esDirectorProcesos, user } = useAuth();
+  const { data: procesos = [] } = useGetProcesosQuery();
+  
+  // Si es director, obtener procesos que supervisa
+  const procesosDirector = esDirectorProcesos && user
+    ? procesos.filter((p) => p.directorId === user.id)
+    : [];
+
   return (
     <Box>
       {/* Header Section */}

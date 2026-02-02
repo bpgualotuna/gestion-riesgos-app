@@ -114,10 +114,19 @@ export const ROUTES = {
   BENCHMARKING: '/benchmarking',
   AYUDA: '/ayuda',
   LOGIN: '/login',
+  PROCESOS: '/procesos',
+  PROCESOS_NUEVO: '/procesos/nuevo',
+  RIESGOS_PROCESOS: '/riesgos-procesos',
+  ADMINISTRACION: '/administracion',
+  SUPERVISION: '/supervision',
+  RESUMEN_DIRECTOR: '/resumen-director',
+  PLAN_ACCION: '/plan-accion',
+  TAREAS: '/tareas',
+  HISTORIAL: '/historial',
 } as const;
 
 // API Base URL (configurar según entorno)
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Configuración de Paginación
 export const PAGINATION = {

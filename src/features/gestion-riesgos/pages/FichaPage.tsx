@@ -14,9 +14,11 @@ import {
   Alert,
   Paper,
   Divider,
+  Chip,
 } from '@mui/material';
-import { Save as SaveIcon, Info as InfoIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { useNotification } from '../../../hooks/useNotification';
+import { useProceso } from '../../../contexts/ProcesoContext';
 
 interface FichaData {
   vicepresidencia: string;
@@ -30,14 +32,33 @@ interface FichaData {
 
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
-  const [formData, setFormData] = useState<FichaData>({
-    vicepresidencia: 'Gestión Financiera y Administrativa',
-    gerencia: 'Dirección Financiera Administrativa',
-    subdivision: 'Talento Humano',
-    responsable: 'Katherine Chávez',
-    cargo: 'Analista de Talento Humano',
-    fecha: new Date().toISOString().split('T')[0],
-    objetivoProceso: '',
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  // La ficha es del proceso, solo depende del modo del proceso
+  const isReadOnly = modoProceso === 'visualizar';
+  const isEditMode = modoProceso === 'editar';
+
+  // Cargar datos del proceso seleccionado si existe
+  const [formData, setFormData] = useState<FichaData>(() => {
+    if (procesoSeleccionado) {
+      return {
+        vicepresidencia: procesoSeleccionado.vicepresidencia || '',
+        gerencia: procesoSeleccionado.gerencia || '',
+        subdivision: procesoSeleccionado.tipoProceso || '',
+        responsable: procesoSeleccionado.responsable || '',
+        cargo: procesoSeleccionado.responsable || '',
+        fecha: new Date().toISOString().split('T')[0],
+        objetivoProceso: procesoSeleccionado.objetivoProceso || '',
+      };
+    }
+    return {
+      vicepresidencia: 'Gestión Financiera y Administrativa',
+      gerencia: 'Dirección Financiera Administrativa',
+      subdivision: 'Talento Humano',
+      responsable: 'Katherine Chávez',
+      cargo: 'Analista de Talento Humano',
+      fecha: new Date().toISOString().split('T')[0],
+      objetivoProceso: '',
+    };
   });
 
   const handleChange = (field: keyof FichaData) => (
@@ -64,24 +85,60 @@ export default function FichaPage() {
     }
   };
 
+  // Verificar si hay proceso seleccionado
+  if (!procesoSeleccionado) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          Por favor seleccione un proceso desde el Dashboard para ver o editar su ficha
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Header Section */}
       <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          gutterBottom 
-          fontWeight={700}
-          sx={{
-            color: '#1976d2',
-            fontWeight: 700,
-          }}
-        >
-          Ficha del Proceso
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-          Formulario de diligenciamiento obligatorio con información básica del proceso
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box>
+            <Typography 
+              variant="h4" 
+              gutterBottom 
+              fontWeight={700}
+              sx={{
+                color: '#1976d2',
+                fontWeight: 700,
+              }}
+            >
+              Ficha del Proceso
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+              Formulario de diligenciamiento obligatorio con información básica del proceso
+            </Typography>
+          </Box>
+          {isReadOnly && (
+            <Chip
+              icon={<VisibilityIcon />}
+              label="Modo Visualización"
+              color="info"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {isEditMode && (
+            <Chip
+              icon={<EditIcon />}
+              label="Modo Edición"
+              color="warning"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+        </Box>
+        {isReadOnly && modoProceso === 'visualizar' && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
+          </Alert>
+        )}
       </Box>
 
       {/* Info Alert */}
@@ -133,6 +190,7 @@ export default function FichaPage() {
                 value={formData.vicepresidencia}
                 onChange={handleChange('vicepresidencia')}
                 required
+                disabled={isReadOnly}
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -149,6 +207,7 @@ export default function FichaPage() {
                 value={formData.gerencia}
                 onChange={handleChange('gerencia')}
                 required
+                disabled={isReadOnly}
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -164,6 +223,7 @@ export default function FichaPage() {
                 label="Subdivisión"
                 value={formData.subdivision}
                 onChange={handleChange('subdivision')}
+                disabled={isReadOnly}
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -181,6 +241,7 @@ export default function FichaPage() {
                 value={formData.fecha}
                 onChange={handleChange('fecha')}
                 InputLabelProps={{ shrink: true }}
+                disabled={isReadOnly}
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -207,6 +268,7 @@ export default function FichaPage() {
                 value={formData.responsable}
                 onChange={handleChange('responsable')}
                 required
+                disabled={isReadOnly}
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -222,6 +284,7 @@ export default function FichaPage() {
                 label="Cargo"
                 value={formData.cargo}
                 onChange={handleChange('cargo')}
+                disabled={isReadOnly}
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -249,6 +312,7 @@ export default function FichaPage() {
                 onChange={handleChange('objetivoProceso')}
                 multiline
                 rows={5}
+                disabled={isReadOnly}
                 variant="outlined"
                 placeholder="Describa el objetivo principal del proceso..."
                 sx={{
@@ -259,48 +323,50 @@ export default function FichaPage() {
               />
             </Box>
 
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setFormData({
-                      vicepresidencia: '',
-                      gerencia: '',
-                      subdivision: '',
-                      responsable: '',
-                      cargo: '',
-                      fecha: new Date().toISOString().split('T')[0],
-                      objetivoProceso: '',
-                    });
-                  }}
-                  sx={{
-                    borderRadius: 2,
-                    px: 3,
-                  }}
-                >
-                  Limpiar
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSave}
-                  sx={{
-                    borderRadius: 2,
-                    px: 4,
-                    background: '#1976d2',
-                    '&:hover': {
-                      background: '#1565c0',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    },
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  Guardar Ficha
-                </Button>
+            {!isReadOnly && (
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setFormData({
+                        vicepresidencia: procesoSeleccionado?.vicepresidencia || '',
+                        gerencia: procesoSeleccionado?.gerencia || '',
+                        subdivision: procesoSeleccionado?.tipoProceso || '',
+                        responsable: procesoSeleccionado?.responsable || '',
+                        cargo: procesoSeleccionado?.responsable || '',
+                        fecha: new Date().toISOString().split('T')[0],
+                        objetivoProceso: procesoSeleccionado?.objetivoProceso || '',
+                      });
+                    }}
+                    sx={{
+                      borderRadius: 2,
+                      px: 3,
+                    }}
+                  >
+                    Limpiar
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSave}
+                    sx={{
+                      borderRadius: 2,
+                      px: 4,
+                      background: '#1976d2',
+                      '&:hover': {
+                        background: '#1565c0',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    Guardar Ficha
+                  </Button>
+                </Box>
               </Box>
-            </Box>
+            )}
           </Box>
         </CardContent>
       </Card>

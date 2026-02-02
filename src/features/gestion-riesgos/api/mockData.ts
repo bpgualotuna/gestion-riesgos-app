@@ -11,6 +11,8 @@ import type {
   RiesgoReciente,
   PuntoMapa,
   PaginatedResponse,
+  Proceso,
+  CreateProcesoDto,
 } from '../types';
 import {
   calcularImpactoGlobal,
@@ -24,6 +26,7 @@ import { CLASIFICACION_RIESGO, NIVELES_RIESGO, RESPUESTAS_RIESGO } from '../../.
 const mockRiesgos: Riesgo[] = [
   {
     id: '1',
+    procesoId: '1', // Talento Humano
     numero: 1,
     descripcion: 'Probabilidad de afectar la continuidad operacional por falta de personal capacitado en procesos críticos',
     clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
@@ -33,11 +36,16 @@ const mockRiesgos: Riesgo[] = [
     tipologiaNivelII: 'Falta de actualización o cumplimiento de procedimientos',
     causaRiesgo: 'Personas',
     fuenteCausa: 'Selección de candidatos que no cumplen con el perfil requerido',
+    vicepresidenciaGerenciaAlta: 'Gestión Financiera y Administrativa',
+    siglaVicepresidencia: 'GFA',
+    gerencia: 'Dirección Financiera Administrativa',
+    siglaGerencia: 'GFA',
     createdAt: '2024-01-15T10:00:00Z',
     updatedAt: '2024-01-20T14:30:00Z',
   },
   {
     id: '2',
+    procesoId: '1', // Talento Humano
     numero: 2,
     descripcion: 'Riesgo de incumplimiento normativo en contratación laboral',
     clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
@@ -47,11 +55,16 @@ const mockRiesgos: Riesgo[] = [
     tipologiaNivelII: 'Cumplimiento regulatorio',
     causaRiesgo: 'Proceso',
     fuenteCausa: 'Falta de actualización de normativas laborales',
+    vicepresidenciaGerenciaAlta: 'Gestión Financiera y Administrativa',
+    siglaVicepresidencia: 'GFA',
+    gerencia: 'Dirección Financiera Administrativa',
+    siglaGerencia: 'GFA',
     createdAt: '2024-01-16T09:00:00Z',
     updatedAt: '2024-01-21T11:00:00Z',
   },
   {
     id: '3',
+    procesoId: '1', // Talento Humano
     numero: 3,
     descripcion: 'Oportunidad de mejora en procesos de reclutamiento mediante plataformas digitales',
     clasificacion: CLASIFICACION_RIESGO.POSITIVA,
@@ -61,11 +74,16 @@ const mockRiesgos: Riesgo[] = [
     tipologiaNivelII: 'Innovación tecnológica',
     causaRiesgo: 'Tecnología',
     fuenteCausa: 'Avances en plataformas de reclutamiento',
+    vicepresidenciaGerenciaAlta: 'Gestión Financiera y Administrativa',
+    siglaVicepresidencia: 'GFA',
+    gerencia: 'Dirección Financiera Administrativa',
+    siglaGerencia: 'GFA',
     createdAt: '2024-01-17T08:00:00Z',
     updatedAt: '2024-01-22T10:00:00Z',
   },
   {
     id: '4',
+    procesoId: '1', // Talento Humano
     numero: 4,
     descripcion: 'Riesgo de pérdida de talento clave por falta de planes de retención',
     clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
@@ -80,6 +98,7 @@ const mockRiesgos: Riesgo[] = [
   },
   {
     id: '5',
+    procesoId: '1', // Talento Humano
     numero: 5,
     descripcion: 'Riesgo de afectación reputacional por manejo inadecuado de conflictos laborales',
     clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
@@ -94,6 +113,7 @@ const mockRiesgos: Riesgo[] = [
   },
   {
     id: '6',
+    procesoId: '1', // Talento Humano
     numero: 6,
     descripcion: 'Riesgo económico por costos elevados en procesos de contratación',
     clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
@@ -108,6 +128,7 @@ const mockRiesgos: Riesgo[] = [
   },
   {
     id: '7',
+    procesoId: '1', // Talento Humano
     numero: 7,
     descripcion: 'Riesgo de afectación a la salud ocupacional por falta de programas de bienestar',
     clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
@@ -122,6 +143,7 @@ const mockRiesgos: Riesgo[] = [
   },
   {
     id: '8',
+    procesoId: '1', // Talento Humano
     numero: 8,
     descripcion: 'Oportunidad de implementar modalidades de trabajo flexibles',
     clasificacion: CLASIFICACION_RIESGO.POSITIVA,
@@ -357,6 +379,7 @@ const mockPriorizaciones: PriorizacionRiesgo[] = [
 // Función para obtener riesgos con paginación y filtros
 export function getMockRiesgos(
   filtros?: {
+    procesoId?: string; // Filtrar por ID de proceso
     busqueda?: string;
     clasificacion?: string;
     proceso?: string;
@@ -366,6 +389,11 @@ export function getMockRiesgos(
   }
 ): PaginatedResponse<Riesgo> {
   let filtered = [...mockRiesgos];
+
+  // Filtrar por procesoId primero (prioridad)
+  if (filtros?.procesoId) {
+    filtered = filtered.filter((r) => r.procesoId === filtros.procesoId);
+  }
 
   // Aplicar filtros
   if (filtros?.busqueda) {
@@ -411,11 +439,24 @@ export function getMockEvaluacionesByRiesgo(riesgoId: string): EvaluacionRiesgo[
 }
 
 // Función para obtener estadísticas
-export function getMockEstadisticas(): EstadisticasRiesgo {
-  const evaluados = mockEvaluaciones.length;
-  const sinEvaluar = mockRiesgos.length - evaluados;
+export function getMockEstadisticas(procesoId?: string): EstadisticasRiesgo {
+  let riesgosFiltrados = mockRiesgos;
+  if (procesoId) {
+    riesgosFiltrados = mockRiesgos.filter((r) => r.procesoId === procesoId);
+  }
+
+  const evaluados = mockEvaluaciones.filter((e) => {
+    const riesgo = riesgosFiltrados.find((r) => r.id === e.riesgoId);
+    return riesgo !== undefined;
+  }).length;
+  const sinEvaluar = riesgosFiltrados.length - evaluados;
   
-  const niveles = mockEvaluaciones.reduce(
+  const evaluacionesFiltradas = mockEvaluaciones.filter((e) => {
+    const riesgo = riesgosFiltrados.find((r) => r.id === e.riesgoId);
+    return riesgo !== undefined;
+  });
+
+  const niveles = evaluacionesFiltradas.reduce(
     (acc, evaluacion) => {
       if (evaluacion.nivelRiesgo === NIVELES_RIESGO.CRITICO) acc.criticos++;
       else if (evaluacion.nivelRiesgo === NIVELES_RIESGO.ALTO) acc.altos++;
@@ -426,13 +467,13 @@ export function getMockEstadisticas(): EstadisticasRiesgo {
     { criticos: 0, altos: 0, medios: 0, bajos: 0 }
   );
 
-  const positivos = mockRiesgos.filter(
+  const positivos = riesgosFiltrados.filter(
     (r) => r.clasificacion === CLASIFICACION_RIESGO.POSITIVA
   ).length;
-  const negativos = mockRiesgos.length - positivos;
+  const negativos = riesgosFiltrados.length - positivos;
 
   return {
-    totalRiesgos: mockRiesgos.length,
+    totalRiesgos: riesgosFiltrados.length,
     criticos: niveles.criticos,
     altos: niveles.altos,
     medios: niveles.medios,
@@ -483,6 +524,8 @@ export function getMockPuntosMapa(filtros?: {
         impacto: evaluacion.impactoMaximo,
         nivelRiesgo: evaluacion.nivelRiesgo,
         clasificacion: riesgo.clasificacion,
+        numero: riesgo.numero,
+        siglaGerencia: riesgo.siglaGerencia,
       };
     })
     .filter((p): p is PuntoMapa => p !== null);
@@ -567,5 +610,114 @@ export function createMockPriorizacion(data: {
 
   mockPriorizaciones.push(nuevaPriorizacion);
   return nuevaPriorizacion;
+}
+
+// ============================================
+// MOCK PROCESOS
+// ============================================
+
+const mockProcesos: Proceso[] = [
+  {
+    id: '1',
+    nombre: 'Talento Humano',
+    descripcion: 'Gestión de recursos humanos y talento humano',
+    vicepresidencia: 'Vicepresidencia de Talento Humano',
+    gerencia: 'Gerencia de Talento Humano',
+    responsable: 'Katherine Chávez',
+    responsableId: '1',
+    responsableNombre: 'Katherine Chávez',
+    areaId: '2',
+    areaNombre: 'Talento Humano',
+    directorId: '5', // Asignado al director de procesos
+    directorNombre: 'Carlos Rodríguez',
+    objetivoProceso: 'Gestionar eficientemente el capital humano de la organización',
+    tipoProceso: 'Talento Humano',
+    activo: true,
+    estado: 'borrador',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: '2',
+    nombre: 'Planificación Financiera',
+    descripcion: 'Gestión de planificación y presupuesto financiero',
+    vicepresidencia: 'Vicepresidencia Financiera',
+    gerencia: 'Gerencia de Planificación Financiera',
+    responsable: 'María González',
+    responsableId: '2',
+    responsableNombre: 'María González',
+    areaId: '1',
+    areaNombre: 'Gestión Financiera y Administrativa',
+    directorId: '5', // Asignado al director de procesos
+    directorNombre: 'Carlos Rodríguez',
+    objetivoProceso: 'Planificar y gestionar los recursos financieros de la organización',
+    tipoProceso: 'Planificación Financiera',
+    activo: true,
+    estado: 'borrador',
+    createdAt: '2024-01-02T00:00:00Z',
+    updatedAt: '2024-01-02T00:00:00Z',
+  },
+  {
+    id: '3',
+    nombre: 'Operaciones',
+    descripcion: 'Gestión de operaciones y procesos operativos',
+    vicepresidencia: 'Vicepresidencia Operativa',
+    gerencia: 'Gerencia de Operaciones',
+    responsable: 'Juan Pérez',
+    responsableId: '3',
+    responsableNombre: 'Juan Pérez',
+    areaId: '3',
+    areaNombre: 'Operaciones',
+    directorId: '5', // Asignado al director de procesos
+    directorNombre: 'Carlos Rodríguez',
+    objetivoProceso: 'Gestionar eficientemente las operaciones de la organización',
+    tipoProceso: 'Otro',
+    activo: true,
+    estado: 'borrador',
+    createdAt: '2024-01-03T00:00:00Z',
+    updatedAt: '2024-01-03T00:00:00Z',
+  },
+];
+
+export function getMockProcesos(): Proceso[] {
+  return mockProcesos.filter((p) => p.activo);
+}
+
+export function getMockProcesoById(id: string): Proceso | undefined {
+  return mockProcesos.find((p) => p.id === id && p.activo);
+}
+
+export function createMockProceso(data: CreateProcesoDto): Proceso {
+  const nuevoProceso: Proceso = {
+    id: `proceso-${Date.now()}`,
+    ...data,
+    activo: true,
+    estado: 'borrador', // Estado inicial por defecto
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  mockProcesos.push(nuevoProceso);
+  return nuevoProceso;
+}
+
+export function updateMockProceso(id: string, data: Partial<CreateProcesoDto & { estado?: string; gerenteId?: string; gerenteNombre?: string; fechaEnviadoRevision?: string; fechaAprobado?: string }>): Proceso {
+  const index = mockProcesos.findIndex((p) => p.id === id);
+  if (index === -1) {
+    throw new Error('Proceso no encontrado');
+  }
+  mockProcesos[index] = {
+    ...mockProcesos[index],
+    ...data,
+    updatedAt: new Date().toISOString(),
+  };
+  return mockProcesos[index];
+}
+
+export function deleteMockProceso(id: string): void {
+  const index = mockProcesos.findIndex((p) => p.id === id);
+  if (index !== -1) {
+    mockProcesos[index].activo = false;
+    mockProcesos[index].updatedAt = new Date().toISOString();
+  }
 }
 

@@ -17,11 +17,13 @@ import {
   DialogContent,
   DialogActions,
   Chip,
+  Alert,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { GridColDef } from '@mui/x-data-grid';
 import AppDataGrid from '../../../components/ui/AppDataGrid';
 import { useNotification } from '../../../hooks/useNotification';
+import { useProceso } from '../../../contexts/ProcesoContext';
 import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO } from '../../../utils/constants';
 import { formatDate } from '../../../utils/formatters';
 
@@ -73,6 +75,8 @@ const mockNormatividades: Normatividad[] = [
 
 export default function NormatividadPage() {
   const { showSuccess, showError } = useNotification();
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  const isReadOnly = modoProceso === 'visualizar';
   const [normatividades] = useState<Normatividad[]>(mockNormatividades);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedNormatividad, setSelectedNormatividad] = useState<Normatividad | null>(null);
@@ -144,6 +148,16 @@ export default function NormatividadPage() {
     },
   ];
 
+  if (!procesoSeleccionado) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          Por favor seleccione un proceso desde el Dashboard
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -152,27 +166,52 @@ export default function NormatividadPage() {
             Inventario de Normatividad
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Catálogo de normativas aplicables al proceso de Talento Humano
+            Catálogo de normativas aplicables al proceso
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setSelectedNormatividad(null);
-            setDialogOpen(true);
-          }}
-          sx={{
-            background: '#1976d2',
-            color: '#fff',
-            '&:hover': {
-              background: '#1565c0',
-            },
-          }}
-        >
-          Nueva Normatividad
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {isReadOnly && (
+            <Chip
+              icon={<VisibilityIcon />}
+              label="Modo Visualización"
+              color="info"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {modoProceso === 'editar' && (
+            <Chip
+              icon={<EditIcon />}
+              label="Modo Edición"
+              color="warning"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {!isReadOnly && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setSelectedNormatividad(null);
+                setDialogOpen(true);
+              }}
+              sx={{
+                background: '#1976d2',
+                color: '#fff',
+                '&:hover': {
+                  background: '#1565c0',
+                },
+              }}
+            >
+              Nueva Normatividad
+            </Button>
+          )}
+        </Box>
       </Box>
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Está en modo visualización. Solo puede ver la información.
+        </Alert>
+      )}
 
       <Card>
         <CardContent>
@@ -199,6 +238,7 @@ export default function NormatividadPage() {
                 fullWidth
                 label="Nombre de la Regulación Aplicable"
                 defaultValue={selectedNormatividad?.nombre || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
@@ -208,6 +248,7 @@ export default function NormatividadPage() {
                 select
                 label="Estado"
                 defaultValue={selectedNormatividad?.estado || 'Existente'}
+                disabled={isReadOnly}
                 variant="outlined"
               >
                 {ESTADOS_NORMATIVIDAD.map((estado) => (
@@ -222,6 +263,7 @@ export default function NormatividadPage() {
                 fullWidth
                 label="Regulador"
                 defaultValue={selectedNormatividad?.regulador || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
@@ -232,6 +274,7 @@ export default function NormatividadPage() {
                 multiline
                 rows={3}
                 defaultValue={selectedNormatividad?.sanciones || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
@@ -240,6 +283,7 @@ export default function NormatividadPage() {
                 fullWidth
                 label="Plazo para Implementación"
                 defaultValue={selectedNormatividad?.plazoImplementacion || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
@@ -249,6 +293,7 @@ export default function NormatividadPage() {
                 select
                 label="Cumplimiento"
                 defaultValue={selectedNormatividad?.cumplimiento || 'Total'}
+                disabled={isReadOnly}
                 variant="outlined"
               >
                 {NIVELES_CUMPLIMIENTO.map((nivel) => (
@@ -265,6 +310,7 @@ export default function NormatividadPage() {
                 multiline
                 rows={3}
                 defaultValue={selectedNormatividad?.detalleIncumplimiento || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
@@ -275,6 +321,7 @@ export default function NormatividadPage() {
                 multiline
                 rows={2}
                 defaultValue={selectedNormatividad?.riesgoIdentificado || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
@@ -284,6 +331,7 @@ export default function NormatividadPage() {
                 select
                 label="Clasificación"
                 defaultValue={selectedNormatividad?.clasificacion || CLASIFICACION_RIESGO.NEGATIVA}
+                disabled={isReadOnly}
                 variant="outlined"
               >
                 <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Riesgo Positivo</MenuItem>
@@ -297,26 +345,29 @@ export default function NormatividadPage() {
                 multiline
                 rows={2}
                 defaultValue={selectedNormatividad?.comentarios || ''}
+                disabled={isReadOnly}
                 variant="outlined"
               />
             </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              showSuccess('Normatividad guardada exitosamente');
-              setDialogOpen(false);
-            }}
-            sx={{
-              background: '#1976d2',
-              color: '#fff',
-            }}
-          >
-            Guardar
-          </Button>
+          <Button onClick={() => setDialogOpen(false)}>Cerrar</Button>
+          {!isReadOnly && (
+            <Button
+              variant="contained"
+              onClick={() => {
+                showSuccess('Normatividad guardada exitosamente');
+                setDialogOpen(false);
+              }}
+              sx={{
+                background: '#1976d2',
+                color: '#fff',
+              }}
+            >
+              Guardar
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

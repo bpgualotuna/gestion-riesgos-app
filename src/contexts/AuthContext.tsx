@@ -7,7 +7,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 // User roles
-export type UserRole = 'admin' | 'manager' | 'analyst';
+export type UserRole = 'admin' | 'manager' | 'analyst' | 'dueño_procesos' | 'director_procesos';
 
 // User interface
 export interface User {
@@ -20,27 +20,29 @@ export interface User {
   avatar?: string;
   phone?: string;
   position: string;
+  esDueñoProcesos?: boolean; // Indica si es dueño de procesos
 }
 
 // Hardcoded users database
 const USERS_DB: Array<User & { password: string }> = [
   {
     id: '1',
-    username: 'admin',
-    password: 'admin123',
-    email: 'admin@comware.com',
-    fullName: 'Carlos Administrador',
-    role: 'admin',
-    department: 'Tecnología',
-    position: 'Administrador del Sistema',
+    username: 'dueño_procesos',
+    password: 'dueño123',
+    email: 'katherine.chavez@comware.com',
+    fullName: 'Katherine Chávez',
+    role: 'dueño_procesos',
+    department: 'Gestión de Procesos',
+    position: 'Dueño de Procesos',
     phone: '+57 300 123 4567',
+    esDueñoProcesos: true,
   },
   {
     id: '2',
     username: 'manager',
     password: 'manager123',
-    email: 'manager@comware.com',
-    fullName: 'María Gerente',
+    email: 'maria.gonzalez@comware.com',
+    fullName: 'María González',
     role: 'manager',
     department: 'Talento Humano',
     position: 'Gerente de Riesgos',
@@ -50,12 +52,34 @@ const USERS_DB: Array<User & { password: string }> = [
     id: '3',
     username: 'analyst',
     password: 'analyst123',
-    email: 'analyst@comware.com',
-    fullName: 'Juan Analista',
+    email: 'juan.perez@comware.com',
+    fullName: 'Juan Pérez',
     role: 'analyst',
     department: 'Talento Humano',
     position: 'Analista de Riesgos',
     phone: '+57 302 345 6789',
+  },
+  {
+    id: '4',
+    username: 'admin',
+    password: 'admin123',
+    email: 'andres.martinez@comware.com',
+    fullName: 'Andrés Martínez',
+    role: 'admin',
+    department: 'TI',
+    position: 'Administrador',
+    phone: '+57 303 456 7890',
+  },
+  {
+    id: '5',
+    username: 'director',
+    password: 'director123',
+    email: 'carlos.rodriguez@comware.com',
+    fullName: 'Carlos Rodríguez',
+    role: 'director_procesos',
+    department: 'Gestión Financiera y Administrativa',
+    position: 'Director de Procesos',
+    phone: '+57 304 567 8901',
   },
 ];
 
@@ -66,6 +90,9 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
+  esDueñoProcesos: boolean; // Helper para verificar si es dueño de procesos
+  esAdmin: boolean; // Helper para verificar si es admin
+  esDirectorProcesos: boolean; // Helper para verificar si es director de procesos
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,6 +155,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     isLoading,
+    esDueñoProcesos: user?.esDueñoProcesos === true || user?.role === 'dueño_procesos',
+    esAdmin: user?.role === 'admin',
+    esDirectorProcesos: user?.role === 'director_procesos',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

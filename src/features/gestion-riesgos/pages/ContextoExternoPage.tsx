@@ -11,9 +11,12 @@ import {
   CardContent,
   TextField,
   Button,
+  Alert,
+  Chip,
 } from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useNotification } from '../../../hooks/useNotification';
+import { useProceso } from '../../../contexts/ProcesoContext';
 
 interface ContextoExterno {
   economico: string;
@@ -27,6 +30,8 @@ interface ContextoExterno {
 
 export default function ContextoExternoPage() {
   const { showSuccess } = useNotification();
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  const isReadOnly = modoProceso === 'visualizar';
   const [formData, setFormData] = useState<ContextoExterno>({
     economico: 'Alta demanda del mercado por perfiles especializados en tecnologías emergentes...',
     culturalSocial: 'Preferencia del sector laboral tecnológico por modalidades de trabajo flexibles...',
@@ -51,14 +56,49 @@ export default function ContextoExternoPage() {
     showSuccess('Análisis de contexto externo guardado exitosamente');
   };
 
+  if (!procesoSeleccionado) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          Por favor seleccione un proceso desde el Dashboard
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight={700}>
-        Análisis de Contexto Externo
-      </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Análisis de factores externos que afectan el proceso de Talento Humano
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom fontWeight={700}>
+            Análisis de Contexto Externo
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Análisis de factores externos que afectan el proceso
+          </Typography>
+        </Box>
+        {isReadOnly && (
+          <Chip
+            icon={<VisibilityIcon />}
+            label="Modo Visualización"
+            color="info"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+        {modoProceso === 'editar' && (
+          <Chip
+            icon={<EditIcon />}
+            label="Modo Edición"
+            color="warning"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+      </Box>
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Está en modo visualización. Solo puede ver la información.
+        </Alert>
+      )}
 
       <Card>
         <CardContent>
@@ -68,6 +108,7 @@ export default function ContextoExternoPage() {
               label="Económico"
               value={formData.economico}
               onChange={handleChange('economico')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -78,6 +119,7 @@ export default function ContextoExternoPage() {
               label="Cultural y Social"
               value={formData.culturalSocial}
               onChange={handleChange('culturalSocial')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -88,6 +130,7 @@ export default function ContextoExternoPage() {
               label="Legal/Regulatorio"
               value={formData.legalRegulatorio}
               onChange={handleChange('legalRegulatorio')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -98,6 +141,7 @@ export default function ContextoExternoPage() {
               label="Tecnológico"
               value={formData.tecnologico}
               onChange={handleChange('tecnologico')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -108,6 +152,7 @@ export default function ContextoExternoPage() {
               label="Ambiental"
               value={formData.ambiental}
               onChange={handleChange('ambiental')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
@@ -118,6 +163,7 @@ export default function ContextoExternoPage() {
               label="Grupos de Interés Externos"
               value={formData.gruposInteresExternos}
               onChange={handleChange('gruposInteresExternos')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -128,24 +174,27 @@ export default function ContextoExternoPage() {
               label="Otros Factores Externos"
               value={formData.otrosFactores}
               onChange={handleChange('otrosFactores')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
             />
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                sx={{
-                  background: '#1976d2',
-                  color: '#fff',
-                }}
-              >
-                Guardar Análisis
-              </Button>
-            </Box>
+            {!isReadOnly && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSave}
+                  sx={{
+                    background: '#1976d2',
+                    color: '#fff',
+                  }}
+                >
+                  Guardar Análisis
+                </Button>
+              </Box>
+            )}
           </Box>
         </CardContent>
       </Card>

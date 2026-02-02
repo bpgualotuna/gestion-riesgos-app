@@ -17,6 +17,7 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  Alert,
 } from '@mui/material';
 import { 
   Save as SaveIcon, 
@@ -27,9 +28,13 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../../hooks/useNotification';
+import { useProceso } from '../../../contexts/ProcesoContext';
+import { Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
 
 export default function AnalisisProcesoPage() {
   const { showSuccess } = useNotification();
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  const isReadOnly = modoProceso === 'visualizar';
   const [descripcion, setDescripcion] = useState(
     'El proceso de Gestión de Talento Humano comprende todas las actividades relacionadas con la administración, desarrollo y retención del capital humano de la organización...'
   );
@@ -56,24 +61,59 @@ export default function AnalisisProcesoPage() {
     'Indicadores de desempeño',
   ];
 
+  if (!procesoSeleccionado) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          Por favor seleccione un proceso desde el Dashboard
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Header Section */}
       <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          gutterBottom 
-          fontWeight={700}
-          sx={{
-            color: '#1976d2',
-            fontWeight: 700,
-          }}
-        >
-          Análisis de Proceso
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-          Documentación del análisis del proceso de Talento Humano mediante diagramas y descripciones
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box>
+            <Typography 
+              variant="h4" 
+              gutterBottom 
+              fontWeight={700}
+              sx={{
+                color: '#1976d2',
+                fontWeight: 700,
+              }}
+            >
+              Análisis de Proceso
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+              Documentación del análisis del proceso mediante diagramas y descripciones
+            </Typography>
+          </Box>
+          {isReadOnly && (
+            <Chip
+              icon={<VisibilityIcon />}
+              label="Modo Visualización"
+              color="info"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {modoProceso === 'editar' && (
+            <Chip
+              icon={<EditIcon />}
+              label="Modo Edición"
+              color="warning"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+        </Box>
+        {isReadOnly && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Está en modo visualización. Solo puede ver la información.
+          </Alert>
+        )}
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 3 }}>
@@ -170,6 +210,7 @@ export default function AnalisisProcesoPage() {
                     label="Descripción del Proceso"
                     value={descripcion}
                     onChange={(e) => setDescripcion(e.target.value)}
+                    disabled={isReadOnly}
                     multiline
                     rows={15}
                     variant="outlined"
@@ -208,44 +249,46 @@ export default function AnalisisProcesoPage() {
                   </Paper>
                 </Box>
 
-                <Box>
-                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<UploadIcon />}
-                      sx={{
-                        borderRadius: 2,
-                        px: 3,
-                        borderColor: '#C8D900',
-                        color: '#C8D900',
-                        '&:hover': {
-                          borderColor: '#B8C800',
-                          backgroundColor: 'rgba(200, 217, 0, 0.08)',
-                        },
-                      }}
-                    >
-                      Adjuntar Archivos
-                    </Button>
-                    <Button
-                      variant="contained"
-                      startIcon={<SaveIcon />}
-                      onClick={handleSave}
-                      sx={{
-                        borderRadius: 2,
-                        px: 4,
-                        background: '#1976d2',
-                        '&:hover': {
-                          background: '#1565c0',
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                        },
-                        transition: 'all 0.3s ease',
-                      }}
-                    >
-                      Guardar Análisis
-                    </Button>
+                {!isReadOnly && (
+                  <Box>
+                    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<UploadIcon />}
+                        sx={{
+                          borderRadius: 2,
+                          px: 3,
+                          borderColor: '#C8D900',
+                          color: '#C8D900',
+                          '&:hover': {
+                            borderColor: '#B8C800',
+                            backgroundColor: 'rgba(200, 217, 0, 0.08)',
+                          },
+                        }}
+                      >
+                        Adjuntar Archivos
+                      </Button>
+                      <Button
+                        variant="contained"
+                        startIcon={<SaveIcon />}
+                        onClick={handleSave}
+                        sx={{
+                          borderRadius: 2,
+                          px: 4,
+                          background: '#1976d2',
+                          '&:hover': {
+                            background: '#1565c0',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                          },
+                          transition: 'all 0.3s ease',
+                        }}
+                      >
+                        Guardar Análisis
+                      </Button>
+                    </Box>
                   </Box>
-                </Box>
+                )}
               </Box>
             </CardContent>
           </Card>

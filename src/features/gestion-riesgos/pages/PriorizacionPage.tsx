@@ -17,6 +17,7 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Alert,
 } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetPriorizacionesQuery, useCreatePriorizacionMutation } from '../api/riesgosApi';
@@ -25,9 +26,13 @@ import { getRiskColor } from '../../../app/theme/colors';
 import { RESPUESTAS_RIESGO, type RespuestaRiesgo } from '../../../utils/constants';
 import { formatDate } from '../../../utils/formatters';
 import { useNotification } from '../../../hooks/useNotification';
+import { useProceso } from '../../../contexts/ProcesoContext';
 import type { PriorizacionRiesgo } from '../types';
+import { Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
 
 export default function PriorizacionPage() {
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  const isReadOnly = modoProceso === 'visualizar';
   const { data: priorizaciones, isLoading } = useGetPriorizacionesQuery();
   const [createPriorizacion, { isLoading: isSaving }] = useCreatePriorizacionMutation();
   const { showSuccess, showError } = useNotification();
@@ -74,11 +79,16 @@ export default function PriorizacionPage() {
       field: 'calificacionFinal',
       headerName: 'Calificación',
       width: 120,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600}>
-          {params.value?.toFixed(2) || '-'}
-        </Typography>
-      ),
+      valueGetter: (_value, row) => row.calificacionFinal ?? null,
+      renderCell: (params) => {
+        const value = params.value ?? params.row.calificacionFinal;
+        const numValue = typeof value === 'number' ? value : parseFloat(value);
+        return (
+          <Typography variant="body2" fontWeight={600}>
+            {!isNaN(numValue) ? numValue.toFixed(2) : '-'}
+          </Typography>
+        );
+      },
     },
     {
       field: 'respuesta',
@@ -136,14 +146,49 @@ export default function PriorizacionPage() {
     }
   };
 
+  if (!procesoSeleccionado) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          Por favor seleccione un proceso desde el Dashboard
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight={700}>
-        Priorización y Respuesta
-      </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
-        Asigna respuestas y responsables a los riesgos evaluados
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom fontWeight={700}>
+            Priorización y Respuesta
+          </Typography>
+          <Typography variant="body1" color="text.secondary" paragraph>
+            Asigna respuestas y responsables a los riesgos evaluados
+          </Typography>
+        </Box>
+        {isReadOnly && (
+          <Chip
+            icon={<VisibilityIcon />}
+            label="Modo Visualización"
+            color="info"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+        {modoProceso === 'editar' && (
+          <Chip
+            icon={<EditIcon />}
+            label="Modo Edición"
+            color="warning"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+      </Box>
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Está en modo visualización. Solo puede ver la información.
+        </Alert>
+      )}
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
@@ -203,7 +248,7 @@ export default function PriorizacionPage() {
         columns={columns}
         loading={isLoading}
         getRowId={(row) => row.id}
-        onRowClick={(params) => {
+        onRowClick={isReadOnly ? undefined : (params) => {
           setSelectedPriorizacion(params.row);
           setRespuesta(params.row.respuesta || 'Aceptar');
           setResponsable(params.row.responsable || '');
@@ -231,6 +276,7 @@ export default function PriorizacionPage() {
                   label="Respuesta al Riesgo"
                   value={respuesta}
                   onChange={(e) => setRespuesta(e.target.value as RespuestaRiesgo)}
+                  disabled={isReadOnly}
                 >
                   {RESPUESTAS_RIESGO.map((r) => (
                     <MenuItem key={r} value={r}>
@@ -243,6 +289,7 @@ export default function PriorizacionPage() {
                   label="Responsable"
                   value={responsable}
                   onChange={(e) => setResponsable(e.target.value)}
+                  disabled={isReadOnly}
                   placeholder="Nombre del responsable"
                 />
               </Box>
@@ -250,10 +297,12 @@ export default function PriorizacionPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar'}
-          </Button>
+          <Button onClick={() => setDialogOpen(false)}>Cerrar</Button>
+          {!isReadOnly && (
+            <Button variant="contained" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

@@ -12,8 +12,10 @@ import {
   TextField,
   Button,
 } from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useNotification } from '../../../hooks/useNotification';
+import { useProceso } from '../../../contexts/ProcesoContext';
+import { Alert, Chip } from '@mui/material';
 
 interface ContextoInterno {
   financieros: string;
@@ -30,6 +32,8 @@ interface ContextoInterno {
 
 export default function ContextoInternoPage() {
   const { showSuccess } = useNotification();
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  const isReadOnly = modoProceso === 'visualizar';
   const [formData, setFormData] = useState<ContextoInterno>({
     financieros: 'El área de Talento Humano administra, controla y optimiza los recursos financieros...',
     gente: 'El área de Talento Humano es responsable de fortalecer las capacidades del personal...',
@@ -57,14 +61,49 @@ export default function ContextoInternoPage() {
     showSuccess('Análisis de contexto interno guardado exitosamente');
   };
 
+  if (!procesoSeleccionado) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          Por favor seleccione un proceso desde el Dashboard
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight={700}>
-        Análisis de Contexto Interno
-      </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Análisis de factores internos de la organización que afectan el proceso
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom fontWeight={700}>
+            Análisis de Contexto Interno
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Análisis de factores internos de la organización que afectan el proceso
+          </Typography>
+        </Box>
+        {isReadOnly && (
+          <Chip
+            icon={<VisibilityIcon />}
+            label="Modo Visualización"
+            color="info"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+        {modoProceso === 'editar' && (
+          <Chip
+            icon={<EditIcon />}
+            label="Modo Edición"
+            color="warning"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+      </Box>
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Está en modo visualización. Solo puede ver la información.
+        </Alert>
+      )}
 
       <Card>
         <CardContent>
@@ -74,6 +113,7 @@ export default function ContextoInternoPage() {
               label="Financieros"
               value={formData.financieros}
               onChange={handleChange('financieros')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -84,6 +124,7 @@ export default function ContextoInternoPage() {
               label="Gente"
               value={formData.gente}
               onChange={handleChange('gente')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -94,6 +135,7 @@ export default function ContextoInternoPage() {
               label="Procesos"
               value={formData.procesos}
               onChange={handleChange('procesos')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -104,6 +146,7 @@ export default function ContextoInternoPage() {
               label="Activos Físicos"
               value={formData.activosFisicos}
               onChange={handleChange('activosFisicos')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
@@ -114,6 +157,7 @@ export default function ContextoInternoPage() {
               label="Cadena de Suministro"
               value={formData.cadenaSuministro}
               onChange={handleChange('cadenaSuministro')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
@@ -124,6 +168,7 @@ export default function ContextoInternoPage() {
               label="Información"
               value={formData.informacion}
               onChange={handleChange('informacion')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
@@ -134,6 +179,7 @@ export default function ContextoInternoPage() {
               label="Sistemas"
               value={formData.sistemas}
               onChange={handleChange('sistemas')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
@@ -144,6 +190,7 @@ export default function ContextoInternoPage() {
               label="Proyectos"
               value={formData.proyectos}
               onChange={handleChange('proyectos')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
@@ -154,6 +201,7 @@ export default function ContextoInternoPage() {
               label="Impuestos"
               value={formData.impuestos}
               onChange={handleChange('impuestos')}
+              disabled={isReadOnly}
               multiline
               rows={3}
               variant="outlined"
@@ -164,24 +212,27 @@ export default function ContextoInternoPage() {
               label="Grupos de Interés Internos"
               value={formData.gruposInteresInternos}
               onChange={handleChange('gruposInteresInternos')}
+              disabled={isReadOnly}
               multiline
               rows={4}
               variant="outlined"
             />
 
-            <Box sx={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                sx={{
-                  background: '#1976d2',
-                  color: '#fff',
-                }}
-              >
-                Guardar Análisis
-              </Button>
-            </Box>
+            {!isReadOnly && (
+              <Box sx={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSave}
+                  sx={{
+                    background: '#1976d2',
+                    color: '#fff',
+                  }}
+                >
+                  Guardar Análisis
+                </Button>
+              </Box>
+            )}
           </Box>
         </CardContent>
       </Card>

@@ -10,6 +10,9 @@ import { theme } from './app/theme';
 import { store } from './app/store';
 import { router } from './app/router';
 import { AuthProvider } from './contexts/AuthContext';
+import { ProcesoProvider } from './contexts/ProcesoContext';
+import { RiesgoProvider } from './contexts/RiesgoContext';
+import { NotificacionProvider } from './contexts/NotificacionContext';
 
 function App() {
   return (
@@ -17,7 +20,13 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>
-          <RouterProvider router={router} />
+          <NotificacionProvider>
+            <ProcesoProvider>
+              <RiesgoProvider>
+                <RouterProvider router={router} />
+              </RiesgoProvider>
+            </ProcesoProvider>
+          </NotificacionProvider>
         </AuthProvider>
       </ThemeProvider>
     </Provider>

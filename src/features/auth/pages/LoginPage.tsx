@@ -31,7 +31,7 @@ import { ROUTES } from '../../../utils/constants';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -49,6 +49,19 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (result.success) {
+      // Si el usuario es admin, redirigir a administración
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          if (userData.role === 'admin') {
+            navigate(ROUTES.ADMINISTRACION);
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
       navigate(ROUTES.DASHBOARD);
     } else {
       setError(result.error || 'Error al iniciar sesión');
@@ -66,6 +79,19 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (result.success) {
+      // Si el usuario es admin, redirigir a administración
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          if (userData.role === 'admin') {
+            navigate(ROUTES.ADMINISTRACION);
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
       navigate(ROUTES.DASHBOARD);
     } else {
       setError(result.error || 'Error al iniciar sesión');
@@ -205,12 +231,64 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Demo Users Section */}
+          {/* Demo User Section */}
           <Divider sx={{ my: 3 }}>
-            <Chip label="Usuarios de Prueba" size="small" />
+            <Chip label="Usuario de Prueba" size="small" />
           </Divider>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleDemoLogin('dueño_procesos', 'dueño123')}
+              disabled={isLoading}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                borderColor: '#c8d900',
+                color: '#c8d900',
+                '&:hover': {
+                  borderColor: '#b8c900',
+                  backgroundColor: 'rgba(200, 217, 0, 0.08)',
+                },
+              }}
+            >
+              <Box sx={{ textAlign: 'left', width: '100%' }}>
+                <Typography variant="body2" fontWeight={600}>
+                  Katherine Chávez - dueño_procesos / dueño123
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Dueño de Procesos - Gestión completa de procesos
+                </Typography>
+              </Box>
+            </Button>
+            
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleDemoLogin('director', 'director123')}
+              disabled={isLoading}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                borderColor: '#1976d2',
+                color: '#1976d2',
+                '&:hover': {
+                  borderColor: '#1565c0',
+                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                },
+              }}
+            >
+              <Box sx={{ textAlign: 'left', width: '100%' }}>
+                <Typography variant="body2" fontWeight={600}>
+                  Carlos Rodríguez - director / director123
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Director de Procesos - Supervisión de procesos asignados por áreas
+                </Typography>
+              </Box>
+            </Button>
+
             <Button
               variant="outlined"
               size="small"
@@ -219,72 +297,20 @@ export default function LoginPage() {
               sx={{
                 justifyContent: 'flex-start',
                 textTransform: 'none',
-                borderColor: '#c8d900',
-                color: '#c8d900',
+                borderColor: '#d32f2f',
+                color: '#d32f2f',
                 '&:hover': {
-                  borderColor: '#b8c900',
-                  backgroundColor: 'rgba(200, 217, 0, 0.08)',
+                  borderColor: '#c62828',
+                  backgroundColor: 'rgba(211, 47, 47, 0.08)',
                 },
               }}
             >
               <Box sx={{ textAlign: 'left', width: '100%' }}>
                 <Typography variant="body2" fontWeight={600}>
-                  Admin - admin / admin123
+                  Andrés Martínez - admin / admin123
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Acceso completo al sistema
-                </Typography>
-              </Box>
-            </Button>
-
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleDemoLogin('manager', 'manager123')}
-              disabled={isLoading}
-              sx={{
-                justifyContent: 'flex-start',
-                textTransform: 'none',
-                borderColor: '#c8d900',
-                color: '#c8d900',
-                '&:hover': {
-                  borderColor: '#b8c900',
-                  backgroundColor: 'rgba(200, 217, 0, 0.08)',
-                },
-              }}
-            >
-              <Box sx={{ textAlign: 'left', width: '100%' }}>
-                <Typography variant="body2" fontWeight={600}>
-                  Manager - manager / manager123
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Gerente de Riesgos
-                </Typography>
-              </Box>
-            </Button>
-
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleDemoLogin('analyst', 'analyst123')}
-              disabled={isLoading}
-              sx={{
-                justifyContent: 'flex-start',
-                textTransform: 'none',
-                borderColor: '#c8d900',
-                color: '#c8d900',
-                '&:hover': {
-                  borderColor: '#b8c900',
-                  backgroundColor: 'rgba(200, 217, 0, 0.08)',
-                },
-              }}
-            >
-              <Box sx={{ textAlign: 'left', width: '100%' }}>
-                <Typography variant="body2" fontWeight={600}>
-                  Analyst - analyst / analyst123
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Analista de Riesgos
+                  Administrador - Gestión completa del sistema y asignaciones
                 </Typography>
               </Box>
             </Button>

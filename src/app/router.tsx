@@ -10,6 +10,7 @@ import MainLayout from '../components/layout/MainLayout';
 
 // Auth Components
 import ProtectedRoute from '../components/auth/ProtectedRoute';
+import AdminRedirect from '../components/auth/AdminRedirect';
 import LoginPage from '../features/auth/pages/LoginPage';
 
 // Pages
@@ -26,6 +27,14 @@ import DofaPage from '../features/gestion-riesgos/pages/DofaPage';
 import AnalisisProcesoPage from '../features/gestion-riesgos/pages/AnalisisProcesoPage';
 import BenchmarkingPage from '../features/gestion-riesgos/pages/BenchmarkingPage';
 import AyudaPage from '../features/gestion-riesgos/pages/AyudaPage';
+import ProcesosPage from '../features/gestion-riesgos/pages/ProcesosPage';
+import RiesgosProcesosPage from '../features/gestion-riesgos/pages/RiesgosProcesosPage';
+import AdminPage from '../features/admin/pages/AdminPage';
+import SupervisionPage from '../features/gestion-riesgos/pages/SupervisionPage';
+import ResumenDirectorPage from '../features/gestion-riesgos/pages/ResumenDirectorPage';
+import PlanAccionPage from '../features/gestion-riesgos/pages/PlanAccionPage';
+import TareasPage from '../features/gestion-riesgos/pages/TareasPage';
+import HistorialPage from '../features/gestion-riesgos/pages/HistorialPage';
 
 export const router = createBrowserRouter([
   {
@@ -42,11 +51,15 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to={ROUTES.DASHBOARD} replace />,
+        element: <AdminRedirect />,
       },
       {
         path: ROUTES.DASHBOARD,
         element: <DashboardPage />,
+      },
+      {
+        path: ROUTES.RIESGOS_PROCESOS,
+        element: <RiesgosProcesosPage />,
       },
       {
         path: ROUTES.FICHA,
@@ -67,6 +80,18 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.PRIORIZACION,
         element: <PriorizacionPage />,
+      },
+      {
+        path: ROUTES.PLAN_ACCION,
+        element: <PlanAccionPage />,
+      },
+      {
+        path: ROUTES.TAREAS,
+        element: <TareasPage />,
+      },
+      {
+        path: ROUTES.HISTORIAL,
+        element: <HistorialPage />,
       },
       {
         path: ROUTES.NORMATIVIDAD,
@@ -95,6 +120,26 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.AYUDA,
         element: <AyudaPage />,
+      },
+      {
+        path: ROUTES.PROCESOS,
+        element: <ProcesosPage />,
+      },
+      {
+        path: ROUTES.PROCESOS_NUEVO,
+        element: <ProcesosPage />,
+      },
+      {
+        path: ROUTES.ADMINISTRACION,
+        element: <AdminPage />,
+      },
+      {
+        path: ROUTES.SUPERVISION,
+        element: <SupervisionPage />,
+      },
+      {
+        path: ROUTES.RESUMEN_DIRECTOR,
+        element: <ResumenDirectorPage />,
       },
     ],
   },
