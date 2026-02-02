@@ -518,18 +518,19 @@ export function getMockPuntosMapa(filtros?: {
         if (riesgo.clasificacion !== filtros.clasificacion) return null;
       }
 
-      return {
+      const punto: PuntoMapa = {
         riesgoId: riesgo.id,
         descripcion: riesgo.descripcion,
         probabilidad: evaluacion.probabilidad,
         impacto: evaluacion.impactoMaximo,
         nivelRiesgo: evaluacion.nivelRiesgo,
         clasificacion: riesgo.clasificacion,
-        numero: riesgo.numero || 0,
+        numero: riesgo.numero,
         siglaGerencia: riesgo.siglaGerencia,
       };
+      return punto;
     })
-    .filter((p): p is PuntoMapa => p !== null && p.numero !== undefined);
+    .filter((p): p is PuntoMapa => p !== null);
 }
 
 // Función para obtener priorizaciones

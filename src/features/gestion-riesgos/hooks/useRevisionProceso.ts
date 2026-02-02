@@ -99,7 +99,6 @@ export function useRevisionProceso() {
       await updateProceso({
         id: proceso.id,
         estado: 'en_revision',
-        fechaEnviadoRevision: new Date().toISOString(),
       }).unwrap();
 
       const procesoActualizado: Proceso = {

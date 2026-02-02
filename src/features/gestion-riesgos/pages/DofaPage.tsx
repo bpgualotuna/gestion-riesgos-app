@@ -287,7 +287,12 @@ export default function DofaPage() {
               {procesosFiltradosPorArea.map((proceso) => (
                 <ListItem
                   key={proceso.id}
-                  selected={filtroProceso === proceso.id}
+                  sx={{
+                    backgroundColor: filtroProceso === proceso.id ? 'action.selected' : 'transparent',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  }}
                   onClick={() => {
                     setProcesoSeleccionado(proceso);
                     iniciarModoVisualizar();

