@@ -26,9 +26,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  Grid2,
 } from '@mui/material';
-// @ts-expect-error - Grid2 is available in @mui/material v7 but types may not be recognized
-import Grid2 from '@mui/material/Grid2';
 import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery } from '../api/riesgosApi';
 import { colors } from '../../../app/theme/colors';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, ROUTES, NIVELES_RIESGO } from '../../../utils/constants';

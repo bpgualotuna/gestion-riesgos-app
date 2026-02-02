@@ -29,9 +29,8 @@ import {
   TableRow,
   IconButton,
   Tooltip,
+  Grid2,
 } from '@mui/material';
-// @ts-expect-error - Grid2 is available in @mui/material v7 but types may not be recognized
-import Grid2 from '@mui/material/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
