@@ -566,10 +566,10 @@ export default function DashboardPage() {
                         </Box>
                       </CardContent>
                     </Card>
-                  </Grid>
+                  </Grid2>
                 );
               })}
-                      </Grid>
+                      </Grid2>
                     </CardContent>
                   </Card>
                 );

@@ -1132,9 +1132,9 @@ export default function AdminPage() {
                     )}
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid2>
             ))}
-          </Grid>
+          </Grid2>
           </Box>
         )}
 
@@ -1301,8 +1301,8 @@ export default function AdminPage() {
                     </TableContainer>
                   </CardContent>
                 </Card>
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </Box>
         )}
 
@@ -1446,10 +1446,10 @@ export default function AdminPage() {
                         </Box>
                       </CardContent>
                     </Card>
-                  </Grid>
+                  </Grid2>
                 );
               })}
-            </Grid>
+            </Grid2>
           </Box>
         )}
 
@@ -1489,9 +1489,9 @@ export default function AdminPage() {
                       </Button>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Grid2>
               ))}
-            </Grid>
+            </Grid2>
           </Box>
         )}
 
@@ -1520,7 +1520,7 @@ export default function AdminPage() {
                         Valores ({parametro.valores?.length || 0})
                       </Typography>
                       <List dense>
-                        {parametro.valores?.map((valor: string, idx: number) => (
+                        {parametro.valores?.map((valor: string | { nombre: string; peso: number }, idx: number) => (
                           <ListItem key={idx}>
                             <ListItemText 
                               primary={typeof valor === 'string' ? valor : valor.nombre}
@@ -1540,9 +1540,9 @@ export default function AdminPage() {
                       </Button>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Grid2>
               ))}
-            </Grid>
+            </Grid2>
           </Box>
         )}
 
@@ -1590,9 +1590,9 @@ export default function AdminPage() {
                       </Button>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Grid2>
               ))}
-            </Grid>
+            </Grid2>
           </Box>
         )}
 
@@ -1672,9 +1672,9 @@ export default function AdminPage() {
                     </Box>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid2>
             ))}
-          </Grid>
+          </Grid2>
           </Box>
         )}
 
@@ -1703,7 +1703,7 @@ export default function AdminPage() {
                   </List>
                 </CardContent>
               </Card>
-            </Grid>
+            </Grid2>
             <Grid2 xs={12} md={6}>
               <Card variant="outlined">
                 <CardContent>
@@ -1719,8 +1719,8 @@ export default function AdminPage() {
                   </List>
                 </CardContent>
               </Card>
-            </Grid>
-            <Grid item xs={12}>
+            </Grid2>
+            <Grid2 xs={12}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -1739,8 +1739,8 @@ export default function AdminPage() {
                   )}
                 </CardContent>
               </Card>
-            </Grid>
-          </Grid>
+            </Grid2>
+          </Grid2>
           </Box>
         )}
 
@@ -1858,7 +1858,7 @@ export default function AdminPage() {
                     />
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12} md={6}>
                 <Card variant="outlined">
                   <CardContent>
@@ -1892,7 +1892,7 @@ export default function AdminPage() {
                     />
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12}>
                 <Card variant="outlined">
                   <CardContent>
@@ -1925,8 +1925,8 @@ export default function AdminPage() {
                     </Button>
                   </CardContent>
                 </Card>
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </Box>
         )}
       </Card>
