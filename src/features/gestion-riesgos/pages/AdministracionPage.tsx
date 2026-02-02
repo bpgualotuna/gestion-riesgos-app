@@ -336,7 +336,11 @@ export default function AdministracionPage() {
           <AppDataGrid
             rows={areas}
             columns={areaColumns}
-            pageSize={10}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 10 },
+              },
+            }}
             getRowId={(row) => row.id}
           />
         </TabPanel>
@@ -351,7 +355,7 @@ export default function AdministracionPage() {
               Seleccione un proceso y asigne un responsable y un área
             </Typography>
           </Box>
-          <Grid container spacing={2}>
+          <Grid2 container spacing={2}>
             <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Proceso</InputLabel>
@@ -370,7 +374,7 @@ export default function AdministracionPage() {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
             <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Área</InputLabel>
@@ -389,7 +393,7 @@ export default function AdministracionPage() {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
             <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Responsable</InputLabel>
@@ -408,7 +412,7 @@ export default function AdministracionPage() {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
             <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Director de Procesos</InputLabel>
@@ -429,7 +433,7 @@ export default function AdministracionPage() {
                     ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
             <Grid item xs={12}>
               <Button
                 variant="contained"
@@ -439,7 +443,7 @@ export default function AdministracionPage() {
               >
                 Guardar Asignaciones
               </Button>
-            </Grid>
+            </Grid2>
           </Grid>
         </TabPanel>
 
@@ -453,7 +457,7 @@ export default function AdministracionPage() {
               Asigne qué usuarios pueden crear procesos específicos
             </Typography>
           </Box>
-          <Grid container spacing={2}>
+          <Grid2 container spacing={2}>
             <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Proceso</InputLabel>
@@ -472,7 +476,7 @@ export default function AdministracionPage() {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
             <Grid2 xs={12} md={6}>
               <Autocomplete
                 multiple
@@ -498,7 +502,7 @@ export default function AdministracionPage() {
                   ))
                 }
               />
-            </Grid>
+            </Grid2>
             <Grid item xs={12}>
               <Button
                 variant="contained"
@@ -508,7 +512,7 @@ export default function AdministracionPage() {
               >
                 Guardar Permisos
               </Button>
-            </Grid>
+            </Grid2>
           </Grid>
         </TabPanel>
       </Card>
@@ -528,7 +532,7 @@ export default function AdministracionPage() {
                 }
                 required
               />
-            </Grid>
+            </Grid2>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -540,7 +544,7 @@ export default function AdministracionPage() {
                 multiline
                 rows={3}
               />
-            </Grid>
+            </Grid2>
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Director de Procesos</InputLabel>
@@ -561,7 +565,7 @@ export default function AdministracionPage() {
                     ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
           </Grid>
         </DialogContent>
         <DialogActions>

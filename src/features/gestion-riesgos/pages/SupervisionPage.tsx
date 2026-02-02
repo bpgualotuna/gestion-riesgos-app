@@ -448,7 +448,7 @@ export default function SupervisionPage() {
               Resumen por Área
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2}>
+            <Grid2 container spacing={2}>
               {Object.entries(procesosPorArea).map(([areaId, procesosArea]) => {
                 const areaNombre = getAreaNombre(areaId);
                 const totalRiesgos = procesosArea.reduce(

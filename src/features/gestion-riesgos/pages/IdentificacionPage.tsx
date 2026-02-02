@@ -408,7 +408,7 @@ export default function IdentificacionPage() {
                   <Divider sx={{ mb: 2 }} />
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         ID RIESGO
                       </Typography>
@@ -416,13 +416,13 @@ export default function IdentificacionPage() {
                         {selectedRiesgo.numero}
                       </Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Nro.
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.numero}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Vicepresidencia/Gerencia Alta
                       </Typography>
@@ -430,49 +430,49 @@ export default function IdentificacionPage() {
                         {selectedRiesgo.vicepresidenciaGerenciaAlta || '-'}
                       </Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Sigla (Vicepresidencia)
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.siglaVicepresidencia || '-'}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Gerencia
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.gerencia || '-'}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Sigla (Gerencia)
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.siglaGerencia || '-'}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Subdivisión
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.subdivision || '-'}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Sigla (Subdivisión)
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.siglaSubdivision || '-'}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Zona
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.zona}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Proceso
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.proceso}</Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Macroproceso
                       </Typography>
@@ -545,7 +545,7 @@ export default function IdentificacionPage() {
                   </Typography>
                       <Typography variant="body1">{selectedRiesgo.tipologiaNivelIV || '-'}</Typography>
                     </Grid2>
-                  </Grid>
+                  </Grid2>
                 </CardContent>
               </Card>
             </Box>

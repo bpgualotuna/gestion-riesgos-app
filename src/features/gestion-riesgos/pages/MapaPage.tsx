@@ -255,9 +255,9 @@ export default function MapaPage() {
         Matriz 5x5 de Probabilidad vs Impacto
       </Typography>
 
-      <Grid container spacing={3}>
+      <Grid2 container spacing={3}>
         {/* Columna principal: Filtros, Leyenda y Matriz */}
-        <Grid item xs={12} md={8}>
+        <Grid2 xs={12} md={8}>
           {/* Filter */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
@@ -532,7 +532,7 @@ export default function MapaPage() {
             </Grid2>
 
         {/* Panel lateral: Estadísticas */}
-        <Grid item xs={12} md={4}>
+        <Grid2 xs={12} md={4}>
           <Card sx={{ position: 'sticky', top: 100 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight={600}>

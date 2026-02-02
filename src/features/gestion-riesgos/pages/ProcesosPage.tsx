@@ -454,7 +454,7 @@ export default function ProcesosPage() {
               Crear Nuevo Proceso
             </Typography>
             <form onSubmit={handleSubmit}>
-              <Grid container spacing={2}>
+              <Grid2 container spacing={2}>
                 <Grid2 xs={12} md={6}>
                   <TextField
                     fullWidth
@@ -479,7 +479,7 @@ export default function ProcesosPage() {
                     <option value="Otro">Otro</option>
                   </TextField>
                 </Grid2>
-                <Grid item xs={12}>
+                <Grid2 xs={12}>
                   <TextField
                     fullWidth
                     label="Descripción"
@@ -513,7 +513,7 @@ export default function ProcesosPage() {
                     onChange={handleChange('responsable')}
                   />
                 </Grid2>
-                <Grid item xs={12}>
+                <Grid2 xs={12}>
                   <TextField
                     fullWidth
                     label="Objetivo del Proceso"
@@ -523,7 +523,7 @@ export default function ProcesosPage() {
                     rows={2}
                   />
                 </Grid2>
-                <Grid item xs={12}>
+                <Grid2 xs={12}>
                   <Button
                     type="submit"
                     variant="contained"
