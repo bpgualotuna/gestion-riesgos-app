@@ -35,8 +35,7 @@ import {
   InputLabel,
   Divider,
 } from '@mui/material';
-// @ts-ignore - Grid2 needs to be imported from submodule
-import Grid2 from '@mui/material/Grid2';
+import Grid2 from '../../../utils/Grid2';
 import {
   Save as SaveIcon,
   Visibility as VisibilityIcon,
