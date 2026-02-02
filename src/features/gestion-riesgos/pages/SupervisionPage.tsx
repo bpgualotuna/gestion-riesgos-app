@@ -293,7 +293,7 @@ export default function SupervisionPage() {
       </Box>
 
       {/* Estadísticas Generales */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid2 container spacing={3} sx={{ mb: 4 }}>
             <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -310,7 +310,7 @@ export default function SupervisionPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
             <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -327,7 +327,7 @@ export default function SupervisionPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
             <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -344,7 +344,7 @@ export default function SupervisionPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
             <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -361,8 +361,8 @@ export default function SupervisionPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Grid2>
+      </Grid2>
 
       {/* Filtros */}
       <Card sx={{ mb: 3 }}>
@@ -456,7 +456,7 @@ export default function SupervisionPage() {
                   0
                 );
                 return (
-                  <Grid item xs={12} md={6} lg={4} key={areaId}>
+                  <Grid2 xs={12} md={6} lg={4} key={areaId}>
                     <Paper elevation={2} sx={{ p: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Typography variant="subtitle1" fontWeight={600}>

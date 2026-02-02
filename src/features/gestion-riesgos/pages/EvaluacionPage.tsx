@@ -552,7 +552,7 @@ export default function EvaluacionPage() {
                     </Typography>
                     <Grid container spacing={3}>
                       {DIMENSIONES_IMPACTO.filter((d) => d.key !== 'tecnologico').map((dimension) => (
-                        <Grid item xs={12} sm={6} md={4} key={dimension.key}>
+                        <Grid2 xs={12} sm={6} md={4} key={dimension.key}>
                           <Box>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                               <Typography variant="body2" fontWeight={500}>
@@ -641,8 +641,8 @@ export default function EvaluacionPage() {
                   <Typography variant="h6" gutterBottom fontWeight={700}>
                     📊 Resultados Calculados
                   </Typography>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6} md={3}>
+                  <Grid2 container spacing={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Calificación Global Impacto
                       </Typography>
@@ -650,7 +650,7 @@ export default function EvaluacionPage() {
                         {resultadosNegativos.impactoGlobal}
                       </Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Calificación Inherente Global
                       </Typography>
@@ -658,7 +658,7 @@ export default function EvaluacionPage() {
                         {formatRiskValue(resultadosNegativos.riesgoInherente)}
                       </Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Nivel de Riesgo
                       </Typography>
@@ -726,7 +726,7 @@ export default function EvaluacionPage() {
                     </Typography>
                     <Grid container spacing={3}>
                       {DIMENSIONES_IMPACTO.filter((d) => d.key !== 'tecnologico').map((dimension) => (
-                        <Grid item xs={12} sm={6} md={4} key={dimension.key}>
+                        <Grid2 xs={12} sm={6} md={4} key={dimension.key}>
                           <Box>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                               <Typography variant="body2" fontWeight={500}>
@@ -815,8 +815,8 @@ export default function EvaluacionPage() {
                   <Typography variant="h6" gutterBottom fontWeight={700}>
                     📊 Resultados Calculados
                   </Typography>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6} md={3}>
+                  <Grid2 container spacing={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Calificación Global Impacto
                       </Typography>
@@ -824,7 +824,7 @@ export default function EvaluacionPage() {
                         {resultadosPositivos.impactoGlobal}
                       </Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Calificación Inherente Global
                       </Typography>
@@ -832,7 +832,7 @@ export default function EvaluacionPage() {
                         {formatRiskValue(resultadosPositivos.riesgoInherente)}
                       </Typography>
                     </Grid2>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Nivel de Riesgo
                       </Typography>
@@ -1239,7 +1239,7 @@ export default function EvaluacionPage() {
             </Typography>
 
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Aplicabilidad</InputLabel>
                   <Select
@@ -1252,7 +1252,7 @@ export default function EvaluacionPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Cobertura</InputLabel>
                   <Select
@@ -1265,7 +1265,7 @@ export default function EvaluacionPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Facilidad de Uso</InputLabel>
                   <Select
@@ -1278,7 +1278,7 @@ export default function EvaluacionPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Segregación</InputLabel>
                   <Select
@@ -1291,7 +1291,7 @@ export default function EvaluacionPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Naturaleza</InputLabel>
                   <Select
@@ -1305,7 +1305,7 @@ export default function EvaluacionPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid2 xs={12} sm={6}>
                 <TextField
                   label="Desviaciones (fallos último año)"
                   type="number"

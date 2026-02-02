@@ -434,7 +434,7 @@ export default function AdministracionPage() {
                 </Select>
               </FormControl>
             </Grid2>
-            <Grid item xs={12}>
+            <Grid2 xs={12}>
               <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
@@ -444,7 +444,7 @@ export default function AdministracionPage() {
                 Guardar Asignaciones
               </Button>
             </Grid2>
-          </Grid>
+          </Grid2>
         </TabPanel>
 
         {/* Tab: Permisos de Creación */}
@@ -503,7 +503,7 @@ export default function AdministracionPage() {
                 }
               />
             </Grid2>
-            <Grid item xs={12}>
+            <Grid2 xs={12}>
               <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
@@ -513,7 +513,7 @@ export default function AdministracionPage() {
                 Guardar Permisos
               </Button>
             </Grid2>
-          </Grid>
+          </Grid2>
         </TabPanel>
       </Card>
 
@@ -521,8 +521,8 @@ export default function AdministracionPage() {
       <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editingArea ? 'Editar Área' : 'Nueva Área'}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+          <Grid2 container spacing={2} sx={{ mt: 1 }}>
+            <Grid2 xs={12}>
               <TextField
                 fullWidth
                 label="Nombre del Área *"
@@ -533,7 +533,7 @@ export default function AdministracionPage() {
                 required
               />
             </Grid2>
-            <Grid item xs={12}>
+            <Grid2 xs={12}>
               <TextField
                 fullWidth
                 label="Descripción"
@@ -545,7 +545,7 @@ export default function AdministracionPage() {
                 rows={3}
               />
             </Grid2>
-            <Grid item xs={12}>
+            <Grid2 xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Director de Procesos</InputLabel>
                 <Select
@@ -563,10 +563,10 @@ export default function AdministracionPage() {
                         {u.nombre}
                       </MenuItem>
                     ))}
-                </Select>
+                  </Select>
               </FormControl>
             </Grid2>
-          </Grid>
+          </Grid2>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAreaDialog} startIcon={<CancelIcon />}>

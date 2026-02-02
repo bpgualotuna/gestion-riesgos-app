@@ -237,7 +237,7 @@ export default function ResumenDirectorPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
         <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -254,7 +254,7 @@ export default function ResumenDirectorPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
         <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -274,7 +274,7 @@ export default function ResumenDirectorPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
         <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -291,8 +291,8 @@ export default function ResumenDirectorPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Grid2>
+      </Grid2>
 
       {/* Procesos por Área */}
       {Object.keys(procesosPorArea).length === 0 ? (
@@ -403,7 +403,7 @@ export default function ResumenDirectorPage() {
                           </AccordionSummary>
                           <AccordionDetails>
                             <Grid2 container spacing={2}>
-                              <Grid item xs={12} md={6}>
+                              <Grid2 xs={12} md={6}>
                                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                                   Descripción
                                 </Typography>
@@ -422,7 +422,7 @@ export default function ResumenDirectorPage() {
                                   </Typography>
                                 </Box>
                               </Grid2>
-                              <Grid item xs={12} md={6}>
+                              <Grid2 xs={12} md={6}>
                                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                                   <Button
                                     variant="outlined"
