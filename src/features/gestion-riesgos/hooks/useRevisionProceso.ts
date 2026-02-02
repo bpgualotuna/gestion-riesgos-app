@@ -99,8 +99,6 @@ export function useRevisionProceso() {
       await updateProceso({
         id: proceso.id,
         estado: 'en_revision',
-        gerenteId,
-        gerenteNombre,
         fechaEnviadoRevision: new Date().toISOString(),
       }).unwrap();
 
@@ -155,7 +153,6 @@ export function useRevisionProceso() {
       await updateProceso({
         id: proceso.id,
         estado: 'aprobado',
-        fechaAprobado: new Date().toISOString(),
       }).unwrap();
 
       const procesoActualizado: Proceso = {

@@ -64,6 +64,8 @@ export default function DofaPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<DofaItem | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [itemSeleccionado, setItemSeleccionado] = useState<{ item: DofaItem; tipo: string; titulo: string } | null>(null);
+  const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
   
   const [oportunidades, setOportunidades] = useState<DofaItem[]>([
     {
@@ -285,7 +287,6 @@ export default function DofaPage() {
               {procesosFiltradosPorArea.map((proceso) => (
                 <ListItem
                   key={proceso.id}
-                  button
                   selected={filtroProceso === proceso.id}
                   onClick={() => {
                     setProcesoSeleccionado(proceso);

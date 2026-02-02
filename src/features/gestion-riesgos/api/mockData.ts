@@ -525,11 +525,11 @@ export function getMockPuntosMapa(filtros?: {
         impacto: evaluacion.impactoMaximo,
         nivelRiesgo: evaluacion.nivelRiesgo,
         clasificacion: riesgo.clasificacion,
-        numero: riesgo.numero,
+        numero: riesgo.numero || 0,
         siglaGerencia: riesgo.siglaGerencia,
       };
     })
-    .filter((p): p is PuntoMapa => p !== null);
+    .filter((p): p is PuntoMapa => p !== null && p.numero !== undefined);
 }
 
 // Función para obtener priorizaciones

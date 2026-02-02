@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -43,6 +42,7 @@ import {
   Slider,
   Stack,
 } from '@mui/material';
+import Grid2 from '@mui/material/Grid2';
 import {
   People as PeopleIcon,
   Assignment as AssignmentIcon,
@@ -670,6 +670,7 @@ export default function AdminPage() {
   const handleEditarAsignacion = (proceso: Proceso) => {
     setSelectedProceso(proceso);
     setAsignacionForm({
+      areaId: proceso.areaId || '',
       responsableId: proceso.responsableId || '',
       responsableNombre: proceso.responsableNombre || '',
       directorId: proceso.directorId || '',
@@ -689,9 +690,7 @@ export default function AdminPage() {
         id: selectedProceso.id,
         areaId: asignacionForm.areaId,
         responsableId: asignacionForm.responsableId,
-        responsableNombre: responsable?.fullName || '',
         directorId: asignacionForm.directorId,
-        directorNombre: director?.fullName || '',
       }).unwrap();
       
       showSuccess(`Proceso "${selectedProceso.nombre}" actualizado correctamente`);
@@ -759,10 +758,9 @@ export default function AdminPage() {
   const handleEditarAreaGerente = (gerente: Usuario) => {
     setSelectedGerente(gerente);
     setAreaGerenteForm({
-      gerenteId: gerente.id,
-      gerenteNombre: gerente.fullName,
-      areasAsignadas: [], // Por defecto vacío, significa todas las áreas
-      verTodasLasAreas: true, // Por defecto los gerentes ven todas las áreas
+      areaId: '',
+      areaNombre: gerente.fullName,
+      gerentesIds: [gerente.id],
     });
     setOpenAreaGerenteDialog(true);
   };
@@ -1089,9 +1087,9 @@ export default function AdminPage() {
               Los roles del sistema son fijos y no se pueden añadir ni eliminar. Solo puede modificar los permisos de cada rol.
             </Alert>
           </Box>
-          <Grid container spacing={2}>
+          <Grid2 container spacing={2}>
             {roles.map((rol) => (
-              <Grid item xs={12} md={6} key={rol.id}>
+              <Grid2 xs={12} md={6} key={rol.id}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -1228,8 +1226,8 @@ export default function AdminPage() {
                 Nueva Área
               </Button>
             </Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
+            <Grid2 container spacing={2}>
+              <Grid2 xs={12}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -1402,11 +1400,11 @@ export default function AdminPage() {
                 Nueva Encuesta
               </Button>
             </Box>
-            <Grid container spacing={2}>
+            <Grid2 container spacing={2}>
               {encuestas.map((encuesta) => {
                 const preguntasCount = 0; // TODO: obtener de preguntasEncuesta
                 return (
-                  <Grid item xs={12} md={6} key={encuesta.id}>
+                  <Grid2 xs={12} md={6} key={encuesta.id}>
                     <Card variant="outlined">
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -1464,9 +1462,9 @@ export default function AdminPage() {
                 Configure las listas desplegables utilizadas en los formularios del sistema (Vicepresidencias, Gerencias, Zonas, Procesos, etc.).
               </Alert>
             </Box>
-            <Grid container spacing={2}>
+            <Grid2 container spacing={2}>
               {listasValores.map((lista) => (
-                <Grid item xs={12} md={6} key={lista.id}>
+                <Grid2 xs={12} md={6} key={lista.id}>
                   <Card variant="outlined">
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -1506,9 +1504,9 @@ export default function AdminPage() {
                 Configure los parámetros utilizados para la valoración de controles: Aplicabilidad, Cobertura, Facilidad de uso, Segregación, Naturaleza, Desviaciones, y sus respectivos pesos y rangos.
               </Alert>
             </Box>
-            <Grid container spacing={2}>
+            <Grid2 container spacing={2}>
               {parametrosValoracion.map((parametro) => (
-                <Grid item xs={12} md={6} key={parametro.id}>
+                <Grid2 xs={12} md={6} key={parametro.id}>
                   <Card variant="outlined">
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -1522,7 +1520,7 @@ export default function AdminPage() {
                         Valores ({parametro.valores?.length || 0})
                       </Typography>
                       <List dense>
-                        {parametro.valores?.map((valor, idx) => (
+                        {parametro.valores?.map((valor: string, idx: number) => (
                           <ListItem key={idx}>
                             <ListItemText 
                               primary={typeof valor === 'string' ? valor : valor.nombre}
@@ -1562,9 +1560,9 @@ export default function AdminPage() {
                 Nueva Tipología
               </Button>
             </Box>
-            <Grid container spacing={2}>
+            <Grid2 container spacing={2}>
               {tipologias.map((tipologia) => (
-                <Grid item xs={12} md={6} key={tipologia.id}>
+                <Grid2 xs={12} md={6} key={tipologia.id}>
                   <Card variant="outlined">
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -1607,9 +1605,9 @@ export default function AdminPage() {
                 Nueva Fórmula
               </Button>
             </Box>
-          <Grid container spacing={2}>
+          <Grid2 container spacing={2}>
             {formulas.map((formula) => (
-              <Grid item xs={12} md={6} key={formula.id}>
+              <Grid2 xs={12} md={6} key={formula.id}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -1689,8 +1687,8 @@ export default function AdminPage() {
                 Editar Configuración
               </Button>
             </Box>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+          <Grid2 container spacing={2}>
+            <Grid2 xs={12} md={6}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -1706,7 +1704,7 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -1824,8 +1822,8 @@ export default function AdminPage() {
                 Configure parámetros generales del sistema, límites, validaciones globales y configuraciones de comportamiento.
               </Alert>
             </Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+            <Grid2 container spacing={2}>
+              <Grid2 xs={12} md={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -1861,7 +1859,7 @@ export default function AdminPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid2 xs={12} md={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -1895,7 +1893,7 @@ export default function AdminPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12}>
+              <Grid2 xs={12}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>

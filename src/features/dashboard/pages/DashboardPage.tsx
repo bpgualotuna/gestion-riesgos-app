@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogActions,
   Divider,
-  Grid,
   Paper,
   LinearProgress,
   FormControl,
@@ -26,6 +25,7 @@ import {
   Select,
   TextField,
 } from '@mui/material';
+import Grid2 from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   BusinessCenter as BusinessCenterIcon,
@@ -267,8 +267,8 @@ export default function DashboardPage() {
         </Box>
 
         {/* Estadísticas Generales de Riesgos */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+        <Grid2 container spacing={3} sx={{ mb: 4 }}>
+          <Grid2 xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -284,8 +284,8 @@ export default function DashboardPage() {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          </Grid2>
+          <Grid2 xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -301,8 +301,8 @@ export default function DashboardPage() {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          </Grid2>
+          <Grid2 xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -318,8 +318,8 @@ export default function DashboardPage() {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          </Grid2>
+          <Grid2 xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -335,8 +335,8 @@ export default function DashboardPage() {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
-        </Grid>
+          </Grid2>
+        </Grid2>
 
         {/* Lista de Procesos con Estados */}
         <Box sx={{ mb: 4 }}>
@@ -454,7 +454,7 @@ export default function DashboardPage() {
                       <Divider sx={{ mb: 3 }} />
 
                       {/* Grid de Procesos del Área */}
-                      <Grid container spacing={3}>
+                      <Grid2 container spacing={3}>
                         {procesosArea.map((proceso) => {
                           const stats = getEstadisticasProceso(proceso.id);
                           // Obtener observaciones pendientes desde localStorage (temporal)
@@ -465,7 +465,7 @@ export default function DashboardPage() {
                           ).length;
 
                           return (
-                            <Grid item xs={12} md={6} lg={4} key={proceso.id}>
+                            <Grid2 xs={12} md={6} lg={4} key={proceso.id}>
                     <Card
                       sx={{
                         height: '100%',
