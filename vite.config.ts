@@ -54,5 +54,12 @@ export default defineConfig({
         },
       },
     },
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+  },
+  optimizeDeps: {
+    include: ['@mui/material/Grid2'],
   },
 })
