@@ -35,7 +35,7 @@ import {
   Paper,
   Badge,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
@@ -421,7 +421,7 @@ export default function ResumenDirectorPage() {
                                     {proceso.responsableNombre || getResponsableNombre(proceso.responsableId) || 'Sin asignar'}
                                   </Typography>
                                 </Box>
-                              </Grid>
+                              </Grid2>
                               <Grid item xs={12} md={6}>
                                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                                   <Button
@@ -513,8 +513,8 @@ export default function ResumenDirectorPage() {
                                     ))}
                                   </List>
                                 )}
-                              </Grid>
-                            </Grid>
+                              </Grid2>
+                            </Grid2>
                           </AccordionDetails>
                         </Accordion>
                       );

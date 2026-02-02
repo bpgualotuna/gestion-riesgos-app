@@ -30,7 +30,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
@@ -294,7 +294,7 @@ export default function SupervisionPage() {
 
       {/* Estadísticas Generales */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+            <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -311,7 +311,7 @@ export default function SupervisionPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+            <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -328,7 +328,7 @@ export default function SupervisionPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+            <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -345,7 +345,7 @@ export default function SupervisionPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+            <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -488,10 +488,10 @@ export default function SupervisionPage() {
                         </Box>
                       </Box>
                     </Paper>
-                  </Grid>
+                  </Grid2>
                 );
               })}
-            </Grid>
+            </Grid2>
           </CardContent>
         </Card>
       )}

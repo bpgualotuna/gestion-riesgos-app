@@ -25,7 +25,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -455,7 +455,7 @@ export default function ProcesosPage() {
             </Typography>
             <form onSubmit={handleSubmit}>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid2 xs={12} md={6}>
                   <TextField
                     fullWidth
                     label="Nombre del Proceso"
@@ -463,8 +463,8 @@ export default function ProcesosPage() {
                     onChange={handleChange('nombre')}
                     required
                   />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                </Grid2>
+                <Grid2 xs={12} md={6}>
                   <TextField
                     fullWidth
                     label="Tipo de Proceso"
@@ -478,7 +478,7 @@ export default function ProcesosPage() {
                     <option value="Planificación Financiera">Planificación Financiera</option>
                     <option value="Otro">Otro</option>
                   </TextField>
-                </Grid>
+                </Grid2>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
@@ -488,31 +488,31 @@ export default function ProcesosPage() {
                     multiline
                     rows={3}
                   />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                </Grid2>
+                <Grid2 xs={12} md={6}>
                   <TextField
                     fullWidth
                     label="Vicepresidencia"
                     value={formData.vicepresidencia}
                     onChange={handleChange('vicepresidencia')}
                   />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                </Grid2>
+                <Grid2 xs={12} md={6}>
                   <TextField
                     fullWidth
                     label="Gerencia"
                     value={formData.gerencia}
                     onChange={handleChange('gerencia')}
                   />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                </Grid2>
+                <Grid2 xs={12} md={6}>
                   <TextField
                     fullWidth
                     label="Responsable"
                     value={formData.responsable}
                     onChange={handleChange('responsable')}
                   />
-                </Grid>
+                </Grid2>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
@@ -522,7 +522,7 @@ export default function ProcesosPage() {
                     multiline
                     rows={2}
                   />
-                </Grid>
+                </Grid2>
                 <Grid item xs={12}>
                   <Button
                     type="submit"
@@ -532,8 +532,8 @@ export default function ProcesosPage() {
                   >
                     {isCreating ? <CircularProgress size={24} /> : 'Crear Proceso'}
                   </Button>
-                </Grid>
-              </Grid>
+                </Grid2>
+              </Grid2>
             </form>
           </CardContent>
         </Card>

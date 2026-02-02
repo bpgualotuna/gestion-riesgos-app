@@ -33,9 +33,9 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Grid,
   Divider,
 } from '@mui/material';
+import Grid2 from '@mui/material/Grid2';
 import {
   Save as SaveIcon,
   Visibility as VisibilityIcon,
@@ -594,9 +594,9 @@ export default function EvaluacionPage() {
                               ]}
                             </Typography>
                           </Box>
-                        </Grid>
+                        </Grid2>
                       ))}
-                    </Grid>
+                    </Grid2>
                   </CardContent>
                 </Card>
 
@@ -649,7 +649,7 @@ export default function EvaluacionPage() {
                       <Typography variant="h4" fontWeight={700}>
                         {resultadosNegativos.impactoGlobal}
                       </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Calificación Inherente Global
@@ -657,7 +657,7 @@ export default function EvaluacionPage() {
                       <Typography variant="h4" fontWeight={700} color="primary">
                         {formatRiskValue(resultadosNegativos.riesgoInherente)}
                       </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Nivel de Riesgo
@@ -673,8 +673,8 @@ export default function EvaluacionPage() {
                           mt: 1,
                         }}
                       />
-                    </Grid>
-                  </Grid>
+                    </Grid2>
+                  </Grid2>
                 </Paper>
 
                 {/* Requiere Controles */}
@@ -768,9 +768,9 @@ export default function EvaluacionPage() {
                               ]}
                             </Typography>
                           </Box>
-                        </Grid>
+                        </Grid2>
                       ))}
-                    </Grid>
+                    </Grid2>
                   </CardContent>
                 </Card>
 
@@ -823,7 +823,7 @@ export default function EvaluacionPage() {
                       <Typography variant="h4" fontWeight={700}>
                         {resultadosPositivos.impactoGlobal}
                       </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Calificación Inherente Global
@@ -831,7 +831,7 @@ export default function EvaluacionPage() {
                       <Typography variant="h4" fontWeight={700} color="primary">
                         {formatRiskValue(resultadosPositivos.riesgoInherente)}
                       </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Nivel de Riesgo
@@ -847,8 +847,8 @@ export default function EvaluacionPage() {
                           mt: 1,
                         }}
                       />
-                    </Grid>
-                  </Grid>
+                    </Grid2>
+                  </Grid2>
                 </Paper>
               </CardContent>
             </TabPanel>

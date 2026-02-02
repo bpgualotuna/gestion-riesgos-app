@@ -12,7 +12,6 @@ import {
   CardContent,
   Button,
   TextField,
-  Grid,
   Alert,
   Tabs,
   Tab,
@@ -33,6 +32,7 @@ import {
   IconButton,
   Autocomplete,
 } from '@mui/material';
+import Grid2 from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -352,7 +352,7 @@ export default function AdministracionPage() {
             </Typography>
           </Box>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Proceso</InputLabel>
                 <Select
@@ -371,7 +371,7 @@ export default function AdministracionPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Área</InputLabel>
                 <Select
@@ -390,7 +390,7 @@ export default function AdministracionPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Responsable</InputLabel>
                 <Select
@@ -409,7 +409,7 @@ export default function AdministracionPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Director de Procesos</InputLabel>
                 <Select
@@ -454,7 +454,7 @@ export default function AdministracionPage() {
             </Typography>
           </Box>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Proceso</InputLabel>
                 <Select
@@ -473,7 +473,7 @@ export default function AdministracionPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid2 xs={12} md={6}>
               <Autocomplete
                 multiple
                 options={mockUsuarios}

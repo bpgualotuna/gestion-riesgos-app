@@ -13,6 +13,7 @@ import type {
   PaginatedResponse,
   Proceso,
   CreateProcesoDto,
+  EstadoProceso,
 } from '../types';
 import {
   calcularImpactoGlobal,
@@ -700,7 +701,7 @@ export function createMockProceso(data: CreateProcesoDto): Proceso {
   return nuevoProceso;
 }
 
-export function updateMockProceso(id: string, data: Partial<CreateProcesoDto & { estado?: string; gerenteId?: string; gerenteNombre?: string; fechaEnviadoRevision?: string; fechaAprobado?: string }>): Proceso {
+export function updateMockProceso(id: string, data: Partial<CreateProcesoDto & { estado?: EstadoProceso; gerenteId?: string; gerenteNombre?: string; fechaEnviadoRevision?: string; fechaAprobado?: string }>): Proceso {
   const index = mockProcesos.findIndex((p) => p.id === id);
   if (index === -1) {
     throw new Error('Proceso no encontrado');

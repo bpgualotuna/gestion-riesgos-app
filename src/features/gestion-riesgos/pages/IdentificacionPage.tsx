@@ -23,7 +23,7 @@ import {
   InputLabel,
   Select,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
@@ -415,13 +415,13 @@ export default function IdentificacionPage() {
                       <Typography variant="body1" fontWeight={600}>
                         {selectedRiesgo.numero}
                       </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Nro.
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.numero}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Vicepresidencia/Gerencia Alta
@@ -429,55 +429,55 @@ export default function IdentificacionPage() {
                       <Typography variant="body1">
                         {selectedRiesgo.vicepresidenciaGerenciaAlta || '-'}
                       </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Sigla (Vicepresidencia)
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.siglaVicepresidencia || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Gerencia
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.gerencia || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Sigla (Gerencia)
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.siglaGerencia || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Subdivisión
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.subdivision || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Sigla (Subdivisión)
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.siglaSubdivision || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Zona
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.zona}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Proceso
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.proceso}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         Macroproceso
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.macroproceso || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12}>
                       <Typography variant="caption" color="text.secondary">
                         Descripción del Riesgo
@@ -485,7 +485,7 @@ export default function IdentificacionPage() {
               <Typography variant="body1" paragraph>
                 {selectedRiesgo.descripcion}
               </Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12}>
                       <Divider sx={{ my: 2 }} />
                       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -510,7 +510,7 @@ export default function IdentificacionPage() {
                       ) : (
                         <Alert severity="info">No hay causas registradas para este riesgo.</Alert>
                       )}
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="caption" color="text.secondary">
                         Clasificación
@@ -520,31 +520,31 @@ export default function IdentificacionPage() {
                         size="small"
                         color={selectedRiesgo.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
                       />
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="caption" color="text.secondary">
                     Tipología Nivel I
                   </Typography>
                       <Typography variant="body1">{selectedRiesgo.tipologiaNivelI || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="caption" color="text.secondary">
                         Tipología Nivel II
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.tipologiaNivelII || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="caption" color="text.secondary">
                         Tipología Nivel III
                       </Typography>
                       <Typography variant="body1">{selectedRiesgo.tipologiaNivelIII || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="caption" color="text.secondary">
                         Tipología Nivel IV
                   </Typography>
                       <Typography variant="body1">{selectedRiesgo.tipologiaNivelIV || '-'}</Typography>
-                    </Grid>
+                    </Grid2>
                   </Grid>
                 </CardContent>
               </Card>

@@ -78,6 +78,7 @@ export interface CreateProcesoDto {
 }
 
 export interface UpdateProcesoDto extends Partial<CreateProcesoDto> {
+  estado?: EstadoProceso;
   id: string;
   activo?: boolean;
 }

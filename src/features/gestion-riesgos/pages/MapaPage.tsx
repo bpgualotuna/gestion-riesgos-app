@@ -27,7 +27,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery } from '../api/riesgosApi';
 import { colors } from '../../../app/theme/colors';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, ROUTES, NIVELES_RIESGO } from '../../../utils/constants';
@@ -529,7 +529,7 @@ export default function MapaPage() {
               </Box>
             </Box>
           </Paper>
-        </Grid>
+            </Grid2>
 
         {/* Panel lateral: Estadísticas */}
         <Grid item xs={12} md={4}>
@@ -656,8 +656,8 @@ export default function MapaPage() {
               )}
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+            </Grid2>
+            </Grid2>
 
       {/* Diálogo de Resumen */}
       <Dialog
