@@ -407,7 +407,7 @@ export default function IdentificacionPage() {
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
 
-                  <Grid container spacing={2}>
+                  <Grid2 container spacing={2}>
                     <Grid2 xs={12} sm={6} md={3}>
                       <Typography variant="caption" color="text.secondary">
                         ID RIESGO

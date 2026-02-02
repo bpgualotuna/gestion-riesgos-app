@@ -550,7 +550,7 @@ export default function EvaluacionPage() {
                     <Typography variant="subtitle1" gutterBottom fontWeight={600}>
                       Dimensiones de Impacto (1-5)
                     </Typography>
-                    <Grid container spacing={3}>
+                    <Grid2 container spacing={3}>
                       {DIMENSIONES_IMPACTO.filter((d) => d.key !== 'tecnologico').map((dimension) => (
                         <Grid2 xs={12} sm={6} md={4} key={dimension.key}>
                           <Box>
@@ -724,7 +724,7 @@ export default function EvaluacionPage() {
                     <Typography variant="subtitle1" gutterBottom fontWeight={600}>
                       Dimensiones de Impacto (1-5)
                     </Typography>
-                    <Grid container spacing={3}>
+                    <Grid2 container spacing={3}>
                       {DIMENSIONES_IMPACTO.filter((d) => d.key !== 'tecnologico').map((dimension) => (
                         <Grid2 xs={12} sm={6} md={4} key={dimension.key}>
                           <Box>
@@ -1238,7 +1238,7 @@ export default function EvaluacionPage() {
               Variables de Evaluación del Control
             </Typography>
 
-            <Grid container spacing={2}>
+            <Grid2 container spacing={2}>
               <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Aplicabilidad</InputLabel>
@@ -1251,7 +1251,7 @@ export default function EvaluacionPage() {
                     <MenuItem value={1}>Cuenta con procedimientos documentados</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Cobertura</InputLabel>
@@ -1264,7 +1264,7 @@ export default function EvaluacionPage() {
                     <MenuItem value={1}>Frecuencia definida, totalidad población</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Facilidad de Uso</InputLabel>
@@ -1277,7 +1277,7 @@ export default function EvaluacionPage() {
                     <MenuItem value={1}>Complejidad coherente</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Segregación</InputLabel>
@@ -1290,7 +1290,7 @@ export default function EvaluacionPage() {
                     <MenuItem value={1}>SÍ</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12} sm={6}>
                 <FormControl fullWidth disabled={isReadOnly}>
                   <InputLabel>Naturaleza</InputLabel>
@@ -1304,7 +1304,7 @@ export default function EvaluacionPage() {
                     <MenuItem value={1}>Automático</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
+              </Grid2>
               <Grid2 xs={12} sm={6}>
                 <TextField
                   label="Desviaciones (fallos último año)"
@@ -1316,8 +1316,8 @@ export default function EvaluacionPage() {
                   fullWidth
                   disabled={isReadOnly}
                 />
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </Box>
         </DialogContent>
         <DialogActions>
