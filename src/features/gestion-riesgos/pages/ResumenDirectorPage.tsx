@@ -10,7 +10,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   TextField,
   FormControl,
@@ -36,6 +35,7 @@ import {
   Paper,
   Badge,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,

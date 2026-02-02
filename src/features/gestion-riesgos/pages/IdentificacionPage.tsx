@@ -18,12 +18,12 @@ import {
   Alert,
   Card,
   CardContent,
-  Grid,
   Divider,
   FormControl,
   InputLabel,
   Select,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,

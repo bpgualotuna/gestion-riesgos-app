@@ -11,7 +11,6 @@ import {
   CardContent,
   Button,
   TextField,
-  Grid,
   Alert,
   CircularProgress,
   Chip,
@@ -26,6 +25,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Add as AddIcon,
   Edit as EditIcon,

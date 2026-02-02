@@ -581,8 +581,7 @@ export interface RiesgoReciente extends Riesgo {
 // REVISIÓN Y APROBACIÓN DE PROCESOS
 // ============================================
 
-// Estados del proceso en el flujo de revisión
-export type EstadoProceso = 'borrador' | 'en_revision' | 'aprobado' | 'con_observaciones';
+// Estados del proceso en el flujo de revisión (ya definido arriba, no duplicar)
 
 // Observación del gerente sobre un proceso
 export interface ObservacionProceso {

@@ -29,6 +29,8 @@ function showError(error: unknown) {
   const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
   const errorStack = error instanceof Error ? error.stack : '';
   
+  if (!rootElement) return;
+  
   rootElement.innerHTML = `
     <div style="padding: 40px; text-align: center; background: #E8E8E8; min-height: 100vh; color: #000; font-family: Arial, sans-serif;">
       <h1 style="color: #d32f2f; margin-bottom: 20px;">Error al cargar la aplicación</h1>

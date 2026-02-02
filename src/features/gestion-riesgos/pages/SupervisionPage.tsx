@@ -10,7 +10,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   TextField,
   FormControl,
@@ -31,6 +30,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
@@ -429,7 +429,11 @@ export default function SupervisionPage() {
                 areaNombre: getAreaNombre(p.areaId),
               }))}
               columns={columns}
-              pageSize={10}
+              initialState={{
+                pagination: {
+                  paginationModel: { pageSize: 10 },
+                },
+              }}
               getRowId={(row) => row.id}
             />
           </CardContent>
