@@ -6,8 +6,10 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    // Prevenir que Rolldown intente resolver @mui/material/Grid2 que no existe
+    // Redirigir cualquier intento de importar Grid2 desde @mui/material a nuestro wrapper
     alias: {
-      '@mui/material/Grid2': path.resolve(__dirname, 'node_modules/@mui/material/Grid2/index.js'),
+      '@mui/material/Grid2': path.resolve(__dirname, 'src/utils/Grid2.tsx'),
     },
   },
   server: {
@@ -64,8 +66,5 @@ export default defineConfig({
       include: [/node_modules/],
       transformMixedEsModules: true,
     },
-  },
-  optimizeDeps: {
-    include: ['@mui/material/Grid2'],
   },
 })

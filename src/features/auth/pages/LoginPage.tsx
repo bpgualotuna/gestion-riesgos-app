@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Login Page
  * Modern login interface with COMWARE branding
  */
@@ -49,13 +49,17 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (result.success) {
-      // Si el usuario es admin, redirigir a administración
+      // Redirigir según el rol del usuario
       const storedUser = localStorage.getItem('currentUser');
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
           if (userData.role === 'admin') {
             navigate(ROUTES.ADMINISTRACION);
+            return;
+          }
+          if (userData.role === 'supervisor_riesgos') {
+            navigate(ROUTES.DASHBOARD_SUPERVISOR);
             return;
           }
         } catch (error) {
@@ -79,13 +83,17 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (result.success) {
-      // Si el usuario es admin, redirigir a administración
+      // Redirigir según el rol del usuario
       const storedUser = localStorage.getItem('currentUser');
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
           if (userData.role === 'admin') {
             navigate(ROUTES.ADMINISTRACION);
+            return;
+          }
+          if (userData.role === 'supervisor_riesgos') {
+            navigate(ROUTES.DASHBOARD_SUPERVISOR);
             return;
           }
         } catch (error) {
@@ -164,6 +172,7 @@ export default function LoginPage() {
               required
               autoFocus
               disabled={isLoading}
+              autoComplete="username"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -182,6 +191,7 @@ export default function LoginPage() {
               margin="normal"
               required
               disabled={isLoading}
+              autoComplete="current-password"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -258,7 +268,7 @@ export default function LoginPage() {
                   Katherine Chávez - dueño_procesos / dueño123
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Dueño de Procesos - Gestión completa de procesos
+                  Dueño del Proceso - Gestión completa de procesos
                 </Typography>
               </Box>
             </Button>
@@ -266,7 +276,7 @@ export default function LoginPage() {
             <Button
               variant="outlined"
               size="small"
-              onClick={() => handleDemoLogin('director', 'director123')}
+              onClick={() => handleDemoLogin('supervisor', 'supervisor123')}
               disabled={isLoading}
               sx={{
                 justifyContent: 'flex-start',
@@ -281,10 +291,10 @@ export default function LoginPage() {
             >
               <Box sx={{ textAlign: 'left', width: '100%' }}>
                 <Typography variant="body2" fontWeight={600}>
-                  Carlos Rodríguez - director / director123
+                  Carlos Rodríguez - supervisor / supervisor123
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Director de Procesos - Supervisión de procesos asignados por áreas
+                  Supervisor de Riesgos - Análisis y supervisión de riesgos a nivel compañía
                 </Typography>
               </Box>
             </Button>

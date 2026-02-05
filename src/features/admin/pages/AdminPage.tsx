@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Página de Administración - Usuario Root
  * Control total del sistema: usuarios, roles, permisos, configuraciones completas
  */
@@ -41,6 +41,8 @@ import {
   RadioGroup,
   Slider,
   Stack,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import Grid2 from '../../../utils/Grid2';
 import {
@@ -90,8 +92,18 @@ import {
   useDeleteFormulaMutation,
   useGetConfiguracionesQuery,
   useUpdateConfiguracionMutation,
+  useGetTiposRiesgosQuery,
+  useUpdateTiposRiesgosMutation,
+  useGetObjetivosQuery,
+  useUpdateObjetivosMutation,
+  useGetFrecuenciasQuery,
+  useUpdateFrecuenciasMutation,
+  useGetFuentesQuery,
+  useUpdateFuentesMutation,
+  useGetImpactosQuery,
+  useUpdateImpactosMutation,
 } from '../../gestion-riesgos/api/riesgosApi';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import type { Proceso } from '../../gestion-riesgos/types';
 import type { UserRole } from '../../../contexts/AuthContext';
 
@@ -336,7 +348,7 @@ export default function AdminPage() {
       fullName: 'Katherine Chávez',
       role: 'dueño_procesos',
       department: 'Gestión de Procesos',
-      position: 'Dueño de Procesos',
+      position: 'Dueño del Proceso',
       phone: '+57 300 123 4567',
       activo: true,
       createdAt: '2024-01-15',
@@ -1740,7 +1752,27 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
             </Grid2>
-          </Grid2>
+            </Grid2>
+          </Box>
+        )}
+
+        {/* Sección: Configuración de Identificación y Calificación */}
+        {activeSection === 'config-identificacion' && (
+          <Box sx={{ p: 3 }}>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="h6">Configuración de Identificación y Calificación</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Gestione los tipos de riesgo, objetivos, frecuencias, fuentes e impactos utilizados en la página de Identificación y Calificación
+              </Typography>
+            </Box>
+            
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Los cambios realizados aquí afectarán directamente los desplegables disponibles en la página de Identificación y Calificación.
+            </Alert>
+            
+            <Typography variant="body2" color="text.secondary">
+              Esta funcionalidad está en desarrollo. Próximamente podrá gestionar todos los datos de configuración desde esta sección.
+            </Typography>
           </Box>
         )}
 

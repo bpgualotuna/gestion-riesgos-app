@@ -7,7 +7,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 // User roles
-export type UserRole = 'admin' | 'manager' | 'analyst' | 'dueño_procesos' | 'director_procesos';
+export type UserRole = 'admin' | 'manager' | 'analyst' | 'dueño_procesos' | 'supervisor_riesgos' | 'auditoria';
 
 // User interface
 export interface User {
@@ -72,13 +72,13 @@ const USERS_DB: Array<User & { password: string }> = [
   },
   {
     id: '5',
-    username: 'director',
-    password: 'director123',
+    username: 'supervisor',
+    password: 'supervisor123',
     email: 'carlos.rodriguez@comware.com',
     fullName: 'Carlos Rodríguez',
-    role: 'director_procesos',
+    role: 'supervisor_riesgos',
     department: 'Gestión Financiera y Administrativa',
-    position: 'Director de Procesos',
+    position: 'Supervisor de Riesgos',
     phone: '+57 304 567 8901',
   },
 ];
@@ -92,7 +92,8 @@ interface AuthContextType {
   isLoading: boolean;
   esDueñoProcesos: boolean; // Helper para verificar si es dueño de procesos
   esAdmin: boolean; // Helper para verificar si es admin
-  esDirectorProcesos: boolean; // Helper para verificar si es director de procesos
+  esSupervisorRiesgos: boolean; // Helper para verificar si es supervisor de riesgos
+  esAuditoria: boolean; // Helper para verificar si es auditoría
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -157,7 +158,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     esDueñoProcesos: user?.esDueñoProcesos === true || user?.role === 'dueño_procesos',
     esAdmin: user?.role === 'admin',
-    esDirectorProcesos: user?.role === 'director_procesos',
+    esSupervisorRiesgos: user?.role === 'supervisor_riesgos',
+    esAuditoria: user?.role === 'auditoria',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

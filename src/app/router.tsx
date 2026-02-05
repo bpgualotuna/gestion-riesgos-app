@@ -9,8 +9,8 @@ import { ROUTES } from '../utils/constants';
 import MainLayout from '../components/layout/MainLayout';
 
 // Auth Components
-import ProtectedRoute from '../components/auth/ProtectedRoute';
-import AdminRedirect from '../components/auth/AdminRedirect';
+import ProtectedRoute from '../features/auth/components/ProtectedRoute';
+import AdminRedirect from '../features/auth/components/AdminRedirect';
 import LoginPage from '../features/auth/pages/LoginPage';
 
 // Pages
@@ -19,22 +19,27 @@ import FichaPage from '../features/gestion-riesgos/pages/FichaPage';
 import IdentificacionPage from '../features/gestion-riesgos/pages/IdentificacionPage';
 import EvaluacionPage from '../features/gestion-riesgos/pages/EvaluacionPage';
 import MapaPage from '../features/gestion-riesgos/pages/MapaPage';
-import PriorizacionPage from '../features/gestion-riesgos/pages/PriorizacionPage';
-import NormatividadPage from '../features/gestion-riesgos/pages/NormatividadPage';
-import ContextoExternoPage from '../features/gestion-riesgos/pages/ContextoExternoPage';
-import ContextoInternoPage from '../features/gestion-riesgos/pages/ContextoInternoPage';
-import DofaPage from '../features/gestion-riesgos/pages/DofaPage';
-import AnalisisProcesoPage from '../features/gestion-riesgos/pages/AnalisisProcesoPage';
-import BenchmarkingPage from '../features/gestion-riesgos/pages/BenchmarkingPage';
-import AyudaPage from '../features/gestion-riesgos/pages/AyudaPage';
+import PriorizacionPage from '../features/gestion-riesgos/pages/riesgos/PriorizacionPage';
+import NormatividadPage from '../features/gestion-riesgos/pages/procesos/NormatividadPage';
+import ContextoExternoPage from '../features/gestion-riesgos/pages/procesos/ContextoExternoPage';
+import ContextoInternoPage from '../features/gestion-riesgos/pages/procesos/ContextoInternoPage';
+import DofaPage from '../features/gestion-riesgos/pages/procesos/DofaPage';
+import AnalisisProcesoPage from '../features/gestion-riesgos/pages/procesos/AnalisisProcesoPage';
+import BenchmarkingPage from '../features/gestion-riesgos/pages/procesos/BenchmarkingPage';
+import AyudaPage from '../features/gestion-riesgos/pages/otros/AyudaPage';
 import ProcesosPage from '../features/gestion-riesgos/pages/ProcesosPage';
 import RiesgosProcesosPage from '../features/gestion-riesgos/pages/RiesgosProcesosPage';
 import AdminPage from '../features/admin/pages/AdminPage';
 import SupervisionPage from '../features/gestion-riesgos/pages/SupervisionPage';
 import ResumenDirectorPage from '../features/gestion-riesgos/pages/ResumenDirectorPage';
+import DashboardSupervisorPage from '../features/gestion-riesgos/pages/DashboardSupervisorPage';
 import PlanAccionPage from '../features/gestion-riesgos/pages/PlanAccionPage';
-import TareasPage from '../features/gestion-riesgos/pages/TareasPage';
-import HistorialPage from '../features/gestion-riesgos/pages/HistorialPage';
+import TareasPage from '../features/gestion-riesgos/pages/controles/TareasPage';
+import HistorialPage from '../features/gestion-riesgos/pages/otros/HistorialPage';
+import ResumenRiesgosPage from '../features/gestion-riesgos/pages/ResumenRiesgosPage';
+import RiesgosPorProcesoPage from '../features/gestion-riesgos/pages/RiesgosPorProcesoPage';
+import RiesgosPorTipologiaPage from '../features/gestion-riesgos/pages/RiesgosPorTipologiaPage';
+import IncidenciasPage from '../features/gestion-riesgos/pages/IncidenciasPage';
 
 export const router = createBrowserRouter([
   {
@@ -140,6 +145,26 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.RESUMEN_DIRECTOR,
         element: <ResumenDirectorPage />,
+      },
+      {
+        path: ROUTES.DASHBOARD_SUPERVISOR,
+        element: <DashboardSupervisorPage />,
+      },
+      {
+        path: ROUTES.RESUMEN_RIESGOS,
+        element: <ResumenRiesgosPage />,
+      },
+      {
+        path: ROUTES.RIESGOS_POR_PROCESO,
+        element: <RiesgosPorProcesoPage />,
+      },
+      {
+        path: ROUTES.RIESGOS_POR_TIPOLOGIA,
+        element: <RiesgosPorTipologiaPage />,
+      },
+      {
+        path: ROUTES.INCIDENCIAS,
+        element: <IncidenciasPage />,
       },
     ],
   },

@@ -59,7 +59,7 @@ const mockAreas = [
 
 // Mock de usuarios responsables - En producción vendría de la API
 const mockUsuarios = [
-  { id: '1', nombre: 'Dueño de Procesos', email: 'dueño@comware.com' },
+  { id: '1', nombre: 'Dueño del Proceso', email: 'dueño@comware.com' },
   { id: '2', nombre: 'María Gerente', email: 'manager@comware.com' },
   { id: '3', nombre: 'Juan Analista', email: 'analyst@comware.com' },
 ];

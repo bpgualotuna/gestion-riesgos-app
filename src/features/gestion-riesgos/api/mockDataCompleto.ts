@@ -571,3 +571,304 @@ export function updateMockNotificacion(id: string, data: any) {
   return mockNotificaciones[index];
 }
 
+// ============================================
+// DATOS DE CONFIGURACIÓN PARA IDENTIFICACIÓN Y CALIFICACIÓN
+// ============================================
+
+// Tipos y Subtipos de Riesgos
+export interface SubtipoRiesgo {
+  codigo: string;
+  descripcion: string;
+}
+
+export interface TipoRiesgo {
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  subtipos: SubtipoRiesgo[];
+}
+
+// Datos iniciales desde IdentificacionPage.tsx
+let mockTiposRiesgos: TipoRiesgo[] = [
+  {
+    codigo: '01 Estratégico',
+    nombre: 'Estratégico',
+    descripcion: 'Son los riesgos de fallar en la implementación del plan estratégico',
+    subtipos: [
+      { codigo: 'alianzas', descripcion: 'Alianzas comerciales ineficientes y/o inefectivas y/o no rentables.' },
+      { codigo: 'alineación estratégico', descripcion: 'Inexistencia, desconocimiento y/o falta de alineación entre la misión, visión, estrategias y los objetivos de negocio y proyectos de alto impacto de las unidades de negocio.' },
+      { codigo: 'canales de distribución', descripcion: 'Fallas en los canales de distribución que afectan la capacidad de la compañía de llegar a los clientes.' },
+      { codigo: 'capacidad industrial', descripcion: 'Riesgos de obsolescencia tecnológica y/o ineficiente uso de activos críticos.' },
+      { codigo: 'competencia', descripcion: 'Acciones de competidores o nuevos jugadores en el mercado.' },
+      { codigo: 'continuidad de negocio', descripcion: 'Eventos mayores (natural u ocasionado por el hombre) que afecten o inhabiliten la operación de la compañía.' },
+      { codigo: 'cultura organizacional', descripcion: 'Fallas en la alineación de los funcionarios con la misión, visión y objetivos estrátegicos de la compañía, fallas en la transmisión de conocimiento, y aceptación de cambios en la compañía.' },
+      { codigo: 'emergentes', descripcion: 'Un riesgo emergente es un evento cuya naturaleza y consecuencias no se conocen completamente y que podrían llegar a tener un gran impacto en la compañía. Estos usualmente suceden a gran escala y surgen de tendencias globales.' },
+      { codigo: 'grupo', descripcion: 'Potenciales pérdidas producto de transacciones con empresas del mismo grupo realizadas en condiciones distintas a las dominantes en el mercado, efectos negativos en la compañía producto de problemas reputacionales y/o económicos en otra empresa del grupo, concentración de operaciones con otra empresa del mismo grupo.' },
+      { codigo: 'mercado', descripcion: 'Cambios en las condiciones macroeconómicas y/o sectoriales relevantes para el negocio. Fluctuaciones en precios y/o indisponibilidad de inventario para comercializar' },
+      { codigo: 'político', descripcion: 'Es el riesgo que emerge debido a la exposición de la compañía a situaciones políticas nacionales y/o internacionales adversas, tensiones geopolíticas, o guerra.' },
+      { codigo: 'proyecto estratégico', descripcion: 'Riesgo de fallas en los estándares de gerencia de proyectos, incluidas las actividades de gobierno, actividades de monitoreo y control, manejo de presupuesto. Inhabilidad de mantener el alcance del proyecto y cronograma, así como fallar en la entrega exitosa del proyecto y la asociada gestión del cambio. Esta tipología se debe seleccionar cuando se trata de un proyecto de gran envergadura que afecta directamente el plan estratégico de la compañía.' },
+      { codigo: 'rentabilidad', descripcion: 'Posibilidad de no cumplir con la maximización del ROE presupuestado.' },
+      { codigo: 'satisfacción del cliente', descripcion: 'Fallo en la identificación de preferencias/necesidades de los clientes para la atracción de nuevos clientes y mantenimiento de la lealtad de los existentes, y/o en la ejecución de las estrategias de entrega de soluciones integrales a los clientes.' },
+      { codigo: 'talento humano', descripcion: 'Riesgo asociado con la falta y/o pérdida de funcionarios clave en la compañía, y/o en la atracción, desarrollo y retención de funcionarios competentes.' },
+    ],
+  },
+  {
+    codigo: '02 Operacional',
+    nombre: 'Operacional',
+    descripcion: 'Son aquellos riesgos relacionados con fallas en procesos, personas y/o tecnología',
+    subtipos: [
+      { codigo: 'ambiental', descripcion: 'Riesgos asociados a los daños ocasionados al medio ambiente a causa de la operación de la compañía.' },
+      { codigo: 'físico', descripcion: 'Riesgo de pérdida y/o daño en los activos físicos de la compañía (edificios, espacios de trabajo, almacenamiento y transporte).' },
+      { codigo: 'fraude externo', descripcion: 'Es el riesgo de que una persona natural y/o jurídica, actuando individualmente o en concierto con otros, deshonestamente o engañosamente gane o ayude a otros a ganar alguna ventaja injusta o ilegal sobre la compañía y/o sus partes interesadas (clientes, empleados, accionistas).' },
+      { codigo: 'fraude interno', descripcion: 'Es el riesgo que una persona dentro de la compañía y/o del grupo corporativo, actuando individualmente o en concierto con otros, deshonestamente o engañosamente gane o ayude a otros a ganar alguna ventaja injusta o ilegal sobre la compañía y/o sus partes interesadas (clientes, empleados, accionistas).' },
+      { codigo: 'información', descripcion: 'Brechas en la confidencialidad, integridad y/o disponibilidad de la información confidencial de la compañía. Que resulte en pérdidas de información, uso de la información para fines criminales, o que la información sea usada de tal manera que cause daño reputacional y/o pérdidas financieras.' },
+      { codigo: 'Proceso', descripcion: 'Son los riesgos relacionados con la inexistencia, fallas y/o ineficiencias en la ejecución de los procesos de la compañía.' },
+      { codigo: 'proyecto', descripcion: 'Riesgo de fallas en los estándares de gerencia de proyectos, incluidas las actividades de gobierno, actividades de monitoreo y control, manejo de presupuesto. Inhabilidad de mantener el alcance del proyecto y cronograma, así como fallar en la entrega exitosa del proyecto y la asociada gestión del cambio.' },
+      { codigo: 'seguridad en la cadena de suministro', descripcion: 'Son los riesgos asociados con el daño, pérdida y/o contaminación del producto, a nivel nacional e internacional. Por cadena de suministro se entiende, todas las actividades necesarias para la preparación y distribución de un producto para su venta.' },
+      { codigo: 'sistemas', descripcion: 'Es el riesgo de fallas, u otra deficiencia en las plataformas automáticas que soportan la operación diaria de la compañía (aplicaciones), y en los sistemas de infraestructura en las que ellas residen (date centers, redes, computadores, etc.)' },
+      { codigo: 'social', descripcion: 'Potencial pérdida producto del daño en la calidad de vida de la comunidad aledaña a las operaciones.' },
+    ],
+  },
+  {
+    codigo: '03 Financiero',
+    nombre: 'Financiero',
+    descripcion: 'Riesgos relacionados con aspectos financieros',
+    subtipos: [
+      { codigo: 'contable', descripcion: 'Es el riesgo de que información financiera sea capturada incorrectamente, mal calculada, omitida o mal reportada a usuarios externos como inversionistas o entes reguladores, o como información de gestión interna.' },
+      { codigo: 'crédito', descripcion: 'Posibilidad de que la compañía incurra en pérdidas y/o se disminuya el valor de sus activos, como consecuencia de que un deudor o contraparte incumpla sus obligaciones.' },
+      { codigo: 'impuestos', descripcion: 'Es el riesgo de incremento en las obligaciones tributarias de la compañía, y/o insuficiencias relacionadas con los procesos de impuestos que generen un impacto adverso en las relaciones y/o reputación de la compañía con sus contrapartes.' },
+      { codigo: 'liquidez', descripcion: 'Se define como la contingencia de no poder cumplir plenamente, de manera oportuna y eficiente los flujos de caja esperados, vigentes y futuros, sin afectar el curso de las operaciones diarias o la condición financiera de la compañía.' },
+      { codigo: 'riesgo de mercado', descripcion: 'Posibilidad de que la compañía incurra en pérdidas asociadas a la variación de los precios de mercado de materias primas, productos, inversiones, variación en tasas de interés que afecte sus pasivos y demás factores de mercado.' },
+    ],
+  },
+  {
+    codigo: '04 Cumplimiento',
+    nombre: 'Cumplimiento',
+    descripcion: 'Riesgos relacionados con el cumplimiento normativo y legal',
+    subtipos: [
+      { codigo: 'gobierno corporativo y ética', descripcion: 'Incumplimiento de los principios y normas que regulan el funcionamiento de Gobierno de la Compañía.' },
+      { codigo: 'Legal', descripcion: 'Es el riesgo de que funcionarios de la empresa influencien o sean influenciados por medio del pago de dadivas, regalos y/o favores, ya sea de forma directa o indirecta, con el fin de obtener y/o propiciar un negocio u otra ventaja por parte de un tercero, ya sea público o privado.' },
+      { codigo: 'legal', descripcion: 'Es el riesgo de pérdida financiera, sanciones y/o daño reputacional resultado de que los derechos y/u obligaciones de la compañía en una relación contractual sean defectuosos; que la compañía se encuentre envuelta o tenga potenciales o actuales disputas.' },
+      { codigo: 'protección de datos personales', descripcion: '' },
+      { codigo: 'regulatorio', descripcion: 'Es el riesgo de que la compañía falle en adherirse a las leyes operables en el país o en las jurisdicciones donde tenga relación en el transcurso de sus operaciones.' },
+    ],
+  },
+  {
+    codigo: '05 Seguridad de la Información',
+    nombre: 'Seguridad de la Información',
+    descripcion: 'Riesgos relacionados con la seguridad de la información',
+    subtipos: [
+      { codigo: 'Información', descripcion: 'Corresponden a este tipo datos e información almacenada o procesada física o electrónicamente tales como: bases y archivos de datos, contratos, documentación del sistema, investigaciones, acuerdos de confidencialidad, manuales de usuario, procedimientos operativos o de soporte, planes para la continuidad del negocio, acuerdos sobre retiro y pruebas de auditoría, entre otros.' },
+      { codigo: 'información', descripcion: 'Corresponden a este tipo datos e información almacenada o procesada física o electrónicamente tales como: bases y archivos de datos, contratos, documentación del sistema, investigaciones, acuerdos de confidencialidad, manuales de usuario, procedimientos operativos o de soporte, planes para la continuidad del negocio, acuerdos sobre retiro y pruebas de auditoría, entre otros.' },
+      { codigo: 'servicio', descripcion: 'Servicios de computación y comunicaciones, tales como Internet, páginas de consulta, directorios compartidos e Intranet.' },
+      { codigo: 'software', descripcion: 'Software de aplicación, interfaces, software del sistema, herramientas de desarrollo y otras utilidades relacionadas.' },
+    ],
+  },
+  {
+    codigo: '06 Seguridad y Salud en el Trabajo',
+    nombre: 'Seguridad y Salud en el Trabajo',
+    descripcion: 'Riesgos relacionados con la seguridad y salud en el trabajo',
+    subtipos: [
+      { codigo: 'caminatas', descripcion: 'Desplazamientos Por Largas Jornadas A Pie..' },
+      { codigo: 'diseño', descripcion: 'Diseño Inadecuado Del Puesto De Trabajo' },
+      { codigo: 'distribución del puesto', descripcion: 'Distribución/Organización Inadecuada Del Puesto De Trabajo' },
+      { codigo: 'hábitos posturales', descripcion: 'Hábitos Posturales Inadecuados Durante…' },
+      { codigo: 'manipulación de cargas', descripcion: 'Manipulación De Cargas Manual Por Encima De 12.5(Mujeres) 25 Kg (Hombres) durante..' },
+      { codigo: 'movimientos repetitivos', descripcion: 'Movimientos Repetitivos Al…' },
+      { codigo: 'otros', descripcion: 'Indique la situación' },
+      { codigo: 'postura de pie', descripcion: 'Posturas Prolongadas O Sostenidas De Pie durante..' },
+      { codigo: 'postura sentado', descripcion: 'Posturas Prolongadas O Sostenidas  Sentado durante..' },
+      { codigo: 'posturas forzadas', descripcion: 'Posturas forzadas o sostenidas o posturas incómodas debido a:' },
+    ],
+  },
+];
+
+// Objetivos
+export interface Objetivo {
+  id: number;
+  codigo: string;
+  descripcion: string;
+}
+
+let mockObjetivos: Objetivo[] = [
+  { id: 1, codigo: '01', descripcion: 'Maximizar la rentabilidad sobre la inversión' },
+  { id: 2, codigo: '02', descripcion: 'Ofrecer soluciones de vanguardia para los clientes' },
+  { id: 3, codigo: '03', descripcion: 'Lograr que los clientes recomienden los productos y servicios de Comware' },
+  { id: 4, codigo: '04', descripcion: 'Enfocarse en clientes objetivo así como en proyectos estratégicos' },
+  { id: 5, codigo: '05', descripcion: 'Maximizar el retorno de los recursos invertidos en el proceso comercial y preventa' },
+  { id: 6, codigo: '06', descripcion: 'Gestionar la liquidez necesaria para la operación' },
+  { id: 7, codigo: '07', descripcion: 'Gestionar los riesgos y establecer normas de control interno' },
+  { id: 8, codigo: '08', descripcion: 'Generar EEFF auditados en cumplimiento con las normas aplicables' },
+  { id: 9, codigo: '09', descripcion: 'Cumplir las expectativas de alcance, tiempo y recursos de los proyectos' },
+  { id: 10, codigo: '10', descripcion: 'Cumplir con los niveles de servicio acordados con el cliente' },
+  { id: 11, codigo: '11', descripcion: 'Cumplir con las expectativas sobre colocación de órdenes de compra y entrega de equipos' },
+  { id: 12, codigo: '12', descripcion: 'Garantizar la disponibilidad de los recursos de TI para la operación de los procesos de Comware' },
+  { id: 13, codigo: '13', descripcion: 'Aplicar estándares de seguridad de la información' },
+  { id: 14, codigo: '14', descripcion: 'Reducir los incidentes de Seguridad de la Información' },
+  { id: 15, codigo: '15', descripcion: 'Gestionar el desempeño del Personal' },
+];
+
+// Frecuencias
+export interface Frecuencia {
+  id: number;
+  label: string;
+  descripcion: string;
+}
+
+let mockFrecuencias: Frecuencia[] = [
+  { id: 1, label: 'Raro', descripcion: 'mayor a anual' },
+  { id: 2, label: 'Improbable', descripcion: 'mayor a trimestral y hasta anual' },
+  { id: 3, label: 'Posible', descripcion: 'mayor a mensual y hasta trimestral' },
+  { id: 4, label: 'Probable', descripcion: 'mayor a diaria y hasta mensual' },
+  { id: 5, label: 'Esperado', descripcion: 'diaria o varias veces al día' },
+];
+
+// Fuentes
+export interface Fuente {
+  id: number;
+  nombre: string;
+}
+
+let mockFuentes: Fuente[] = [
+  { id: 1, nombre: 'Personas' },
+  { id: 2, nombre: 'Proceso' },
+  { id: 3, nombre: 'Legal' },
+  { id: 4, nombre: 'Infraestructura' },
+  { id: 5, nombre: 'Externos' },
+];
+
+// Impactos
+export interface ImpactoDescripcion {
+  categoria: string;
+  nivel: number;
+  descripcion: string;
+}
+
+let mockImpactos: ImpactoDescripcion[] = [
+  // Económico
+  { categoria: 'economico', nivel: 1, descripcion: 'Variación (+ ó -) en los recursos financieros de hasta $2K USD' },
+  { categoria: 'economico', nivel: 2, descripcion: 'Variación (+ ó -) en los recursos financieros de hasta $14,5K USD' },
+  { categoria: 'economico', nivel: 3, descripcion: 'Variación (+ ó -) en los recursos financieros de de hasta $33,8K USD' },
+  { categoria: 'economico', nivel: 4, descripcion: 'Variación (+ ó -) en los recursos financieros de hasta $85,9K USD' },
+  { categoria: 'economico', nivel: 5, descripcion: 'Variación (+ ó -) en los recursos financieros superior a $85,9K USD' },
+  // Procesos
+  { categoria: 'procesos', nivel: 1, descripcion: 'Mínima afectación en el tiempo, calidad y/o eficiencia del servicio/producto' },
+  { categoria: 'procesos', nivel: 2, descripcion: 'Impacto bajo en el tiempo de la ejecución del proceso  (entre 1 y 4 horas seguidas). Pocos clientes se ven afectados (+ ó -) respecto a tiempos de entrega y/o estándares de calidad del producto/servicio.' },
+  { categoria: 'procesos', nivel: 3, descripcion: 'Impacto moderado en el tiempo de ejecución del proceso (entre 4 y 8 horas seguidas).  Moderado número de clientes se ven afectados (+ ó -) respecto a tiempos de entrega y/o estándares de calidad del producto/servicio.' },
+  { categoria: 'procesos', nivel: 4, descripcion: 'Impacto mayor en el tiempo de ejecución del proceso (entre 1 y 2 días seguidos). Varios clientes con impacto que se van (-) y/o vienen (+) de la competencia.' },
+  { categoria: 'procesos', nivel: 5, descripcion: 'Impacto importante en el tiempo de ejecución del proceso (mayor a 2 días). Mayoría de clientes con impacto que se van (-) y/o vienen (+) de la competencia.' },
+  // Legal
+  { categoria: 'legal', nivel: 1, descripcion: '- Queja ante autoridad administrativa. (-)\r\n- Sin modificaciones en el ambiente normativo/legal de la compañía. (+)' },
+  { categoria: 'legal', nivel: 2, descripcion: '- Observaciones por parte del ente regulador con plazo para cumplimiento de acciones. (-)\r\n- El evento ocasiona cumplimiento total y/o cierre de brechas para el cumplimiento de las normativas legales. (+)' },
+  { categoria: 'legal', nivel: 3, descripcion: '- Indemnizaciones, multas o sanciones por incumplimiento normativo. Demandas por parte de clientes y/o proveedores. (-)\r\n- El evento ocasiona mejoras en el cumplimiento de las normativas vigentes/ Mejoras en las condiciones legales de los contratos. (+)' },
+  { categoria: 'legal', nivel: 4, descripcion: '- Junta Directiva y representantes legales resultan con antecedentes judiciales o administrativos que afectan las decisiones de la operación o el negocio. (-)\r\n- Optimización en el relacionamiento de los ejecutivos de la compañía con los reguladores claves de la industria. (+)' },
+  { categoria: 'legal', nivel: 5, descripcion: '- Intervención por parte del ente regulador (-)\r\n- El evento resulta en acciones proactivas ante proyectos de normativas que tendrán un fuerte impacto en la compañía (+)' },
+  // Confidencialidad SGSI
+  { categoria: 'confidencialidadSGSI', nivel: 1, descripcion: 'El activo de información no se encuentra expuesto a acceso no autorizado' },
+  { categoria: 'confidencialidadSGSI', nivel: 2, descripcion: 'Exposición de información pública interna a externos (Proveedores, clientes, etc.).' },
+  { categoria: 'confidencialidadSGSI', nivel: 3, descripcion: 'Exposición de información confidencial y secreta a personal interno no autorizado (personal a quien no fue dirigida esa información).' },
+  { categoria: 'confidencialidadSGSI', nivel: 4, descripcion: 'Exposición de información confidencial a externos (Proveedores, clientes, etc.)' },
+  { categoria: 'confidencialidadSGSI', nivel: 5, descripcion: 'Exposición de información secreta a externos (Proveedores, clientes, etc.).' },
+  // Reputación
+  { categoria: 'reputacion', nivel: 1, descripcion: 'No se ve afectada la confianza y credibilidad en ningún grupo de interés ni tiene despliegue por medios de comunicación masiva. El hecho es conocido al interior de la unidad de negocio.' },
+  { categoria: 'reputacion', nivel: 2, descripcion: 'El hecho afecta (+ ó -) la confianza y credibilidad de grupos de interés no claves para la unidad de negocio. El hecho es conocido al interior de la compañía.' },
+  { categoria: 'reputacion', nivel: 3, descripcion: 'El hecho afecta (+ ó -) la confianza y credibilidad de varios grupos de interés clave para la compañía. El hecho es conocido por empresas del sector.' },
+  { categoria: 'reputacion', nivel: 4, descripcion: 'El hecho afecta  (+ ó -) la confianza y credibilidad de todos los grupos de interés. El hecho tiene despliegue por medios de comunicación masiva informales y/o locales.' },
+  { categoria: 'reputacion', nivel: 5, descripcion: 'El hecho afecta (+ ó -) la confianza y credibilidad de todos los grupos de interés. El hecho tiene despliegue por medios de comunicación masiva locales, regionales y nacionales.' },
+  // Disponibilidad SGSI
+  { categoria: 'disponibilidadSGSI', nivel: 1, descripcion: 'Los objetivos de la Empresa no se ven afectados en caso de que el activo sea comprometido o no se encuentre disponible. Indisponibilidad de regional o local de acceso a servicios internos de la compañía sin afectación a la operación.' },
+  { categoria: 'disponibilidadSGSI', nivel: 2, descripcion: 'Es probable que los objetivos de la Empresa se vean afectados en caso de que el activo sea comprometido o no se encuentre disponible. Indisponibilidad de acceso a servicios internos de la compañía y se continúa con la operación.' },
+  { categoria: 'disponibilidadSGSI', nivel: 3, descripcion: 'Si se compromete el activo o no se encuentra disponible, se retrasará el cumplimiento de los objetivos de la Empresa. Indisponibilidad de acceso a servicios financieros y operacionales de la compañía' },
+  { categoria: 'disponibilidadSGSI', nivel: 4, descripcion: 'Si se compromete el activo o no se encuentra disponible no se cumplirá con los objetivos de la Empresa. Indisponibilidad de servicios transaccionales' },
+  { categoria: 'disponibilidadSGSI', nivel: 5, descripcion: 'Si se compromete el activo o no se encuentra disponible, se perderá la confianza de los inversionistas, proveedores y/o clientes. Indisponibilidad total del servicio de los clientes' },
+  // Personas
+  { categoria: 'personas', nivel: 1, descripcion: '-Lesión Leve (Primeros auxilios dentro de la empresa), no afectan el desempeño laboral ni causan incapacidad. (-)\r\n- Eventos que involucran datos personales públicos que no afectan el derecho al habeas data (-).\r\n- Sin modificaciones en el ambiente de seguridad física de las personas. (+)' },
+  { categoria: 'personas', nivel: 2, descripcion: '- Lesión Menor (sin incapacidad - primeros auxilios por fuera de la empresa), no afectan el desempeño laboral ni causan incapacidad. (-).\r\n- Eventos que involucran datos personales privados o semiprivados que no afectan el derecho del habeas data (-).\r\n- El evento ocasiona mejoras leves en la salud ocupacional de los colaboradores - previene enfermedades y/o lesiones leves. (+)' },
+  { categoria: 'personas', nivel: 3, descripcion: '- Incapacidad Temporal (>1 día): Eventos que afectan el desempeño laboral que requieren algunos días de recuperación. Daños reversibles en la salud (ej.: Irritación de la piel, intoxicaciones alimentarias) (-).\r\n- Eventos que involucran datos personales (distintos de datos sensibles o de menores de edad) y afectan el derecho al habeas data (-).\r\n- El evento ocasiona mejoras moderadas en la salud ocupacional de los colaboradores. Previene enfermedades y/o lesiones reversibles. (+)' },
+  { categoria: 'personas', nivel: 4, descripcion: '- Incapacidad permanente (parcial o total): Eventos que producen incapacidad parcial y/o permanente por accidente de trabajo o enfermedad profesional. Daños irreversibles en la salud con inhabilitación seria sin pérdida de vida (ej.: Hipoacusia inducida por ruido, lesiones lumbares crónicas, lesiones por sobreesfuerzos). (-).\r\n- Eventos que involucran datos personales (distintos de datos sensibles o de menores de edad) y afectas derechos fundamentales (-).\r\n- El evento ocasiona mejoras significativas en la salud ocupacional de los colaboradores. Previene enfermedades y/o lesiones irreversibles. (+)' },
+  { categoria: 'personas', nivel: 5, descripcion: '- Una o más fatalidades por accidente o enfermedad. (-).\r\n- Eventos que afectan derechos fundamentales y que involucren datos personales sensibles o datos de menores de edad (-).\r\n- El evento tiene un impacto importante en la salud ocupacional de los colaboradores, previniendo fatalidades por accidentes ó enfermedades. (+)' },
+  // Integridad SGSI
+  { categoria: 'integridadSGSI', nivel: 1, descripcion: 'Los objetivos de la Empresa no se ven afectados en caso de que el activo sea comprometido o no se encuentre disponible. Indisponibilidad de regional o local de acceso a servicios internos de la compañía sin afectación a la operación.' },
+  { categoria: 'integridadSGSI', nivel: 2, descripcion: 'Es probable que los objetivos de la Empresa se vean afectados en caso de que el activo sea comprometido o no se encuentre disponible. Indisponibilidad de acceso a servicios internos de la compañía y se continúa con la operación.' },
+  { categoria: 'integridadSGSI', nivel: 3, descripcion: 'Si se compromete el activo o no se encuentra disponible, se retrasará el cumplimiento de los objetivos de la Empresa. Indisponibilidad de acceso a servicios financieros y operacionales de la compañía' },
+  { categoria: 'integridadSGSI', nivel: 4, descripcion: 'Si se compromete el activo o no se encuentra disponible no se cumplirá con los objetivos de la Empresa. Indisponibilidad de servicios transaccionales' },
+  { categoria: 'integridadSGSI', nivel: 5, descripcion: 'Si se compromete el activo o no se encuentra disponible, se perderá la confianza de los inversionistas, proveedores y/o clientes. Indisponibilidad total del servicio de los clientes' },
+  // Ambiental
+  { categoria: 'ambiental', nivel: 1, descripcion: 'Sin afectación ambiental. Sin modificaciones en el ambiente' },
+  { categoria: 'ambiental', nivel: 2, descripcion: "'- El evento ocasiona (-) ó ayuda a mejorar (+) las emisiones, vertimientos o desechos con afectación ambiental leve. \r\n- Acciones para la corrección ó mejoramiento del ambiente a corto plazo (1 a 29 días)." },
+  { categoria: 'ambiental', nivel: 3, descripcion: "'- El evento ocasiona (-) ó ayuda a mejorar (+) emisiones, vertimientos o desechos con afectación ambiental localizada.\r\n- Acciones para la corrección ó mejoramiento del ambiente a mediano plazo (30 a 90 días)" },
+  { categoria: 'ambiental', nivel: 4, descripcion: "'- El evento ocasiona (-) ó ayuda a mejorar (+) emisiones, vertimientos o desechos con afectación ambiental grave con pérdida de capacidad productiva del ecosistema.\r\n- Acciones para la corrección ó mejoramiento del ambiente en el largo plazo (> 90 días)" },
+  { categoria: 'ambiental', nivel: 5, descripcion: "'- El evento ocasiona (-) ó ayuda a mejorar (+) emisiones, vertimientos o desechos con daño ambiental irreparable/nocivo a nivel interno y/o externo\r\n- Acciones para la compensación (-) ó mejoramiento (+) a daños irreparables a recursos naturales o ecosistema." },
+];
+
+// Funciones para obtener datos
+export function getMockTiposRiesgos(): TipoRiesgo[] {
+  const stored = localStorage.getItem('config_tipos_riesgos');
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  return mockTiposRiesgos;
+}
+
+export function updateMockTiposRiesgos(data: TipoRiesgo[]): TipoRiesgo[] {
+  mockTiposRiesgos = data;
+  localStorage.setItem('config_tipos_riesgos', JSON.stringify(data));
+  return data;
+}
+
+export function getMockObjetivos(): Objetivo[] {
+  const stored = localStorage.getItem('config_objetivos');
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  return mockObjetivos;
+}
+
+export function updateMockObjetivos(data: Objetivo[]): Objetivo[] {
+  mockObjetivos = data;
+  localStorage.setItem('config_objetivos', JSON.stringify(data));
+  return data;
+}
+
+export function getMockFrecuencias(): Frecuencia[] {
+  const stored = localStorage.getItem('config_frecuencias');
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  return mockFrecuencias;
+}
+
+export function updateMockFrecuencias(data: Frecuencia[]): Frecuencia[] {
+  mockFrecuencias = data;
+  localStorage.setItem('config_frecuencias', JSON.stringify(data));
+  return data;
+}
+
+export function getMockFuentes(): Fuente[] {
+  const stored = localStorage.getItem('config_fuentes');
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  return mockFuentes;
+}
+
+export function updateMockFuentes(data: Fuente[]): Fuente[] {
+  mockFuentes = data;
+  localStorage.setItem('config_fuentes', JSON.stringify(data));
+  return data;
+}
+
+export function getMockImpactos(): ImpactoDescripcion[] {
+  const stored = localStorage.getItem('config_impactos');
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  return mockImpactos;
+}
+
+export function updateMockImpactos(data: ImpactoDescripcion[]): ImpactoDescripcion[] {
+  mockImpactos = data;
+  localStorage.setItem('config_impactos', JSON.stringify(data));
+  return data;
+}
+

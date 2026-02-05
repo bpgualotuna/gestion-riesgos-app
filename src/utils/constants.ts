@@ -120,9 +120,14 @@ export const ROUTES = {
   ADMINISTRACION: '/administracion',
   SUPERVISION: '/supervision',
   RESUMEN_DIRECTOR: '/resumen-director',
+  DASHBOARD_SUPERVISOR: '/dashboard-supervisor',
   PLAN_ACCION: '/plan-accion',
   TAREAS: '/tareas',
   HISTORIAL: '/historial',
+  RESUMEN_RIESGOS: '/resumen-riesgos',
+  RIESGOS_POR_PROCESO: '/riesgos-por-proceso',
+  RIESGOS_POR_TIPOLOGIA: '/riesgos-por-tipologia',
+  INCIDENCIAS: '/incidencias',
 } as const;
 
 // API Base URL (configurar según entorno)

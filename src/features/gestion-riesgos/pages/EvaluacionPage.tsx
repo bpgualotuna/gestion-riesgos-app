@@ -45,12 +45,12 @@ import {
   Edit as EditIconSmall,
 } from '@mui/icons-material';
 import { useGetRiesgosQuery, useCreateEvaluacionMutation } from '../api/riesgosApi';
-import { useCalculosRiesgo } from '../hooks/useCalculosRiesgo';
-import { useNotification } from '../../../hooks/useNotification';
+import { useCalculosRiesgo } from '../../../shared/hooks/useCalculosRiesgo';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useProceso } from '../../../contexts/ProcesoContext';
 import { DIMENSIONES_IMPACTO, LABELS_PROBABILIDAD, LABELS_IMPACTO } from '../../../utils/constants';
 import { getRiskColor } from '../../../app/theme/colors';
-import { formatRiskValue } from '../../../utils/formatters';
+import { formatRiskValue } from '../../../shared/utils/formatters';
 import type {
   Riesgo,
   Impactos,

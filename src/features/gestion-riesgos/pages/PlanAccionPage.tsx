@@ -53,9 +53,9 @@ import {
 } from '@mui/icons-material';
 // Usaremos TextField con type="date" en lugar de DatePicker para evitar dependencias adicionales
 import { useProceso } from '../../../contexts/ProcesoContext';
-import { useRiesgo } from '../../../contexts/RiesgoContext';
+import { useRiesgo } from '../../../shared/contexts/RiesgoContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useGetRiesgosQuery } from '../api/riesgosApi';
 // Tipos locales para Plan de Acción (en producción vendrían de la API)
 interface PlanAccion {
@@ -559,6 +559,106 @@ export default function PlanAccionPage() {
               </Button>
             )}
           </Box>
+
+          {/* Tabla Consolidada de Planes de Acción con Fechas */}
+          {riesgoSeleccionado && planesFiltrados.length > 0 && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom fontWeight={600}>
+                  Tabla de Planes de Acción
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell><strong>Nombre</strong></TableCell>
+                        <TableCell><strong>Objetivo</strong></TableCell>
+                        <TableCell><strong>Responsable</strong></TableCell>
+                        <TableCell><strong>Fecha Inicio</strong></TableCell>
+                        <TableCell><strong>Fecha Límite</strong></TableCell>
+                        <TableCell><strong>Estado</strong></TableCell>
+                        <TableCell><strong>Progreso</strong></TableCell>
+                        <TableCell><strong>Tareas</strong></TableCell>
+                        {!isReadOnly && <TableCell><strong>Acciones</strong></TableCell>}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {planesFiltrados.map((plan) => {
+                        const avance = calcularAvancePlan(plan);
+                        return (
+                          <TableRow key={plan.id} hover>
+                            <TableCell>{plan.nombre}</TableCell>
+                            <TableCell>{plan.objetivo}</TableCell>
+                            <TableCell>{plan.responsableNombre || 'Sin asignar'}</TableCell>
+                            <TableCell>
+                              {new Date(plan.fechaInicio).toLocaleDateString('es-ES')}
+                            </TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                color={estaAtrasada(plan.fechaLimite) ? 'error' : 'inherit'}
+                                fontWeight={estaAtrasada(plan.fechaLimite) ? 600 : 400}
+                              >
+                                {new Date(plan.fechaLimite).toLocaleDateString('es-ES')}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                icon={getIconoEstado(plan.estado)}
+                                label={plan.estado.replace('_', ' ').toUpperCase()}
+                                color={getColorEstado(plan.estado)}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={avance}
+                                  sx={{ width: 80, height: 6, borderRadius: 1 }}
+                                />
+                                <Typography variant="body2" fontWeight={600}>
+                                  {avance}%
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={`${plan.tareas.length} tarea${plan.tareas.length !== 1 ? 's' : ''}`}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            {!isReadOnly && (
+                              <TableCell>
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleEditarPlan(plan)}
+                                    title="Editar"
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleEliminarPlan(plan.id)}
+                                    title="Eliminar"
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Selector de Riesgo */}
           <Card sx={{ mb: 3 }}>

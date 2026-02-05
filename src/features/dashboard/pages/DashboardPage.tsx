@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Dashboard Page
  * Lista de riesgos con opción de crear nuevo o seleccionar para ver/editar
  */
@@ -24,6 +24,14 @@ import {
   InputLabel,
   Select,
   TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton,
 } from '@mui/material';
 import Grid2 from '../../../utils/Grid2';
 import {
@@ -38,11 +46,12 @@ import {
   Warning as WarningIcon,
   Error as ErrorIcon,
   TrendingUp as TrendingUpIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
-import { useGetRiesgosQuery, useGetEstadisticasQuery, useGetObservacionesQuery } from '../../gestion-riesgos/api/riesgosApi';
+import { useGetRiesgosQuery, useGetEstadisticasQuery, useGetObservacionesQuery, useDuplicateProcesoMutation } from '../../gestion-riesgos/api/riesgosApi';
 import { useProceso } from '../../../contexts/ProcesoContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useGetProcesosQuery } from '../../gestion-riesgos/api/riesgosApi';
 import { ROUTES } from '../../../utils/constants';
 import { useNavigate, Navigate } from 'react-router-dom';
@@ -66,9 +75,19 @@ export default function DashboardPage() {
   const { procesoSeleccionado, setProcesoSeleccionado, puedeGestionarProcesos, iniciarModoEditar, iniciarModoVisualizar } = useProceso();
   const { showSuccess, showError } = useNotification();
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
+  const [duplicateProceso] = useDuplicateProcesoMutation();
   const [procesoMenuAnchor, setProcesoMenuAnchor] = useState<null | HTMLElement>(null);
   const [resumenOpen, setResumenOpen] = useState(false);
   const [procesoResumen, setProcesoResumen] = useState<any>(null);
+  
+  // Estados para duplicar proceso
+  const [openDuplicarDialog, setOpenDuplicarDialog] = useState(false);
+  const [procesoADuplicar, setProcesoADuplicar] = useState<Proceso | null>(null);
+  const [formDataDuplicar, setFormDataDuplicar] = useState({
+    nombre: '',
+    año: new Date().getFullYear(),
+    descripcion: '',
+  });
   
   // Filtrar procesos según el rol del usuario
   const procesosFiltrados = useMemo(() => {
@@ -88,7 +107,7 @@ export default function DashboardPage() {
   const { data: todosRiesgosData } = useGetRiesgosQuery({ pageSize: 1000 });
   const todosRiesgos = todosRiesgosData?.data || [];
 
-  // Filtrar procesos del dueño de procesos
+  // Filtrar procesos del dueño del proceso
   const procesosDelDueño = useMemo(() => {
     if (esDueñoProcesos && user) {
       return procesosFiltrados.filter((p) => p.responsableId === user.id);
@@ -252,331 +271,274 @@ export default function DashboardPage() {
     setResumenOpen(true);
   };
 
-  // Si es dueño de procesos, mostrar dashboard mejorado
+  // Obtener áreas asignadas al usuario (solo áreas donde tiene procesos)
+  // Si no tiene procesos, puede ver todas las áreas activas para crear el primero
+  const areasAsignadas = useMemo(() => {
+    if (!user || !esDueñoProcesos) return [];
+    const areasDelUsuario = new Set<string>();
+    procesosDelDueño.forEach((p) => {
+      if (p.areaId) areasDelUsuario.add(p.areaId);
+    });
+    // Si tiene procesos, solo mostrar áreas donde tiene procesos
+    // Si no tiene procesos, mostrar todas las áreas activas para que pueda crear uno
+    if (areasDelUsuario.size > 0) {
+      return areas.filter((a: any) => areasDelUsuario.has(a.id) && a.activa);
+    } else {
+      return areas.filter((a: any) => a.activa);
+    }
+  }, [procesosDelDueño, areas, user, esDueñoProcesos]);
+
+  // Estados para filtros y tabla
+  const [filtroArea, setFiltroArea] = useState<string>('todas');
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Filtrar procesos según los filtros
+  const procesosFiltradosTabla = useMemo(() => {
+    let filtrados = procesosDelDueño;
+    
+    if (filtroArea !== 'todas') {
+      filtrados = filtrados.filter((p) => p.areaId === filtroArea);
+    }
+    
+    if (filtroEstado !== 'todos') {
+      filtrados = filtrados.filter((p) => p.estado === filtroEstado);
+    }
+    
+    return filtrados;
+  }, [procesosDelDueño, filtroArea, filtroEstado]);
+
+  // Si es dueño del proceso, mostrar tabla de procesos
   if (esDueñoProcesos) {
     return (
       <Box>
-        {/* Título Principal */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" gutterBottom fontWeight={700}>
-            Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Resumen de procesos y riesgos a su cargo
-          </Typography>
-        </Box>
-
-        {/* Estadísticas Generales de Riesgos */}
-        <Grid2 container spacing={3} sx={{ mb: 4 }}>
-          <Grid2 xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Total Riesgos
-                    </Typography>
-                    <Typography variant="h4" fontWeight={700} color="primary">
-                      {estadisticasRiesgos.total}
-                    </Typography>
-                  </Box>
-                  <AssessmentIcon sx={{ fontSize: 40, color: '#1976d2', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Procesos Asignados
-                    </Typography>
-                    <Typography variant="h4" fontWeight={700} color="info.main">
-                      {procesosDelDueño.length}
-                    </Typography>
-                  </Box>
-                  <BusinessCenterIcon sx={{ fontSize: 40, color: '#0288d1', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Procesos Aprobados
-                    </Typography>
-                    <Typography variant="h4" fontWeight={700} color="success.main">
-                      {procesosDelDueño.filter((p) => p.estado === 'aprobado').length}
-                    </Typography>
-                  </Box>
-                  <CheckCircleIcon sx={{ fontSize: 40, color: '#2e7d32', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Con Observaciones
-                    </Typography>
-                    <Typography variant="h4" fontWeight={700} color="error.main">
-                      {procesosDelDueño.filter((p) => p.estado === 'con_observaciones').length}
-                    </Typography>
-                  </Box>
-                  <WarningIcon sx={{ fontSize: 40, color: '#d32f2f', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-        </Grid2>
-
-        {/* Lista de Procesos con Estados */}
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h5" fontWeight={600}>
-              Mis Procesos por Área
+        {/* Título y Botón Crear */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" gutterBottom fontWeight={700}>
+              Mis Procesos
             </Typography>
-            {puedeGestionarProcesos && (
-              <Button
-                variant="contained"
-                size="medium"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenCrearProcesoDialog(true)}
-                sx={{ 
-                  background: '#1976d2',
-                  borderRadius: 2,
-                  px: 3,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  '&:hover': {
-                    background: '#1565c0',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                  },
-                  transition: 'all 0.2s',
-                }}
-              >
-                Nuevo Proceso
-              </Button>
-            )}
+            <Typography variant="body2" color="text.secondary">
+              Gestión de procesos asignados
+            </Typography>
           </Box>
-
-          {loadingProcesos ? (
-            <Card>
-              <CardContent>
-                <LinearProgress />
-                <Typography variant="body1" color="text.secondary" align="center" sx={{ mt: 2 }}>
-                  Cargando procesos...
-                </Typography>
-              </CardContent>
-            </Card>
-          ) : procesosDelDueño.length === 0 ? (
-            <Card>
-              <CardContent>
-                <Alert severity="info">
-                  No tiene procesos asignados. Cree uno nuevo para comenzar.
-                </Alert>
-              </CardContent>
-            </Card>
-          ) : Object.keys(procesosPorArea).length === 0 ? (
-            <Card>
-              <CardContent>
-                <Alert severity="info">
-                  No tiene procesos asignados. Cree uno nuevo para comenzar.
-                </Alert>
-              </CardContent>
-            </Card>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {Object.entries(procesosPorArea).map(([areaId, { area, procesos: procesosArea }]) => {
-                const totalRiesgosArea = procesosArea.reduce(
-                  (acc, p) => acc + getEstadisticasProceso(p.id).total,
-                  0
-                );
-                const procesosAprobados = procesosArea.filter((p) => p.estado === 'aprobado').length;
-                const procesosConObs = procesosArea.filter((p) => p.estado === 'con_observaciones').length;
-                const procesosEnRevision = procesosArea.filter((p) => p.estado === 'en_revision').length;
-                const procesosBorrador = procesosArea.filter((p) => p.estado === 'borrador').length;
-
-                return (
-                  <Card key={areaId} sx={{ overflow: 'visible' }}>
-                    <CardContent>
-                      {/* Header del Área */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                        <Box>
-                          <Typography variant="h5" fontWeight={600} gutterBottom>
-                            {area.nombre}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                            <Chip
-                              label={`${procesosArea.length} proceso(s)`}
-                              size="small"
-                              color="primary"
-                            />
-                            <Chip
-                              label={`${totalRiesgosArea} riesgo(s)`}
-                              size="small"
-                              color="warning"
-                            />
-                            {procesosAprobados > 0 && (
-                              <Chip
-                                label={`${procesosAprobados} aprobado(s)`}
-                                size="small"
-                                color="success"
-                              />
-                            )}
-                            {procesosConObs > 0 && (
-                              <Chip
-                                label={`${procesosConObs} con observaciones`}
-                                size="small"
-                                color="error"
-                              />
-                            )}
-                            {procesosEnRevision > 0 && (
-                              <Chip
-                                label={`${procesosEnRevision} en revisión`}
-                                size="small"
-                                color="warning"
-                              />
-                            )}
-                          </Box>
-                        </Box>
-                      </Box>
-
-                      <Divider sx={{ mb: 3 }} />
-
-                      {/* Grid de Procesos del Área */}
-                      <Grid2 container spacing={3}>
-                        {procesosArea.map((proceso) => {
-                          const stats = getEstadisticasProceso(proceso.id);
-                          // Obtener observaciones pendientes desde localStorage (temporal)
-                          const stored = localStorage.getItem('observaciones_procesos');
-                          const todasObservaciones = stored ? JSON.parse(stored) : [];
-                          const observacionesPendientes = todasObservaciones.filter(
-                            (obs: any) => obs.procesoId === proceso.id && !obs.resuelta
-                          ).length;
-
-                          return (
-                            <Grid2 xs={12} md={6} lg={4} key={proceso.id}>
-                    <Card
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        border: procesoSeleccionado?.id === proceso.id ? '2px solid #1976d2' : '1px solid rgba(0, 0, 0, 0.12)',
-                        '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)',
-                        },
-                      }}
-                      onClick={() => handleSelectProceso(proceso.id)}
-                    >
-                      <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                            <BusinessCenterIcon sx={{ color: '#1976d2', fontSize: 28 }} />
-                            <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
-                              {proceso.nombre}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        <Chip
-                          icon={getEstadoIcon(proceso.estado)}
-                          label={getEstadoLabel(proceso.estado)}
-                          color={getEstadoColor(proceso.estado)}
-                          size="small"
-                          sx={{ mb: 2 }}
-                        />
-
-                        {proceso.descripcion && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            {proceso.descripcion.length > 100 
-                              ? `${proceso.descripcion.substring(0, 100)}...` 
-                              : proceso.descripcion}
-                          </Typography>
-                        )}
-
-                        <Divider sx={{ my: 2 }} />
-
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Riesgos:
-                          </Typography>
-                          <Chip
-                            label={stats.total}
-                            size="small"
-                            color={stats.total > 0 ? 'primary' : 'default'}
-                          />
-                        </Box>
-
-                        {observacionesPendientes > 0 && (
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Observaciones pendientes:
-                            </Typography>
-                            <Chip
-                              label={observacionesPendientes}
-                              size="small"
-                              color="error"
-                              icon={<WarningIcon />}
-                            />
-                          </Box>
-                        )}
-
-                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<VisibilityIcon />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectProceso(proceso.id);
-                              iniciarModoVisualizar();
-                            }}
-                            sx={{ flex: 1, textTransform: 'none' }}
-                          >
-                            Ver
-                          </Button>
-                          {proceso.estado !== 'aprobado' && proceso.estado !== 'en_revision' && (
-                            <Button
-                              variant="contained"
-                              size="small"
-                              startIcon={<EditIcon />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectProceso(proceso.id);
-                                iniciarModoEditar();
-                              }}
-                              sx={{ flex: 1, textTransform: 'none' }}
-                            >
-                              Editar
-                            </Button>
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid2>
-                );
-              })}
-                      </Grid2>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </Box>
+          {puedeGestionarProcesos && (
+            <Button
+              variant="contained"
+              size="medium"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenCrearProcesoDialog(true)}
+              sx={{ 
+                background: '#1976d2',
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Nuevo Proceso
+            </Button>
           )}
         </Box>
+
+        {/* Filtros */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Grid2 container spacing={2}>
+              <Grid2 xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Filtrar por Área</InputLabel>
+                  <Select
+                    value={filtroArea}
+                    onChange={(e) => {
+                      setFiltroArea(e.target.value);
+                      setPage(0);
+                    }}
+                    label="Filtrar por Área"
+                  >
+                    <MenuItem value="todas">Todas las áreas</MenuItem>
+                    {areasAsignadas.map((area: any) => (
+                      <MenuItem key={area.id} value={area.id}>
+                        {area.nombre}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid2>
+              <Grid2 xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Filtrar por Estado</InputLabel>
+                  <Select
+                    value={filtroEstado}
+                    onChange={(e) => {
+                      setFiltroEstado(e.target.value);
+                      setPage(0);
+                    }}
+                    label="Filtrar por Estado"
+                  >
+                    <MenuItem value="todos">Todos los estados</MenuItem>
+                    <MenuItem value="borrador">Borrador</MenuItem>
+                    <MenuItem value="en_revision">En Revisión</MenuItem>
+                    <MenuItem value="aprobado">Aprobado</MenuItem>
+                    <MenuItem value="con_observaciones">Con Observaciones</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid2>
+            </Grid2>
+          </CardContent>
+        </Card>
+
+        {/* Tabla de Procesos */}
+        <Card>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Área</strong></TableCell>
+                  <TableCell><strong>Proceso</strong></TableCell>
+                  <TableCell><strong>Estado</strong></TableCell>
+                  <TableCell><strong>Riesgos</strong></TableCell>
+                  <TableCell><strong>Acciones</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loadingProcesos ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <LinearProgress sx={{ my: 2 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Cargando procesos...
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : procesosFiltradosTabla.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Alert severity="info" sx={{ my: 2 }}>
+                        {procesosDelDueño.length === 0 
+                          ? 'No tiene procesos asignados. Cree uno nuevo para comenzar.'
+                          : 'No hay procesos que coincidan con los filtros seleccionados.'}
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  procesosFiltradosTabla
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((proceso) => {
+                      const stats = getEstadisticasProceso(proceso.id);
+                      const area = areas.find((a: any) => a.id === proceso.areaId);
+                      
+                      return (
+                        <TableRow 
+                          key={proceso.id}
+                          hover
+                          sx={{ 
+                            cursor: 'pointer',
+                            backgroundColor: procesoSeleccionado?.id === proceso.id ? 'rgba(25, 118, 210, 0.08)' : 'inherit',
+                          }}
+                          onClick={() => handleSelectProceso(proceso.id)}
+                        >
+                          <TableCell>{area?.nombre || proceso.areaNombre || 'Sin área'}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={500}>
+                              {proceso.nombre}
+                            </Typography>
+                            {proceso.descripcion && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                {proceso.descripcion.length > 50 
+                                  ? `${proceso.descripcion.substring(0, 50)}...` 
+                                  : proceso.descripcion}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              icon={getEstadoIcon(proceso.estado)}
+                              label={getEstadoLabel(proceso.estado)}
+                              color={getEstadoColor(proceso.estado)}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={stats.total}
+                              size="small"
+                              color={stats.total > 0 ? 'primary' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectProceso(proceso.id);
+                                  iniciarModoVisualizar();
+                                }}
+                                title="Ver"
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                              {proceso.estado !== 'aprobado' && proceso.estado !== 'en_revision' && (
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectProceso(proceso.id);
+                                    iniciarModoEditar();
+                                  }}
+                                  title="Editar"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                              {puedeGestionarProcesos && (
+                                <IconButton
+                                  size="small"
+                                  color="default"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProcesoADuplicar(proceso);
+                                    setFormDataDuplicar({
+                                      nombre: `${proceso.nombre} ${new Date().getFullYear()}`,
+                                      año: new Date().getFullYear(),
+                                      descripcion: proceso.descripcion || '',
+                                    });
+                                    setOpenDuplicarDialog(true);
+                                  }}
+                                  title="Duplicar"
+                                >
+                                  <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {procesosFiltradosTabla.length > 0 && (
+            <TablePagination
+              component="div"
+              count={procesosFiltradosTabla.length}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Filas por página:"
+            />
+          )}
+        </Card>
 
         {/* Diálogo para Crear Proceso por Área */}
         <Dialog
@@ -608,7 +570,7 @@ export default function DashboardPage() {
                   }}
                   label="Seleccionar Área"
                 >
-                  {areas.filter((a: any) => a.activa).map((area: any) => (
+                  {areasAsignadas.filter((a: any) => a.activa).map((area: any) => (
                     <MenuItem key={area.id} value={area.id}>
                       {area.nombre}
                     </MenuItem>
@@ -668,6 +630,99 @@ export default function DashboardPage() {
               startIcon={<AddIcon />}
             >
               Crear Proceso
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Diálogo para Duplicar Proceso */}
+        <Dialog
+          open={openDuplicarDialog}
+          onClose={() => {
+            setOpenDuplicarDialog(false);
+            setProcesoADuplicar(null);
+            setFormDataDuplicar({ nombre: '', año: new Date().getFullYear(), descripcion: '' });
+          }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Duplicar Proceso</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Se creará una copia del proceso "{procesoADuplicar?.nombre}" para el nuevo año. 
+                Puede modificar el nombre y otros campos antes de crear la copia.
+              </Alert>
+              <TextField
+                fullWidth
+                label="Año"
+                type="number"
+                value={formDataDuplicar.año}
+                onChange={(e) => {
+                  const año = parseInt(e.target.value) || new Date().getFullYear();
+                  setFormDataDuplicar({
+                    ...formDataDuplicar,
+                    año,
+                    nombre: procesoADuplicar ? `${procesoADuplicar.nombre.split(' ').slice(0, -1).join(' ')} ${año}`.trim() : '',
+                  });
+                }}
+                inputProps={{ min: 2020, max: 2100 }}
+                helperText="Año para el nuevo proceso"
+              />
+              <TextField
+                fullWidth
+                label="Nombre del Proceso"
+                value={formDataDuplicar.nombre}
+                onChange={(e) => setFormDataDuplicar({ ...formDataDuplicar, nombre: e.target.value })}
+                required
+                helperText="El nombre se actualiza automáticamente con el año, pero puede modificarlo"
+              />
+              <TextField
+                fullWidth
+                label="Descripción"
+                value={formDataDuplicar.descripcion}
+                onChange={(e) => setFormDataDuplicar({ ...formDataDuplicar, descripcion: e.target.value })}
+                multiline
+                rows={3}
+                helperText="Puede modificar la descripción para el nuevo proceso"
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setOpenDuplicarDialog(false);
+              setProcesoADuplicar(null);
+              setFormDataDuplicar({ nombre: '', año: new Date().getFullYear(), descripcion: '' });
+            }}>
+              Cancelar
+            </Button>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                if (!formDataDuplicar.nombre || !procesoADuplicar) {
+                  showError('Debe completar el nombre del proceso');
+                  return;
+                }
+                try {
+                  await duplicateProceso({
+                    id: procesoADuplicar.id,
+                    overrides: {
+                      nombre: formDataDuplicar.nombre,
+                      descripcion: formDataDuplicar.descripcion || procesoADuplicar.descripcion,
+                      año: formDataDuplicar.año,
+                    },
+                  }).unwrap();
+                  showSuccess(`Proceso "${formDataDuplicar.nombre}" duplicado exitosamente`);
+                  setOpenDuplicarDialog(false);
+                  setProcesoADuplicar(null);
+                  setFormDataDuplicar({ nombre: '', año: new Date().getFullYear(), descripcion: '' });
+                } catch (error: any) {
+                  showError(error?.data?.message || 'Error al duplicar el proceso');
+                }
+              }}
+              disabled={!formDataDuplicar.nombre}
+              startIcon={<ContentCopyIcon />}
+            >
+              Duplicar Proceso
             </Button>
           </DialogActions>
         </Dialog>
