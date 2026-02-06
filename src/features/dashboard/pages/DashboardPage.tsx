@@ -58,6 +58,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import ResumenDirectorPage from '../../gestion-riesgos/pages/ResumenDirectorPage';
 import type { Proceso, EstadoProceso } from '../../gestion-riesgos/types';
+import { useProcesosAsignados } from '../../gestion-riesgos/hooks/useAsignaciones';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ export default function DashboardPage() {
   const { procesoSeleccionado, setProcesoSeleccionado, puedeGestionarProcesos, iniciarModoEditar, iniciarModoVisualizar } = useProceso();
   const { showSuccess, showError } = useNotification();
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
+  const procesosAsignadosIds = useProcesosAsignados(); // IDs de procesos asignados al usuario actual
   const [duplicateProceso] = useDuplicateProcesoMutation();
   const [procesoMenuAnchor, setProcesoMenuAnchor] = useState<null | HTMLElement>(null);
   const [resumenOpen, setResumenOpen] = useState(false);
@@ -107,13 +109,22 @@ export default function DashboardPage() {
   const { data: todosRiesgosData } = useGetRiesgosQuery({ pageSize: 1000 });
   const todosRiesgos = todosRiesgosData?.data || [];
 
-  // Filtrar procesos del dueño del proceso
+  // Filtrar procesos del dueño del proceso - Solo los asignados por admin
   const procesosDelDueño = useMemo(() => {
     if (esDueñoProcesos && user) {
+      // Si hay asignaciones, solo mostrar procesos asignados
+      if (procesosAsignadosIds.length > 0) {
+        return procesosFiltrados.filter((p) => procesosAsignadosIds.includes(p.id));
+      }
+      // Si no hay asignaciones, mantener comportamiento anterior (por responsableId)
       return procesosFiltrados.filter((p) => p.responsableId === user.id);
     }
     return procesosFiltrados;
-  }, [procesosFiltrados, esDueñoProcesos, user]);
+  }, [procesosFiltrados, esDueñoProcesos, user, procesosAsignadosIds]);
+
+  // Mostrar información de asignaciones si es dueño de proceso
+  const tieneProcesosAsignados = esDueñoProcesos && procesosAsignadosIds.length > 0;
+  const sinProcesosAsignados = esDueñoProcesos && procesosAsignadosIds.length === 0;
 
   // Obtener áreas desde localStorage (igual que en AdminPage)
   const areas = useMemo(() => {
@@ -1016,6 +1027,31 @@ export default function DashboardPage() {
           Gestión de riesgos por proceso
         </Typography>
       </Box>
+
+      {/* Alerta si no tiene procesos asignados */}
+      {sinProcesosAsignados && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            No tiene procesos asignados
+          </Typography>
+          <Typography variant="body2">
+            Contacte al administrador para que le asigne procesos. 
+            El administrador debe primero cargar todos los procesos y luego asignarle los procesos que debe gestionar.
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Información de procesos asignados */}
+      {tieneProcesosAsignados && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            Procesos Asignados: {procesosAsignadosIds.length}
+          </Typography>
+          <Typography variant="body2">
+            Solo puede ver y gestionar los procesos que el administrador le ha asignado.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Tabla de Procesos - Solo para usuarios que no son dueños */}
       <Box sx={{ mb: 4 }}>

@@ -45,10 +45,23 @@ import AppDataGrid from '../../../../shared/components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../../shared/utils/constants';
+import TotalRiesgosCard from '../../components/dashboard/TotalRiesgosCard';
+import RiesgosPorProcesoCard from '../../components/dashboard/RiesgosPorProcesoCard';
+import MetricCard from '../../components/dashboard/MetricCard';
+import DashboardFiltros from '../../components/dashboard/DashboardFiltros';
+import RiesgosPorTipologiaCard from '../../components/dashboard/RiesgosPorTipologiaCard';
+import OrigenRiesgosCard from '../../components/dashboard/OrigenRiesgosCard';
+import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos';
+import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
+import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
+import { getMockPlanesAccion, getMockIncidencias, getMockRiesgosResumen } from '../../../../data/mockDataService';
+import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
+import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor } from '../../hooks/useAsignaciones';
 
 export default function DashboardSupervisorPage() {
-  const { esSupervisorRiesgos, esDueñoProcesos } = useAuth();
+  const { esSupervisorRiesgos, esDueñoProcesos, user } = useAuth();
   const navigate = useNavigate();
+  const { areasAsignadas, procesosAsignados } = useAreasProcesosAsignados();
   
   // Filtros
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
@@ -57,15 +70,56 @@ export default function DashboardSupervisorPage() {
   const [busqueda, setBusqueda] = useState('');
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
 
-  // Obtener datos - Supervisor ve TODOS los riesgos a nivel compañía
+  // Obtener datos
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000 });
   const { data: procesosData } = useGetProcesosQuery();
-  // Obtener todos los puntos del mapa sin filtros para el supervisor
   const { data: puntosMapa } = useGetPuntosMapaQuery({});
 
-  const riesgos = riesgosData?.data || [];
-  const procesos = procesosData || [];
+  const todosLosRiesgos = riesgosData?.data || [];
+  const todosLosProcesos = procesosData || [];
   const puntos = puntosMapa || [];
+
+  // Filtrar procesos y riesgos según asignaciones del supervisor
+  const procesos = useMemo(() => {
+    if (!esSupervisorRiesgos || !user) return todosLosProcesos;
+    
+    // Si no tiene asignaciones, no ve nada (o ver todos si es admin)
+    if (areasAsignadas.length === 0 && procesosAsignados.length === 0) {
+      return [];
+    }
+
+    return todosLosProcesos.filter((p: any) => {
+      // Si está asignado directamente al proceso
+      if (procesosAsignados.includes(p.id)) {
+        return true;
+      }
+      // Si está asignado al área del proceso
+      if (p.areaId && areasAsignadas.includes(p.areaId)) {
+        return true;
+      }
+      return false;
+    });
+  }, [todosLosProcesos, areasAsignadas, procesosAsignados, esSupervisorRiesgos, user]);
+
+  const riesgos = useMemo(() => {
+    if (!esSupervisorRiesgos || !user) return todosLosRiesgos;
+    
+    // Filtrar riesgos de procesos asignados
+    return todosLosRiesgos.filter((r: any) => {
+      const proceso = todosLosProcesos.find((p: any) => p.id === r.procesoId);
+      if (!proceso) return false;
+      
+      // Si el proceso está asignado directamente
+      if (procesosAsignados.includes(proceso.id)) {
+        return true;
+      }
+      // Si el proceso pertenece a un área asignada
+      if (proceso.areaId && areasAsignadas.includes(proceso.areaId)) {
+        return true;
+      }
+      return false;
+    });
+  }, [todosLosRiesgos, todosLosProcesos, areasAsignadas, procesosAsignados, esSupervisorRiesgos, user]);
 
   // Crear matrices de riesgo inherente y residual
   const matrizInherente = useMemo(() => {
@@ -146,108 +200,8 @@ export default function DashboardSupervisorPage() {
     return filtrados;
   }, [riesgos, filtroProceso, filtroNumeroRiesgo, filtroOrigen, busqueda, procesos]);
 
-  // Estadísticas
-  const estadisticas = useMemo(() => {
-    const total = riesgosFiltrados.length;
-    
-    // Riesgos por tipo de proceso - Mapear a tipos estándar
-    const porTipoProceso: Record<string, number> = {
-      '01 Estratégico': 0,
-      '02 Operacional': 0,
-      '03 Apoyo': 0,
-    };
-    riesgosFiltrados.forEach((r: any) => {
-      const proceso = procesos.find((p: any) => p.id === r.procesoId);
-      const tipoProceso = (proceso?.tipoProceso || '').toLowerCase();
-      // Mapear tipos de proceso
-      if (tipoProceso.includes('estratégico') || tipoProceso.includes('estrategico') || tipoProceso.includes('estrategia')) {
-        porTipoProceso['01 Estratégico']++;
-      } else if (tipoProceso.includes('operacional') || tipoProceso.includes('operativo') || tipoProceso.includes('operacion')) {
-        porTipoProceso['02 Operacional']++;
-      } else {
-        porTipoProceso['03 Apoyo']++;
-      }
-    });
-    // Eliminar tipos con 0
-    Object.keys(porTipoProceso).forEach(key => {
-      if (porTipoProceso[key] === 0) {
-        delete porTipoProceso[key];
-      }
-    });
-
-    // Riesgos por proceso
-    const porProceso: Record<string, { nombre: string; count: number }> = {};
-    riesgosFiltrados.forEach((r: any) => {
-      const proceso = procesos.find((p: any) => p.id === r.procesoId);
-      if (proceso) {
-        if (!porProceso[proceso.id]) {
-          porProceso[proceso.id] = { nombre: proceso.nombre, count: 0 };
-        }
-        porProceso[proceso.id].count++;
-      }
-    });
-
-    // Riesgos por tipología - Mapear a tipos estándar como en la imagen
-    const porTipologia: Record<string, number> = {
-      '01 Estratégico': 0,
-      '02 Operacional': 0,
-      '03 Financiero': 0,
-      '04 Cumplimiento': 0,
-    };
-    riesgosFiltrados.forEach((r: any) => {
-      const tipologiaNivelI = (r.tipologiaNivelI || '').toLowerCase();
-      // Mapear tipologías a los tipos estándar
-      if (tipologiaNivelI.includes('estratégico') || tipologiaNivelI.includes('estrategico') || tipologiaNivelI.includes('estrategia')) {
-        porTipologia['01 Estratégico']++;
-      } else if (tipologiaNivelI.includes('operacional') || tipologiaNivelI.includes('operativo') || tipologiaNivelI.includes('operacion')) {
-        porTipologia['02 Operacional']++;
-      } else if (tipologiaNivelI.includes('financiero') || tipologiaNivelI.includes('finanza')) {
-        porTipologia['03 Financiero']++;
-      } else if (tipologiaNivelI.includes('cumplimiento') || tipologiaNivelI.includes('compliance')) {
-        porTipologia['04 Cumplimiento']++;
-      } else {
-        // Si no coincide, asignar a "02 Operacional" por defecto (el más común)
-        porTipologia['02 Operacional']++;
-      }
-    });
-    // Eliminar tipos con 0
-    Object.keys(porTipologia).forEach(key => {
-      if (porTipologia[key] === 0) {
-        delete porTipologia[key];
-      }
-    });
-
-    // Origen de riesgos - Solo mostrar los dos principales según la imagen
-    const origen: Record<string, number> = {
-      'Talleres internos': 0,
-      'Auditoría HHI': 0,
-    };
-    riesgosFiltrados.forEach((r: any) => {
-      if (r.tipologiaNivelI?.includes('Taller') || r.fuenteCausa?.includes('Taller') || r.origen?.includes('Taller')) {
-        origen['Talleres internos']++;
-      } else if (r.tipologiaNivelI?.includes('Auditoría') || r.fuenteCausa?.includes('Auditoría') || r.origen?.includes('Auditoría')) {
-        origen['Auditoría HHI']++;
-      } else {
-        // Si no coincide con ninguno, asignar a "Talleres internos" por defecto
-        origen['Talleres internos']++;
-      }
-    });
-
-    // Riesgos fuera del apetito (>= 15)
-    const fueraApetito = puntos.filter((p: any) => {
-      const valorRiesgo = p.probabilidad * p.impacto;
-      return valorRiesgo >= UMBRALES_RIESGO.ALTO;
-    });
-
-    return {
-      total,
-      porTipoProceso,
-      porProceso,
-      porTipologia,
-      origen,
-      fueraApetito: fueraApetito.length,
-    };
-  }, [riesgosFiltrados, procesos, puntos]);
+  // Estadísticas - Usando hook personalizado
+  const estadisticas = useDashboardEstadisticas({ riesgosFiltrados, procesos, puntos });
 
   // Preparar datos para tabla de resumen
   const filasTablaResumen = useMemo(() => {
@@ -285,52 +239,14 @@ export default function DashboardSupervisorPage() {
     });
   }, [riesgosFiltrados, procesos, puntos]);
 
-  // Preparar datos para tabla de planes de acción
+  // Preparar datos para tabla de planes de acción - Usando servicio centralizado
   const planesAccion = useMemo(() => {
-    // Mock de planes de acción - En producción vendría de la API
-    return [
-      {
-        id: '1',
-        nombre: 'Plan de Mitigación R001',
-        proceso: 'Direccionamiento Estratégico',
-        fechaInicio: '2024-01-15',
-        fechaLimite: '2024-03-15',
-        estado: 'en_ejecucion',
-        responsable: 'Juan Pérez',
-      },
-      {
-        id: '2',
-        nombre: 'Plan de Control R002',
-        proceso: 'Direccionamiento Estratégico',
-        fechaInicio: '2024-02-01',
-        fechaLimite: '2024-04-01',
-        estado: 'en_ejecucion',
-        responsable: 'María González',
-      },
-    ];
+    return getMockPlanesAccion();
   }, []);
 
-  // Preparar datos para incidencias
+  // Preparar datos para incidencias - Usando servicio centralizado
   const incidencias = useMemo(() => {
-    // Mock de incidencias - En producción vendría de la API
-    return [
-      {
-        id: '1',
-        codigo: 'INC-001',
-        titulo: 'Incidente de seguridad',
-        fecha: '2024-01-20',
-        severidad: 'alta',
-        estado: 'abierta',
-      },
-      {
-        id: '2',
-        codigo: 'INC-002',
-        titulo: 'Casi incidente operacional',
-        fecha: '2024-01-22',
-        severidad: 'media',
-        estado: 'en_investigacion',
-      },
-    ];
+    return getMockIncidencias();
   }, []);
 
   // Solo supervisor de riesgos y dueño de procesos pueden acceder
@@ -344,77 +260,11 @@ export default function DashboardSupervisorPage() {
     );
   }
 
-  const columnasResumen: GridColDef[] = [
-    { field: 'codigo', headerName: 'Código', width: 120 },
-    { field: 'proceso', headerName: 'Proceso', width: 200 },
-    { field: 'descripcion', headerName: 'Descripción', flex: 1, minWidth: 300 },
-    {
-      field: 'riesgoInherente',
-      headerName: 'RI',
-      width: 120,
-      align: 'center',
-      renderCell: (params) => (
-        <Chip
-          label={`${params.value.toFixed(1)} (${params.row.nivelRI})`}
-          size="small"
-          sx={{
-            backgroundColor: `${params.row.colorRI}20`,
-            color: params.row.colorRI,
-            fontWeight: 600,
-            border: `1px solid ${params.row.colorRI}`,
-          }}
-        />
-      ),
-    },
-    {
-      field: 'riesgoResidual',
-      headerName: 'RR',
-      width: 120,
-      align: 'center',
-      renderCell: (params) => (
-        <Chip
-          label={`${params.value.toFixed(1)} (${params.row.nivelRR})`}
-          size="small"
-          sx={{
-            backgroundColor: `${params.row.colorRR}20`,
-            color: params.row.colorRR,
-            fontWeight: 600,
-            border: `1px solid ${params.row.colorRR}`,
-          }}
-        />
-      ),
-    },
-  ];
+  // Mostrar información de asignaciones si es supervisor
+  const tieneAsignaciones = esSupervisorRiesgos && (areasAsignadas.length > 0 || procesosAsignados.length > 0);
+  const sinAsignaciones = esSupervisorRiesgos && areasAsignadas.length === 0 && procesosAsignados.length === 0;
 
-  const columnasPlanes: GridColDef[] = [
-    { field: 'nombre', headerName: 'Nombre', flex: 1 },
-    { field: 'proceso', headerName: 'Proceso', width: 200 },
-    {
-      field: 'fechaInicio',
-      headerName: 'Fecha Inicio',
-      width: 120,
-      renderCell: (params) => new Date(params.value).toLocaleDateString('es-ES'),
-    },
-    {
-      field: 'fechaLimite',
-      headerName: 'Fecha Límite',
-      width: 120,
-      renderCell: (params) => new Date(params.value).toLocaleDateString('es-ES'),
-    },
-    { field: 'responsable', headerName: 'Responsable', width: 150 },
-    {
-      field: 'estado',
-      headerName: 'Estado',
-      width: 120,
-      renderCell: (params) => (
-        <Chip
-          label={params.value.replace('_', ' ').toUpperCase()}
-          size="small"
-          color={params.value === 'completado' ? 'success' : params.value === 'en_ejecucion' ? 'info' : 'warning'}
-        />
-      ),
-    },
-  ];
+  // Columnas movidas a componentes TablaResumenRiesgos y TablaPlanesAccion
 
   // Función para obtener color de celda
   const getCellColor = (probabilidad: number, impacto: number): string => {
@@ -648,528 +498,92 @@ export default function DashboardSupervisorPage() {
 
   return (
     <Box>
-      {/* Filtros */}
-      <Box sx={{ mb: 4, display: 'flex', gap: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <FormControl 
-          size="medium" 
-          sx={{ 
-            minWidth: 200, 
-            backgroundColor: 'white',
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              '&:hover': {
-                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-              },
-            },
-          }}
-        >
-          <InputLabel sx={{ fontWeight: 600 }}>Proceso</InputLabel>
-          <Select
-            value={filtroProceso}
-            onChange={(e) => setFiltroProceso(e.target.value)}
-            label="Proceso"
-          >
-            <MenuItem value="all">Todas</MenuItem>
-            {procesos.map((p: any) => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.nombre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl 
-          size="medium" 
-          sx={{ 
-            minWidth: 170, 
-            backgroundColor: 'white',
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              '&:hover': {
-                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-              },
-            },
-          }}
-        >
-          <InputLabel sx={{ fontWeight: 600 }}># Riesgo</InputLabel>
-          <Select
-            value={filtroNumeroRiesgo}
-            onChange={(e) => setFiltroNumeroRiesgo(e.target.value)}
-            label="# Riesgo"
-          >
-            <MenuItem value="all">Todas</MenuItem>
-            {Array.from(new Set(riesgos.map((r: any) => `R${String(r.numero || 0).padStart(3, '0')}`))).map((codigo) => (
-              <MenuItem key={codigo} value={codigo}>
-                {codigo}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl 
-          size="medium" 
-          sx={{ 
-            minWidth: 170, 
-            backgroundColor: 'white',
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              '&:hover': {
-                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-              },
-            },
-          }}
-        >
-          <InputLabel sx={{ fontWeight: 600 }}>Origen</InputLabel>
-          <Select
-            value={filtroOrigen}
-            onChange={(e) => setFiltroOrigen(e.target.value)}
-            label="Origen"
-          >
-            <MenuItem value="all">Todas</MenuItem>
-            <MenuItem value="talleres">Talleres internos</MenuItem>
-            <MenuItem value="auditoria">Auditoría HHI</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+      {/* Alerta si no tiene asignaciones */}
+      {sinAsignaciones && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            No tiene áreas o procesos asignados
+          </Typography>
+          <Typography variant="body2">
+            Contacte al administrador para que le asigne áreas o procesos a supervisar. 
+            Mientras tanto, no podrá ver datos en este dashboard.
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Información de asignaciones */}
+      {tieneAsignaciones && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            Áreas/Procesos Asignados:
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+            {areasAsignadas.length > 0 && (
+              <Chip
+                label={`${areasAsignadas.length} Área(s)`}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            )}
+            {procesosAsignados.length > 0 && (
+              <Chip
+                label={`${procesosAsignados.length} Proceso(s) específico(s)`}
+                size="small"
+                color="secondary"
+                variant="outlined"
+              />
+            )}
+          </Box>
+        </Alert>
+      )}
+
+      {/* Filtros - Usando componente */}
+      <DashboardFiltros
+        filtroProceso={filtroProceso}
+        filtroNumeroRiesgo={filtroNumeroRiesgo}
+        filtroOrigen={filtroOrigen}
+        onFiltroProcesoChange={setFiltroProceso}
+        onFiltroNumeroRiesgoChange={setFiltroNumeroRiesgo}
+        onFiltroOrigenChange={setFiltroOrigen}
+        procesos={procesos}
+        riesgos={riesgos}
+      />
 
 
       {/* Primera Fila: Estadísticas - Solo visible para Supervisor de Riesgos */}
       {esSupervisorRiesgos && (
       <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-        {/* Card 1: Total de Riesgos */}
+        {/* Card 1: Total de Riesgos - Usando componente */}
         <Grid2 xs={12} sm={6} md={4}>
-          <Card sx={{ 
-            background: 'white', 
-            height: '100%', 
-            border: 'none',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-            borderRadius: 2,
-            minHeight: 200,
-          }}>
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.875rem', fontWeight: 500 }}>
-                # de riesgos
-              </Typography>
-              <Typography variant="h2" fontWeight={700} sx={{ color: '#1976d2', fontSize: '3.5rem', lineHeight: 1.2 }}>
-                {estadisticas.total}
-              </Typography>
-            </CardContent>
-          </Card>
+          <TotalRiesgosCard 
+            total={estadisticas.total}
+            criticos={estadisticas.porTipologia['01 Estratégico'] || 0}
+            altos={estadisticas.porTipologia['02 Operacional'] || 0}
+          />
         </Grid2>
 
-        {/* Card 2: Treemap - Riesgos por tipo */}
+        {/* Card 2: Treemap - Riesgos por tipo - Usando componente */}
         <Grid2 xs={12} sm={6} md={4}>
-          <Card sx={{ 
-            height: '100%', 
-            border: 'none',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-            borderRadius: 2,
-            background: 'white',
-            minHeight: 200,
-          }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="body1" gutterBottom fontWeight={600} sx={{ mb: 2, fontSize: '0.875rem', color: '#424242' }}>
-                Riesgos por tipo
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 0.5, height: 150, alignItems: 'flex-start' }}>
-                {(() => {
-                  const sortedEntries = Object.entries(estadisticas.porTipologia).sort(([, a], [, b]) => b - a);
-                  const colores: Record<string, string> = {
-                    '01 Estratégico': '#ed6c02',
-                    '02 Operacional': '#1976d2',
-                    '03 Financiero': '#1565c0',
-                    '04 Cumplimiento': '#9c27b0',
-                  };
-                  
-                  const mayor = sortedEntries[0];
-                  const menores = sortedEntries.slice(1);
-                  
-                  return (
-                    <>
-                      {mayor && (
-                        <Box
-                          sx={{
-                            backgroundColor: colores[mayor[0]] || '#1976d2',
-                            color: 'white',
-                            p: 2,
-                            borderRadius: 1,
-                            width: '65%',
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            minHeight: '60px',
-                          }}
-                        >
-                          <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5, textAlign: 'center', fontSize: '0.75rem' }}>
-                            {mayor[0]}
-                          </Typography>
-                          <Typography variant="h4" fontWeight={700} sx={{ fontSize: '2rem' }}>
-                            {mayor[1]}
-                          </Typography>
-                        </Box>
-                      )}
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '32%', height: '100%' }}>
-                        {menores.map(([tipologia, count]) => (
-                          <Box
-                            key={tipologia}
-                            sx={{
-                              backgroundColor: colores[tipologia] || '#1976d2',
-                              color: 'white',
-                              p: 1.5,
-                              borderRadius: 1,
-                              flex: 1,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              minHeight: '45px',
-                            }}
-                          >
-                            <Typography variant="caption" fontWeight={600} sx={{ mb: 0.25, textAlign: 'center', fontSize: '0.7rem' }}>
-                              {tipologia}
-                            </Typography>
-                            <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.25rem' }}>
-                              {count}
-                            </Typography>
-                          </Box>
-                        ))}
-                      </Box>
-                    </>
-                  );
-                })()}
-              </Box>
-            </CardContent>
-          </Card>
+          <RiesgosPorTipologiaCard datos={estadisticas.porTipologia} />
         </Grid2>
 
-        {/* Card 3: Donut - Origen */}
+        {/* Card 3: Donut - Origen - Usando componente */}
         <Grid2 xs={12} sm={12} md={4}>
-          <Card sx={{ 
-            height: '100%', 
-            border: 'none',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-            borderRadius: 2,
-            background: 'white',
-            minHeight: 200,
-          }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="body1" gutterBottom fontWeight={600} sx={{ mb: 2, fontSize: '0.875rem', color: '#424242' }}>
-                Origen
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'center', justifyContent: 'flex-start' }}>
-                {/* Gráfico de arco (donut parcial) */}
-                <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
-                  <svg width={140} height={140} style={{ transform: 'rotate(-90deg)' }}>
-                    {Object.entries(estadisticas.origen).map(([origen, count], index) => {
-                      const porcentaje = estadisticas.total > 0 ? (count / estadisticas.total) * 100 : 0;
-                      const colores = ['#42a5f5', '#1976d2', '#90caf9'];
-                      const color = colores[index % colores.length];
-                      const radio = 50;
-                      const circunferencia = 2 * Math.PI * radio;
-                      
-                      let offsetAcumulado = 0;
-                      for (let i = 0; i < index; i++) {
-                        const prevCount = Object.values(estadisticas.origen)[i];
-                        const prevPorcentaje = estadisticas.total > 0 ? (prevCount / estadisticas.total) * 100 : 0;
-                        offsetAcumulado += (prevPorcentaje / 100) * circunferencia;
-                      }
-                      
-                      const dashOffset = circunferencia - offsetAcumulado;
-                      const dashLength = (porcentaje / 100) * circunferencia;
-                      
-                      return (
-                        <circle
-                          key={origen}
-                          cx={70}
-                          cy={70}
-                          r={radio}
-                          fill="none"
-                          stroke={color}
-                          strokeWidth={28}
-                          strokeDasharray={`${dashLength} ${circunferencia}`}
-                          strokeDashoffset={dashOffset}
-                          style={{
-                            strokeLinecap: 'round',
-                          }}
-                        />
-                      );
-                    })}
-                  </svg>
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <Typography variant="h6" fontWeight={700} sx={{ color: '#1976d2', fontSize: '1.5rem' }}>
-                      {estadisticas.total}
-                    </Typography>
-                  </Box>
-                </Box>
-                {/* Leyenda */}
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {Object.entries(estadisticas.origen).map(([origen, count], index) => {
-                    const porcentaje = estadisticas.total > 0 ? ((count / estadisticas.total) * 100).toFixed(1) : '0.0';
-                    const colores = ['#42a5f5', '#1976d2', '#90caf9'];
-                    const color = colores[index % colores.length];
-                    return (
-                      <Box key={origen} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box
-                            sx={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              backgroundColor: color,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 500, color: '#424242' }}>
-                            {index + 1} {origen}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 600, color: '#757575' }}>
-                          {porcentaje}%
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
+          <OrigenRiesgosCard datos={estadisticas.origen} total={estadisticas.total} />
         </Grid2>
       </Grid2>
       )}
 
-      {/* Segunda Fila: Gráfico de Riesgos por Proceso (Ranking con barras llenas) */}
+      {/* Segunda Fila: Gráfico de Riesgos por Proceso - Usando componente */}
       <Grid2 container spacing={3} sx={{ mb: 3 }}>
-        {/* Gráfico: Riesgos por Proceso (Ranking con barras horizontales) */}
-        <Grid2 xs={12}>
-          <Card
-            sx={{
-              border: '1px solid #e0e0e0',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              borderRadius: 2,
-            }}
-          >
-            <CardContent sx={{ p: 2.5, height: 420, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '1rem', mb: 0 }}>
-                  # de riesgos por proceso (Top 10)
-                </Typography>
-                <Chip
-                  label="Top 10"
-                  size="small"
-                  sx={{
-                    backgroundColor: '#e8f5e9',
-                    color: '#2e7d32',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
-                  }}
-                />
-              </Box>
-              <Box sx={{ flex: 1, mt: 1 }}>
-                {(() => {
-                  let datosGrafico = Object.entries(estadisticas.porProceso)
-                    .sort(([, a], [, b]) => b.count - a.count)
-                    .slice(0, 10)
-                    .map(([id, data]) => ({
-                      id,
-                      nombre: data.nombre,
-                      nombreCompleto: data.nombre,
-                      count: data.count,
-                    }));
-
-                  // Completar hasta Top 10 con procesos de ejemplo si faltan
-                  if (datosGrafico.length < 10) {
-                    const procesosMock = [
-                      { id: 'mock-1', nombre: 'Gestión de Procesos', nombreCompleto: 'Gestión de Procesos', count: 22 },
-                      { id: 'mock-2', nombre: 'Gestión de Talento Humano', nombreCompleto: 'Gestión de Talento Humano', count: 19 },
-                      { id: 'mock-3', nombre: 'Gestión de Finanzas', nombreCompleto: 'Gestión de Finanzas', count: 13 },
-                      { id: 'mock-4', nombre: 'Ciberseguridad', nombreCompleto: 'Ciberseguridad', count: 12 },
-                      { id: 'mock-5', nombre: 'Direccionamiento Estratégico', nombreCompleto: 'Direccionamiento Estratégico', count: 12 },
-                      { id: 'mock-6', nombre: 'Gestión de TI', nombreCompleto: 'Gestión de TI', count: 11 },
-                      { id: 'mock-7', nombre: 'Planificación Estratégica', nombreCompleto: 'Planificación Estratégica', count: 10 },
-                      { id: 'mock-8', nombre: 'Gestión Comercial', nombreCompleto: 'Gestión Comercial', count: 8 },
-                      { id: 'mock-9', nombre: 'Compliance', nombreCompleto: 'Compliance', count: 5 },
-                      { id: 'mock-10', nombre: 'Gestión de Servicios', nombreCompleto: 'Gestión de Servicios', count: 3 },
-                    ];
-
-                    const faltan = 10 - datosGrafico.length;
-                    datosGrafico = [
-                      ...datosGrafico,
-                      ...procesosMock
-                        .filter((mock) => !datosGrafico.some((d) => d.nombre === mock.nombre))
-                        .slice(0, faltan),
-                    ];
-                  }
-
-                  if (datosGrafico.length === 0) {
-                    return (
-                      <Box
-                        sx={{
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexDirection: 'column',
-                          gap: 1,
-                        }}
-                      >
-                        <Typography variant="body2" sx={{ color: '#757575' }}>
-                          No hay datos disponibles para mostrar
-                        </Typography>
-                      </Box>
-                    );
-                  }
-
-                  const maxCount = Math.max(...datosGrafico.map((d) => d.count));
-                  const total = datosGrafico.reduce((sum, d) => sum + d.count, 0);
-
-                  return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      {datosGrafico.map((item) => {
-                        const ancho = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-                        const porcentajeTotal = total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0';
-
-                        return (
-                          <Box
-                            key={item.id}
-                            sx={{
-                              p: 1.25,
-                              borderRadius: 1.5,
-                              backgroundColor: 'rgba(25,118,210,0.02)',
-                              border: '1px solid rgba(25,118,210,0.06)',
-                              transition: 'all 0.25s ease',
-                              '&:hover': {
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                                transform: 'translateY(-2px)',
-                                backgroundColor: 'rgba(25,118,210,0.04)',
-                              },
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                mb: 0.75,
-                                gap: 1,
-                              }}
-                            >
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    fontWeight: 600,
-                                    fontSize: '0.9rem',
-                                    whiteSpace: 'nowrap',
-                                    textOverflow: 'ellipsis',
-                                    overflow: 'hidden',
-                                    maxWidth: { xs: '55vw', md: '65vw' },
-                                  }}
-                                  title={item.nombreCompleto}
-                                >
-                                  {item.nombre}
-                                </Typography>
-                              </Box>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Typography variant="caption" sx={{ color: '#757575' }}>
-                                  {porcentajeTotal}%
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  fontWeight={700}
-                                  sx={{ color: '#1976d2', minWidth: 28, textAlign: 'right' }}
-                                >
-                                  {item.count}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            <Box
-                              sx={{
-                                height: 20,
-                                borderRadius: 999,
-                                backgroundColor: '#f5f5f5',
-                                overflow: 'hidden',
-                                position: 'relative',
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  position: 'absolute',
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: `${Math.max(ancho, 8)}%`,
-                                  background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-                                  boxShadow: '0 3px 10px rgba(25,118,210,0.4)',
-                                  transition: 'width 0.4s ease',
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        );
-                      })}
-
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'flex-end',
-                          gap: 2,
-                          mt: 1,
-                          pt: 1.5,
-                          borderTop: '1px dashed #e0e0e0',
-                        }}
-                      >
-                        <Typography variant="caption" sx={{ color: '#757575' }}>
-                          Total procesos: <strong>{datosGrafico.length}</strong>
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#757575' }}>
-                          Total riesgos (Top 10): <strong>{total}</strong>
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                })()}
-              </Box>
-            </CardContent>
-          </Card>
+        <Grid2 xs={12} md={6}>
+          <RiesgosPorProcesoCard datosReales={estadisticas.porProceso} />
         </Grid2>
 
-        {/* Tabla: Detalle de Riesgos (Id, Proceso, Descripción Riesgo) */}
+        {/* Tabla: Resumen de Riesgos - Usando componente */}
         <Grid2 xs={12}>
-          <Card sx={{ border: '1px solid #e0e0e0' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2 }}>
-                Detalle
-              </Typography>
-              <AppDataGrid
-                rows={filasTablaResumen}
-                columns={[
-                  { field: 'codigo', headerName: 'Id', width: 100 },
-                  { field: 'proceso', headerName: 'Proceso', width: 250 },
-                  { field: 'descripcion', headerName: 'Descripción Riesgo', flex: 1, minWidth: 400 },
-                ]}
-                loading={loadingRiesgos}
-                getRowId={(row) => row.id}
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-                sx={{
-                  '& .MuiDataGrid-cell': {
-                    borderBottom: '1px solid #e0e0e0',
-                  },
-                }}
-              />
-            </CardContent>
-          </Card>
+          <TablaResumenRiesgos filas={filasTablaResumen} />
         </Grid2>
       </Grid2>
 
@@ -1222,52 +636,14 @@ export default function DashboardSupervisorPage() {
       {/* Cuarta Fila: Tabla Resumen, Planes de Acción e Incidencias */}
       <Grid2 container spacing={3} sx={{ mb: 3 }}>
 
-        {/* Tabla: Planes de Acción con Fechas */}
+        {/* Tabla: Planes de Acción con Fechas - Usando componente */}
         <Grid2 xs={12} md={8}>
-          <Card sx={{ border: '1px solid #e0e0e0' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2 }}>
-                Planes de Acción
-              </Typography>
-              <AppDataGrid
-                rows={planesAccion}
-                columns={columnasPlanes}
-                getRowId={(row) => row.id}
-                pageSizeOptions={[10, 25, 50]}
-                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-                sx={{
-                  '& .MuiDataGrid-cell': {
-                    borderBottom: '1px solid #e0e0e0',
-                  },
-                }}
-              />
-            </CardContent>
-          </Card>
+          <TablaPlanesAccion planes={planesAccion} />
         </Grid2>
 
-        {/* Contador de Incidencias */}
+        {/* Contador de Incidencias - Usando componente */}
         <Grid2 xs={12} md={4}>
-          <Card sx={{ background: '#f5f5f5', height: '100%', border: '1px solid #e0e0e0' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ReportProblemIcon color="error" />
-                <Typography variant="body2" color="text.secondary">
-                  # Incidencias
-                </Typography>
-              </Box>
-              <Typography variant="h2" fontWeight={700} sx={{ color: '#d32f2f', mb: 1 }}>
-                {incidencias.length}
-              </Typography>
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => navigate(ROUTES.INCIDENCIAS)}
-                sx={{ mt: 1 }}
-              >
-                Ver todas
-              </Button>
-            </CardContent>
-          </Card>
+          <IncidenciasCard total={incidencias.length} />
         </Grid2>
 
       </Grid2>

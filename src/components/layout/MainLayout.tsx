@@ -642,18 +642,9 @@ export default function MainLayout() {
               </Typography>
               {[
                 { text: 'Usuarios', icon: <PeopleIcon />, section: 'usuarios' },
-                { text: 'Roles y Permisos', icon: <SecurityIcon />, section: 'roles' },
-                { text: 'Áreas y Gerentes', icon: <BusinessCenterIcon />, section: 'areas-gerentes' },
+                { text: 'Procesos', icon: <AccountTreeIcon />, section: 'procesos' },
                 { text: 'Asignaciones', icon: <AssignmentIcon />, section: 'asignaciones' },
-                { text: 'Pasos del Proceso', icon: <ViewListIcon />, section: 'pasos-proceso' },
-                { text: 'Encuestas', icon: <DescriptionIcon />, section: 'encuestas' },
-                { text: 'Listas de Valores', icon: <ViewListIcon />, section: 'listas-valores' },
-                { text: 'Parámetros', icon: <SettingsIcon />, section: 'parametros' },
-                { text: 'Tipologías', icon: <CategoryIcon />, section: 'tipologias' },
-                { text: 'Fórmulas', icon: <FunctionsIcon />, section: 'formulas' },
-                { text: 'Config. Tareas', icon: <TaskIcon />, section: 'tareas' },
-                { text: 'Config. Notificaciones', icon: <NotificationsIcon />, section: 'notificaciones' },
-                { text: 'Config. Sistema', icon: <SettingsIcon />, section: 'config-sistema' },
+                { text: 'Configuración', icon: <SettingsIcon />, section: 'configuracion' },
               ].map((item) => {
                 const isActive = adminSection === item.section;
             return (
@@ -721,63 +712,17 @@ export default function MainLayout() {
           ) : (
             menuItems
               .filter((item) => {
-                // Filtrar items según el rol
-                if (esSupervisorRiesgos) {
-                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos, Indicadores
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles', 'Eventos', 'Indicadores'];
+              // Filtrar items según el rol
+              if (esSupervisorRiesgos) {
+                // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos, Indicadores
+                const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles', 'Eventos', 'Indicadores'];
                   return allowedMenus.includes(item.text);
-                }
+              }
                 return true;
-              })
+          })
               .map((item) => renderMenuItem(item))
           )}
           
-          {/* Menú de Administración (solo para admin, cuando NO está en la página de administración) */}
-          {esAdmin && location.pathname !== ROUTES.ADMINISTRACION && (
-            <>
-              <Divider sx={{ my: 2, mx: 2 }} />
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  selected={location.pathname === ROUTES.ADMINISTRACION}
-                  onClick={() => handleMenuClick(ROUTES.ADMINISTRACION)}
-                  sx={{
-                    borderRadius: 2,
-                    py: 1.25,
-                    px: 2,
-                    '&.Mui-selected': {
-                      backgroundColor: 'rgba(25, 118, 210, 0.1)',
-                      borderLeft: '4px solid #1976d2',
-                      '&:hover': {
-                        backgroundColor: 'rgba(25, 118, 210, 0.15)',
-                      },
-                      '& .MuiListItemIcon-root': {
-                        color: '#1976d2',
-                      },
-                    },
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  <ListItemIcon
-        sx={{
-                      minWidth: 40,
-                      color: location.pathname === ROUTES.ADMINISTRACION ? '#1976d2' : 'rgba(0, 0, 0, 0.6)',
-        }}
-      >
-                    <SettingsIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Administración"
-                    primaryTypographyProps={{
-                      fontSize: '0.9rem',
-                      fontWeight: location.pathname === ROUTES.ADMINISTRACION ? 600 : 400,
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            </>
-          )}
           
           {/* Menú de Supervisión (solo para director de procesos) */}
           {esSupervisorRiesgos && (

@@ -7,7 +7,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 // User roles
-export type UserRole = 'admin' | 'manager' | 'analyst' | 'dueño_procesos' | 'supervisor_riesgos' | 'auditoria';
+export type UserRole = 'admin' | 'manager' | 'analyst' | 'dueño_procesos' | 'supervisor_riesgos' | 'auditoria' | 'gerente_general';
 
 // User interface
 export interface User {
@@ -81,6 +81,17 @@ const USERS_DB: Array<User & { password: string }> = [
     position: 'Supervisor de Riesgos',
     phone: '+57 304 567 8901',
   },
+  {
+    id: '6',
+    username: 'gerente_general',
+    password: 'gerente123',
+    email: 'gerente.general@comware.com',
+    fullName: 'Gerente General',
+    role: 'gerente_general',
+    department: 'Dirección General',
+    position: 'Gerente General',
+    phone: '+57 305 678 9012',
+  },
 ];
 
 // Auth context interface
@@ -94,6 +105,7 @@ interface AuthContextType {
   esAdmin: boolean; // Helper para verificar si es admin
   esSupervisorRiesgos: boolean; // Helper para verificar si es supervisor de riesgos
   esAuditoria: boolean; // Helper para verificar si es auditoría
+  esGerenteGeneral: boolean; // Helper para verificar si es gerente general
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -160,6 +172,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     esAdmin: user?.role === 'admin',
     esSupervisorRiesgos: user?.role === 'supervisor_riesgos',
     esAuditoria: user?.role === 'auditoria',
+    esGerenteGeneral: user?.role === 'gerente_general',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

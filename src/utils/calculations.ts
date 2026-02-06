@@ -217,11 +217,87 @@ export function calcularPuntajePriorizacion(
 }
 
 /**
- * Genera ID único para riesgo
- * Fórmula Excel: =+CONCATENATE(C11,E11)
+ * Genera ID automático para riesgo
+ * Formato: número secuencial + sigla de Vicepresidencia/Gerencia Alta
+ * Ejemplo: "1GFA" para Gestión Financiera y Administrativa
  */
-export function generarIdRiesgo(vicepresidencia: string, gerencia: string): string {
-  return `${vicepresidencia}-${gerencia}`;
+export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string {
+  if (!vicepresidenciaNombre || !vicepresidenciaNombre.trim()) {
+    console.warn('No se proporcionó vicepresidencia para generar ID');
+    return '';
+  }
+
+  // Obtener siglas desde configuración
+  const storedSiglas = localStorage.getItem('config_siglas');
+  if (!storedSiglas) {
+    console.warn('No hay siglas configuradas en localStorage');
+    // Si no hay configuración, usar sigla por defecto basada en las iniciales
+    const siglaDefault = vicepresidenciaNombre
+      .split(' ')
+      .filter(p => p.length > 0)
+      .map(palabra => palabra.charAt(0).toUpperCase())
+      .join('')
+      .substring(0, 3);
+    return generarIdConContador(siglaDefault);
+  }
+
+  const siglas: Array<{ nombre: string; sigla: string }> = JSON.parse(storedSiglas);
+  
+  // Normalizar la vicepresidencia para búsqueda (remover palabras comunes como "Vicepresidencia de", "Gerencia de", etc.)
+  const normalizarNombre = (nombre: string): string => {
+    return nombre
+      .toLowerCase()
+      .replace(/^(vicepresidencia\s+de|gerencia\s+de|dirección\s+de|gestión\s+de)\s+/i, '')
+      .trim();
+  };
+
+  const vicepresidenciaNormalizada = normalizarNombre(vicepresidenciaNombre);
+  
+  // Buscar coincidencia exacta primero
+  let siglaEncontrada = siglas.find(
+    (s) => s.nombre.trim().toLowerCase() === vicepresidenciaNombre.trim().toLowerCase()
+  );
+
+  // Si no hay coincidencia exacta, buscar por nombre normalizado
+  if (!siglaEncontrada) {
+    siglaEncontrada = siglas.find(
+      (s) => normalizarNombre(s.nombre) === vicepresidenciaNormalizada
+    );
+  }
+
+  // Si aún no hay coincidencia, buscar si el nombre contiene palabras clave
+  if (!siglaEncontrada) {
+    const palabrasClave = vicepresidenciaNormalizada.split(/\s+/).filter(p => p.length > 2);
+    siglaEncontrada = siglas.find((s) => {
+      const nombreNormalizado = normalizarNombre(s.nombre);
+      return palabrasClave.some(palabra => nombreNormalizado.includes(palabra));
+    });
+  }
+
+  if (!siglaEncontrada) {
+    console.warn(`No se encontró sigla para vicepresidencia: "${vicepresidenciaNombre}". Siglas disponibles:`, siglas.map(s => s.nombre));
+    // Si no se encuentra, generar sigla por defecto
+    const siglaDefault = vicepresidenciaNombre
+      .split(' ')
+      .filter(p => p.length > 0 && !['de', 'del', 'la', 'las', 'el', 'los', 'vicepresidencia', 'gerencia', 'dirección', 'gestión'].includes(p.toLowerCase()))
+      .map(palabra => palabra.charAt(0).toUpperCase())
+      .join('')
+      .substring(0, 3);
+    return generarIdConContador(siglaDefault);
+  }
+
+  return generarIdConContador(siglaEncontrada.sigla);
+}
+
+/**
+ * Genera ID con contador secuencial por sigla
+ */
+function generarIdConContador(sigla: string): string {
+  const key = `contador_riesgos_${sigla}`;
+  const contadorActual = parseInt(localStorage.getItem(key) || '0', 10);
+  const nuevoContador = contadorActual + 1;
+  localStorage.setItem(key, nuevoContador.toString());
+  return `${nuevoContador}${sigla}`;
 }
 
 /**

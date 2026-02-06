@@ -128,6 +128,10 @@ export const ROUTES = {
   RIESGOS_POR_PROCESO: '/riesgos-por-proceso',
   RIESGOS_POR_TIPOLOGIA: '/riesgos-por-tipologia',
   INCIDENCIAS: '/incidencias',
+  MODO_GERENTE_GENERAL: '/modo-gerente-general',
+  PROCESOS_GERENTE_GENERAL: '/procesos-gerente-general',
+  DASHBOARD_GERENTE_GENERAL: '/dashboard-gerente-general',
+  ASIGNACIONES: '/asignaciones',
 } as const;
 
 // API Base URL (configurar según entorno)

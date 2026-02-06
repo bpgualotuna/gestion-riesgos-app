@@ -62,6 +62,10 @@ export default function LoginPage() {
             navigate(ROUTES.DASHBOARD_SUPERVISOR);
             return;
           }
+          if (userData.role === 'gerente_general') {
+            navigate(ROUTES.MODO_GERENTE_GENERAL);
+            return;
+          }
         } catch (error) {
           console.error('Error parsing user data:', error);
         }
@@ -94,6 +98,10 @@ export default function LoginPage() {
           }
           if (userData.role === 'supervisor_riesgos') {
             navigate(ROUTES.DASHBOARD_SUPERVISOR);
+            return;
+          }
+          if (userData.role === 'gerente_general') {
+            navigate(ROUTES.MODO_GERENTE_GENERAL);
             return;
           }
         } catch (error) {
@@ -321,6 +329,32 @@ export default function LoginPage() {
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Administrador - Gestión completa del sistema y asignaciones
+                </Typography>
+              </Box>
+            </Button>
+
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleDemoLogin('gerente_general', 'gerente123')}
+              disabled={isLoading}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                borderColor: '#9c27b0',
+                color: '#9c27b0',
+                '&:hover': {
+                  borderColor: '#7b1fa2',
+                  backgroundColor: 'rgba(156, 39, 176, 0.08)',
+                },
+              }}
+            >
+              <Box sx={{ textAlign: 'left', width: '100%' }}>
+                <Typography variant="body2" fontWeight={600}>
+                  Gerente General - gerente_general / gerente123
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Gerente General - Modo Procesos o Modo Gerente
                 </Typography>
               </Box>
             </Button>

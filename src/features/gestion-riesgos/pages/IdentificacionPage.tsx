@@ -3,7 +3,7 @@
  * Diseño de tres paneles: RIESGO, CAUSAS, IMPACTO
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -55,6 +55,7 @@ import { useNotification } from '../../../shared/hooks/useNotification';
 import { useRiesgo } from '../../../shared/contexts/RiesgoContext';
 import type { Riesgo, FiltrosRiesgo, CausaRiesgo, EvaluacionInherenteNegativa } from '../types';
 import { useCalculosRiesgo } from '../hooks/useCalculosRiesgo';
+import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente } from '../../../utils/calculations';
 
 // Etiquetas de frecuencia según la imagen
 const LABELS_FRECUENCIA: Record<number, { label: string; descripcion: string }> = {
@@ -73,6 +74,124 @@ const FUENTES_CAUSA: Record<number, string> = {
   4: 'Infraestructura',
   5: 'Externos',
 };
+
+// Función para obtener riesgos mock de Talento Humano
+function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
+  return [
+    {
+      id: 'mock-riesgo-th-1',
+      descripcionRiesgo: 'Probabilidad de afectar la continuidad operacional por falta de personal capacitado en procesos críticos',
+      numeroIdentificacion: '1GTH',
+      origenRiesgo: 'Talleres internos',
+      tipoProceso: '02 Operacional',
+      consecuencia: '01 Negativa',
+      tipoRiesgo: '02 Operacional',
+      subtipoRiesgo: 'Falta de actualización o cumplimiento de procedimientos',
+      objetivo: 'Asegurar la continuidad operacional mediante personal capacitado',
+      causas: [
+        {
+          id: 'causa-1',
+          descripcion: 'Falta de programas de capacitación continua',
+          fuenteCausa: '1',
+          frecuencia: 3,
+          calificacionGlobalImpacto: 4,
+          calificacionInherentePorCausa: 12,
+        },
+        {
+          id: 'causa-2',
+          descripcion: 'Rotación de personal sin transferencia de conocimiento',
+          fuenteCausa: '1',
+          frecuencia: 4,
+          calificacionGlobalImpacto: 4,
+          calificacionInherentePorCausa: 16,
+        },
+      ],
+      impactos: {
+        economico: 3,
+        procesos: 5,
+        legal: 2,
+        confidencialidadSGSI: 2,
+        reputacion: 3,
+        disponibilidadSGSI: 4,
+        personas: 5,
+        integridadSGSI: 3,
+        ambiental: 1,
+      },
+    },
+    {
+      id: 'mock-riesgo-th-2',
+      descripcionRiesgo: 'Riesgo de incumplimiento normativo en contratación laboral',
+      numeroIdentificacion: '2GTH',
+      origenRiesgo: 'Auditoría HHI',
+      tipoProceso: '02 Operacional',
+      consecuencia: '01 Negativa',
+      tipoRiesgo: '04 Cumplimiento',
+      subtipoRiesgo: 'Cumplimiento regulatorio',
+      objetivo: 'Cumplir con todas las normativas laborales vigentes',
+      causas: [
+        {
+          id: 'causa-3',
+          descripcion: 'Desactualización en normativas laborales',
+          fuenteCausa: '3',
+          frecuencia: 2,
+          calificacionGlobalImpacto: 5,
+          calificacionInherentePorCausa: 10,
+        },
+      ],
+      impactos: {
+        economico: 4,
+        procesos: 3,
+        legal: 5,
+        confidencialidadSGSI: 1,
+        reputacion: 4,
+        disponibilidadSGSI: 2,
+        personas: 3,
+        integridadSGSI: 2,
+        ambiental: 1,
+      },
+    },
+    {
+      id: 'mock-riesgo-th-3',
+      descripcionRiesgo: 'Riesgo de pérdida de talento clave por falta de planes de retención',
+      numeroIdentificacion: '3GTH',
+      origenRiesgo: 'Talleres internos',
+      tipoProceso: '01 Estratégico',
+      consecuencia: '01 Negativa',
+      tipoRiesgo: '01 Estratégico',
+      subtipoRiesgo: 'Retención de talento',
+      objetivo: 'Retener el talento clave mediante planes de desarrollo',
+      causas: [
+        {
+          id: 'causa-4',
+          descripcion: 'Falta de planes de carrera y desarrollo',
+          fuenteCausa: '2',
+          frecuencia: 4,
+          calificacionGlobalImpacto: 4,
+          calificacionInherentePorCausa: 16,
+        },
+        {
+          id: 'causa-5',
+          descripcion: 'Competencia del mercado laboral',
+          fuenteCausa: '5',
+          frecuencia: 5,
+          calificacionGlobalImpacto: 4,
+          calificacionInherentePorCausa: 20,
+        },
+      ],
+      impactos: {
+        economico: 4,
+        procesos: 4,
+        legal: 2,
+        confidencialidadSGSI: 2,
+        reputacion: 5,
+        disponibilidadSGSI: 3,
+        personas: 5,
+        integridadSGSI: 2,
+        ambiental: 1,
+      },
+    },
+  ];
+}
 
 // Estructura de Tipos y Subtipos de Riesgos
 interface SubtipoRiesgo {
@@ -299,17 +418,45 @@ export default function IdentificacionPage() {
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess, showError } = useNotification();
 
-  // Estado para múltiples riesgos
-  const [riesgos, setRiesgos] = useState<RiesgoFormData[]>([]);
+  // Estado para múltiples riesgos - Cargar desde localStorage o datos mock
+  const [riesgos, setRiesgos] = useState<RiesgoFormData[]>(() => {
+    // Intentar cargar desde localStorage
+    const stored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado?.id}`);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Error al cargar riesgos desde localStorage:', e);
+      }
+    }
+    
+    // Si no hay datos guardados y es Talento Humano, cargar datos mock
+    if (procesoSeleccionado?.id === '1' || procesoSeleccionado?.nombre?.includes('Talento Humano')) {
+      return getMockRiesgosTalentoHumano();
+    }
+    
+    return [];
+  });
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
 
   // Función para crear un nuevo riesgo vacío
   const crearNuevoRiesgo = (): RiesgoFormData => {
     const nuevoId = `riesgo-${Date.now()}`;
+    
+    // Generar ID automático basado en la vicepresidencia del proceso seleccionado
+    let numeroIdentificacion = '';
+    if (procesoSeleccionado?.vicepresidencia) {
+      console.log('Generando ID para proceso:', procesoSeleccionado.nombre, 'Vicepresidencia:', procesoSeleccionado.vicepresidencia);
+      numeroIdentificacion = generarIdRiesgoAutomatico(procesoSeleccionado.vicepresidencia);
+      console.log('ID generado:', numeroIdentificacion);
+    } else {
+      console.warn('El proceso seleccionado no tiene vicepresidencia configurada:', procesoSeleccionado);
+    }
+
     return {
       id: nuevoId,
       descripcionRiesgo: '',
-      numeroIdentificacion: '',
+      numeroIdentificacion: numeroIdentificacion,
       origenRiesgo: '',
       tipoProceso: '02 Operacional',
       consecuencia: '01 Negativa',
@@ -354,9 +501,85 @@ export default function IdentificacionPage() {
     });
   };
 
-  // Actualizar un riesgo específico
+  // Función para calcular calificación global impacto
+  const calcularCalificacionGlobalImpacto = (impactos: RiesgoFormData['impactos']): number => {
+    return calcularImpactoGlobal({
+      personas: impactos.personas || 1,
+      legal: impactos.legal || 1,
+      ambiental: impactos.ambiental || 1,
+      procesos: impactos.procesos || 1,
+      reputacion: impactos.reputacion || 1,
+      economico: impactos.economico || 1,
+    });
+  };
+
+  // Función para calcular calificación inherente por causa
+  const calcularCalificacionInherentePorCausa = (
+    calificacionGlobalImpacto: number,
+    frecuencia: number
+  ): number => {
+    // Obtener valor especial de la configuración
+    const storedFormula = localStorage.getItem('config_formula_especial');
+    const formulaEspecial = storedFormula ? JSON.parse(storedFormula) : { valorEspecial: 3.99 };
+    
+    // Caso especial: si ambos son 2, usar valor especial
+    if (calificacionGlobalImpacto === 2 && frecuencia === 2) {
+      return formulaEspecial.valorEspecial || 3.99;
+    }
+    
+    return calificacionGlobalImpacto * frecuencia;
+  };
+
+  // Actualizar un riesgo específico y recalcular calificaciones
   const actualizarRiesgo = (riesgoId: string, actualizacion: Partial<RiesgoFormData>) => {
-    setRiesgos(riesgos.map(r => r.id === riesgoId ? { ...r, ...actualizacion } : r));
+    setRiesgos(riesgos.map(r => {
+      if (r.id !== riesgoId) return r;
+      
+      const riesgoActualizado = { ...r, ...actualizacion };
+      
+      // Si se actualizaron los impactos, recalcular calificaciones de todas las causas
+      if (actualizacion.impactos) {
+        const calificacionGlobalImpacto = calcularCalificacionGlobalImpacto(riesgoActualizado.impactos);
+        
+        // Actualizar todas las causas con la nueva calificación global impacto y recalcular inherente
+        const causasActualizadas = riesgoActualizado.causas.map(causa => {
+          const calificacionInherente = calcularCalificacionInherentePorCausa(
+            calificacionGlobalImpacto,
+            causa.frecuencia || 3
+          );
+          
+          return {
+            ...causa,
+            calificacionGlobalImpacto,
+            calificacionInherentePorCausa: calificacionInherente,
+          };
+        });
+        
+        return { ...riesgoActualizado, causas: causasActualizadas };
+      }
+      
+      // Si se actualizaron las causas, recalcular calificaciones
+      if (actualizacion.causas) {
+        const calificacionGlobalImpacto = calcularCalificacionGlobalImpacto(riesgoActualizado.impactos);
+        
+        const causasActualizadas = riesgoActualizado.causas.map(causa => {
+          const calificacionInherente = calcularCalificacionInherentePorCausa(
+            calificacionGlobalImpacto,
+            causa.frecuencia || 3
+          );
+          
+          return {
+            ...causa,
+            calificacionGlobalImpacto,
+            calificacionInherentePorCausa: calificacionInherente,
+          };
+        });
+        
+        return { ...riesgoActualizado, causas: causasActualizadas };
+      }
+      
+      return riesgoActualizado;
+    }));
   };
 
   const [createEvaluacion] = useCreateEvaluacionMutation();
@@ -489,7 +712,146 @@ export default function IdentificacionPage() {
                         setNuevaCausaFrecuencia(3);
                         setDialogCausaOpen(true);
                       }}
+                      onEditarCausa={(riesgoId, causa) => {
+                        setRiesgoIdParaCausa(riesgoId);
+                        setCausaEditando(causa);
+                        setNuevaCausaDescripcion(causa.descripcion);
+                        setNuevaCausaFuente(causa.fuenteCausa || '1');
+                        setNuevaCausaFrecuencia(causa.frecuencia || 3);
+                        setDialogCausaOpen(true);
+                      }}
+                      onEliminarCausa={(riesgoId, causaId) => {
+                        const nuevasCausas = riesgo.causas.filter(c => c.id !== causaId);
+                        actualizarRiesgo(riesgoId, { causas: nuevasCausas });
+                      }}
                     />
+                    
+                    {/* Resumen de Calificaciones */}
+                    {(() => {
+                      // Calcular la calificación inherente global (máximo de todas las causas)
+                      const calificacionesInherentes = riesgo.causas
+                        .map(causa => causa.calificacionInherentePorCausa)
+                        .filter(cal => cal !== undefined && cal !== null) as number[];
+                      
+                      const calificacionInherenteGlobal = calificacionesInherentes.length > 0
+                        ? Math.max(...calificacionesInherentes)
+                        : 0;
+
+                      // Determinar el nivel de riesgo según la calificación
+                      const getNivelRiesgo = (calificacion: number): { nivel: string; color: string; bgColor: string } => {
+                        if (calificacion === 0) {
+                          return { nivel: 'Sin Calificar', color: '#666', bgColor: '#f5f5f5' };
+                        } else if (calificacion >= 20) {
+                          return { nivel: 'CRÍTICO', color: '#fff', bgColor: '#d32f2f' };
+                        } else if (calificacion >= 15) {
+                          return { nivel: 'ALTO', color: '#fff', bgColor: '#f57c00' };
+                        } else if (calificacion >= 10) {
+                          return { nivel: 'MEDIO', color: '#fff', bgColor: '#ed6c02' };
+                        } else if (calificacion >= 5) {
+                          return { nivel: 'BAJO', color: '#fff', bgColor: '#fbc02d' };
+                        } else {
+                          return { nivel: 'MUY BAJO', color: '#fff', bgColor: '#388e3c' };
+                        }
+                      };
+
+                      const nivelInfo = getNivelRiesgo(calificacionInherenteGlobal);
+
+                      return (
+                        <Box sx={{ mt: 3, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                          <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                            Resumen de Calificaciones
+                          </Typography>
+                          
+                          {/* Tabla de calificaciones por causa */}
+                          {riesgo.causas.length > 0 ? (
+                            <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell sx={{ fontWeight: 600 }}>Causa</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 600 }}>Frecuencia</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 600 }}>Calificación Global Impacto</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 600 }}>Calificación Inherente por Causa</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {riesgo.causas.map((causa, index) => (
+                                    <TableRow key={causa.id}>
+                                      <TableCell>
+                                        <Typography variant="body2">
+                                          Causa {index + 1}: {causa.descripcion.length > 60 
+                                            ? `${causa.descripcion.substring(0, 60)}...`
+                                            : causa.descripcion}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Chip 
+                                          label={LABELS_FRECUENCIA[causa.frecuencia || 3]?.label || 'N/A'} 
+                                          size="small" 
+                                          color="primary"
+                                          variant="outlined"
+                                        />
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Typography variant="body2" fontWeight={600}>
+                                          {causa.calificacionGlobalImpacto !== undefined 
+                                            ? causa.calificacionGlobalImpacto.toFixed(2)
+                                            : 'N/A'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Typography variant="body2" fontWeight={600}>
+                                          {causa.calificacionInherentePorCausa !== undefined 
+                                            ? causa.calificacionInherentePorCausa.toFixed(2)
+                                            : 'N/A'}
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          ) : (
+                            <Alert severity="info" sx={{ mb: 2 }}>
+                              No hay causas registradas. Agregue causas para calcular las calificaciones.
+                            </Alert>
+                          )}
+
+                          {/* Calificación Inherente Global del Riesgo */}
+                          <Box
+                            sx={{
+                              p: 2,
+                              backgroundColor: nivelInfo.bgColor,
+                              borderRadius: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="caption" sx={{ color: nivelInfo.color, opacity: 0.9 }}>
+                                CALIFICACIÓN INHERENTE GLOBAL DEL RIESGO
+                              </Typography>
+                              <Typography variant="h5" sx={{ color: nivelInfo.color, fontWeight: 700, mt: 0.5 }}>
+                                {calificacionInherenteGlobal > 0 ? calificacionInherenteGlobal.toFixed(2) : 'N/A'}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: nivelInfo.color, opacity: 0.8, mt: 0.5, display: 'block' }}>
+                                (Máximo de todas las calificaciones inherentes por causa)
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={nivelInfo.nivel}
+                              sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                color: nivelInfo.color,
+                                fontWeight: 700,
+                                fontSize: '0.875rem',
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      );
+                    })()}
                   </Box>
                 </Collapse>
               </Card>
@@ -546,12 +908,21 @@ export default function IdentificacionPage() {
             onClick={() => {
               const riesgo = riesgos.find(r => r.id === riesgoIdParaCausa);
               if (riesgo) {
-                const nuevaCausa: CausaRiesgo = {
+                // Calcular calificaciones para la nueva causa
+              const calificacionGlobalImpacto = calcularCalificacionGlobalImpacto(riesgo.impactos);
+              const calificacionInherente = calcularCalificacionInherentePorCausa(
+                calificacionGlobalImpacto,
+                nuevaCausaFrecuencia
+              );
+              
+              const nuevaCausa: CausaRiesgo = {
                   id: causaEditando?.id || `causa-${Date.now()}`,
                   riesgoId: riesgoIdParaCausa,
                   descripcion: nuevaCausaDescripcion,
                   fuenteCausa: nuevaCausaFuente,
                   frecuencia: nuevaCausaFrecuencia,
+                  calificacionGlobalImpacto,
+                  calificacionInherentePorCausa: calificacionInherente,
                 };
                 const nuevasCausas = causaEditando
                   ? riesgo.causas.map(c => c.id === causaEditando.id ? nuevaCausa : c)
@@ -577,6 +948,8 @@ function RiesgoFormulario({
   procesoSeleccionado,
   onSave,
   onAgregarCausa,
+  onEditarCausa,
+  onEliminarCausa,
 }: {
   riesgo: RiesgoFormData;
   actualizarRiesgo: (riesgoId: string, actualizacion: Partial<RiesgoFormData>) => void;
@@ -584,6 +957,8 @@ function RiesgoFormulario({
   procesoSeleccionado: any;
   onSave: () => void;
   onAgregarCausa: (riesgoId: string) => void;
+  onEditarCausa: (riesgoId: string, causa: CausaRiesgo) => void;
+  onEliminarCausa: (riesgoId: string, causaId: string) => void;
 }) {
   const tipoRiesgoSeleccionado = useMemo(() => {
     return TIPOS_RIESGOS.find(t => t.codigo === riesgo.tipoRiesgo) || null;
@@ -664,10 +1039,8 @@ function RiesgoFormulario({
                 <TextField
                   fullWidth
                               size="small"
-                              value={riesgo.numeroIdentificacion}
-                              onChange={(e) => actualizarRiesgo(riesgo.id, { numeroIdentificacion: e.target.value })}
-                  disabled={isReadOnly}
-                              placeholder="Ej: R172"
+                              value={riesgo.numeroIdentificacion || ''}
+                              disabled={true}
                               variant="standard"
                               sx={{ fontSize: '0.875rem' }}
                               InputProps={{ disableUnderline: true }}
@@ -1049,12 +1422,15 @@ function RiesgoFormulario({
                         <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }}>Causa</TableCell>
                         <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }}>Fuente</TableCell>
                         <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }}>Frecuencia</TableCell>
+                        {!isReadOnly && (
+                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }} align="right">Acciones</TableCell>
+                        )}
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {riesgo.causas.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={3} align="center">
+                          <TableCell colSpan={isReadOnly ? 3 : 4} align="center">
                             <Typography variant="body2" color="text.secondary">
                               No hay causas registradas
                             </Typography>
@@ -1065,7 +1441,6 @@ function RiesgoFormulario({
                           <TableRow
                             key={causa.id}
                             sx={{
-                              cursor: 'pointer',
                               '&:hover': {
                                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
                               },
@@ -1088,6 +1463,31 @@ function RiesgoFormulario({
                                 {LABELS_FRECUENCIA[causa.frecuencia || 3]?.label || ''}
                       </Typography>
                             </TableCell>
+                            {!isReadOnly && (
+                              <TableCell align="right">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditarCausa(riesgo.id, causa);
+                                  }}
+                                  title="Editar causa"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEliminarCausa(riesgo.id, causa.id);
+                                  }}
+                                  color="error"
+                                  title="Eliminar causa"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </TableCell>
+                            )}
                         </TableRow>
                         ))
                       )}

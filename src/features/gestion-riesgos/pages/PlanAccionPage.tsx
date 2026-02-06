@@ -3,7 +3,7 @@
  * Gestión de planes de acción para riesgos con seguimiento y tareas
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -186,10 +186,68 @@ export default function PlanAccionPage() {
   const [riesgoSeleccionadoLocal, setRiesgoSeleccionadoLocal] = useState<any>(riesgoSeleccionadoContext);
   
   // Obtener todos los riesgos del proceso seleccionado
+  // Primero intentar desde localStorage (riesgos de Identificación)
+  const riesgosIdentificacion = useMemo(() => {
+    if (!procesoSeleccionado?.id) return [];
+    const stored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Error al cargar riesgos desde localStorage:', e);
+      }
+    }
+    return [];
+  }, [procesoSeleccionado?.id]);
+
+  // También obtener de la API (riesgos ya guardados)
   const { data: riesgosData } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
   );
-  const riesgos = riesgosData?.data || [];
+  const riesgosAPI = riesgosData?.data || [];
+
+  // Combinar riesgos de Identificación y API, adaptando el formato para el Autocomplete
+  const riesgos = useMemo(() => {
+    const riesgosCombinados: any[] = [];
+    
+    // Agregar riesgos de Identificación (formato RiesgoFormData)
+    riesgosIdentificacion.forEach(riesgo => {
+      // Extraer número y sigla del numeroIdentificacion (ej: "1GTH" -> numero: 1, sigla: "GTH")
+      const match = riesgo.numeroIdentificacion?.match(/^(\d+)([A-Z]+)$/);
+      const numero = match ? parseInt(match[1]) : 0;
+      const sigla = match ? match[2] : '';
+      
+      riesgosCombinados.push({
+        id: riesgo.id,
+        numero: numero,
+        siglaGerencia: sigla,
+        descripcion: riesgo.descripcionRiesgo,
+        clasificacion: riesgo.consecuencia === '01 Negativa' ? 'Negativa' : 'Positiva',
+        zona: riesgo.tipoRiesgo || riesgo.tipoProceso,
+        proceso: procesoSeleccionado?.nombre || '',
+        // Mantener datos originales para uso interno
+        _datosCompletos: riesgo,
+      });
+    });
+    
+    // Agregar riesgos de API que no estén ya en Identificación
+    riesgosAPI.forEach(riesgoAPI => {
+      if (!riesgosCombinados.find(r => r.id === riesgoAPI.id)) {
+        riesgosCombinados.push({
+          id: riesgoAPI.id,
+          numero: riesgoAPI.numero || 0,
+          siglaGerencia: riesgoAPI.siglaGerencia || '',
+          descripcion: riesgoAPI.descripcion,
+          clasificacion: riesgoAPI.clasificacion || 'Negativa',
+          zona: riesgoAPI.zona || '',
+          proceso: riesgoAPI.proceso || procesoSeleccionado?.nombre || '',
+          _datosCompletos: riesgoAPI,
+        });
+      }
+    });
+    
+    return riesgosCombinados;
+  }, [riesgosIdentificacion, riesgosAPI, procesoSeleccionado]);
   
   // Usar el riesgo del contexto si existe, sino el local
   const riesgoSeleccionado = riesgoSeleccionadoContext || riesgoSeleccionadoLocal;
@@ -232,7 +290,8 @@ export default function PlanAccionPage() {
     if (!riesgoSeleccionado) {
       return [];
     }
-    return planesAccion.filter((plan) => plan.riesgoId === riesgoSeleccionado.id);
+    const riesgoId = riesgoSeleccionado._datosCompletos?.id || riesgoSeleccionado.id;
+    return planesAccion.filter((plan) => plan.riesgoId === riesgoId);
   }, [planesAccion, riesgoSeleccionado]);
 
   // Calcular porcentaje de avance de un plan
@@ -289,15 +348,16 @@ export default function PlanAccionPage() {
 
   const handleCrearPlan = () => {
     if (!riesgoSeleccionado) {
-      showError('Debe seleccionar un riesgo desde "Riesgos de los Procesos" para crear un plan de acción');
+      showError('Debe seleccionar un riesgo desde "Identificación y Calificación" o "Riesgos de los Procesos" para crear un plan de acción');
       return;
     }
     if (!procesoSeleccionado) {
       showError('Debe seleccionar un proceso desde el Dashboard');
       return;
     }
+    const riesgoId = riesgoSeleccionado._datosCompletos?.id || riesgoSeleccionado.id;
     setFormPlan({
-      riesgoId: riesgoSeleccionado.id,
+      riesgoId: riesgoId,
       procesoId: procesoSeleccionado.id,
       nombre: '',
       descripcion: '',
@@ -314,8 +374,9 @@ export default function PlanAccionPage() {
   };
 
   const handleEditarPlan = (plan: PlanAccion) => {
+    const riesgoId = riesgoSeleccionado?._datosCompletos?.id || riesgoSeleccionado?.id || plan.riesgoId;
     setFormPlan({
-      riesgoId: plan.riesgoId,
+      riesgoId: riesgoId,
       procesoId: plan.procesoId,
       nombre: plan.nombre,
       descripcion: plan.descripcion || '',
@@ -529,9 +590,11 @@ export default function PlanAccionPage() {
 
   // Función para seleccionar un riesgo
   const handleSeleccionarRiesgo = (riesgo: any) => {
-    setRiesgoSeleccionadoLocal(riesgo);
-    iniciarVer(riesgo);
-    showSuccess(`Riesgo seleccionado: ${riesgo.descripcion.substring(0, 50)}...`);
+    // Usar los datos completos si están disponibles (riesgos de Identificación)
+    const riesgoCompleto = riesgo._datosCompletos || riesgo;
+    setRiesgoSeleccionadoLocal(riesgoCompleto);
+    iniciarVer(riesgoCompleto);
+    showSuccess(`Riesgo seleccionado: ${riesgo.descripcion?.substring(0, 50) || riesgoCompleto.descripcionRiesgo?.substring(0, 50) || 'Riesgo'}...`);
   };
 
   // Función helper para formatear fecha para input type="date"
@@ -732,23 +795,23 @@ export default function PlanAccionPage() {
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                       <Chip
-                        label={`ID: ${riesgoSeleccionado.numero}${riesgoSeleccionado.siglaGerencia || ''}`}
+                        label={`ID: ${riesgoSeleccionado.numeroIdentificacion || `${riesgoSeleccionado.numero || ''}${riesgoSeleccionado.siglaGerencia || ''}`}`}
                         size="small"
                         color="primary"
                       />
                       <Chip
-                        label={riesgoSeleccionado.clasificacion}
+                        label={riesgoSeleccionado.consecuencia || riesgoSeleccionado.clasificacion || 'Negativa'}
                         size="small"
-                        color={riesgoSeleccionado.clasificacion.includes('positiva') ? 'success' : 'error'}
+                        color={(riesgoSeleccionado.consecuencia === '02 Positiva' || riesgoSeleccionado.clasificacion?.includes('positiva')) ? 'success' : 'error'}
                       />
                       <Chip
-                        label={`Zona: ${riesgoSeleccionado.zona}`}
+                        label={`Tipo: ${riesgoSeleccionado.tipoRiesgo || riesgoSeleccionado.zona || 'N/A'}`}
                         size="small"
                         variant="outlined"
                       />
                     </Box>
                     <Typography variant="body2" color="text.secondary">
-                      {riesgoSeleccionado.descripcion}
+                      {riesgoSeleccionado.descripcionRiesgo || riesgoSeleccionado.descripcion}
                     </Typography>
                   </Box>
                 </Box>

@@ -2,7 +2,7 @@
  * Application Router
  */
 
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 
 // Layouts
@@ -40,11 +40,22 @@ import ResumenRiesgosPage from '../features/gestion-riesgos/pages/ResumenRiesgos
 import RiesgosPorProcesoPage from '../features/gestion-riesgos/pages/RiesgosPorProcesoPage';
 import RiesgosPorTipologiaPage from '../features/gestion-riesgos/pages/RiesgosPorTipologiaPage';
 import IncidenciasPage from '../features/gestion-riesgos/pages/IncidenciasPage';
+import ModoGerenteGeneralSelector from '../features/auth/components/ModoGerenteGeneralSelector';
+import ProcesosGerenteGeneralPage from '../features/gestion-riesgos/pages/gerente-general/ProcesosGerenteGeneralPage';
+import DashboardGerenteGeneralPage from '../features/gestion-riesgos/pages/gerente-general/DashboardGerenteGeneralPage';
 
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: ROUTES.MODO_GERENTE_GENERAL,
+    element: (
+      <ProtectedRoute>
+        <ModoGerenteGeneralSelector />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/',
@@ -165,6 +176,24 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.INCIDENCIAS,
         element: <IncidenciasPage />,
+      },
+      {
+        path: ROUTES.PROCESOS_GERENTE_GENERAL,
+        element: <ProcesosGerenteGeneralPage />,
+      },
+      {
+        path: ROUTES.DASHBOARD_GERENTE_GENERAL,
+        element: <DashboardGerenteGeneralPage />,
+      },
+      {
+        path: ROUTES.ASIGNACIONES,
+        element: (
+          <Navigate 
+            to={`${ROUTES.ADMINISTRACION}?section=asignaciones`} 
+            replace 
+            state={{ section: 'asignaciones' }}
+          />
+        ),
       },
     ],
   },
