@@ -11,3 +11,5 @@ services:
         value: 20.11.0
       - key: PNPM_VERSION
         value: 9.0.0
+      - key: PORT
+        value: 3000
