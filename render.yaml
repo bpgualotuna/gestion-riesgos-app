@@ -3,12 +3,12 @@ services:
     name: gestion-riesgos-app
     runtime: node
     plan: free
-    buildCommand: pnpm install && pnpm build
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm build
     startCommand: pnpm start
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
-        value: 20.11.0
+        value: 22.12.0
       - key: PNPM_VERSION
         value: 9.0.0
       - key: PORT
