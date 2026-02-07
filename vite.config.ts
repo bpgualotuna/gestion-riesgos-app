@@ -4,6 +4,13 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // Prevenir que Rolldown intente resolver @mui/material/Grid2 que no existe
+    // Redirigir cualquier intento de importar Grid2 desde @mui/material a nuestro wrapper
+    alias: {
+      '@mui/material/Grid2': path.resolve(__dirname, 'src/utils/Grid2.tsx'),
+    },
+  },
   server: {
     host: '0.0.0.0', // Permitir conexiones desde cualquier IP
     port: 5173,

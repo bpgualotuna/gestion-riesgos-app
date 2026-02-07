@@ -38,7 +38,7 @@ import {
   Cancel as CancelIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useProceso } from '../../../contexts/ProcesoContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useGetProcesosQuery } from '../api/riesgosApi';

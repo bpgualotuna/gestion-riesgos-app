@@ -49,7 +49,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useGetProcesosQuery, useGetRiesgosQuery } from '../api/riesgosApi';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useProceso } from '../../../contexts/ProcesoContext';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../utils/constants';
@@ -78,7 +78,7 @@ const mockObservaciones: Observacion[] = [
 ];
 
 export default function ResumenDirectorPage() {
-  const { user, esDirectorProcesos } = useAuth();
+  const { user, esSupervisorRiesgos } = useAuth();
   const navigate = useNavigate();
   const { setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
   const { showSuccess, showError } = useNotification();
@@ -94,7 +94,7 @@ export default function ResumenDirectorPage() {
     tipo: 'proceso',
   });
 
-  if (!esDirectorProcesos) {
+  if (!esSupervisorRiesgos) {
     return (
       <Box>
         <Alert severity="error">

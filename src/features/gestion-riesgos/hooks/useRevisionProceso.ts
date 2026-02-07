@@ -4,8 +4,8 @@
 
 import { useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useNotificacion } from '../../../contexts/NotificacionContext';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotificacion } from '../../../shared/contexts/NotificacionContext';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useProceso } from '../../../contexts/ProcesoContext';
 import { 
   useUpdateProcesoMutation,

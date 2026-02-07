@@ -1,7 +1,7 @@
 /**
  * Proceso Context
  * Manages selected process state globally
- * Solo el usuario "Dueño de Procesos" puede gestionar procesos
+ * Solo el usuario "Dueño del Proceso" puede gestionar procesos
  */
 
 /* @refresh reset */
@@ -20,7 +20,7 @@ interface ProcesoContextType {
   iniciarModoEditar: () => void;
   iniciarModoVisualizar: () => void;
   isLoading: boolean;
-  puedeGestionarProcesos: boolean; // Solo el dueño de procesos puede gestionar
+  puedeGestionarProcesos: boolean; // Solo el dueño del proceso puede gestionar
 }
 
 const ProcesoContext = createContext<ProcesoContextType | undefined>(undefined);
@@ -111,7 +111,7 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     iniciarModoEditar,
     iniciarModoVisualizar,
     isLoading,
-    puedeGestionarProcesos: esDueñoProcesos, // Solo el dueño de procesos puede gestionar
+    puedeGestionarProcesos: esDueñoProcesos, // Solo el dueño del proceso puede gestionar
   };
 
   return <ProcesoContext.Provider value={value}>{children}</ProcesoContext.Provider>;
@@ -121,7 +121,18 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
 export function useProceso() {
   const context = useContext(ProcesoContext);
   if (context === undefined) {
-    throw new Error('useProceso must be used within a ProcesoProvider');
+    // En lugar de lanzar error, retornar valores por defecto para evitar crashes durante la inicialización
+    console.warn('useProceso must be used within a ProcesoProvider. Using default values.');
+    return {
+      procesoSeleccionado: null,
+      setProcesoSeleccionado: () => {},
+      modoProceso: null,
+      setModoProceso: () => {},
+      iniciarModoEditar: () => {},
+      iniciarModoVisualizar: () => {},
+      isLoading: false,
+      puedeGestionarProcesos: false,
+    };
   }
   return context;
 }

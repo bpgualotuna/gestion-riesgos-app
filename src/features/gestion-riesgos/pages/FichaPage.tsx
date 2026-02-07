@@ -17,49 +17,74 @@ import {
   Chip,
 } from '@mui/material';
 import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useProceso } from '../../../contexts/ProcesoContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useUpdateProcesoMutation } from '../api/riesgosApi';
+import { useEffect } from 'react';
 
 interface FichaData {
   vicepresidencia: string;
   gerencia: string;
-  subdivision: string;
+  area: string;
   responsable: string;
-  cargo: string;
-  fecha: string;
+  encargado: string; // Quién está a cargo del proceso
+  fechaCreacion: string;
   objetivoProceso: string;
 }
 
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
+  const { esAdmin } = useAuth();
+  const [updateProceso] = useUpdateProcesoMutation();
+  
   // La ficha es del proceso, solo depende del modo del proceso
   const isReadOnly = modoProceso === 'visualizar';
   const isEditMode = modoProceso === 'editar';
+  
+  // Solo admin puede editar información organizacional
+  const puedeEditarInfoOrganizacional = esAdmin && isEditMode;
+  const puedeEditarFechaCreacion = esAdmin && isEditMode;
 
-  // Cargar datos del proceso seleccionado si existe
+  // Cargar datos del proceso seleccionado
   const [formData, setFormData] = useState<FichaData>(() => {
     if (procesoSeleccionado) {
       return {
         vicepresidencia: procesoSeleccionado.vicepresidencia || '',
         gerencia: procesoSeleccionado.gerencia || '',
-        subdivision: procesoSeleccionado.tipoProceso || '',
-        responsable: procesoSeleccionado.responsable || '',
-        cargo: procesoSeleccionado.responsable || '',
-        fecha: new Date().toISOString().split('T')[0],
+        area: procesoSeleccionado.areaNombre || '',
+        responsable: procesoSeleccionado.responsableNombre || procesoSeleccionado.responsable || '',
+        encargado: procesoSeleccionado.responsableNombre || procesoSeleccionado.responsable || '',
+        fechaCreacion: procesoSeleccionado.createdAt ? new Date(procesoSeleccionado.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         objetivoProceso: procesoSeleccionado.objetivoProceso || '',
       };
     }
     return {
-      vicepresidencia: 'Gestión Financiera y Administrativa',
-      gerencia: 'Dirección Financiera Administrativa',
-      subdivision: 'Talento Humano',
-      responsable: 'Katherine Chávez',
-      cargo: 'Analista de Talento Humano',
-      fecha: new Date().toISOString().split('T')[0],
+      vicepresidencia: '',
+      gerencia: '',
+      area: '',
+      responsable: '',
+      encargado: '',
+      fechaCreacion: new Date().toISOString().split('T')[0],
       objetivoProceso: '',
     };
   });
+
+  // Actualizar formData cuando cambie el proceso seleccionado
+  useEffect(() => {
+    if (procesoSeleccionado) {
+      setFormData({
+        vicepresidencia: procesoSeleccionado.vicepresidencia || '',
+        gerencia: procesoSeleccionado.gerencia || '',
+        area: procesoSeleccionado.areaNombre || '',
+        responsable: procesoSeleccionado.responsableNombre || procesoSeleccionado.responsable || '',
+        encargado: procesoSeleccionado.responsableNombre || procesoSeleccionado.responsable || '',
+        fechaCreacion: procesoSeleccionado.createdAt ? new Date(procesoSeleccionado.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        objetivoProceso: procesoSeleccionado.objetivoProceso || '',
+      });
+    }
+  }, [procesoSeleccionado]);
 
   const handleChange = (field: keyof FichaData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -72,16 +97,32 @@ export default function FichaPage() {
 
   const handleSave = async () => {
     try {
-      if (!formData.vicepresidencia || !formData.gerencia || !formData.responsable) {
-        showError('Por favor complete todos los campos requeridos');
+      if (!procesoSeleccionado) {
+        showError('Debe seleccionar un proceso');
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      localStorage.setItem('ficha_proceso', JSON.stringify(formData));
+      if (!formData.objetivoProceso.trim()) {
+        showError('El objetivo del proceso es requerido');
+        return;
+      }
+
+      // Actualizar solo los campos editables
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        objetivoProceso: formData.objetivoProceso,
+        // Solo admin puede actualizar información organizacional
+        ...(puedeEditarInfoOrganizacional && {
+          vicepresidencia: formData.vicepresidencia,
+          gerencia: formData.gerencia,
+          responsable: formData.responsable,
+          responsableNombre: formData.encargado,
+        }),
+      }).unwrap();
+
       showSuccess('Ficha del proceso guardada exitosamente');
-    } catch (error) {
-      showError('Error al guardar la ficha');
+    } catch (error: any) {
+      showError(error?.data?.message || 'Error al guardar la ficha');
     }
   };
 
@@ -190,8 +231,9 @@ export default function FichaPage() {
                 value={formData.vicepresidencia}
                 onChange={handleChange('vicepresidencia')}
                 required
-                disabled={isReadOnly}
+                disabled={!puedeEditarInfoOrganizacional}
                 variant="outlined"
+                helperText={!puedeEditarInfoOrganizacional ? 'Solo el administrador puede editar este campo' : ''}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -207,8 +249,9 @@ export default function FichaPage() {
                 value={formData.gerencia}
                 onChange={handleChange('gerencia')}
                 required
-                disabled={isReadOnly}
+                disabled={!puedeEditarInfoOrganizacional}
                 variant="outlined"
+                helperText={!puedeEditarInfoOrganizacional ? 'Solo el administrador puede editar este campo' : ''}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -220,11 +263,11 @@ export default function FichaPage() {
             <Box>
               <TextField
                 fullWidth
-                label="Subdivisión"
-                value={formData.subdivision}
-                onChange={handleChange('subdivision')}
-                disabled={isReadOnly}
+                label="Área"
+                value={formData.area}
+                disabled={true}
                 variant="outlined"
+                helperText="Asignada por el administrador"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -236,13 +279,30 @@ export default function FichaPage() {
             <Box>
               <TextField
                 fullWidth
-                label="Fecha"
+                label="Responsable del Proceso"
+                value={formData.responsable}
+                disabled={true}
+                variant="outlined"
+                helperText="Asignado por el administrador"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+            </Box>
+
+            <Box>
+              <TextField
+                fullWidth
+                label="Fecha de Creación"
                 type="date"
-                value={formData.fecha}
-                onChange={handleChange('fecha')}
+                value={formData.fechaCreacion}
+                onChange={handleChange('fechaCreacion')}
                 InputLabelProps={{ shrink: true }}
-                disabled={isReadOnly}
+                disabled={!puedeEditarFechaCreacion}
                 variant="outlined"
+                helperText={!puedeEditarFechaCreacion ? 'Solo el administrador puede editar este campo' : ''}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -257,33 +317,20 @@ export default function FichaPage() {
 
             <Box sx={{ gridColumn: '1 / -1' }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
-                Responsable del Proceso
+                Quién está a cargo del Proceso
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Puede modificar quién está a cargo del proceso
               </Typography>
             </Box>
 
             <Box>
               <TextField
                 fullWidth
-                label="Responsable del Proceso"
-                value={formData.responsable}
-                onChange={handleChange('responsable')}
+                label="Quién está a cargo del Proceso"
+                value={formData.encargado}
+                onChange={handleChange('encargado')}
                 required
-                disabled={isReadOnly}
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            <Box>
-              <TextField
-                fullWidth
-                label="Cargo"
-                value={formData.cargo}
-                onChange={handleChange('cargo')}
                 disabled={isReadOnly}
                 variant="outlined"
                 sx={{
@@ -329,22 +376,24 @@ export default function FichaPage() {
                   <Button
                     variant="outlined"
                     onClick={() => {
-                      setFormData({
-                        vicepresidencia: procesoSeleccionado?.vicepresidencia || '',
-                        gerencia: procesoSeleccionado?.gerencia || '',
-                        subdivision: procesoSeleccionado?.tipoProceso || '',
-                        responsable: procesoSeleccionado?.responsable || '',
-                        cargo: procesoSeleccionado?.responsable || '',
-                        fecha: new Date().toISOString().split('T')[0],
-                        objetivoProceso: procesoSeleccionado?.objetivoProceso || '',
-                      });
+                      if (procesoSeleccionado) {
+                        setFormData({
+                          vicepresidencia: procesoSeleccionado.vicepresidencia || '',
+                          gerencia: procesoSeleccionado.gerencia || '',
+                          area: procesoSeleccionado.areaNombre || '',
+                          responsable: procesoSeleccionado.responsableNombre || procesoSeleccionado.responsable || '',
+                          encargado: procesoSeleccionado.responsableNombre || procesoSeleccionado.responsable || '',
+                          fechaCreacion: procesoSeleccionado.createdAt ? new Date(procesoSeleccionado.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                          objetivoProceso: procesoSeleccionado.objetivoProceso || '',
+                        });
+                      }
                     }}
                     sx={{
                       borderRadius: 2,
                       px: 3,
                     }}
                   >
-                    Limpiar
+                    Restaurar
                   </Button>
                   <Button
                     variant="contained"

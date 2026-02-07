@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RTK Query API for Risk Management
  * Uses mock data when backend is not available
  */
@@ -36,6 +36,7 @@ import {
   createMockProceso,
   updateMockProceso,
   deleteMockProceso,
+  duplicateMockProceso,
 } from './mockData';
 import {
   getMockPasosProceso,
@@ -69,6 +70,16 @@ import {
   deleteMockFormula,
   getMockConfiguraciones,
   updateMockConfiguracion,
+  getMockTiposRiesgos,
+  updateMockTiposRiesgos,
+  getMockObjetivos,
+  updateMockObjetivos,
+  getMockFrecuencias,
+  updateMockFrecuencias,
+  getMockFuentes,
+  updateMockFuentes,
+  getMockImpactos,
+  updateMockImpactos,
   getMockObservaciones,
   createMockObservacion,
   updateMockObservacion,
@@ -148,6 +159,15 @@ export const riesgosApi = createApi({
         await new Promise(resolve => setTimeout(resolve, 100));
         deleteMockProceso(id);
         return { data: undefined };
+      },
+      invalidatesTags: ['Proceso'],
+    }),
+
+    duplicateProceso: builder.mutation<Proceso, { id: string; overrides?: Partial<CreateProcesoDto & { año?: number; areaNombre?: string }> }>({
+      queryFn: async ({ id, overrides }) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const procesoDuplicado = duplicateMockProceso(id, overrides);
+        return { data: procesoDuplicado };
       },
       invalidatesTags: ['Proceso'],
     }),
@@ -767,6 +787,89 @@ export const riesgosApi = createApi({
       },
       invalidatesTags: ['Configuracion'],
     }),
+
+    // ============================================
+    // CONFIGURACIÓN DE IDENTIFICACIÓN Y CALIFICACIÓN
+    // ============================================
+    getTiposRiesgos: builder.query<any[], void>({
+      queryFn: async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: getMockTiposRiesgos() };
+      },
+      providesTags: ['Configuracion'],
+    }),
+
+    updateTiposRiesgos: builder.mutation<any[], any[]>({
+      queryFn: async (data) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: updateMockTiposRiesgos(data) };
+      },
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    getObjetivos: builder.query<any[], void>({
+      queryFn: async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: getMockObjetivos() };
+      },
+      providesTags: ['Configuracion'],
+    }),
+
+    updateObjetivos: builder.mutation<any[], any[]>({
+      queryFn: async (data) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: updateMockObjetivos(data) };
+      },
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    getFrecuencias: builder.query<any[], void>({
+      queryFn: async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: getMockFrecuencias() };
+      },
+      providesTags: ['Configuracion'],
+    }),
+
+    updateFrecuencias: builder.mutation<any[], any[]>({
+      queryFn: async (data) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: updateMockFrecuencias(data) };
+      },
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    getFuentes: builder.query<any[], void>({
+      queryFn: async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: getMockFuentes() };
+      },
+      providesTags: ['Configuracion'],
+    }),
+
+    updateFuentes: builder.mutation<any[], any[]>({
+      queryFn: async (data) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: updateMockFuentes(data) };
+      },
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    getImpactos: builder.query<any[], void>({
+      queryFn: async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: getMockImpactos() };
+      },
+      providesTags: ['Configuracion'],
+    }),
+
+    updateImpactos: builder.mutation<any[], any[]>({
+      queryFn: async (data) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { data: updateMockImpactos(data) };
+      },
+      invalidatesTags: ['Configuracion'],
+    }),
   }),
 });
 
@@ -777,6 +880,7 @@ export const {
   useCreateProcesoMutation,
   useUpdateProcesoMutation,
   useDeleteProcesoMutation,
+  useDuplicateProcesoMutation,
   // Riesgos
   useGetRiesgosQuery,
   useGetRiesgoByIdQuery,
@@ -848,4 +952,15 @@ export const {
   // Configuraciones
   useGetConfiguracionesQuery,
   useUpdateConfiguracionMutation,
+  // Configuración de Identificación y Calificación
+  useGetTiposRiesgosQuery,
+  useUpdateTiposRiesgosMutation,
+  useGetObjetivosQuery,
+  useUpdateObjetivosMutation,
+  useGetFrecuenciasQuery,
+  useUpdateFrecuenciasMutation,
+  useGetFuentesQuery,
+  useUpdateFuentesMutation,
+  useGetImpactosQuery,
+  useUpdateImpactosMutation,
 } = riesgosApi;

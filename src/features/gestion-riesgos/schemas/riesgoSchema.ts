@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Zod Validation Schemas
  */
 
 import { z } from 'zod';
-import { CLASIFICACION_RIESGO, RESPUESTAS_RIESGO } from '../../../utils/constants';
+import { CLASIFICACION_RIESGO, RESPUESTAS_RIESGO } from '../../shared/utils/constants';
 
 // ============================================
 // RIESGO SCHEMAS

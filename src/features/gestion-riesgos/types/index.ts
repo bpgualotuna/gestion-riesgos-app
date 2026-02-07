@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Type Definitions for Risk Management
  */
 
-import type { NivelRiesgo, ClasificacionRiesgo, RespuestaRiesgo } from '../../../utils/constants';
+import type { NivelRiesgo, ClasificacionRiesgo, RespuestaRiesgo } from '../../shared/utils/constants';
 
 // ============================================
 // ÁREA (Area)
@@ -51,7 +51,7 @@ export interface Proceso {
   directorId?: string; // ID del director de procesos asignado (heredado del área o específico)
   directorNombre?: string; // Nombre del director (para display)
   objetivoProceso?: string;
-  tipoProceso?: 'Talento Humano' | 'Planificación Financiera' | 'Otro';
+  tipoProceso?: '01 Estratégico' | '02 Operacional' | '03 Apoyo' | 'Talento Humano' | 'Planificación Financiera' | 'Otro' | string;
   puedeCrear?: string[]; // IDs de usuarios que pueden crear este proceso
   activo: boolean;
   estado: EstadoProceso; // Estado del proceso en el flujo de revisión
@@ -73,7 +73,7 @@ export interface CreateProcesoDto {
   areaId?: string;
   directorId?: string;
   objetivoProceso?: string;
-  tipoProceso?: 'Talento Humano' | 'Planificación Financiera' | 'Otro';
+  tipoProceso?: '01 Estratégico' | '02 Operacional' | '03 Apoyo' | 'Talento Humano' | 'Planificación Financiera' | 'Otro' | string;
   puedeCrear?: string[];
 }
 
@@ -116,6 +116,7 @@ export interface Riesgo {
   fuenteCausa?: string;
   fuenteCausaHSEQ?: string;
   fuenteCausaLAFT?: string;
+  origen?: string; // Origen del riesgo (Talleres internos, Auditoría HHI, etc.)
   
   createdAt?: string;
   updatedAt?: string;

@@ -1,6 +1,6 @@
 /**
- * Riesgos de los Procesos Page
- * Muestra todos los riesgos organizados por proceso
+ * Riesgos del Proceso Page
+ * Muestra los riesgos del proceso seleccionado
  */
 
 import { useState } from 'react';
@@ -24,26 +24,39 @@ import {
   Edit as EditIcon,
   BusinessCenter as BusinessCenterIcon,
 } from '@mui/icons-material';
-import { useGetRiesgosQuery, useGetEstadisticasQuery } from '../api/riesgosApi';
+import { useGetRiesgosQuery, useGetEstadisticasQuery, useGetProcesosQuery } from '../api/riesgosApi';
 import { colors } from '../../../app/theme/colors';
 import AppDataGrid from '../../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useProceso } from '../../../contexts/ProcesoContext';
-import { useRiesgo } from '../../../contexts/RiesgoContext';
-import { useNotification } from '../../../hooks/useNotification';
+import { useRiesgo } from '../../../shared/contexts/RiesgoContext';
+import { useNotification } from '../../../shared/hooks/useNotification';
+import { useAuth } from '../../../contexts/AuthContext';
 import type { Riesgo } from '../types';
 
 export default function RiesgosProcesosPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const { iniciarNuevo, iniciarVer, iniciarEditar, riesgoSeleccionado, modo } = useRiesgo();
+  const { esAdmin, esAuditoria, esDueñoProcesos } = useAuth();
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess } = useNotification();
   const [resumenOpen, setResumenOpen] = useState(false);
   const [procesoResumen, setProcesoResumen] = useState<any>(null);
 
-  // Filtrar riesgos por proceso seleccionado
+  // Determinar qué riesgos puede ver el usuario
+  // Admin y Auditoría: TODOS los riesgos a nivel compañía
+  // Dueño del Proceso: Solo riesgos del proceso seleccionado
+  const puedeVerTodosLosRiesgos = esAdmin || esAuditoria;
+  
+  // Obtener todos los procesos para mostrar el nombre en la tabla (solo para admin/auditoría)
+  const { data: procesosData } = useGetProcesosQuery();
+  const procesos = procesosData?.data || [];
+  
+  // Filtrar riesgos según el rol del usuario
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
-    procesoSeleccionado
+    puedeVerTodosLosRiesgos
+      ? { pageSize: 1000 } // Admin y Auditoría ven todos los riesgos
+      : procesoSeleccionado
       ? {
           procesoId: procesoSeleccionado.id,
           pageSize: 100,
@@ -82,6 +95,15 @@ export default function RiesgosProcesosPage() {
       headerName: 'Nro',
       width: 80,
     },
+    ...(puedeVerTodosLosRiesgos ? [{
+      field: 'proceso',
+      headerName: 'Proceso',
+      width: 200,
+      renderCell: (params: any) => {
+        const proceso = procesos.find((p: any) => p.id === params.row.procesoId);
+        return proceso?.nombre || 'Sin proceso';
+      },
+    }] : []),
     {
       field: 'descripcion',
       headerName: 'Descripción del Riesgo',
@@ -169,7 +191,7 @@ export default function RiesgosProcesosPage() {
   return (
     <Box>
       {/* Indicador de Proceso Activo y Acción Actual */}
-      {procesoSeleccionado && (
+      {(procesoSeleccionado || puedeVerTodosLosRiesgos) && (
         <Card sx={{ mb: 3, background: 'rgba(25, 118, 210, 0.05)', border: '2px solid #1976d2' }}>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
@@ -177,7 +199,9 @@ export default function RiesgosProcesosPage() {
                 <BusinessCenterIcon sx={{ fontSize: 32, color: '#1976d2' }} />
                 <Box>
                   <Typography variant="h6" fontWeight={600}>
-                    Proceso Activo: {procesoSeleccionado.nombre}
+                    {puedeVerTodosLosRiesgos 
+                      ? 'Vista Completa de Riesgos' 
+                      : `Proceso Activo: ${procesoSeleccionado?.nombre}`}
                   </Typography>
                   {modo === 'nuevo' && (
                     <Typography variant="body2" color="success.main" fontWeight={600}>
@@ -202,7 +226,7 @@ export default function RiesgosProcesosPage() {
       )}
 
       {/* Estado actual del riesgo */}
-      {procesoSeleccionado && modo === 'nuevo' && (
+      {(procesoSeleccionado || puedeVerTodosLosRiesgos) && modo === 'nuevo' && (
         <Card sx={{ mb: 3, background: 'rgba(25, 118, 210, 0.1)', border: '2px solid #1976d2' }}>
           <CardContent>
             <Typography variant="h6" color="primary" fontWeight={600}>
@@ -215,7 +239,7 @@ export default function RiesgosProcesosPage() {
         </Card>
       )}
 
-      {procesoSeleccionado && riesgoSeleccionado && modo === 'ver' && (
+      {(procesoSeleccionado || puedeVerTodosLosRiesgos) && riesgoSeleccionado && modo === 'ver' && (
         <Card sx={{ mb: 3, background: 'rgba(33, 150, 243, 0.1)', border: '2px solid #2196f3' }}>
           <CardContent>
             <Typography variant="h6" color="info.main" fontWeight={600}>
@@ -237,7 +261,7 @@ export default function RiesgosProcesosPage() {
         </Card>
       )}
 
-      {procesoSeleccionado && riesgoSeleccionado && modo === 'editar' && !isReadOnly && (
+      {(procesoSeleccionado || puedeVerTodosLosRiesgos) && riesgoSeleccionado && modo === 'editar' && !isReadOnly && (
         <Card sx={{ mb: 3, background: 'rgba(255, 152, 0, 0.1)', border: '2px solid #ff9800' }}>
           <CardContent>
             <Typography variant="h6" color="warning.main" fontWeight={600}>
@@ -357,16 +381,20 @@ export default function RiesgosProcesosPage() {
         </Box>
       )}
 
-      {/* Tabla de Riesgos del Proceso Seleccionado */}
-      {procesoSeleccionado ? (
+      {/* Tabla de Riesgos */}
+      {puedeVerTodosLosRiesgos || procesoSeleccionado ? (
         <>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Box>
               <Typography variant="h5" gutterBottom fontWeight={600}>
-                Riesgos del Proceso: {procesoSeleccionado.nombre}
+                {puedeVerTodosLosRiesgos 
+                  ? 'Riesgos de la Compañía' 
+                  : `Riesgos del Proceso: ${procesoSeleccionado?.nombre}`}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Seleccione un riesgo para ver o editar
+                {puedeVerTodosLosRiesgos 
+                  ? 'Vista completa de todos los riesgos a nivel compañía' 
+                  : 'Seleccione un riesgo para ver o editar'}
               </Typography>
             </Box>
             {!isReadOnly && (
@@ -393,10 +421,14 @@ export default function RiesgosProcesosPage() {
         <Card>
           <CardContent>
             <Alert severity="info" sx={{ mb: 2 }}>
-              Seleccione un proceso desde el Dashboard para ver sus riesgos
+              {esDueñoProcesos 
+                ? 'Seleccione un proceso desde el Dashboard para ver sus riesgos'
+                : 'Debe seleccionar un proceso para ver sus riesgos'}
             </Alert>
             <Typography variant="body1" color="text.secondary" align="center">
-              No hay proceso seleccionado. Por favor seleccione uno desde el Dashboard.
+              {esDueñoProcesos
+                ? 'No hay proceso seleccionado. Por favor seleccione uno desde el Dashboard.'
+                : 'Por favor seleccione un proceso desde el Dashboard.'}
             </Typography>
           </CardContent>
         </Card>

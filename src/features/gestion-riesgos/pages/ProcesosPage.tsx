@@ -1,6 +1,6 @@
 /**
  * Procesos Page
- * Gestión de procesos - Solo visible para Dueño de Procesos
+ * Gestión de procesos - Solo visible para Dueño del Proceso
  */
 
 import { useState } from 'react';
@@ -43,7 +43,7 @@ import {
 import { useGetProcesosQuery, useCreateProcesoMutation, useDeleteProcesoMutation } from '../api/riesgosApi';
 import { useProceso } from '../../../contexts/ProcesoContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useNotification } from '../../../hooks/useNotification';
+import { useNotification } from '../../../shared/hooks/useNotification';
 import { useRevisionProceso } from '../hooks/useRevisionProceso';
 import AppDataGrid from '../../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -328,7 +328,7 @@ export default function ProcesosPage() {
               </Button>
             )}
             
-            {/* Acciones para Dueño de Procesos */}
+            {/* Acciones para Dueño del Proceso */}
             {esDueño && estado === 'borrador' && (
               <Button
                 size="small"
@@ -407,7 +407,7 @@ export default function ProcesosPage() {
     return (
       <Box>
         <Alert severity="warning" sx={{ mb: 3 }}>
-          Solo el Dueño de Procesos puede gestionar procesos
+          Solo el Dueño del Proceso puede gestionar procesos
           {user?.fullName && user?.esDueñoProcesos && (
             <Typography variant="body2" sx={{ mt: 1 }}>
               Usuario actual: <strong>{user.fullName}</strong>

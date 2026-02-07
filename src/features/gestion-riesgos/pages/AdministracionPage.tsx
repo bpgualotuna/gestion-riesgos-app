@@ -71,7 +71,7 @@ const mockAreas: Area[] = [
 ];
 
 const mockUsuarios = [
-  { id: '1', nombre: 'Dueño de Procesos', role: 'dueño_procesos' },
+  { id: '1', nombre: 'Dueño del Proceso', role: 'dueño_procesos' },
   { id: '2', nombre: 'María Gerente', role: 'manager' },
   { id: '3', nombre: 'Juan Analista', role: 'analyst' },
   { id: '4', nombre: 'Administrador Sistema', role: 'admin' },
