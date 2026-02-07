@@ -31,7 +31,9 @@ const themeOptions = {
       paper: colors.background.paper,
     },
     text: colors.text,
+    text: colors.text,
     divider: colors.divider,
+    brand: colors.brand,
   },
   typography,
   shape: {

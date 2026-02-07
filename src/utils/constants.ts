@@ -22,24 +22,28 @@ export type ClasificacionRiesgo = typeof CLASIFICACION_RIESGO[keyof typeof CLASI
 
 // Pesos de Impacto (según Excel)
 export const PESOS_IMPACTO = {
-  personas: 0.14,      // 14%
-  legal: 0.22,         // 22%
-  ambiental: 0.22,     // 22%
-  procesos: 0.10,      // 10%
-  reputacion: 0.10,    // 10%
-  economico: 0.22,     // 22%
-  tecnologico: 0.00,   // No tiene peso en el cálculo global
+  '1': 0.22,      // Ambiental - 22%
+  '2': 0.00,      // Confidencialidad - 0% (no tiene peso en el cálculo global)
+  '3': 0.00,      // Disponibilidad SGSI - 0%
+  '4': 0.22,      // Económico - 22%
+  '5': 0.00,      // Integridad SGSI - 0%
+  '6': 0.22,      // Legal - 22%
+  '7': 0.14,      // Personas - 14%
+  '8': 0.10,      // Procesos - 10%
+  '9': 0.10,      // Reputación - 10%
 } as const;
 
 // Dimensiones de Impacto
 export const DIMENSIONES_IMPACTO = [
-  { key: 'personas', label: 'Personas', peso: PESOS_IMPACTO.personas },
-  { key: 'legal', label: 'Legal/Normativo', peso: PESOS_IMPACTO.legal },
-  { key: 'ambiental', label: 'Ambiental', peso: PESOS_IMPACTO.ambiental },
-  { key: 'procesos', label: 'Procesos', peso: PESOS_IMPACTO.procesos },
-  { key: 'reputacion', label: 'Reputacional', peso: PESOS_IMPACTO.reputacion },
-  { key: 'economico', label: 'Económico', peso: PESOS_IMPACTO.economico },
-  { key: 'tecnologico', label: 'Tecnológico', peso: PESOS_IMPACTO.tecnologico },
+  { key: '1', label: 'Ambiental', peso: PESOS_IMPACTO['1'] },
+  { key: '2', label: 'Confidencialidad', peso: PESOS_IMPACTO['2'] },
+  { key: '3', label: 'Disponibilidad SGSI', peso: PESOS_IMPACTO['3'] },
+  { key: '4', label: 'Económico', peso: PESOS_IMPACTO['4'] },
+  { key: '5', label: 'Integridad SGSI', peso: PESOS_IMPACTO['5'] },
+  { key: '6', label: 'Legal/Normativo', peso: PESOS_IMPACTO['6'] },
+  { key: '7', label: 'Personas', peso: PESOS_IMPACTO['7'] },
+  { key: '8', label: 'Procesos', peso: PESOS_IMPACTO['8'] },
+  { key: '9', label: 'Reputacional', peso: PESOS_IMPACTO['9'] },
 ] as const;
 
 // Escalas de Calificación
@@ -122,6 +126,7 @@ export const ROUTES = {
   RESUMEN_DIRECTOR: '/resumen-director',
   DASHBOARD_SUPERVISOR: '/dashboard-supervisor',
   PLAN_ACCION: '/plan-accion',
+  EVALUACION_CONTROL: '/evaluacion-control',
   TAREAS: '/tareas',
   HISTORIAL: '/historial',
   RESUMEN_RIESGOS: '/resumen-riesgos',
@@ -132,6 +137,13 @@ export const ROUTES = {
   PROCESOS_GERENTE_GENERAL: '/procesos-gerente-general',
   DASHBOARD_GERENTE_GENERAL: '/dashboard-gerente-general',
   ASIGNACIONES: '/asignaciones',
+  ADMIN_USUARIOS: '/administracion/usuarios',
+  ADMIN_PROCESOS: '/administracion/procesos',
+  ADMIN_AREAS: '/administracion/areas',
+  ADMIN_ASIGNACIONES: '/administracion/asignaciones',
+  ADMIN_PERMISOS: '/administracion/permisos',
+  ADMIN_CONFIGURACION: '/administracion/configuracion',
+  ADMIN_MAPA_CONFIG: '/admin/configuracion-mapa',
 } as const;
 
 // API Base URL (configurar según entorno)

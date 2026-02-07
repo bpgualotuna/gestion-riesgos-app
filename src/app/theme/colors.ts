@@ -76,9 +76,16 @@ export const colors = {
   background: {
     default: "#E8E8E8", // Gris claro del fondo del logo
     paper: "#F5F5F5",
-    elevated: "#FFFFFF",
     card: "#FFFFFF",
     sidebar: "#F0F0F0",
+  },
+
+  // Colores Branding (adicionales)
+  brand: {
+    lime: "#C8D900", // Verde Lima brillante
+    orange: "#FFA500", // Amarillo-Naranja
+    blue: "#00BFFF", // Azul brillante
+    blueDark: "#0066CC", // Azul oscuro
   },
 
   // Estados

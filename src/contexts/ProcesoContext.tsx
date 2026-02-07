@@ -6,9 +6,9 @@
 
 /* @refresh reset */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { Proceso } from '../features/gestion-riesgos/types';
-import { useAuth } from './AuthContext';
-import { useGetProcesosQuery } from '../features/gestion-riesgos/api/riesgosApi';
+import type { Proceso } from '../types';
+import { AuthContext } from './AuthContext';
+import { useGetProcesosQuery } from "../api/services/riesgosApi";
 
 export type ModoProceso = 'editar' | 'visualizar' | null;
 
@@ -30,8 +30,11 @@ interface ProcesoProviderProps {
 }
 
 export function ProcesoProvider({ children }: ProcesoProviderProps) {
-  // Usar useAuth de forma segura - debe estar dentro de AuthProvider
-  const { esDueñoProcesos } = useAuth();
+  // Usar AuthContext directamente - debe estar dentro de AuthProvider
+  // Si no está disponible, usar valores por defecto
+  const authContext = useContext(AuthContext);
+  const esDueñoProcesos = authContext ? authContext.esDueñoProcesos : false;
+
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
   const [procesoSeleccionado, setProcesoSeleccionadoState] = useState<Proceso | null>(null);
   const [modoProceso, setModoProcesoState] = useState<ModoProceso>(null);
@@ -43,7 +46,7 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
 
     const storedProcesoId = localStorage.getItem('procesoSeleccionadoId');
     const storedModoProceso = localStorage.getItem('modoProceso') as ModoProceso;
-    
+
     if (storedProcesoId && procesos.length > 0) {
       // Buscar el proceso en la lista actual
       const procesoEncontrado = procesos.find((p) => p.id === storedProcesoId);
@@ -67,7 +70,7 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     if (proceso) {
       localStorage.setItem('procesoSeleccionadoId', proceso.id);
       localStorage.setItem(`proceso_${proceso.id}`, JSON.stringify(proceso));
-      
+
       // Si el proceso está aprobado, forzar modo visualización
       if (proceso.estado === 'aprobado') {
         setModoProcesoState('visualizar');
@@ -111,7 +114,7 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     iniciarModoEditar,
     iniciarModoVisualizar,
     isLoading,
-    puedeGestionarProcesos: esDueñoProcesos, // Solo el dueño del proceso puede gestionar
+    puedeGestionarProcesos: esDueñoProcesos, // Dueño del proceso o Gerente General en modo proceso
   };
 
   return <ProcesoContext.Provider value={value}>{children}</ProcesoContext.Provider>;
@@ -121,16 +124,17 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
 export function useProceso() {
   const context = useContext(ProcesoContext);
   if (context === undefined) {
-    // En lugar de lanzar error, retornar valores por defecto para evitar crashes durante la inicialización
-    console.warn('useProceso must be used within a ProcesoProvider. Using default values.');
+    // Retornar valores por defecto en lugar de lanzar error
+    // Esto puede pasar durante el renderizado inicial antes de que el provider esté montado
+    console.warn('useProceso called outside ProcesoProvider, using default values');
     return {
       procesoSeleccionado: null,
-      setProcesoSeleccionado: () => {},
+      setProcesoSeleccionado: () => { },
       modoProceso: null,
-      setModoProceso: () => {},
-      iniciarModoEditar: () => {},
-      iniciarModoVisualizar: () => {},
-      isLoading: false,
+      setModoProceso: () => { },
+      iniciarModoEditar: () => { },
+      iniciarModoVisualizar: () => { },
+      isLoading: true,
       puedeGestionarProcesos: false,
     };
   }

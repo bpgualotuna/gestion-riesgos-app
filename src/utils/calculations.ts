@@ -313,3 +313,249 @@ export function vlookup<T, K extends keyof T>(
   const fila = tabla.find((fila) => fila[columnaBusqueda] === valor);
   return fila ? fila[columnaResultado] : valorPorDefecto;
 }
+
+/**
+ * Obtiene el porcentaje de mitigación basado en la efectividad del control
+ * Fórmula: Altamente Efectivo/Efectivo = 34%, Medianamente Efectivo = 20%, Baja = 10%, Inefectivo = 0%
+ */
+export function obtenerPorcentajeMitigacion(efectividad: string): number {
+  switch (efectividad) {
+    case 'Altamente Efectivo':
+    case 'Efectivo':
+      return 0.34;
+    case 'Medianamente Efectivo':
+      return 0.20;
+    case 'Baja Efectividad':
+      return 0.10;
+    case 'Inefectivo':
+    case 'No Aplica':
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Calcula la frecuencia residual después de aplicar mitigación
+ * Fórmula: Frecuencia Residual = Frecuencia Inherente - (Frecuencia Inherente * % Mitigación)
+ */
+export function calcularFrecuenciaResidual(
+  frecuenciaInherente: number,
+  porcentajeMitigacion: number
+): number {
+  const residual = frecuenciaInherente - (frecuenciaInherente * porcentajeMitigacion);
+  return Math.max(1, Math.ceil(residual));
+}
+
+/**
+ * Calcula el impacto residual después de aplicar mitigación
+ * Fórmula: Impacto Residual = Impacto Inherente - (Impacto Inherente * % Mitigación)
+ */
+export function calcularImpactoResidual(
+  impactoInherente: number,
+  porcentajeMitigacion: number
+): number {
+  const residual = impactoInherente - (impactoInherente * porcentajeMitigacion);
+  return Math.max(1, Math.ceil(residual));
+}
+
+/**
+ * Calcula la calificación residual de una causa
+ * Fórmula: Calificación Residual = Frecuencia Residual * Impacto Residual
+ */
+export function calcularCalificacionResidual(
+  frecuenciaResidual: number,
+  impactoResidual: number
+): number {
+  return frecuenciaResidual * impactoResidual;
+}
+
+/**
+ * Calcula el puntaje total de la evaluación del control
+ * Fórmula: Suma ponderada de criterios
+ */
+export function calcularPuntajeControl(
+  puntajeAplicabilidad: number = 0,
+  puntajeCobertura: number = 0,
+  puntajeFacilidad: number = 0,
+  puntajeSegregacion: number = 0,
+  puntajeNaturaleza: number = 0
+): number {
+  const PESOS = {
+    aplicabilidad: 0.25,
+    cobertura: 0.25,
+    facilidad: 0.10,
+    segregacion: 0.20,
+    naturaleza: 0.20,
+  };
+
+  return (
+    puntajeAplicabilidad * PESOS.aplicabilidad +
+    puntajeCobertura * PESOS.cobertura +
+    puntajeFacilidad * PESOS.facilidad +
+    puntajeSegregacion * PESOS.segregacion +
+    puntajeNaturaleza * PESOS.naturaleza
+  );
+}
+
+/**
+ * Determina la efectividad del control según el puntaje total
+ */
+export function determinarEfectividadControl(puntajeTotal: number): string {
+  if (puntajeTotal >= 85) return 'Altamente Efectivo';
+  if (puntajeTotal >= 70) return 'Efectivo';
+  if (puntajeTotal >= 50) return 'Medianamente Efectivo';
+  if (puntajeTotal >= 25) return 'Baja Efectividad';
+  return 'Inefectivo';
+}
+
+/**
+ * EVALUACIÓN PRELIMINAR - Determina efectividad basada en rangos de puntaje
+ * Fórmula Excel: SI(BU11<Formulas!$E$12;"Inefectivo";SI(Y(BU11>=Formulas!$E$12;BU11<Formulas!$E$11);"Baja Efectividad";...
+ * 
+ * Rangos configurables (por defecto):
+ * - E12 (Umbral 1): 25
+ * - E11 (Umbral 2): 50
+ * - E10 (Umbral 3): 70
+ * - E9 (Umbral 4): 85
+ */
+export function determinarEvaluacionPreliminar(
+  puntajeTotal: number,
+  rangos: { umbral1: number; umbral2: number; umbral3: number; umbral4: number } = {
+    umbral1: 25,
+    umbral2: 50,
+    umbral3: 70,
+    umbral4: 85,
+  }
+): string {
+  if (puntajeTotal < rangos.umbral1) return 'Inefectivo';
+  if (puntajeTotal >= rangos.umbral1 && puntajeTotal < rangos.umbral2) return 'Baja Efectividad';
+  if (puntajeTotal >= rangos.umbral2 && puntajeTotal < rangos.umbral3) return 'Medianamente Efectivo';
+  if (puntajeTotal >= rangos.umbral3 && puntajeTotal < rangos.umbral4) return 'Efectivo';
+  if (puntajeTotal >= rangos.umbral4) return 'Altamente Efectivo';
+  return 'ERROR';
+}
+
+/**
+ * EVALUACIÓN DEFINITIVA - Ajusta la evaluación preliminar según condiciones adicionales
+ * Fórmula Excel: SI.ERROR(SI(BT11=$BW$5;Formulas!$B$13;SI(Y(BT11=$BW$4;BV11="Altamente Efectivo");"Efectivo";BV11));"No Aplica")
+ * 
+ * Lógica:
+ * - Si recomendación = X (condición especial) → valor especial (ej: "Efectivo")
+ * - Si recomendación = Y Y evaluación preliminar = "Altamente Efectivo" → "Efectivo"
+ * - Si recomendación = Z → mantener evaluación preliminar
+ * - Si hay error → "No Aplica"
+ */
+export function determinarEvaluacionDefinitiva(
+  evaluacionPreliminar: string,
+  recomendacion: string | undefined,
+  condicionEspecial1?: { valor: string; resultado: string },
+  condicionEspecial2?: { valor: string; resultado: string }
+): string {
+  try {
+    // Condición especial 1
+    if (condicionEspecial1 && recomendacion === condicionEspecial1.valor) {
+      return condicionEspecial1.resultado;
+    }
+
+    // Condición especial 2 (ajustar "Altamente Efectivo" a "Efectivo" si hay cierta recomendación)
+    if (
+      condicionEspecial2 &&
+      recomendacion === condicionEspecial2.valor &&
+      evaluacionPreliminar === 'Altamente Efectivo'
+    ) {
+      return 'Efectivo';
+    }
+
+    // Mantener evaluación preliminar por defecto
+    return evaluacionPreliminar;
+  } catch (error) {
+    return 'No Aplica';
+  }
+}
+
+/**
+ * TABLA DE BÚSQUEDA - % MITIGACIÓN según evaluación definitiva
+ * Fórmula Excel: BUSCARV(BW11;Formulas!$B$9:$F$13;5;0)
+ * 
+ * Tabla de referencia:
+ * | Evaluación | % Mitigación |
+ * | Altamente Efectivo | 34% |
+ * | Efectivo | 34% |
+ * | Medianamente Efectivo | 20% |
+ * | Baja Efectividad | 10% |
+ * | Inefectivo | 0% |
+ */
+export function obtenerPorcentajeMitigacionAvanzado(evaluacionDefinitiva: string): number {
+  const tablaMitigacion: Record<string, number> = {
+    'Altamente Efectivo': 0.34,
+    'Efectivo': 0.34,
+    'Medianamente Efectivo': 0.20,
+    'Baja Efectividad': 0.10,
+    'Inefectivo': 0.0,
+    'No Aplica': 0.0,
+  };
+
+  return tablaMitigacion[evaluacionDefinitiva] || 0;
+}
+
+/**
+ * CÁLCULO RESIDUAL AVANZADO - Frecuencia
+ * Fórmula Excel: SI.ERROR(REDONDEAR.MAS(SI(BH11="FRECUENCIA";W11-(BX11*W11);SI(BH11="AMBAS";W11-(BX11*W11);...));0);W11)
+ * 
+ * Lógica:
+ * - Si tipoMitigacion = "FRECUENCIA" o "AMBAS" → aplicar mitigación a frecuencia
+ * - Si tipoMitigacion = "IMPACTO" → mantener frecuencia igual
+ * - Si error → devolver frecuencia inherente
+ */
+export function calcularFrecuenciaResidualAvanzada(
+  frecuenciaInherente: number,
+  impactoInherente: number,
+  porcentajeMitigacion: number,
+  tipoMitigacion: 'FRECUENCIA' | 'IMPACTO' | 'AMBAS' = 'AMBAS'
+): number {
+  try {
+    if (tipoMitigacion === 'FRECUENCIA' || tipoMitigacion === 'AMBAS') {
+      // Aplicar mitigación a frecuencia
+      const residual = frecuenciaInherente - frecuenciaInherente * porcentajeMitigacion;
+      return Math.max(1, Math.ceil(residual));
+    } else if (tipoMitigacion === 'IMPACTO') {
+      // Si es solo IMPACTO, mantener frecuencia igual
+      return frecuenciaInherente;
+    }
+
+    return frecuenciaInherente;
+  } catch (error) {
+    return frecuenciaInherente;
+  }
+}
+
+/**
+ * CÁLCULO RESIDUAL AVANZADO - Impacto
+ * Fórmula Excel: SI.ERROR(REDONDEAR.MAS(SI(BH11="IMPACTO";AD11-(AD11*BX11);SI(BH11="AMBAS";AD11-(AD11*BX11);...));0);AD11)
+ * 
+ * Lógica:
+ * - Si tipoMitigacion = "IMPACTO" o "AMBAS" → aplicar mitigación a impacto
+ * - Si tipoMitigacion = "FRECUENCIA" → mantener impacto igual
+ * - Si error → devolver impacto inherente
+ */
+export function calcularImpactoResidualAvanzado(
+  impactoInherente: number,
+  frecuenciaInherente: number,
+  porcentajeMitigacion: number,
+  tipoMitigacion: 'FRECUENCIA' | 'IMPACTO' | 'AMBAS' = 'AMBAS'
+): number {
+  try {
+    if (tipoMitigacion === 'IMPACTO' || tipoMitigacion === 'AMBAS') {
+      // Aplicar mitigación a impacto
+      const residual = impactoInherente - impactoInherente * porcentajeMitigacion;
+      return Math.max(1, Math.ceil(residual));
+    } else if (tipoMitigacion === 'FRECUENCIA') {
+      // Si es solo FRECUENCIA, mantener impacto igual
+      return impactoInherente;
+    }
+
+    return impactoInherente;
+  } catch (error) {
+    return impactoInherente;
+  }
+}

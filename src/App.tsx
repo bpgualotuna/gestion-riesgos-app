@@ -11,8 +11,9 @@ import { store } from './app/store';
 import { router } from './app/router';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProcesoProvider } from './contexts/ProcesoContext';
-import { RiesgoProvider } from './shared/contexts/RiesgoContext';
-import { NotificacionProvider } from './shared/contexts/NotificacionContext';
+import { RiesgoProvider } from './contexts/RiesgoContext';
+import { NotificacionProvider } from './contexts/NotificacionContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 function App() {
   return (
@@ -23,7 +24,9 @@ function App() {
           <NotificacionProvider>
             <ProcesoProvider>
               <RiesgoProvider>
-                <RouterProvider router={router} />
+                <ErrorBoundary>
+                  <RouterProvider router={router} />
+                </ErrorBoundary>
               </RiesgoProvider>
             </ProcesoProvider>
           </NotificacionProvider>
