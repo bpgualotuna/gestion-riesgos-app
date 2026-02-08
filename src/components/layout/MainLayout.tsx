@@ -3,7 +3,7 @@
  * Sidebar Navigation + Top Bar
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -14,20 +14,16 @@ import {
   ListItem,
   ListItemButton,
   ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Typography,
-  Tooltip,
   Divider,
   Drawer,
   useTheme,
   useMediaQuery,
+  Typography,
+  Tooltip,
+  Menu,
   Select,
   FormControl,
-  InputLabel,
-  Chip,
-  Alert,
+  MenuItem,
   Autocomplete,
   TextField,
   Dialog,
@@ -35,8 +31,11 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Collapse,
+  Alert,
+
 } from '@mui/material';
+import ListItemText from '@mui/material/ListItemText';
+import Chip from '@mui/material/Chip';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -66,7 +65,7 @@ import {
   Notifications as NotificationsIcon,
   Functions as FunctionsIcon,
   ViewList as ViewListIcon,
-  Send as SendIcon,
+
   ExpandLess,
   ExpandMore,
   Folder as FolderIcon,
@@ -81,12 +80,13 @@ import {
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRiesgo } from '../../shared/contexts/RiesgoContext';
-import { useProceso } from '../../contexts/ProcesoContext';
-import { useGetProcesosQuery } from '../../features/gestion-riesgos/api/riesgosApi';
-import NotificacionesMenu from '../../features/gestion-riesgos/components/notificaciones/NotificacionesMenu';
-import { useNotification } from '../../shared/hooks/useNotification';
-import { useRevisionProceso } from '../../features/gestion-riesgos/hooks/useRevisionProceso';
+import { useRiesgo } from "../../contexts/RiesgoContext";
+import { useProceso } from "../../contexts/ProcesoContext";
+import { useGetProcesosQuery } from "../../api/services/riesgosApi";
+import NotificacionesMenu from "../notificaciones/NotificacionesMenu";
+import { useNotification } from "../../hooks/useNotification";
+import { useAreasProcesosAsignados } from "../../hooks/useAsignaciones";
+
 
 const DRAWER_WIDTH = 280;
 const DRAWER_WIDTH_COLLAPSED = 70;
@@ -103,22 +103,21 @@ const menuItems: MenuItemType[] = [
     text: 'Dashboard',
     icon: <DashboardIcon />,
     children: [
-      { text: 'Mapa de Riesgo', icon: <MapIcon />, path: ROUTES.MAPA },
-      { text: 'Indicadores', icon: <BarChartIcon />, path: ROUTES.DASHBOARD },
       { text: 'Estadísticas', icon: <TrendingUpIcon />, path: ROUTES.DASHBOARD_SUPERVISOR },
+      { text: 'Mapa de Riesgo', icon: <MapIcon />, path: ROUTES.MAPA },
     ],
   },
   {
     text: 'Procesos',
     icon: <AccountTreeIcon />,
     children: [
-  { text: 'Ficha del Proceso', icon: <DescriptionIcon />, path: ROUTES.FICHA },
-  { text: 'Análisis de Proceso', icon: <AccountTreeIcon />, path: ROUTES.ANALISIS_PROCESO },
-  { text: 'Normatividad', icon: <DescriptionIcon />, path: ROUTES.NORMATIVIDAD },
-  { text: 'Contexto Interno', icon: <BusinessIcon />, path: ROUTES.CONTEXTO_INTERNO },
+      { text: 'Ficha del Proceso', icon: <DescriptionIcon />, path: ROUTES.FICHA },
+      { text: 'Análisis de Proceso', icon: <AccountTreeIcon />, path: ROUTES.ANALISIS_PROCESO },
+      { text: 'Normatividad', icon: <DescriptionIcon />, path: ROUTES.NORMATIVIDAD },
+      { text: 'Contexto Interno', icon: <BusinessIcon />, path: ROUTES.CONTEXTO_INTERNO },
       { text: 'Contexto Externo', icon: <PublicIcon />, path: ROUTES.CONTEXTO_EXTERNO },
-  { text: 'DOFA', icon: <AnalyticsIcon />, path: ROUTES.DOFA },
-  { text: 'Benchmarking', icon: <CompareArrowsIcon />, path: ROUTES.BENCHMARKING },
+      { text: 'DOFA', icon: <AnalyticsIcon />, path: ROUTES.DOFA },
+      { text: 'Benchmarking', icon: <CompareArrowsIcon />, path: ROUTES.BENCHMARKING },
     ],
   },
   {
@@ -127,11 +126,10 @@ const menuItems: MenuItemType[] = [
     path: ROUTES.IDENTIFICACION,
   },
   {
-    text: 'Controles',
+    text: 'Controles y Planes de Acción',
     icon: <SecurityIcon />,
     children: [
-  { text: 'Plan de Acción', icon: <AssignmentIcon />, path: ROUTES.PLAN_ACCION },
-      { text: 'Clasificación', icon: <LabelIcon />, path: ROUTES.PRIORIZACION },
+      { text: 'Controles y Planes de Acción', icon: <AssignmentIcon />, path: ROUTES.PLAN_ACCION },
     ],
   },
   {
@@ -139,15 +137,6 @@ const menuItems: MenuItemType[] = [
     icon: <EventIcon />,
     children: [
       { text: 'Materializar Riesgos', icon: <WarningIcon />, path: ROUTES.INCIDENCIAS },
-    ],
-  },
-  {
-    text: 'Indicadores',
-    icon: <BarChartIcon />,
-    children: [
-      { text: 'Resumen de Riesgos', icon: <AssessmentIcon />, path: ROUTES.RESUMEN_RIESGOS },
-      { text: 'Riesgos por Proceso', icon: <BusinessCenterIcon />, path: ROUTES.RIESGOS_POR_PROCESO },
-      { text: 'Riesgos por Tipología', icon: <CategoryIcon />, path: ROUTES.RIESGOS_POR_TIPOLOGIA },
     ],
   },
 ];
@@ -186,15 +175,34 @@ export default function MainLayout() {
   }, [sidebarCollapsed]); // Menú que está expandido temporalmente
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, esAdmin, esDueñoProcesos, esSupervisorRiesgos } = useAuth();
+  const {
+    user,
+    logout,
+    esAdmin,
+    esDueñoProcesos,
+    esSupervisorRiesgos,
+    gerenteGeneralMode,
+    setGerenteGeneralMode,
+    esGerenteGeneral,
+    esGerenteGeneralDirector,
+    esGerenteGeneralProceso,
+  } = useAuth();
+  const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
+  
+  // Obtener asignaciones del supervisor/dueño de procesos
+  const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
+  const tieneAsignaciones = areasAsignadas.length > 0 || procesosAsignados.length > 0;
 
   // Función para obtener el nombre del rol en español
   const getNombreRol = (): string => {
     if (esAdmin) return 'Administrador';
+    if (user?.role === 'gerente_general') {
+      if (gerenteGeneralMode === 'director') return 'Gerente General (Director)';
+      if (gerenteGeneralMode === 'proceso') return 'Gerente General (Proceso)';
+      return 'Gerente General';
+    }
     if (esDueñoProcesos) return 'Dueño del Proceso';
     if (esSupervisorRiesgos) return 'Supervisor de Riesgos';
-    if (user?.role === 'manager') return 'Gerente';
-    if (user?.role === 'analyst') return 'Analista';
     return user?.position || 'Usuario';
   };
   const { riesgoSeleccionado, modo, limpiar } = useRiesgo();
@@ -206,77 +214,45 @@ export default function MainLayout() {
       setModoProceso('visualizar');
     }
   }, [esSupervisorRiesgos, modoProceso, setModoProceso]);
+
+  useEffect(() => {
+    if (esGerenteGeneral && !gerenteGeneralMode) {
+      setModoGerenteDialogOpen(true);
+    } else {
+      setModoGerenteDialogOpen(false);
+    }
+  }, [esGerenteGeneral, gerenteGeneralMode]);
   const { data: procesos = [] } = useGetProcesosQuery();
   const { showSuccess, showError } = useNotification();
-  const { enviarARevision } = useRevisionProceso();
 
   // Filtrar procesos según el rol del usuario
   const procesosDisponibles = useMemo(() => {
     if (esAdmin) {
       return procesos;
-    } else if (esSupervisorRiesgos && user) {
+    } else if (esSupervisorRiesgos && user && !esGerenteGeneral) {
       // Director solo ve procesos de sus áreas asignadas
       return procesos.filter((p) => p.directorId === user.id);
-    } else if (esDueñoProcesos && user) {
-      // Dueño del proceso solo ve sus procesos
+    } else if (esGerenteGeneralProceso) {
+      // Gerente General Proceso ve procesos asignados desde AreasPage
+      return procesos.filter((p) => procesosAsignados.includes(String(p.id)));
+    } else if (user?.role === 'dueño_procesos') {
+      // Dueño del proceso REAL solo ve sus procesos
       return procesos.filter((p) => p.responsableId === user.id);
     }
     return procesos;
-  }, [procesos, esAdmin, esSupervisorRiesgos, esDueñoProcesos, user]);
+  }, [procesos, esAdmin, esSupervisorRiesgos, esGerenteGeneralProceso, procesosAsignados, esGerenteGeneral, user]);
 
-  // Estados para diálogo de enviar a revisión
-  const [openEnviarRevisionDialog, setOpenEnviarRevisionDialog] = useState(false);
-  const [selectedGerenteId, setSelectedGerenteId] = useState<string>('');
-  const [selectedGerenteNombre, setSelectedGerenteNombre] = useState<string>('');
-
-  // Obtener gerentes disponibles
-  const gerentesDisponibles = useMemo(() => {
-    return procesos
-      .filter(p => p.gerenteId && p.gerenteNombre)
-      .map(p => ({ id: p.gerenteId!, nombre: p.gerenteNombre! }))
-      .filter((gerente, index, self) => 
-        index === self.findIndex(g => g.id === gerente.id)
-      );
-  }, [procesos]);
-
-  const handleEnviarARevision = () => {
-    if (!procesoSeleccionado) {
-      showError('Debe seleccionar un proceso');
-      return;
+  const handleSelectGerenteMode = (mode: 'director' | 'proceso') => {
+    setGerenteGeneralMode(mode);
+    setModoGerenteDialogOpen(false);
+    if (mode === 'director') {
+      navigate(ROUTES.DASHBOARD_SUPERVISOR);
+    } else {
+      navigate(ROUTES.PROCESOS);
     }
-    if (procesoSeleccionado.estado === 'aprobado') {
-      showError('No se puede enviar a revisión un proceso ya aprobado');
-      return;
-    }
-    if (procesoSeleccionado.estado === 'en_revision') {
-      showError('El proceso ya está en revisión');
-      return;
-    }
-    setOpenEnviarRevisionDialog(true);
   };
 
-  const handleConfirmarEnviarARevision = async () => {
-    if (!procesoSeleccionado || !selectedGerenteId || !selectedGerenteNombre) {
-      showError('Debe seleccionar un gerente');
-      return;
-    }
-    try {
-      const procesoActualizado = await enviarARevision(
-        procesoSeleccionado,
-        selectedGerenteId,
-        selectedGerenteNombre
-      );
-      if (procesoActualizado) {
-        setProcesoSeleccionado(procesoActualizado);
-        showSuccess('Proceso enviado a revisión exitosamente');
-        setOpenEnviarRevisionDialog(false);
-        setSelectedGerenteId('');
-        setSelectedGerenteNombre('');
-      }
-    } catch (error) {
-      showError('Error al enviar el proceso a revisión');
-    }
-  };
+
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -294,9 +270,14 @@ export default function MainLayout() {
 
   const handleMenuClick = (path?: string) => {
     if (path) {
-    navigate(path);
-    if (isMobile) {
-      setMobileOpen(false);
+      // Verificar si es supervisor, dueño de procesos o gerente general sin asignaciones - simplemente no navegar
+      if ((esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector) && !esAdmin && !tieneAsignaciones) {
+        return; // No hacer nada, el mensaje ya aparece en la pantalla
+      }
+      
+      navigate(path);
+      if (isMobile) {
+        setMobileOpen(false);
       }
     }
   };
@@ -333,7 +314,7 @@ export default function MainLayout() {
         }
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, openMenus]);
 
   const renderMenuItem = (item: MenuItemType, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -345,7 +326,7 @@ export default function MainLayout() {
       }
       return false;
     });
-    
+
     const isOpen = openMenus[item.text] || false;
     const isActive = item.path ? (location.pathname === item.path || location.pathname === item.path.split('?')[0]) : false;
     const isSelected = isActive || isChildActive;
@@ -355,15 +336,34 @@ export default function MainLayout() {
       return null;
     }
 
+    // Ocultar "Procesos" si Dueño de Proceso o Gerente Proceso sin asignaciones
+    if (item.text === 'Procesos' && 
+        esDueñoProcesos && 
+        !esAdmin && 
+        !tieneAsignaciones) {
+      return null;
+    }
+
     if (hasChildren) {
       const shouldShowText = !sidebarCollapsed;
       
+      // Deshabilitar si es supervisor, dueño de procesos o gerente general sin asignaciones
+      const usuarioSinAsignaciones = (esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector) && !esAdmin && !tieneAsignaciones;
+      
+      const isDisabledParent = usuarioSinAsignaciones || (!procesoSeleccionado?.id &&
+        (esDueñoProcesos || esGerenteGeneralProceso) &&
+        (item.text === 'Identificación y Calificación' ||
+         item.text === 'Controles y Planes de Acción' ||
+         item.text === 'Eventos'));
+
       return (
         <Box key={item.text}>
           <Tooltip title={sidebarCollapsed ? item.text : ''} placement="right" arrow>
             <ListItem disablePadding sx={{ mb: 0.25 }}>
               <ListItemButton
+                disabled={isDisabledParent}
                 onClick={(e) => {
+                  if (isDisabledParent) return;
                   // Si tiene path, navegar primero
                   if (item.path) {
                     handleMenuClick(item.path);
@@ -383,18 +383,23 @@ export default function MainLayout() {
                   px: sidebarCollapsed ? 1.5 : 2,
                   pl: sidebarCollapsed ? 1.5 : (2 + level * 1.5),
                   justifyContent: shouldShowText ? 'flex-start' : 'center',
-                  backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.12)' : 'transparent',
+                  backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? 'rgba(25, 118, 210, 0.12)' : 'transparent'),
                   borderLeft: isSelected ? '3px solid #1976d2' : '3px solid transparent',
                   minHeight: 40,
+                  opacity: isDisabledParent ? 0.3 : 1,
+                  pointerEvents: isDisabledParent ? 'none' : 'auto',
                   '&:hover': {
-                    backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.12)' : 'rgba(0, 0, 0, 0.04)',
+                    backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? 'rgba(25, 118, 210, 0.12)' : 'rgba(0, 0, 0, 0.04)'),
+                  },
+                  '&.Mui-disabled': {
+                    cursor: 'not-allowed',
                   },
                 }}
               >
                 <ListItemIcon
                   sx={{
                     minWidth: sidebarCollapsed ? 24 : 36,
-                    color: isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.7)',
+                    color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.7)'),
                     justifyContent: 'center',
                     fontSize: sidebarCollapsed ? '1.2rem' : '1.25rem',
                   }}
@@ -408,11 +413,11 @@ export default function MainLayout() {
                       primaryTypographyProps={{
                         fontSize: '0.875rem',
                         fontWeight: isSelected ? 600 : 500,
-                        color: isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.87)',
+                        color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.87)'),
                       }}
                     />
                     <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
-                      {isOpen ? <ExpandLess sx={{ fontSize: '1.2rem', color: 'rgba(0, 0, 0, 0.54)' }} /> : <ExpandMore sx={{ fontSize: '1.2rem', color: 'rgba(0, 0, 0, 0.54)' }} />}
+                      {isOpen ? <ExpandLess sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.54)' }} /> : <ExpandMore sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.54)' }} />}
                     </Box>
                   </>
                 )}
@@ -420,9 +425,9 @@ export default function MainLayout() {
             </ListItem>
           </Tooltip>
           {isOpen && (
-            <Box 
-              sx={{ 
-                pl: sidebarCollapsed ? 1.5 : 2, 
+            <Box
+              sx={{
+                pl: sidebarCollapsed ? 1.5 : 2,
                 pr: 1,
                 position: 'relative',
                 ...(sidebarCollapsed && {
@@ -442,13 +447,19 @@ export default function MainLayout() {
               <List component="div" disablePadding>
                 {item.children?.map((child) => {
                   const isChildActive = child.path ? (location.pathname === child.path || location.pathname === child.path.split('?')[0]) : false;
+                  
+                  // Bloquear hijos de Dashboard (Estadísticas y Mapa) si no tiene asignaciones
+                  const isChildDisabled = isDisabledParent && item.text === 'Dashboard';
+                  
                   return (
-                    <Tooltip key={child.text} title={sidebarCollapsed ? child.text : ''} placement="right" arrow>
-                      <ListItem disablePadding sx={{ mb: 0.25 }}>
+                    <React.Fragment key={child.text}>
+                      <Tooltip title={sidebarCollapsed ? child.text : ''} placement="right" arrow>
+                        <ListItem disablePadding sx={{ mb: 0.25 }}>
                         <ListItemButton
                           selected={isChildActive}
+                          disabled={isChildDisabled}
                           onClick={() => {
-                            if (child.path) {
+                            if (child.path && !isChildDisabled) {
                               handleMenuClick(child.path);
                               if (sidebarCollapsed) {
                                 setOpenMenus({}); // Cerrar el submenú al hacer clic en un elemento hijo
@@ -463,26 +474,28 @@ export default function MainLayout() {
                             justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                             minHeight: 36,
                             position: 'relative',
-                            backgroundColor: isChildActive ? theme.palette.warning.main + '1F' : 'transparent',
+                            opacity: isChildDisabled ? 0.3 : 1,
+                            pointerEvents: isChildDisabled ? 'none' : 'auto',
+                            backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '1F' : 'transparent'),
                             '&.Mui-selected': {
                               backgroundColor: theme.palette.warning.main + '1F',
                               borderLeft: sidebarCollapsed ? 'none' : `3px solid ${theme.palette.warning.main}`,
                               '&:hover': {
-                                backgroundColor: theme.palette.warning.main + '29',
+                                backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : theme.palette.warning.main + '29',
                               },
                               '& .MuiListItemIcon-root': {
-                                color: theme.palette.warning.main,
+                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : theme.palette.warning.main,
                               },
                             },
                             '&:hover': {
-                              backgroundColor: isChildActive ? theme.palette.warning.main + '29' : theme.palette.action.hover,
+                              backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '29' : theme.palette.action.hover),
                             },
                           })}
                         >
                           <ListItemIcon
                             sx={(theme) => ({
                               minWidth: sidebarCollapsed ? 36 : 40,
-                              color: isChildActive ? theme.palette.warning.main : theme.palette.text.secondary,
+                              color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.secondary),
                               justifyContent: 'center',
                               fontSize: '1.1rem',
                             })}
@@ -497,13 +510,14 @@ export default function MainLayout() {
                                 fontWeight: isChildActive ? 600 : 400,
                               }}
                               sx={(theme) => ({
-                                color: isChildActive ? theme.palette.warning.main : theme.palette.text.primary,
+                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.primary),
                               })}
                             />
                           )}
                         </ListItemButton>
                       </ListItem>
                     </Tooltip>
+                    </React.Fragment>
                   );
                 })}
               </List>
@@ -513,14 +527,21 @@ export default function MainLayout() {
       );
     }
 
-    const isDisabled = !item.path || (!item.path.includes(ROUTES.DASHBOARD) && !procesoSeleccionado);
+    const usuarioSinAsignaciones = (esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector || esGerenteGeneralProceso) && !esAdmin && !tieneAsignaciones;
+
+    const isDisabled = !item.path || usuarioSinAsignaciones ||
+      (!procesoSeleccionado?.id && esDueñoProcesos &&
+        (item.text === 'Procesos' ||
+         item.text === 'Identificación y Calificación' || 
+         item.text === 'Controles y Planes de Acción' || 
+         item.text === 'Eventos'));
 
     // Si es un item hijo, solo mostrar texto si el sidebar no está colapsado
     const shouldShowText = !sidebarCollapsed;
-    
+
     return (
-      <Tooltip title={sidebarCollapsed ? item.text : ''} placement="right" arrow>
-        <ListItem key={item.text} disablePadding sx={{ mb: 0.25 }}>
+      <Tooltip key={item.text} title={sidebarCollapsed ? item.text : ''} placement="right" arrow>
+        <ListItem disablePadding sx={{ mb: 0.25 }}>
           <ListItemButton
             selected={isActive}
             disabled={isDisabled}
@@ -601,7 +622,7 @@ export default function MainLayout() {
       const section = localStorage.getItem('adminSection') || 'usuarios';
       setAdminSection(section);
     };
-    
+
     window.addEventListener('adminSectionChange', handleSectionChange);
     return () => {
       window.removeEventListener('adminSectionChange', handleSectionChange);
@@ -641,134 +662,91 @@ export default function MainLayout() {
                 Administración
               </Typography>
               {[
-                { text: 'Usuarios', icon: <PeopleIcon />, section: 'usuarios' },
-                { text: 'Procesos', icon: <AccountTreeIcon />, section: 'procesos' },
-                { text: 'Asignaciones', icon: <AssignmentIcon />, section: 'asignaciones' },
-                { text: 'Configuración', icon: <SettingsIcon />, section: 'configuracion' },
+                { text: 'Usuarios', icon: <PeopleIcon />, path: ROUTES.ADMIN_USUARIOS },
+                { text: 'Áreas y Asignaciones', icon: <BusinessIcon />, path: ROUTES.ADMIN_AREAS },
+                { text: 'Procesos', icon: <AccountTreeIcon />, path: ROUTES.ADMIN_PROCESOS },
+                { text: 'Conf. Mapa Riesgos', icon: <MapIcon />, path: ROUTES.ADMIN_MAPA_CONFIG },
+                { text: 'Parámetros de Calificación', icon: <SettingsIcon />, path: '/admin/parametros-calificacion' },
               ].map((item) => {
-                const isActive = adminSection === item.section;
-            return (
-                  <ListItem key={item.section} disablePadding sx={{ mb: 0.25 }}>
-                <ListItemButton
-                  selected={isActive}
-                      onClick={() => {
-                        localStorage.setItem('adminSection', item.section);
-                        setAdminSection(item.section);
-                        window.dispatchEvent(new Event('adminSectionChange'));
-                        // Navegar a administración si no está ahí
-                        if (location.pathname !== ROUTES.ADMINISTRACION) {
-                          navigate(ROUTES.ADMINISTRACION);
-                        }
+                const isActive = location.pathname === item.path;
+                return (
+                  <ListItem key={item.text} disablePadding sx={{ mb: 0.25 }}>
+                    <ListItemButton
+                      selected={isActive}
+                      onClick={() => handleMenuClick(item.path)}
+                      sx={{
+                        borderRadius: 1.5,
+                        py: 0.875,
+                        px: sidebarCollapsed ? 1.5 : 2,
+                        minHeight: 36,
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          borderLeft: '3px solid #1976d2',
+                          '&:hover': {
+                            backgroundColor: 'rgba(25, 118, 210, 0.12)',
+                          },
+                          '& .MuiListItemIcon-root': {
+                            color: '#1976d2',
+                          },
+                          '& .MuiListItemText-primary': {
+                            fontWeight: 600,
+                            color: '#1976d2',
+                          },
+                        },
+                        '&:hover': {
+                          backgroundColor: isActive ? 'rgba(25, 118, 210, 0.12)' : 'rgba(0, 0, 0, 0.04)',
+                        },
                       }}
-                  sx={{
-                    borderRadius: 1.5,
-                    py: 0.875,
-                    px: sidebarCollapsed ? 1.5 : 2,
-                    minHeight: 36,
-                    '&.Mui-selected': {
-                      backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                      borderLeft: '3px solid #1976d2',
-                      '&:hover': {
-                        backgroundColor: 'rgba(25, 118, 210, 0.12)',
-                      },
-                      '& .MuiListItemIcon-root': {
-                        color: '#1976d2',
-                      },
-                      '& .MuiListItemText-primary': {
-                        fontWeight: 600,
-                        color: '#1976d2',
-                      },
-                    },
-                    '&:hover': {
-                      backgroundColor: isActive ? 'rgba(25, 118, 210, 0.12)' : 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: sidebarCollapsed ? 24 : 36,
-                      color: isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.7)',
-                      justifyContent: 'center',
-                      fontSize: sidebarCollapsed ? '1.1rem' : '1.2rem',
-                    }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                  {!sidebarCollapsed && (
-                  <ListItemText
-                    primary={item.text}
-                    primaryTypographyProps={{
-                        fontSize: '0.8125rem',
-                      fontWeight: isActive ? 600 : 400,
-                        color: isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.87)',
-                    }}
-                  />
-                  )}
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: sidebarCollapsed ? 24 : 36,
+                          color: isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.7)',
+                          justifyContent: 'center',
+                          fontSize: sidebarCollapsed ? '1.1rem' : '1.2rem',
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      {!sidebarCollapsed && (
+                        <ListItemText
+                          primary={item.text}
+                          primaryTypographyProps={{
+                            fontSize: '0.8125rem',
+                            fontWeight: isActive ? 600 : 400,
+                            color: isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.87)',
+                          }}
+                        />
+                      )}
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </>
           ) : (
             menuItems
               .filter((item) => {
-              // Filtrar items según el rol
-              if (esSupervisorRiesgos) {
-                // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos, Indicadores
-                const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles', 'Eventos', 'Indicadores'];
+                // Filtrar items según el rol
+                if (esSupervisorRiesgos) {
+                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Eventos'];
                   return allowedMenus.includes(item.text);
-              }
+                }
+                if (esDueñoProcesos) {
+                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Eventos'];
+                  return allowedMenus.includes(item.text);
+                }
+                if (esGerenteGeneral && !gerenteGeneralMode) {
+                  const allowedMenus = ['Dashboard', 'Procesos'];
+                  return allowedMenus.includes(item.text);
+                }
                 return true;
-          })
-              .map((item) => renderMenuItem(item))
-          )}
-          
-          
-          {/* Menú de Supervisión (solo para director de procesos) */}
-          {esSupervisorRiesgos && (
-            <>
-              <Divider sx={{ my: 2, mx: 2 }} />
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  selected={location.pathname === ROUTES.SUPERVISION}
-                  onClick={() => handleMenuClick(ROUTES.SUPERVISION)}
-            sx={{
-                    borderRadius: 2,
-                    py: 1.25,
-                    px: 2,
-                    '&.Mui-selected': {
-                      backgroundColor: 'rgba(25, 118, 210, 0.1)',
-                      borderLeft: '4px solid #1976d2',
-                      '&:hover': {
-                        backgroundColor: 'rgba(25, 118, 210, 0.15)',
-                      },
-                      '& .MuiListItemIcon-root': {
-                        color: '#1976d2',
-                      },
-                    },
-              '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
-              },
-            }}
-          >
-                  <ListItemIcon
-              sx={{
-                      minWidth: 40,
-                      color: location.pathname === ROUTES.SUPERVISION ? '#1976d2' : 'rgba(0, 0, 0, 0.6)',
-                    }}
-                  >
-                    <SupervisorAccountIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Supervisión"
-                    primaryTypographyProps={{
-                      fontSize: '0.9rem',
-                      fontWeight: location.pathname === ROUTES.SUPERVISION ? 600 : 400,
-              }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            </>
+              })
+              .map((item) => (
+                <React.Fragment key={item.text}>{renderMenuItem(item)}</React.Fragment>
+              ))
+
           )}
 
         </List>
@@ -778,6 +756,24 @@ export default function MainLayout() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Dialog open={modoGerenteDialogOpen} maxWidth="xs" fullWidth>
+        <DialogTitle>Selecciona tu modo de acceso</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Puedes entrar como Director (ver todo en modo visualización) o como Usuario de Proceso
+            (editar y gestionar procesos asignados).
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => handleSelectGerenteMode('director')}>
+            Entrar como Director
+          </Button>
+          <Button variant="contained" onClick={() => handleSelectGerenteMode('proceso')}>
+            Entrar como Usuario de Proceso
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Top AppBar - Full Width - Fixed */}
       <AppBar
         position="fixed"
@@ -785,7 +781,7 @@ export default function MainLayout() {
         sx={{
           background: '#FFFFFF',
           borderBottom: '1px solid',
-            borderColor: 'divider',
+          borderColor: 'divider',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
           width: '100%',
           zIndex: (theme) => theme.zIndex.drawer + 1,
@@ -793,357 +789,317 @@ export default function MainLayout() {
           left: 0,
         }}
       >
-          <Toolbar 
-        sx={{
-              minHeight: { xs: 64, md: 70 }, 
-              px: 0,
-              pl: 2,
-              pr: { xs: 2, md: 3 },
-              display: 'flex',
-              alignItems: 'center',
-              minWidth: 0,
-        }}
-      >
-            {/* Logo COMWARE - Al borde izquierdo */}
-      <Box
-        sx={{
-          display: 'flex',
-                alignItems: 'center',
-                gap: { xs: 1, md: 2 },
-                cursor: 'pointer',
-                mr: { xs: 1, md: 2 },
-        }}
-              onClick={() => navigate(ROUTES.DASHBOARD)}
-            >
-              <Box
-                component="img"
-                src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
-                alt="COMWARE Logo"
-                sx={{
-                  height: { xs: 35, md: 45 },
-                  width: 'auto',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
-                }}
-              />
-              <Typography
-                variant="h6"
+        <Toolbar
           sx={{
-                  display: { xs: 'none', md: 'block' },
-                  fontWeight: 700,
-                  color: '#1976d2',
-                  fontSize: '1.1rem',
+            minHeight: { xs: 64, md: 70 },
+            px: 0,
+            pl: 2,
+            pr: { xs: 2, md: 3 },
+            display: 'flex',
+            alignItems: 'center',
+            minWidth: 0,
           }}
         >
-                Gestión de Riesgos
-              </Typography>
-            </Box>
-
-            {/* Mobile Menu Button */}
-            <IconButton
-              edge="start"
-              onClick={handleDrawerToggle}
+          {/* Logo COMWARE - Al borde izquierdo */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: { xs: 1, md: 2 },
+              cursor: 'pointer',
+              mr: { xs: 1, md: 2 },
+            }}
+            onClick={() => navigate(ROUTES.DASHBOARD)}
+          >
+            <Box
+              component="img"
+              src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+              alt="COMWARE Logo"
               sx={{
-                display: { md: 'none' },
-                mr: 2,
-                color: 'rgba(0, 0, 0, 0.87)',
+                height: { xs: 35, md: 45 },
+                width: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
+              }}
+            />
+            <Typography
+              variant="h6"
+              sx={{
+                display: { xs: 'none', md: 'block' },
+                fontWeight: 700,
+                color: '#1976d2',
+                fontSize: '1.1rem',
               }}
             >
-              <MenuIcon />
-            </IconButton>
+              Gestión de Riesgos
+            </Typography>
+          </Box>
 
-            {/* Selector de Proceso y Modo - En AppBar (no mostrar para admin ni director) */}
-            {procesoSeleccionado && !esAdmin && !esSupervisorRiesgos && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  mr: 2,
-                  flexWrap: 'wrap',
-                }}
-              >
-                {/* Selector de Proceso */}
-                <Autocomplete
-                  value={procesoSeleccionado}
-                  onChange={(_, newValue) => {
-                    if (newValue) {
-                      setProcesoSeleccionado(newValue);
-                      // Si el proceso está aprobado, forzar modo visualización
-                      if (newValue.estado === 'aprobado') {
-                        setModoProceso('visualizar');
-                      }
-                      showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+          {/* Mobile Menu Button */}
+          <IconButton
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{
+              display: { md: 'none' },
+              mr: 2,
+              color: 'rgba(0, 0, 0, 0.87)',
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+
+          {/* Selector de Proceso y Modo - En AppBar (no mostrar para admin ni supervisor) */}
+          {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                mr: 2,
+                flexWrap: 'wrap',
+              }}
+            >
+              {/* Selector de Proceso */}
+              <Autocomplete
+                value={procesoSeleccionado || null}
+                onChange={(_, newValue) => {
+                  if (newValue) {
+                    setProcesoSeleccionado(newValue);
+                    // Si el proceso está aprobado, forzar modo visualización
+                    if (newValue.estado === 'aprobado') {
+                      setModoProceso('visualizar');
+                    } else {
+                      setModoProceso('editar');
                     }
-                  }}
-                  options={procesosDisponibles}
-                  getOptionLabel={(option) => option.nombre}
-                  filterOptions={(options, { inputValue }) => {
-                    return options.filter((option) =>
-                      option.nombre.toLowerCase().includes(inputValue.toLowerCase()) ||
-                      (option.areaNombre && option.areaNombre.toLowerCase().includes(inputValue.toLowerCase())) ||
-                      (option.descripcion && option.descripcion.toLowerCase().includes(inputValue.toLowerCase()))
-                    );
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      placeholder="Buscar proceso..."
-                      sx={{
-                        minWidth: 250,
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#1976d2',
+                    showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+                  } else {
+                    // Limpiar selección cuando se borra el campo
+                    setProcesoSeleccionado(null);
+                    setModoProceso('sin_modo');
+                  }
+                }}
+                options={procesosDisponibles}
+                getOptionLabel={(option) => option.nombre}
+                filterOptions={(options, { inputValue }) => {
+                  return options.filter((option) =>
+                    option.nombre.toLowerCase().includes(inputValue.toLowerCase()) ||
+                    (option.areaNombre && option.areaNombre.toLowerCase().includes(inputValue.toLowerCase())) ||
+                    (option.descripcion && option.descripcion.toLowerCase().includes(inputValue.toLowerCase()))
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    placeholder="Buscar proceso..."
+                    sx={{
+                      minWidth: 250,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#1976d2',
+                        color: '#fff',
+                        '& fieldset': {
+                          borderColor: 'transparent',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: 'rgba(255, 255, 255, 0.5)',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#fff',
+                        },
+                        '& input': {
                           color: '#fff',
-                          '& fieldset': {
-                            borderColor: 'transparent',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#fff',
-                          },
-                          '& input': {
-                            color: '#fff',
-                            '&::placeholder': {
-                              color: 'rgba(255, 255, 255, 0.7)',
-                            },
+                          '&::placeholder': {
+                            color: 'rgba(255, 255, 255, 0.7)',
                           },
                         },
-                        '& .MuiInputLabel-root': {
-                          color: 'rgba(255, 255, 255, 0.7)',
-                        },
-                        '& .MuiInputLabel-root.Mui-focused': {
+                      },
+                      '& .MuiInputLabel-root': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#fff',
+                      },
+                      '& .MuiAutocomplete-endAdornment': {
+                        '& .MuiIconButton-root': {
                           color: '#fff',
                         },
-                        '& .MuiAutocomplete-endAdornment': {
-                          '& .MuiIconButton-root': {
-                            color: '#fff',
-                          },
-                        },
-                      }}
-                    />
-                  )}
-                  renderOption={(props, option) => {
-                    const getEstadoColor = (estado?: string) => {
-                      switch (estado) {
-                        case 'aprobado': return '#4caf50';
-                        case 'en_revision': return '#ff9800';
-                        case 'con_observaciones': return '#f44336';
-                        default: return '#9e9e9e';
-                      }
-                    };
-                    const getEstadoLabel = (estado?: string) => {
-                      switch (estado) {
-                        case 'aprobado': return 'Aprobado';
-                        case 'en_revision': return 'En Revisión';
-                        case 'con_observaciones': return 'Con Observaciones';
-                        default: return 'Borrador';
-                      }
-                    };
-                    return (
-                      <Box component="li" {...props} sx={{ py: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, width: '100%' }}>
-                          <BusinessCenterIcon sx={{ fontSize: 24, color: '#1976d2', mt: 0.5 }} />
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-                              {option.nombre}
+                      },
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => {
+                  const getEstadoColor = (estado?: string) => {
+                    switch (estado) {
+                      case 'aprobado': return '#4caf50';
+                      case 'en_revision': return '#ff9800';
+                      case 'con_observaciones': return '#f44336';
+                      default: return '#9e9e9e';
+                    }
+                  };
+                  const getEstadoLabel = (estado?: string) => {
+                    switch (estado) {
+                      case 'aprobado': return 'Aprobado';
+                      case 'en_revision': return 'En Revisión';
+                      case 'con_observaciones': return 'Con Observaciones';
+                      default: return 'Borrador';
+                    }
+                  };
+                  return (
+                    <Box component="li" {...props} sx={{ py: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, width: '100%' }}>
+                        <BusinessCenterIcon sx={{ fontSize: 24, color: '#1976d2', mt: 0.5 }} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+                            {option.nombre}
+                          </Typography>
+                          {option.areaNombre && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                              Área: {option.areaNombre}
                             </Typography>
-                            {option.areaNombre && (
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                                Área: {option.areaNombre}
+                          )}
+                          {option.descripcion && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              mb: 0.5
+                            }}>
+                              {option.descripcion}
+                            </Typography>
+                          )}
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
+                            <Chip
+                              label={getEstadoLabel(option.estado)}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                backgroundColor: getEstadoColor(option.estado),
+                                color: '#fff',
+                                fontWeight: 600,
+                              }}
+                            />
+                            {option.responsableNombre && (
+                              <Typography variant="caption" color="text.secondary">
+                                Responsable: {option.responsableNombre}
                               </Typography>
                             )}
-                            {option.descripcion && (
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ 
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                mb: 0.5
-                              }}>
-                                {option.descripcion}
-                              </Typography>
-                            )}
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
-                              <Chip
-                                label={getEstadoLabel(option.estado)}
-                                size="small"
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.65rem',
-                                  backgroundColor: getEstadoColor(option.estado),
-                                  color: '#fff',
-                                  fontWeight: 600,
-                                }}
-                              />
-                              {option.responsableNombre && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Responsable: {option.responsableNombre}
-                                </Typography>
-                              )}
-                            </Box>
                           </Box>
                         </Box>
                       </Box>
-                    );
-                  }}
-                  sx={{ minWidth: 250 }}
-                  noOptionsText="No se encontraron procesos"
-                  loadingText="Cargando procesos..."
-                />
-
-                {/* Selector de Modo */}
-                <FormControl size="small" sx={{ minWidth: 150 }}>
-                  <Select
-                    value={modoProceso || ''}
-                    onChange={(e) => {
-                      const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
-                      // Si el proceso está aprobado, solo permitir visualizar
-                      if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar') {
-                        showError('Los procesos aprobados no se pueden editar');
-                        return;
-                      }
-                      if (nuevoModo === '') {
-                        setModoProceso(null);
-                      } else {
-                        setModoProceso(nuevoModo);
-                        showSuccess(`Modo cambiado a ${nuevoModo === 'editar' ? 'Edición' : 'Visualización'}`);
-                      }
-                    }}
-                    displayEmpty
-                    disabled={procesoSeleccionado?.estado === 'aprobado'}
-                    sx={{
-                      backgroundColor: procesoSeleccionado?.estado === 'aprobado' 
-                        ? '#4caf50' 
-                        : modoProceso === 'editar' 
-                        ? '#ff9800' 
-                        : modoProceso === 'visualizar' 
-                        ? '#2196f3' 
-                        : '#1976d2',
-                      color: '#fff',
-                      fontWeight: 600,
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'transparent',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255, 255, 255, 0.5)',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#fff',
-                      },
-                      '& .MuiSelect-icon': {
-                        color: '#fff',
-                      },
-                      '&.Mui-disabled': {
-                        opacity: 0.8,
-                      },
-                    }}
-                  >
-                    <MenuItem value="">
-                      <em>Sin modo</em>
-                    </MenuItem>
-                    <MenuItem value="visualizar">Visualización</MenuItem>
-                    {procesoSeleccionado?.estado !== 'aprobado' && (
-                      <MenuItem value="editar">Edición</MenuItem>
-                    )}
-                  </Select>
-                  {procesoSeleccionado?.estado === 'aprobado' && (
-                    <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: '#fff', fontSize: '0.65rem', textAlign: 'center' }}>
-                      Solo lectura
-                    </Typography>
-                  )}
-                </FormControl>
-              </Box>
-            )}
-
-            {/* Para director: solo mostrar chip de "Visualización" */}
-            {esSupervisorRiesgos && (
-              <Chip
-                label="Visualización"
-                size="small"
-                sx={{
-                  mr: 2,
-                  height: 32,
-                  fontWeight: 600,
-                  backgroundColor: '#2196f3',
-                  color: '#fff',
-                  '& .MuiChip-label': {
-                    px: 2,
-                  },
+                    </Box>
+                  );
                 }}
+                sx={{ minWidth: 250 }}
+                noOptionsText="No se encontraron procesos"
+                loadingText="Cargando procesos..."
               />
-            )}
 
-            {/* Botón "Enviar a Revisión" - Solo para dueño del proceso en modo visualización */}
-            {esDueñoProcesos && procesoSeleccionado && modoProceso === 'visualizar' && 
-             (procesoSeleccionado.estado === 'borrador' || procesoSeleccionado.estado === 'con_observaciones') && (
-              <Box sx={{ mr: 2 }}>
-                <Button
-                  variant="contained"
-                  startIcon={<SendIcon />}
-                  onClick={handleEnviarARevision}
+              {/* Selector de Modo */}
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <Select
+                  value={modoProceso || ''}
+                  onChange={(e) => {
+                    const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
+                    // Si el proceso está aprobado, solo permitir visualizar
+                    if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar') {
+                      showError('Los procesos aprobados no se pueden editar');
+                      return;
+                    }
+                    if (nuevoModo === '') {
+                      setModoProceso(null);
+                    } else {
+                      setModoProceso(nuevoModo);
+                      showSuccess(`Modo cambiado a ${nuevoModo === 'editar' ? 'Edición' : 'Visualización'}`);
+                    }
+                  }}
+                  displayEmpty
+                  disabled={!procesoSeleccionado || procesoSeleccionado?.estado === 'aprobado'}
                   sx={{
-                    background: '#C8D900',
-                    color: '#000',
+                    backgroundColor: procesoSeleccionado?.estado === 'aprobado'
+                      ? '#4caf50'
+                      : modoProceso === 'editar'
+                        ? '#ff9800'
+                        : modoProceso === 'visualizar'
+                          ? '#2196f3'
+                          : '#1976d2',
+                    color: '#fff',
                     fontWeight: 600,
-                    borderRadius: 2,
-                    px: 3,
-                    textTransform: 'none',
-                    '&:hover': {
-                      background: '#B8C800',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(200, 217, 0, 0.4)',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'transparent',
                     },
-                    transition: 'all 0.2s',
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.5)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#fff',
+                    },
+                    '& .MuiSelect-icon': {
+                      color: '#fff',
+                    },
+                    '&.Mui-disabled': {
+                      opacity: 0.8,
+                    },
                   }}
                 >
-                  Enviar a Revisión
-                </Button>
-              </Box>
-            )}
+                  <MenuItem value="">
+                    <em>Sin modo</em>
+                  </MenuItem>
+                  <MenuItem value="visualizar">Visualización</MenuItem>
+                  {procesoSeleccionado?.estado !== 'aprobado' && (
+                    <MenuItem value="editar">Edición</MenuItem>
+                  )}
+                </Select>
+                {procesoSeleccionado?.estado === 'aprobado' && (
+                  <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: '#fff', fontSize: '0.65rem', textAlign: 'center' }}>
+                    Solo lectura
+                  </Typography>
+                )}
+              </FormControl>
+            </Box>
+          )}
 
-            {/* Riesgo Seleccionado - Oculto del AppBar, solo se muestra en las páginas internas como Plan de Acción */}
+          {/* Riesgo Seleccionado - Oculto del AppBar, solo se muestra en las páginas internas como Plan de Acción */}
 
-            {/* Spacer */}
-            <Box sx={{ flexGrow: 1 }} />
+          {/* Spacer */}
+          <Box sx={{ flexGrow: 1 }} />
 
-            {/* Notificaciones */}
-            <NotificacionesMenu />
+          {/* Notificaciones */}
+          <NotificacionesMenu />
 
-            {/* User Info - Desktop - Siempre visible */}
-            {user && (
+          {/* User Info - Desktop - Siempre visible */}
+          {user && (
             <Box
               sx={{
                 display: { xs: 'none', md: 'flex' },
                 alignItems: 'center',
                 gap: 1.5,
-                  mr: 2,
+                mr: 2,
               }}
             >
               <Box sx={{ textAlign: 'right' }}>
-                  <Typography 
-                    variant="body2" 
-                    fontWeight={600} 
-                    sx={{ 
-                      color: 'rgba(0, 0, 0, 0.87)',
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {user.fullName}
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  sx={{
+                    color: 'rgba(0, 0, 0, 0.87)',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {user.fullName}
                 </Typography>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: 'rgba(0, 0, 0, 0.60)',
-                      display: 'block',
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {getNombreRol()}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'rgba(0, 0, 0, 0.60)',
+                    display: 'block',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {getNombreRol()}
                 </Typography>
               </Box>
-                <Tooltip title={`${user.fullName} - ${getNombreRol()}`}>
+              <Tooltip title={`${user.fullName} - ${getNombreRol()}`}>
                 <IconButton
                   onClick={handleUserMenuOpen}
                   sx={{
@@ -1151,10 +1107,10 @@ export default function MainLayout() {
                     border: '2px solid #1976d2',
                     width: 44,
                     height: 44,
-                      boxShadow: '0 0 10px rgba(25, 118, 210, 0.2)',
+                    boxShadow: '0 0 10px rgba(25, 118, 210, 0.2)',
                     '&:hover': {
                       background: '#E8E8E8',
-                        boxShadow: '0 0 15px rgba(25, 118, 210, 0.4)',
+                      boxShadow: '0 0 15px rgba(25, 118, 210, 0.4)',
                     },
                   }}
                 >
@@ -1162,107 +1118,107 @@ export default function MainLayout() {
                 </IconButton>
               </Tooltip>
             </Box>
-            )}
+          )}
 
-            {/* User Menu - Mobile */}
-            {user && (
-              <Box
+          {/* User Menu - Mobile */}
+          {user && (
+            <Box
+              sx={{
+                display: { xs: 'flex', md: 'none' },
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.87)' }}>
+                  {user.fullName}
+                </Typography>
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'rgba(0, 0, 0, 0.60)' }}>
+                  {getNombreRol()}
+                </Typography>
+              </Box>
+              <IconButton
+                onClick={handleUserMenuOpen}
                 sx={{
-                  display: { xs: 'flex', md: 'none' },
-                  alignItems: 'center',
-                  gap: 1,
+                  background: '#F0F0F0',
+                  border: '2px solid #1976d2',
+                  width: 40,
+                  height: 40,
+                  boxShadow: '0 0 10px rgba(25, 118, 210, 0.2)',
+                  '&:hover': {
+                    background: '#E8E8E8',
+                    boxShadow: '0 0 15px rgba(25, 118, 210, 0.4)',
+                  },
                 }}
               >
-                <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                  <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.87)' }}>
-                    {user.fullName}
-                  </Typography>
-                  <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'rgba(0, 0, 0, 0.60)' }}>
-                    {getNombreRol()}
-                  </Typography>
-                </Box>
-            <IconButton
-              onClick={handleUserMenuOpen}
-              sx={{
-                background: '#F0F0F0',
-                    border: '2px solid #1976d2',
-                width: 40,
-                height: 40,
-                    boxShadow: '0 0 10px rgba(25, 118, 210, 0.2)',
-                '&:hover': {
-                  background: '#E8E8E8',
-                      boxShadow: '0 0 15px rgba(25, 118, 210, 0.4)',
-                },
-              }}
-            >
                 <AccountCircleIcon sx={{ color: '#1976d2', fontSize: 24 }} />
-            </IconButton>
-              </Box>
-            )}
+              </IconButton>
+            </Box>
+          )}
 
-            {/* User Dropdown Menu */}
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleUserMenuClose}
-              PaperProps={{
-                sx: {
-                  mt: 1.5,
-                  minWidth: 250,
-                  borderRadius: 2,
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                },
-              }}
-            >
-              <Box sx={{ px: 2, py: 1.5 }}>
-                <Typography variant="subtitle2" fontWeight={600}>
-                  {user?.fullName}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  {user?.email}
-                </Typography>
-                {esDueñoProcesos && (
-                  <Chip
-                    label="Dueño del Proceso"
-                    size="small"
-                    color="primary"
-                    sx={{ mt: 1 }}
-                  />
-                )}
-                {esSupervisorRiesgos && (
-                  <Chip
-                    label="Supervisor de Riesgos"
-                    size="small"
-                    color="info"
-                    sx={{ mt: 1 }}
-                  />
-                )}
-                {esAdmin && (
-                  <Chip
-                    label="Administrador"
-                    size="small"
-                    color="error"
-                    sx={{ mt: 1 }}
-                  />
-                )}
-                <Typography variant="caption" color="text.secondary" display="block">
-                  {user?.department}
-                </Typography>
-              </Box>
-              <Divider />
-              <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
-                <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
-                Cerrar Sesión
-              </MenuItem>
-            </Menu>
-          </Toolbar>
-        </AppBar>
+          {/* User Dropdown Menu */}
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleUserMenuClose}
+            PaperProps={{
+              sx: {
+                mt: 1.5,
+                minWidth: 250,
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              },
+            }}
+          >
+            <Box sx={{ px: 2, py: 1.5 }}>
+              <Typography variant="subtitle2" fontWeight={600}>
+                {user?.fullName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {user?.email}
+              </Typography>
+              {esDueñoProcesos && (
+                <Chip
+                  label="Dueño del Proceso"
+                  size="small"
+                  color="primary"
+                  sx={{ mt: 1 }}
+                />
+              )}
+              {esSupervisorRiesgos && (
+                <Chip
+                  label="Supervisor de Riesgos"
+                  size="small"
+                  color="info"
+                  sx={{ mt: 1 }}
+                />
+              )}
+              {esAdmin && (
+                <Chip
+                  label="Administrador"
+                  size="small"
+                  color="error"
+                  sx={{ mt: 1 }}
+                />
+              )}
+              <Typography variant="caption" color="text.secondary" display="block">
+                {user?.department}
+              </Typography>
+            </Box>
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
+              <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
+              Cerrar Sesión
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
 
       {/* Main Container - Contenedor principal con margen superior para AppBar fijo */}
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          flexGrow: 1, 
+      <Box
+        sx={{
+          display: 'flex',
+          flexGrow: 1,
           minHeight: 0,
           mt: { xs: '64px', md: '70px' }, // Margen superior para compensar AppBar fijo
         }}
@@ -1344,14 +1300,19 @@ export default function MainLayout() {
             }}
           >
             {/* Page Content Container - Contenedor del contenido de la página */}
-        <Box
-          sx={{
-            flexGrow: 1,
-            p: { xs: 2, md: 3 },
-            background: '#E8E8E8',
-          }}
-        >
-          <Outlet />
+            <Box
+              sx={{
+                flexGrow: 1,
+                p: { xs: 2, md: 3 },
+                background: '#E8E8E8',
+              }}
+            >
+              {esDueñoProcesos && tieneAsignaciones && !procesoSeleccionado?.id && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Seleccione un proceso para habilitar el resto del menú.
+                </Alert>
+              )}
+              <Outlet />
             </Box>
           </Box>
         </Box>

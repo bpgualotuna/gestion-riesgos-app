@@ -3,8 +3,8 @@
  */
 
 import { configureStore } from '@reduxjs/toolkit';
-import { riesgosApi } from '../features/gestion-riesgos/api/riesgosApi';
-import riesgoReducer from '../features/gestion-riesgos/slices/riesgoSlice';
+import { riesgosApi } from "../api/services/riesgosApi";
+import riesgoReducer from '../store/slices/riesgoSlice';
 
 export const store = configureStore({
   reducer: {

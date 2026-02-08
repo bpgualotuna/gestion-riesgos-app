@@ -9,40 +9,53 @@ import { ROUTES } from '../utils/constants';
 import MainLayout from '../components/layout/MainLayout';
 
 // Auth Components
-import ProtectedRoute from '../features/auth/components/ProtectedRoute';
-import AdminRedirect from '../features/auth/components/AdminRedirect';
-import LoginPage from '../features/auth/pages/LoginPage';
+// Auth Components
+import ProtectedRoute from "../components/auth/ProtectedRoute";
+import AdminRedirect from "../components/auth/AdminRedirect";
+import LoginPage from "../pages/auth/LoginPage";
+
+// Error Handling
+import RouteErrorElement from "../components/common/RouteErrorElement";
 
 // Pages
-import DashboardPage from '../features/dashboard/pages/DashboardPage';
-import FichaPage from '../features/gestion-riesgos/pages/FichaPage';
-import IdentificacionPage from '../features/gestion-riesgos/pages/IdentificacionPage';
-import EvaluacionPage from '../features/gestion-riesgos/pages/EvaluacionPage';
-import MapaPage from '../features/gestion-riesgos/pages/MapaPage';
-import PriorizacionPage from '../features/gestion-riesgos/pages/riesgos/PriorizacionPage';
-import NormatividadPage from '../features/gestion-riesgos/pages/procesos/NormatividadPage';
-import ContextoExternoPage from '../features/gestion-riesgos/pages/procesos/ContextoExternoPage';
-import ContextoInternoPage from '../features/gestion-riesgos/pages/procesos/ContextoInternoPage';
-import DofaPage from '../features/gestion-riesgos/pages/procesos/DofaPage';
-import AnalisisProcesoPage from '../features/gestion-riesgos/pages/procesos/AnalisisProcesoPage';
-import BenchmarkingPage from '../features/gestion-riesgos/pages/procesos/BenchmarkingPage';
-import AyudaPage from '../features/gestion-riesgos/pages/otros/AyudaPage';
-import ProcesosPage from '../features/gestion-riesgos/pages/ProcesosPage';
-import RiesgosProcesosPage from '../features/gestion-riesgos/pages/RiesgosProcesosPage';
-import AdminPage from '../features/admin/pages/AdminPage';
-import SupervisionPage from '../features/gestion-riesgos/pages/SupervisionPage';
-import ResumenDirectorPage from '../features/gestion-riesgos/pages/ResumenDirectorPage';
-import DashboardSupervisorPage from '../features/gestion-riesgos/pages/DashboardSupervisorPage';
-import PlanAccionPage from '../features/gestion-riesgos/pages/PlanAccionPage';
-import TareasPage from '../features/gestion-riesgos/pages/controles/TareasPage';
-import HistorialPage from '../features/gestion-riesgos/pages/otros/HistorialPage';
-import ResumenRiesgosPage from '../features/gestion-riesgos/pages/ResumenRiesgosPage';
-import RiesgosPorProcesoPage from '../features/gestion-riesgos/pages/RiesgosPorProcesoPage';
-import RiesgosPorTipologiaPage from '../features/gestion-riesgos/pages/RiesgosPorTipologiaPage';
-import IncidenciasPage from '../features/gestion-riesgos/pages/IncidenciasPage';
-import ModoGerenteGeneralSelector from '../features/auth/components/ModoGerenteGeneralSelector';
-import ProcesosGerenteGeneralPage from '../features/gestion-riesgos/pages/gerente-general/ProcesosGerenteGeneralPage';
-import DashboardGerenteGeneralPage from '../features/gestion-riesgos/pages/gerente-general/DashboardGerenteGeneralPage';
+// Pages
+import DashboardPage from '../pages/dashboard/DashboardPage';
+import FichaPage from '../pages/ficha/FichaPage';
+import IdentificacionCalificacionPage from '../pages/identificacion/IdentificacionCalificacionPage';
+import EvaluacionPage from '../pages/evaluacion/EvaluacionPage';
+import MapaPage from '../pages/mapas/MapaPage';
+import PriorizacionPage from '../pages/riesgos/PriorizacionPage';
+import NormatividadPage from '../pages/procesos/NormatividadPage';
+import ContextoExternoPage from '../pages/procesos/ContextoExternoPage';
+import ContextoInternoPage from '../pages/procesos/ContextoInternoPage';
+import DofaPage from '../pages/procesos/DofaPage';
+import AnalisisProcesoPage from '../pages/procesos/AnalisisProcesoPage';
+import BenchmarkingPage from '../pages/procesos/BenchmarkingPage';
+import AyudaPage from '../pages/otros/AyudaPage';
+import ProcesosPage from '../pages/procesos/ProcesosPage';
+import RiesgosProcesosPage from '../pages/riesgos/RiesgosProcesosPage';
+
+import SupervisionPage from '../pages/supervision/SupervisionPage';
+import ResumenDirectorPage from '../pages/dashboard/ResumenDirectorPage';
+import DashboardSupervisorPage from '../pages/supervision/DashboardSupervisorPage';
+import PlanAccionPage from '../pages/plan-accion/PlanAccionPage';
+import ControlesYPlanesAccionPage from '../pages/controles/ControlesYPlanesAccionPage';
+import EvaluacionControlPage from '../pages/controles/EvaluacionControlPage';
+import TareasPage from '../pages/controles/TareasPage';
+import HistorialPage from '../pages/otros/HistorialPage';
+import ResumenRiesgosPage from '../pages/dashboard/ResumenRiesgosPage';
+import RiesgosPorProcesoPage from '../pages/riesgos/RiesgosPorProcesoPage';
+import RiesgosPorTipologiaPage from '../pages/riesgos/RiesgosPorTipologiaPage';
+import IncidenciasPage from '../pages/incidencias/IncidenciasPage';
+import ModoGerenteGeneralSelector from '../components/auth/ModoGerenteGeneralSelector';
+import ProcesosGerenteGeneralPage from '../pages/gerente-general/ProcesosGerenteGeneralPage';
+import DashboardGerenteGeneralPage from '../pages/gerente-general/DashboardGerenteGeneralPage';
+import UsuariosPage from '../pages/admin/UsuariosPage';
+import ProcesosDefinicionPage from '../pages/admin/ProcesosDefinicionPage';
+import AreasPage from '../pages/admin/AreasPage';
+import ConfiguracionPage from '../pages/admin/ConfiguracionPage';
+import ParametrosCalificacionPage from '../pages/admin/ParametrosCalificacionPage';
+import MapasConfigPage from '../pages/admin/MapasConfigPage';
 
 export const router = createBrowserRouter([
   {
@@ -64,6 +77,7 @@ export const router = createBrowserRouter([
         <MainLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorElement />,
     children: [
       {
         index: true,
@@ -82,8 +96,12 @@ export const router = createBrowserRouter([
         element: <FichaPage />,
       },
       {
+        path: `${ROUTES.FICHA}/:procesoId`,
+        element: <FichaPage />,
+      },
+      {
         path: ROUTES.IDENTIFICACION,
-        element: <IdentificacionPage />,
+        element: <IdentificacionCalificacionPage />,
       },
       {
         path: ROUTES.EVALUACION,
@@ -94,12 +112,24 @@ export const router = createBrowserRouter([
         element: <MapaPage />,
       },
       {
+        path: '/admin/mapas',
+        element: <MapasConfigPage />,
+      },
+      {
+        path: '/admin/parametros-calificacion',
+        element: <ParametrosCalificacionPage />,
+      },
+      {
         path: ROUTES.PRIORIZACION,
         element: <PriorizacionPage />,
       },
       {
         path: ROUTES.PLAN_ACCION,
-        element: <PlanAccionPage />,
+        element: <ControlesYPlanesAccionPage />,
+      },
+      {
+        path: ROUTES.EVALUACION_CONTROL,
+        element: <EvaluacionControlPage />,
       },
       {
         path: ROUTES.TAREAS,
@@ -147,7 +177,27 @@ export const router = createBrowserRouter([
       },
       {
         path: ROUTES.ADMINISTRACION,
-        element: <AdminPage />,
+        element: <Navigate to={ROUTES.ADMIN_USUARIOS} replace />,
+      },
+      {
+        path: ROUTES.ADMIN_USUARIOS,
+        element: <UsuariosPage />,
+      },
+      {
+        path: ROUTES.ADMIN_PROCESOS,
+        element: <ProcesosDefinicionPage />,
+      },
+      {
+        path: ROUTES.ADMIN_AREAS,
+        element: <AreasPage />,
+      },
+      {
+        path: ROUTES.ADMIN_CONFIGURACION,
+        element: <ConfiguracionPage />,
+      },
+      {
+        path: ROUTES.ADMIN_MAPA_CONFIG,
+        element: <MapasConfigPage />,
       },
       {
         path: ROUTES.SUPERVISION,
@@ -188,14 +238,17 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.ASIGNACIONES,
         element: (
-          <Navigate 
-            to={`${ROUTES.ADMINISTRACION}?section=asignaciones`} 
-            replace 
-            state={{ section: 'asignaciones' }}
+          <Navigate
+            to={ROUTES.ADMIN_AREAS}
+            replace
           />
         ),
       },
     ],
+  },
+  {
+    path: '*',
+    element: <RouteErrorElement />,
   },
 ]);
 

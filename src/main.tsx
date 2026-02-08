@@ -44,6 +44,17 @@ function showError(error: unknown) {
   `;
 }
 
+// Capturar errores globales y promesas rechazadas
+window.addEventListener('error', (event) => {
+  console.error('❌ Error global:', event.error || event.message);
+  showError(event.error || new Error(event.message));
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('❌ Promesa rechazada:', event.reason);
+  showError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+});
+
 // Deshabilitar service workers problemáticos en desarrollo
 if ('serviceWorker' in navigator && import.meta.env.DEV) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
@@ -55,24 +66,24 @@ if ('serviceWorker' in navigator && import.meta.env.DEV) {
   });
 }
 
-console.log('🚀 Iniciando aplicación...');
-console.log('📍 URL actual:', window.location.href);
-console.log('🌐 User Agent:', navigator.userAgent);
+console.log('%c🚀 INICIANDO APLICACIÓN', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+console.log('%c📍 URL:', 'color: #2196F3; font-weight: bold;', window.location.href);
+console.log('%c🌐 User Agent:', 'color: #9C27B0; font-weight: bold;', navigator.userAgent);
 
 // Renderizar con manejo de errores mejorado
 try {
-  console.log('📦 Cargando módulos...');
+  console.log('%c📦 Cargando módulos...', 'color: #FF9800; font-weight: bold;');
   
   const root = createRoot(rootElement);
-  console.log('✅ Root creado correctamente');
+  console.log('%c✅ Root creado correctamente', 'color: #4CAF50; font-weight: bold;');
 
-  console.log('🎨 Renderizando componente App...');
+  console.log('%c🎨 Renderizando componente App...', 'color: #E91E63; font-weight: bold;');
   root.render(
     <StrictMode>
       <App />
     </StrictMode>
   );
-  console.log('✅ Aplicación renderizada correctamente');
+  console.log('%c✅ Aplicación renderizada correctamente', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
   
   // Timeout de seguridad: si después de 5 segundos no hay contenido, mostrar mensaje
   setTimeout(() => {
