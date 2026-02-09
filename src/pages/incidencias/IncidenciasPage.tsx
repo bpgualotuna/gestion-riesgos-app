@@ -46,7 +46,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { getMockRiesgos } from '../../api/services/mockData';
+import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
 
 // Tipo de incidencia - Materialización de riesgos residuales
 interface Incidencia {
@@ -85,14 +85,14 @@ export default function IncidenciasPage() {
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
 
-  // Obtener riesgos del proceso seleccionado
+  const { data: riesgosResponse } = useGetRiesgosQuery(
+    { procesoId: procesoSeleccionado?.id, pageSize: 500 },
+    { skip: !procesoSeleccionado?.id }
+  );
   const riesgosDelProceso = useMemo(() => {
-    if (!procesoSeleccionado?.id) return [];
-    const riesgosData = localStorage.getItem('riesgos');
-    const mockRiesgos = getMockRiesgos();
-    const riesgos = riesgosData ? JSON.parse(riesgosData) : mockRiesgos.data;
-    return riesgos.filter((r: any) => r.procesoId === procesoSeleccionado.id) || [];
-  }, [procesoSeleccionado?.id]);
+    const data = riesgosResponse?.data || [];
+    return Array.isArray(data) ? data : [];
+  }, [riesgosResponse]);
 
   // Filtrar incidencias por proceso
   const incidenciasFiltradas = useMemo(() => {

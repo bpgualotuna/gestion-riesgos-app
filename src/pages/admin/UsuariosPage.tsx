@@ -38,7 +38,7 @@ import {
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Usuario, Cargo, Gerencia } from '../../types';
-import { getMockUsuarios, updateMockUsuarios, getMockCargos, getMockGerencias } from '../../api/services/mockData';
+import { useGetUsuariosQuery } from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -71,10 +71,11 @@ function TabPanel(props: TabPanelProps) {
 export default function UsuariosPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
-    const [currentTab, setCurrentTab] = useState(0);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+    const { data: usuariosData = [] } = useGetUsuariosQuery(undefined, { skip: !esAdmin });
+    const usuarios = Array.isArray(usuariosData) ? usuariosData : [];
     const [cargos, setCargos] = useState<Cargo[]>([]);
     const [gerencias, setGerencias] = useState<Gerencia[]>([]);
+    const [currentTab, setCurrentTab] = useState(0);
     const [searchUsuarios, setSearchUsuarios] = useState('');
     const [searchCargos, setSearchCargos] = useState('');
     const [searchGerencias, setSearchGerencias] = useState('');
@@ -104,15 +105,7 @@ export default function UsuariosPage() {
         subdivision: '',
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = () => {
-        setUsuarios(getMockUsuarios());
-        setCargos(getMockCargos());
-        setGerencias(getMockGerencias());
-    };
+    const loadData = () => { setCargos([]); setGerencias([]); };
 
     // Filtered data
     const filteredUsuarios = useMemo(() => {
@@ -232,121 +225,27 @@ export default function UsuariosPage() {
     };
 
     const handleSaveGerencia = () => {
-        if (!gerenciaFormData.nombre) {
-            showError('El nombre es requerido');
-            return;
-        }
-
-        let updatedGerencias = [...gerencias];
-
-        if (editingGerencia) {
-            updatedGerencias = updatedGerencias.map(g =>
-                g.id === editingGerencia.id ? { ...g, ...gerenciaFormData } : g
-            );
-            showSuccess('Gerencia actualizada correctamente');
-        } else {
-            const newGerencia: Gerencia = {
-                id: `gerencia-${Date.now()}`,
-                ...gerenciaFormData,
-            };
-            updatedGerencias.push(newGerencia);
-            showSuccess('Gerencia creada correctamente');
-        }
-
-        localStorage.setItem('catalog_gerencias_v2', JSON.stringify(updatedGerencias));
-        setGerencias(updatedGerencias);
-        handleCloseGerenciaDialog();
+        showError('La gestión de gerencias no está disponible en la API actual.');
     };
 
-    const handleDeleteGerencia = (id: string) => {
-        if (window.confirm('¿Está seguro de eliminar esta gerencia?')) {
-            const updatedGerencias = gerencias.filter(g => g.id !== id);
-            localStorage.setItem('catalog_gerencias_v2', JSON.stringify(updatedGerencias));
-            setGerencias(updatedGerencias);
-            showSuccess('Gerencia eliminada correctamente');
-        }
+    const handleDeleteGerencia = (_id?: string) => {
+        showError('La eliminación de gerencias no está disponible en la API actual.');
     };
 
     const handleSaveCargo = () => {
-        if (!cargoFormData.nombre) {
-            showError('El nombre es requerido');
-            return;
-        }
-
-        let updatedCargos = [...cargos];
-
-        if (editingCargo) {
-            updatedCargos = updatedCargos.map(c =>
-                c.id === editingCargo.id ? { ...c, ...cargoFormData } : c
-            );
-            showSuccess('Cargo actualizado correctamente');
-        } else {
-            const newCargo: Cargo = {
-                id: `cargo-${Date.now()}`,
-                ...cargoFormData,
-            };
-            updatedCargos.push(newCargo);
-            showSuccess('Cargo creado correctamente');
-        }
-
-        localStorage.setItem('catalog_cargos', JSON.stringify(updatedCargos));
-        setCargos(updatedCargos);
-        handleCloseCargoDialog();
+        showError('La gestión de cargos no está disponible en la API actual.');
     };
 
-    const handleDeleteCargo = (id: string) => {
-        if (window.confirm('¿Está seguro de eliminar este cargo?')) {
-            const updatedCargos = cargos.filter(c => c.id !== id);
-            localStorage.setItem('catalog_cargos', JSON.stringify(updatedCargos));
-            setCargos(updatedCargos);
-            showSuccess('Cargo eliminado correctamente');
-        }
+    const handleDeleteCargo = (_id?: string) => {
+        showError('La eliminación de cargos no está disponible en la API actual.');
     };
 
     const handleSave = () => {
-        if (!formData.nombre) {
-            showError('El nombre es requerido');
-            return;
-        }
-
-        let updatedUsuarios = [...usuarios];
-
-        // Find cargo name
-        const selectedCargo = cargos.find(c => c.id === formData.cargoId);
-        const cargoNombre = selectedCargo ? selectedCargo.nombre : undefined;
-
-        if (editingUsuario) {
-            updatedUsuarios = updatedUsuarios.map(u =>
-                u.id === editingUsuario.id ? {
-                    ...u,
-                    ...formData,
-                    cargoNombre
-                } as Usuario : u
-            );
-            showSuccess('Usuario actualizado correctamente');
-        } else {
-            const newUsuario: Usuario = {
-                id: `user-${Date.now()}`,
-                ...(formData as Usuario),
-                cargoNombre,
-                createdAt: new Date().toISOString(),
-            };
-            updatedUsuarios.push(newUsuario);
-            showSuccess('Usuario creado correctamente');
-        }
-
-        updateMockUsuarios(updatedUsuarios);
-        setUsuarios(updatedUsuarios);
-        handleCloseDialog();
+        showError('La gestión de usuarios (crear/editar) no está disponible en la API actual.');
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm('¿Está seguro de eliminar este usuario?')) {
-            const updatedUsuarios = usuarios.filter(u => u.id !== id);
-            updateMockUsuarios(updatedUsuarios);
-            setUsuarios(updatedUsuarios);
-            showSuccess('Usuario eliminado correctamente');
-        }
+    const handleDelete = (_id?: string) => {
+        showError('La eliminación de usuarios no está disponible en la API actual.');
     };
 
     const columns: GridColDef[] = [
@@ -364,9 +263,12 @@ export default function UsuariosPage() {
             valueFormatter: (params) => {
                 const roles: Record<string, string> = {
                     'admin': 'Administrador',
+                    'supervisor': 'Supervisor de Riesgos',
+                    'gerente_general': 'Gerente General',
+                    'dueño_procesos': 'Dueño del Proceso',
+                    'dueno_procesos': 'Dueño del Proceso',
                     'manager': 'Gerente',
                     'analyst': 'Analista',
-                    'dueño_procesos': 'Dueño del Proceso',
                     'director_procesos': 'Director de Procesos'
                 };
                 return roles[params.value as string] || params.value as string;

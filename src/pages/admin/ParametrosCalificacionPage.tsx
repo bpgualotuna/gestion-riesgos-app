@@ -34,7 +34,8 @@ import {
 import SimpleCatalog from './SimpleCatalog';
 import ImpactosCatalog from './ImpactosCatalog';
 import AppDataGrid from '../../components/ui/AppDataGrid';
-import * as mockService from '../../api/services/mockData';
+import { useGetOrigenesQuery, useGetTiposRiesgosQuery, useGetConsecuenciasQuery, useGetFuentesQuery, useGetFrecuenciasQuery, useGetObjetivosQuery, useGetFormulasQuery, useUpdateFormulaMutation, useCreateFormulaMutation, useDeleteFormulaMutation } from '../../api/services/riesgosApi';
+import { getDescripcionesImpacto } from '../../api/catalogHelpers';
 import { TipoRiesgo, SubtipoRiesgo } from '../../types';
 import { DIMENSIONES_IMPACTO } from '../../utils/constants';
 
@@ -127,33 +128,47 @@ export default function ParametrosCalificacionPage() {
     const [searchCausas, setSearchCausas] = useState({ fuentes: '', frecuencias: '' });
     const [searchImpactos, setSearchImpactos] = useState('');
 
-    // States
-    const [origenes, setOrigenes] = useState(mockService.getMockOrigenes());
-    const [tiposRiesgo, setTiposRiesgo] = useState<TipoRiesgo[]>(mockService.getMockTiposRiesgos());
-    const [consecuencias, setConsecuencias] = useState(mockService.getMockConsecuencias());
-    const [fuentes, setFuentes] = useState(mockService.getMockFuentes());
-    const [frecuencias, setFrecuencias] = useState(mockService.getMockFrecuencias());
-    const [objetivos, setObjetivos] = useState(mockService.getMockObjetivos());
-    const [impactos, setImpactos] = useState(mockService.getDescripcionesImpacto());
-    const [formulas, setFormulas] = useState(mockService.getMockFormulas());
+    const { data: origenesData = [] } = useGetOrigenesQuery();
+    const { data: tiposRiesgoData = [] } = useGetTiposRiesgosQuery();
+    const { data: consecuenciasData = [] } = useGetConsecuenciasQuery();
+    const { data: fuentesData = [] } = useGetFuentesQuery();
+    const { data: frecuenciasData = [] } = useGetFrecuenciasQuery();
+    const { data: objetivosData = [] } = useGetObjetivosQuery();
+    const { data: impactosData = [] } = useGetImpactosQuery();
+    const { data: formulasData = [] } = useGetFormulasQuery();
+
+    const [origenes, setOrigenes] = useState<any[]>([]);
+    const [tiposRiesgo, setTiposRiesgo] = useState<TipoRiesgo[]>([]);
+    const [consecuencias, setConsecuencias] = useState<any[]>([]);
+    const [fuentes, setFuentes] = useState<any[]>([]);
+    const [frecuencias, setFrecuencias] = useState<any[]>([]);
+    const [objetivos, setObjetivos] = useState<any[]>([]);
+    const [impactos, setImpactos] = useState<Record<string, Record<number, string>>>({});
+    const [formulas, setFormulas] = useState<any[]>([]);
+
+    useEffect(() => { setOrigenes(Array.isArray(origenesData) ? origenesData : []); }, [origenesData]);
+    useEffect(() => { setTiposRiesgo((Array.isArray(tiposRiesgoData) ? tiposRiesgoData : []) as TipoRiesgo[]); }, [tiposRiesgoData]);
+    useEffect(() => { setConsecuencias(Array.isArray(consecuenciasData) ? consecuenciasData : []); }, [consecuenciasData]);
+    useEffect(() => { setFuentes(Array.isArray(fuentesData) ? fuentesData : []); }, [fuentesData]);
+    useEffect(() => { setFrecuencias(Array.isArray(frecuenciasData) ? frecuenciasData : []); }, [frecuenciasData]);
+    useEffect(() => { setObjetivos(Array.isArray(objetivosData) ? objetivosData : []); }, [objetivosData]);
+    useEffect(() => { setImpactos(getDescripcionesImpacto(Array.isArray(impactosData) ? impactosData : [])); }, [impactosData]);
+    useEffect(() => { setFormulas(Array.isArray(formulasData) ? formulasData : []); }, [formulasData]);
+
+    const noop = () => {};
+    const [updateFormula] = useUpdateFormulaMutation();
+    const [createFormula] = useCreateFormulaMutation();
+    const [deleteFormula] = useDeleteFormulaMutation();
     const [pesoDialogOpen, setPesoDialogOpen] = useState(false);
     const [pesoEditing, setPesoEditing] = useState<{ key: string; label: string; porcentaje: number } | null>(null);
-    const [impactoPesos, setImpactoPesos] = useState(() => {
-        const stored = localStorage.getItem('config_pesos_impacto');
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch {
-                // fall through to defaults
-            }
-        }
-        return DIMENSIONES_IMPACTO.map((d) => ({
+    const [impactoPesos, setImpactoPesos] = useState(() =>
+        DIMENSIONES_IMPACTO.map((d) => ({
             id: d.key,
             key: d.key,
             label: d.label,
             porcentaje: Math.round(d.peso * 100),
-        }));
-    });
+        }))
+    );
 
     const totalPeso = impactoPesos.reduce((acc: number, item: any) => acc + (Number(item.porcentaje) || 0), 0);
 
@@ -161,7 +176,7 @@ export default function ParametrosCalificacionPage() {
     useEffect(() => {
         const handleStorageChange = (e: StorageEvent) => {
             if (e.key === 'catalog_descripciones_impacto' || e.key === 'catalogos_impactos') {
-                const newImpactos = mockService.getDescripcionesImpacto();
+                const newImpactos = getDescripcionesImpacto(Array.isArray(impactosData) ? impactosData : []);
                 setImpactos(newImpactos);
             }
         };
@@ -243,14 +258,12 @@ export default function ParametrosCalificacionPage() {
             ? tiposRiesgo.map((t) => (t.codigo === item.codigo ? { ...t, ...itemGuardar } : t))
             : [...tiposRiesgo, itemGuardar];
         setTiposRiesgo(newList);
-        mockService.updateMockTiposRiesgos(newList);
     };
 
     const handleDeleteTiposRiesgo = (codigo: string) => {
         if (!window.confirm('¿Confirma eliminación?')) return;
         const newList = tiposRiesgo.filter((t) => t.codigo !== codigo);
         setTiposRiesgo(newList);
-        mockService.updateMockTiposRiesgos(newList);
     };
 
     // Filtered data for Riesgos sub-tabs
@@ -391,8 +404,8 @@ export default function ParametrosCalificacionPage() {
                                     { field: 'nombre', headerName: 'Nombre', flex: 1 }
                                 ]}
                                 defaultItem={{ codigo: '', nombre: '' }}
-                                onSave={createSaveHandler(origenes, setOrigenes, mockService.updateMockOrigenes)}
-                                onDelete={createDeleteHandler(origenes, setOrigenes, mockService.updateMockOrigenes)}
+                                onSave={createSaveHandler(origenes, setOrigenes, noop)}
+                                onDelete={createDeleteHandler(origenes, setOrigenes, noop)}
                             />
                         </TabPanel>
 
@@ -422,8 +435,8 @@ export default function ParametrosCalificacionPage() {
                             { field: 'nombre', headerName: 'Nombre', flex: 1 }
                         ]}
                         defaultItem={{ codigo: '', nombre: '' }}
-                        onSave={createSaveHandler(consecuencias, setConsecuencias, mockService.updateMockConsecuencias)}
-                        onDelete={createDeleteHandler(consecuencias, setConsecuencias, mockService.updateMockConsecuencias)}
+                        onSave={createSaveHandler(consecuencias, setConsecuencias, noop)}
+                        onDelete={createDeleteHandler(consecuencias, setConsecuencias, noop)}
                     />
                 </TabPanel>
 
@@ -464,7 +477,6 @@ export default function ParametrosCalificacionPage() {
                         tiposRiesgo={tiposRiesgo}
                         onSaveTiposRiesgo={(items) => {
                             setTiposRiesgo(items);
-                            mockService.updateMockTiposRiesgos(items);
                         }}
                     />
                 </TabPanel>
@@ -495,8 +507,8 @@ export default function ParametrosCalificacionPage() {
                             { field: 'descripcion', headerName: 'Descripción', flex: 1 }
                         ]}
                         defaultItem={{ codigo: '', descripcion: '' }}
-                        onSave={createSaveHandler(objetivos, setObjetivos, mockService.updateMockObjetivos)}
-                        onDelete={createDeleteHandler(objetivos, setObjetivos, mockService.updateMockObjetivos)}
+                        onSave={createSaveHandler(objetivos, setObjetivos, noop)}
+                        onDelete={createDeleteHandler(objetivos, setObjetivos, noop)}
                     />
                 </TabPanel>
                     </Box>
@@ -552,8 +564,8 @@ export default function ParametrosCalificacionPage() {
                             { field: 'nombre', headerName: 'Nombre', flex: 1 }
                         ]}
                         defaultItem={{ codigo: '', nombre: '' }}
-                        onSave={createSaveHandler(fuentes, setFuentes, mockService.updateMockFuentes)}
-                        onDelete={createDeleteHandler(fuentes, setFuentes, mockService.updateMockFuentes)}
+                        onSave={createSaveHandler(fuentes, setFuentes, noop)}
+                        onDelete={createDeleteHandler(fuentes, setFuentes, noop)}
                     />
                 </TabPanel>
 
@@ -584,8 +596,8 @@ export default function ParametrosCalificacionPage() {
                             { field: 'descripcion', headerName: 'Descripción', flex: 1 }
                         ]}
                         defaultItem={{ id: 0, frecuencia: '', descripcion: '' }}
-                        onSave={createSaveHandler(frecuencias, setFrecuencias as any, mockService.updateMockFrecuencias)}
-                        onDelete={createDeleteHandler(frecuencias, setFrecuencias as any, mockService.updateMockFrecuencias)}
+                        onSave={createSaveHandler(frecuencias, setFrecuencias as any, noop)}
+                        onDelete={createDeleteHandler(frecuencias, setFrecuencias as any, noop)}
                     />
                 </TabPanel>
             </TabPanel>
@@ -618,7 +630,7 @@ export default function ParametrosCalificacionPage() {
                         data={impactos}
                         onSave={(data) => {
                             setImpactos(data);
-                            mockService.updateDescripcionesImpacto(data);
+                            setImpactos(data);
                         }}
                     />
                 </TabPanel>
@@ -733,19 +745,23 @@ export default function ParametrosCalificacionPage() {
                             { field: 'formula', headerName: 'Fórmula', flex: 2 },
                         ]}
                         defaultItem={{ nombre: '', descripcion: '', formula: '', categoria: 'riesgo', activa: true }}
-                        onSave={(item) => {
-                            if (item.id) {
-                                const updated = mockService.updateMockFormula(item.id, item);
-                                setFormulas((prev) => prev.map((f) => (f.id === item.id ? updated : f)));
-                            } else {
-                                const created = mockService.createMockFormula(item);
-                                setFormulas((prev) => [...prev, created]);
-                            }
+                        onSave={async (item) => {
+                            try {
+                                if (item.id) {
+                                    const updated = await updateFormula({ id: item.id, ...item }).unwrap();
+                                    setFormulas((prev) => prev.map((f) => (f.id === item.id ? updated : f)));
+                                } else {
+                                    const created = await createFormula(item).unwrap();
+                                    setFormulas((prev) => [...prev, created]);
+                                }
+                            } catch { /* fallback: update local only */ setFormulas((prev) => item.id ? prev.map((f) => f.id === item.id ? { ...f, ...item } : f) : [...prev, { ...item, id: `formula-${Date.now()}` }]); }
                         }}
-                        onDelete={(id) => {
+                        onDelete={async (id) => {
                             if (!window.confirm('¿Confirma eliminación de la fórmula?')) return;
-                            mockService.deleteMockFormula(id);
-                            setFormulas((prev) => prev.filter((f) => f.id !== id));
+                            try {
+                                await deleteFormula(id).unwrap();
+                                setFormulas((prev) => prev.filter((f) => f.id !== id));
+                            } catch { setFormulas((prev) => prev.filter((f) => f.id !== id)); }
                         }}
                     />
                 </TabPanel>
@@ -834,7 +850,7 @@ export default function ParametrosCalificacionPage() {
                             if (!pesoEditing) return;
                             const next = impactoPesos.map((p) => (p.key === pesoEditing.key ? { ...p, porcentaje: pesoEditing.porcentaje } : p));
                             setImpactoPesos(next);
-                            localStorage.setItem('config_pesos_impacto', JSON.stringify(next));
+                            // Pesos en sesión (API no tiene endpoint)
                             setPesoDialogOpen(false);
                         }}
                     >

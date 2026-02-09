@@ -56,7 +56,7 @@ import OrigenRiesgosCard from '../../components/dashboard/OrigenRiesgosCard';
 import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos';
 import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
-import { getMockPlanesAccion, getMockIncidencias, getMockEstadisticas } from '../../api/services/mockData';
+import { useGetPlanesAccionQuery, useGetIncidenciasQuery } from '../../api/services/riesgosApi';
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
 import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor } from '../../hooks/useAsignaciones';
 
@@ -77,6 +77,8 @@ export default function DashboardSupervisorPage() {
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000 });
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery({});
+  const { data: planesAccion = [] } = useGetPlanesAccionQuery();
+  const { data: incidencias = [] } = useGetIncidenciasQuery();
 
   const todosLosRiesgos = riesgosData?.data || [];
   const todosLosProcesos = procesosData || [];
@@ -294,15 +296,8 @@ export default function DashboardSupervisorPage() {
     });
   }, [riesgosFiltrados, procesos, puntos]);
 
-  // Preparar datos para tabla de planes de acción - Usando servicio centralizado
-  const planesAccion = useMemo(() => {
-    return getMockPlanesAccion();
-  }, []);
-
-  // Preparar datos para incidencias - Usando servicio centralizado
-  const incidencias = useMemo(() => {
-    return getMockIncidencias();
-  }, []);
+  const planesParaTabla = Array.isArray(planesAccion) ? planesAccion : [];
+  const incidenciasParaCard = Array.isArray(incidencias) ? incidencias : [];
 
   // Solo supervisor de riesgos y dueño de procesos pueden acceder
   if (!esSupervisorRiesgos && !esDueñoProcesos) {

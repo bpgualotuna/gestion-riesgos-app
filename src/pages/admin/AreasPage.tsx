@@ -44,11 +44,7 @@ import { useNotification } from '../../hooks/useNotification';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { Area, CreateAreaDto, Usuario, Proceso } from '../../types';
-import {
-    getMockAreas, updateMockAreas,
-    getMockUsuarios, getMockProcesos
-} from '../../api/services/mockData';
-import { useBulkUpdateProcesosMutation } from '../../api/services/riesgosApi';
+import { useGetAreasQuery, useGetUsuariosQuery, useGetProcesosQuery, useBulkUpdateProcesosMutation, useGetAsignacionesGerenteQuery, useSaveAsignacionesGerenteMutation } from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
@@ -65,12 +61,16 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
 export default function AreasPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
+    const { data: areasData = [] } = useGetAreasQuery(undefined, { skip: !esAdmin });
+    const { data: usuariosData = [] } = useGetUsuariosQuery(undefined, { skip: !esAdmin });
+    const { data: procesosData = [] } = useGetProcesosQuery(undefined, { skip: !esAdmin });
     const [tabValue, setTabValue] = useState(0);
 
-    // Data States
-    const [areas, setAreas] = useState<Area[]>([]);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-    const [procesos, setProcesos] = useState<Proceso[]>([]);
+    const [bulkUpdateProcesos] = useBulkUpdateProcesosMutation();
+    const [saveAsignacionesGerente] = useSaveAsignacionesGerenteMutation();
+    const areas = Array.isArray(areasData) ? areasData : [];
+    const usuarios = Array.isArray(usuariosData) ? usuariosData : [];
+    const procesos = Array.isArray(procesosData) ? procesosData : [];
     const [searchAreas, setSearchAreas] = useState('');
     const [searchAssignments, setSearchAssignments] = useState('');
 
@@ -92,27 +92,34 @@ export default function AreasPage() {
     
     // Detectar si el usuario seleccionado es Gerente General
     const esGerenteGeneral = selectedUserForAssignment?.role === 'gerente_general';
+    const modoGerente = assignmentSubTab === 0 ? 'director' : 'proceso';
+    const { data: asignacionesGerente } = useGetAsignacionesGerenteQuery(
+        { usuarioId: selectedUserForAssignment?.id ?? '', modo: modoGerente },
+        { skip: !selectedUserForAssignment?.id || !esGerenteGeneral }
+    );
 
-    const getGerenteStorageKey = (modo: 'director' | 'proceso') => {
-        if (!selectedUserForAssignment) return `gg_${modo}_unknown`;
-        return `gg_${modo}_${selectedUserForAssignment.id}`;
-    };
-    
-    // Filtrar usuarios por rol
-    const usuariosFiltrados = useMemo(() => {
-        if (filtroRol === 'all') return usuarios;
-        return usuarios.filter(u => u.role === filtroRol);
-    }, [usuarios, filtroRol]);
+    // Asignaciones Gerente General: estado local sincronizado con API
+    const [pendingGerenteDirector, setPendingGerenteDirector] = useState<{ areaIds: string[]; procesoIds: string[] }>({ areaIds: [], procesoIds: [] });
+    const [pendingGerenteProceso, setPendingGerenteProceso] = useState<{ areaIds: string[]; procesoIds: string[] }>({ areaIds: [], procesoIds: [] });
+    const pendingGerente = assignmentSubTab === 0 ? pendingGerenteDirector : pendingGerenteProceso;
+    const setPendingGerente = assignmentSubTab === 0 ? setPendingGerenteDirector : setPendingGerenteProceso;
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (esGerenteGeneral && asignacionesGerente) {
+            const areaIds = (asignacionesGerente.areaIds ?? []).map(String).filter(Boolean);
+            const procesoIds = (asignacionesGerente.procesoIds ?? []).map(String).filter(Boolean);
+            const data = { areaIds, procesoIds };
+            if (assignmentSubTab === 0) setPendingGerenteDirector(data);
+            else setPendingGerenteProceso(data);
+        }
+    }, [esGerenteGeneral, asignacionesGerente, assignmentSubTab]);
+    
+    // Filtrar usuarios por rol (incluir dueno_procesos cuando se busca dueño_procesos)
+    const usuariosFiltrados = useMemo(() => {
+        if (filtroRol === 'all') return usuarios;
+        return usuarios.filter(u => u.role === filtroRol || (filtroRol === 'dueño_procesos' && u.role === 'dueno_procesos'));
+    }, [usuarios, filtroRol]);
 
-    const loadData = () => {
-        setAreas(getMockAreas());
-        setUsuarios(getMockUsuarios());
-        setProcesos(getMockProcesos());
-    };
 
     // Filtered data
     const filteredAreas = useMemo(() => {
@@ -163,49 +170,11 @@ export default function AreasPage() {
     };
 
     const handleSaveArea = () => {
-        if (!areaFormData.nombre.trim()) {
-            showError('El nombre del área es requerido');
-            return;
-        }
-
-        if (editingArea) {
-            const updatedList = areas.map((a) =>
-                a.id === editingArea.id
-                    ? {
-                        ...a,
-                        ...areaFormData,
-                        directorNombre: usuarios.find((u) => u.id === areaFormData.directorId)?.nombre,
-                        updatedAt: new Date().toISOString(),
-                    }
-                    : a
-            );
-            setAreas(updatedList);
-            updateMockAreas(updatedList);
-            showSuccess('Área actualizada correctamente');
-        } else {
-            const newArea: Area = {
-                id: `area-${Date.now()}`,
-                ...areaFormData,
-                directorNombre: usuarios.find((u) => u.id === areaFormData.directorId)?.nombre,
-                activo: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-            const updatedList = [...areas, newArea];
-            setAreas(updatedList);
-            updateMockAreas(updatedList);
-            showSuccess('Área creada correctamente');
-        }
-        handleCloseAreaDialog();
+        showError('La gestión de áreas (crear/editar) no está disponible en la API actual.');
     };
 
-    const handleDeleteArea = (areaId: string) => {
-        if (window.confirm('¿Está seguro de eliminar esta área?')) {
-            const updatedAreas = areas.filter((a) => a.id !== areaId);
-            setAreas(updatedAreas);
-            updateMockAreas(updatedAreas);
-            showSuccess('Área eliminada correctamente');
-        }
+    const handleDeleteArea = () => {
+        showError('La eliminación de áreas no está disponible en la API actual.');
     };
 
     const areaColumns: GridColDef[] = [
@@ -245,135 +214,86 @@ export default function AreasPage() {
     ];
 
     // ==========================================
-    // ASSIGNMENT LOGIC
+    // ASSIGNMENT LOGIC (sin localStorage - datos desde API)
     // ==========================================
+    const [pendingProcesos, setPendingProcesos] = useState<Proceso[]>([]);
+    useEffect(() => { setPendingProcesos(procesos); }, [procesos]);
+
+    const procesosParaAsignacion = pendingProcesos.length ? pendingProcesos : procesos;
+
     const handleProcessToggle = (procesoId: string, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
-
-        // Para Gerente General, guardar asignaciones separadas según el modo
         if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const currentAssignments = currentData.procesos || [];
-            
-            if (isChecked) {
-                if (!currentAssignments.includes(procesoId)) {
-                    currentAssignments.push(procesoId);
-                }
-            } else {
-                const index = currentAssignments.indexOf(procesoId);
-                if (index > -1) {
-                    currentAssignments.splice(index, 1);
-                }
-            }
-            
-            currentData.procesos = currentAssignments;
-            localStorage.setItem(storageKey, JSON.stringify(currentData));
-            // Force re-render
-            setProcesos([...procesos]);
-        } else {
-            // Usuario normal - actualizar responsableId
-            const updatedProcesos = procesos.map(p => {
-                if (p.id === procesoId) {
-                    return {
-                        ...p,
-                        responsableId: isChecked ? selectedUserForAssignment.id : '',
-                        responsableNombre: isChecked ? selectedUserForAssignment.nombre : ''
-                    };
-                }
-                return p;
-            });
-            setProcesos(updatedProcesos);
+            const id = String(procesoId);
+            setPendingGerente(prev => ({
+                ...prev,
+                procesoIds: isChecked ? [...prev.procesoIds, id] : prev.procesoIds.filter(x => x !== id),
+            }));
+            return;
         }
+        const updated = procesosParaAsignacion.map(p =>
+            p.id === procesoId
+                ? { ...p, responsableId: isChecked ? selectedUserForAssignment.id : '', responsableNombre: isChecked ? selectedUserForAssignment.nombre : '' }
+                : p
+        );
+        setPendingProcesos(updated);
     };
 
     const handleAreaToggle = (areaId: string, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
-
-        // Para Gerente General, guardar el área directamente
         if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const currentAreas = currentData.areas || [];
-            
-            if (isChecked) {
-                if (!currentAreas.includes(areaId)) {
-                    currentAreas.push(areaId);
-                }
-            } else {
-                const index = currentAreas.indexOf(areaId);
-                if (index > -1) {
-                    currentAreas.splice(index, 1);
-                }
-            }
-            
-            currentData.areas = currentAreas;
-            localStorage.setItem(storageKey, JSON.stringify(currentData));
-            // Force re-render
-            setProcesos([...procesos]);
-        } else {
-            // Usuario normal - actualizar responsableId
-            const updatedProcesos = procesos.map(p => {
-                if (p.areaId === areaId) {
-                    return {
-                        ...p,
-                        responsableId: isChecked ? selectedUserForAssignment.id : '',
-                        responsableNombre: isChecked ? selectedUserForAssignment.nombre : ''
-                    };
-                }
-                return p;
-            });
-            setProcesos(updatedProcesos);
+            const id = String(areaId);
+            setPendingGerente(prev => ({
+                ...prev,
+                areaIds: isChecked ? [...prev.areaIds, id] : prev.areaIds.filter(x => x !== id),
+            }));
+            return;
         }
+        const updated = procesosParaAsignacion.map(p =>
+            p.areaId === areaId
+                ? { ...p, responsableId: isChecked ? selectedUserForAssignment.id : '', responsableNombre: isChecked ? selectedUserForAssignment.nombre : '' }
+                : p
+        );
+        setPendingProcesos(updated);
     };
 
-    const [bulkUpdateProcesos] = useBulkUpdateProcesosMutation();
-
     const saveAssignments = async () => {
-        try {
-            // Para Gerente General, las asignaciones ya están en localStorage
-            if (!esGerenteGeneral) {
-                await bulkUpdateProcesos(procesos).unwrap();
+        if (esGerenteGeneral && selectedUserForAssignment) {
+            try {
+                await saveAsignacionesGerente({
+                    usuarioId: String(selectedUserForAssignment.id),
+                    modo: modoGerente,
+                    areaIds: pendingGerente.areaIds.map(String),
+                    procesoIds: pendingGerente.procesoIds.map(String),
+                }).unwrap();
+                showSuccess('Asignaciones de Gerente General guardadas correctamente');
+            } catch {
+                showError('Error al guardar asignaciones');
             }
+            return;
+        }
+        try {
+            await bulkUpdateProcesos(procesosParaAsignacion).unwrap();
             showSuccess('Asignaciones guardadas correctamente');
-        } catch (error) {
+        } catch {
             showError('Error al guardar asignaciones');
         }
     };
 
-    // Calculate derived states for checkboxes
     const getAreaState = (areaId: string) => {
         if (!selectedUserForAssignment) return { checked: false, indeterminate: false };
-        const areaProcesos = procesos.filter(p => p.areaId === areaId);
-        if (areaProcesos.length === 0) return { checked: false, indeterminate: false };
-
         if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const areasAsignadas = currentData.areas || [];
-            const procesosAsignados = currentData.procesos || [];
-            
-            // Si el área está asignada directamente, todos los procesos están checked
-            if (areasAsignadas.includes(areaId)) {
-                return { checked: true, indeterminate: false };
-            }
-            
-            // Si no, verificar procesos individuales
-            const allOwned = areaProcesos.every(p => procesosAsignados.includes(p.id));
-            const someOwned = areaProcesos.some(p => procesosAsignados.includes(p.id));
-            return {
-                checked: allOwned,
-                indeterminate: someOwned && !allOwned
-            };
+            const areaProcesos = procesos.filter(p => String(p.areaId) === String(areaId));
+            const checked = pendingGerente.areaIds.includes(String(areaId));
+            const someProcesosOwned = areaProcesos.some(p => pendingGerente.procesoIds.includes(String(p.id)));
+            const indeterminate = someProcesosOwned && !checked;
+            return { checked, indeterminate };
         }
-
+        const areaProcesos = procesosParaAsignacion.filter(p => p.areaId === areaId);
+        if (areaProcesos.length === 0) return { checked: false, indeterminate: false };
         const allOwned = areaProcesos.every(p => p.responsableId === selectedUserForAssignment.id);
         const someOwned = areaProcesos.some(p => p.responsableId === selectedUserForAssignment.id);
-
-        return {
-            checked: allOwned,
-            indeterminate: someOwned && !allOwned
-        };
+        return { checked: allOwned, indeterminate: someOwned && !allOwned };
     };
 
     return (
@@ -537,7 +457,7 @@ export default function AreasPage() {
                                     .filter(area => {
                                         if (!searchFilterAssignment) return true;
                                         const areaMatches = area.nombre.toLowerCase().includes(searchFilterAssignment.toLowerCase());
-                                        const areasProcesses = procesos.filter(p => p.areaId === area.id);
+                                        const areasProcesses = procesosParaAsignacion.filter(p => p.areaId === area.id);
                                         const processMatches = areasProcesses.some(p =>
                                             p.nombre.toLowerCase().includes(searchFilterAssignment.toLowerCase())
                                         );
@@ -574,17 +494,9 @@ export default function AreasPage() {
                                                     {areaProcesses.length > 0 ? (
                                                         <Box sx={{ pl: 4 }}>
                                                             {areaProcesses.map(proceso => {
-                                                                let isOwned;
-                                                                if (esGerenteGeneral) {
-                                                                    const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-                                                                    const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-                                                                    const areasAsignadas = currentData.areas || [];
-                                                                    const procesosAsignados = currentData.procesos || [];
-                                                                    // El proceso está asignado si está en la lista de procesos O si su área está asignada
-                                                                    isOwned = procesosAsignados.includes(proceso.id) || areasAsignadas.includes(proceso.areaId);
-                                                                } else {
-                                                                    isOwned = proceso.responsableId === selectedUserForAssignment.id;
-                                                                }
+                                                                const isOwned = esGerenteGeneral
+                                                                    ? pendingGerente.procesoIds.includes(String(proceso.id)) || pendingGerente.areaIds.includes(String(proceso.areaId))
+                                                                    : proceso.responsableId === selectedUserForAssignment.id;
                                                                 return (
                                                                     <Box key={proceso.id} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
                                                                         <FormControlLabel

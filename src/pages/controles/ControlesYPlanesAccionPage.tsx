@@ -44,7 +44,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
-import { getMockRiesgos } from '../../api/services/mockData';
+import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
 
 interface Control {
   id: string;
@@ -113,52 +113,14 @@ export default function ControlesYPlanesAccionPage() {
   const [controlSeleccionado, setControlSeleccionado] = useState<Control | null>(null);
   const [planSeleccionado, setPlanSeleccionado] = useState<PlanAccion | null>(null);
 
-  // Cargar riesgos del proceso
+  const { data: riesgosResponse } = useGetRiesgosQuery(
+    { procesoId: procesoSeleccionado?.id, pageSize: 500 },
+    { skip: !procesoSeleccionado?.id }
+  );
   const riesgosDelProceso = useMemo(() => {
-    if (!procesoSeleccionado?.id) return [];
-    const riesgosIdentificacion = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-    if (riesgosIdentificacion) {
-      try {
-        return JSON.parse(riesgosIdentificacion);
-      } catch (error) {
-        console.error('Error al cargar riesgos de identificación:', error);
-      }
-    }
-
-    const riesgosData = localStorage.getItem('riesgos');
-    const mockRiesgosResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
-    const riesgos = riesgosData ? JSON.parse(riesgosData) : mockRiesgosResponse.data;
-    return riesgos.filter((r: any) => r.procesoId === procesoSeleccionado.id) || [];
-  }, [procesoSeleccionado?.id]);
-
-  // Cargar controles y planes desde localStorage al montar
-  useEffect(() => {
-    if (procesoSeleccionado?.id) {
-      const controlesData = localStorage.getItem(`controles_${procesoSeleccionado.id}`);
-      if (controlesData) {
-        setControles(JSON.parse(controlesData));
-      }
-
-      const planesData = localStorage.getItem(`planes_${procesoSeleccionado.id}`);
-      if (planesData) {
-        setPlanesAccion(JSON.parse(planesData));
-      }
-    }
-  }, [procesoSeleccionado?.id]);
-
-  // Guardar controles en localStorage
-  useEffect(() => {
-    if (procesoSeleccionado?.id && controles.length > 0) {
-      localStorage.setItem(`controles_${procesoSeleccionado.id}`, JSON.stringify(controles));
-    }
-  }, [controles, procesoSeleccionado?.id]);
-
-  // Guardar planes en localStorage
-  useEffect(() => {
-    if (procesoSeleccionado?.id && planesAccion.length > 0) {
-      localStorage.setItem(`planes_${procesoSeleccionado.id}`, JSON.stringify(planesAccion));
-    }
-  }, [planesAccion, procesoSeleccionado?.id]);
+    const data = riesgosResponse?.data || [];
+    return Array.isArray(data) ? data : [];
+  }, [riesgosResponse]);
 
   // Formularios
   const [formControl, setFormControl] = useState<{

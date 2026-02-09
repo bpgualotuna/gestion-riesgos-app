@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Identificación y Calificación Page
  * Diseño de tres paneles: RIESGO, CAUSAS, IMPACTO
  */
@@ -50,22 +50,23 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { useCreateEvaluacionMutation, useUpdateRiesgoMutation } from '../../api/services/riesgosApi';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
 import {
-  getMockRiesgos,
-  getMockRiesgosTalentoHumano,
-  getMockTiposRiesgos,
-  getMockObjetivos,
-  getLabelsFrecuencia,
-  getFuentesCausa,
-  getDescripcionesImpacto,
-  getMockOrigenes,
-  getMockTiposProceso,
-  getMockConsecuencias,
-  getMockNivelesRiesgo,
-  getMockClasificacionesRiesgo,
-} from '../../api/services/mockData';
+  useCreateEvaluacionMutation,
+  useUpdateRiesgoMutation,
+  useGetRiesgosQuery,
+  useGetTiposRiesgosQuery,
+  useGetObjetivosQuery,
+  useGetFrecuenciasQuery,
+  useGetFuentesQuery,
+  useGetImpactosQuery,
+  useGetOrigenesQuery,
+  useGetTiposProcesoQuery,
+  useGetConsecuenciasQuery,
+  useGetNivelesRiesgoQuery,
+  useGetClasificacionesRiesgoQuery,
+} from '../../api/services/riesgosApi';
+import { getLabelsFrecuencia, getFuentesCausa, getDescripcionesImpacto } from '../../api/catalogHelpers';
+import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -159,99 +160,38 @@ export default function IdentificacionPage() {
   const [riesgos, setRiesgos] = useState<RiesgoFormData[]>([]);
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
 
-  const cargarRiesgosProceso = () => {
-    if (!procesoSeleccionado?.id) return [] as RiesgoFormData[];
-
-    const stored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-    if (stored) {
-      try {
-        return normalizarRiesgos(JSON.parse(stored));
-      } catch (e) {
-        console.error('Error al cargar riesgos desde localStorage:', e);
-      }
-    }
-
-    if (procesoSeleccionado.id === '1' || procesoSeleccionado.nombre?.includes('Talento Humano')) {
-      return normalizarRiesgos(getMockRiesgosTalentoHumano());
-    }
-
-    const mockResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
-    return normalizarRiesgos((mockResponse?.data || []) as RiesgoFormData[]);
-  };
+  const { data: riesgosApiData } = useGetRiesgosQuery(
+    { procesoId: procesoSeleccionado?.id, pageSize: 500 },
+    { skip: !procesoSeleccionado?.id }
+  );
 
   useEffect(() => {
-    const nuevosRiesgos = cargarRiesgosProceso();
-    setRiesgos(nuevosRiesgos);
+    const apiRiesgos = (riesgosApiData?.data || []) as RiesgoFormData[];
+    setRiesgos(normalizarRiesgos(apiRiesgos));
     setRiesgosExpandidos({});
-  }, [procesoSeleccionado?.id]);
+  }, [procesoSeleccionado?.id, riesgosApiData]);
 
-  // Guardar riesgos en localStorage cuando cambien
-  useEffect(() => {
-    if (procesoSeleccionado?.id && riesgos.length > 0) {
-      try {
-        localStorage.setItem(`riesgos_identificacion_${procesoSeleccionado.id}`, JSON.stringify(riesgos));
-      } catch (e) {
-        console.error('Error al guardar riesgos en localStorage:', e);
-      }
-    }
-  }, [riesgos, procesoSeleccionado?.id]);
+  const { data: tiposRiesgosData = [] } = useGetTiposRiesgosQuery();
+  const { data: objetivosData = [] } = useGetObjetivosQuery();
+  const { data: frecuenciasData = [] } = useGetFrecuenciasQuery();
+  const { data: fuentesData = [] } = useGetFuentesQuery();
+  const { data: impactosData = [] } = useGetImpactosQuery();
+  const { data: origenesData = [] } = useGetOrigenesQuery();
+  const { data: tiposProcesoData = [] } = useGetTiposProcesoQuery();
+  const { data: consecuenciasData = [] } = useGetConsecuenciasQuery();
+  const { data: nivelesRiesgoData = [] } = useGetNivelesRiesgoQuery();
+  const { data: clasificacionesData = [] } = useGetClasificacionesRiesgoQuery();
 
-  // Helper to load catalogs from localStorage (where admin saves changes) or mockData
-  const loadCatalogsFromStorage = () => {
-    try {
-      const storedTipos = localStorage.getItem('catalogos_tiposRiesgo');
-      const storedImpactos = localStorage.getItem('catalogos_impactos');
-      const storedObjetivos = localStorage.getItem('catalogos_objetivos');
-      const storedFrecuencias = localStorage.getItem('catalogos_frecuencias');
-      const storedOrigenes = localStorage.getItem('catalogos_origenes');
-
-      return {
-        tiposRiesgos: storedTipos ? JSON.parse(storedTipos) : getMockTiposRiesgos(),
-        impactos: storedImpactos ? JSON.parse(storedImpactos) : getDescripcionesImpacto(),
-        objetivos: storedObjetivos ? JSON.parse(storedObjetivos) : getMockObjetivos(),
-        frecuencias: storedFrecuencias ? JSON.parse(storedFrecuencias) : getLabelsFrecuencia(),
-        origenes: storedOrigenes ? JSON.parse(storedOrigenes) : getMockOrigenes(),
-      };
-    } catch (error) {
-      console.error('Error loading catalogs from storage:', error);
-      return {
-        tiposRiesgos: getMockTiposRiesgos(),
-        impactos: getDescripcionesImpacto(),
-        objetivos: getMockObjetivos(),
-        frecuencias: getLabelsFrecuencia(),
-        origenes: getMockOrigenes(),
-      };
-    }
-  };
-
-  // Catalog States
-  const catalogsFromStorage = loadCatalogsFromStorage();
-  const [tiposRiesgos, setTiposRiesgos] = useState(normalizarTiposRiesgos(catalogsFromStorage.tiposRiesgos));
-  const [objetivos, setObjetivos] = useState(catalogsFromStorage.objetivos);
-  const [labelsFrecuencia, setLabelsFrecuencia] = useState(catalogsFromStorage.frecuencias);
-  const [fuentesCausa, setFuentesCausa] = useState(getFuentesCausa());
-  const [origenes, setOrigenes] = useState(catalogsFromStorage.origenes);
-  const [tiposProceso, setTiposProceso] = useState(getMockTiposProceso());
-  const [consecuencias, setConsecuencias] = useState(getMockConsecuencias());
-  const [descripcionesImpacto, setDescripcionesImpacto] = useState(normalizarDescripcionesImpacto(catalogsFromStorage.impactos));
-  const [nivelesRiesgo, setNivelesRiesgo] = useState(getMockNivelesRiesgo());
-  const [clasificacionesRiesgo, setClasificacionesRiesgo] = useState(getMockClasificacionesRiesgo());
-
-  // Refresh catalogs on mount - listen for changes from admin
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const catalogs = loadCatalogsFromStorage();
-      setTiposRiesgos(normalizarTiposRiesgos(catalogs.tiposRiesgos));
-      setObjetivos(catalogs.objetivos);
-      setLabelsFrecuencia(catalogs.frecuencias);
-      setOrigenes(catalogs.origenes);
-      setDescripcionesImpacto(normalizarDescripcionesImpacto(catalogs.impactos));
-    };
-
-    // Listen for storage changes (admin updates)
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  const tiposRiesgos = normalizarTiposRiesgos(Array.isArray(tiposRiesgosData) ? tiposRiesgosData : []);
+  const objetivos = Array.isArray(objetivosData) ? objetivosData : [];
+  const labelsFrecuencia = getLabelsFrecuencia(Array.isArray(frecuenciasData) ? frecuenciasData : []);
+  const fuentesCausa = getFuentesCausa(Array.isArray(fuentesData) ? fuentesData : []);
+  const origenes = Array.isArray(origenesData) ? origenesData : [];
+  const tiposProceso = Array.isArray(tiposProcesoData) ? tiposProcesoData : [];
+  const consecuencias = Array.isArray(consecuenciasData) ? consecuenciasData : [];
+  const descripcionesImpacto = normalizarDescripcionesImpacto(getDescripcionesImpacto(Array.isArray(impactosData) ? impactosData : []));
+  const nivelesRiesgo = Array.isArray(nivelesRiesgoData) ? nivelesRiesgoData : [];
+  const clasificacionesRiesgo = Array.isArray(clasificacionesData) ? clasificacionesData : [];
 
   // Función para crear un nuevo riesgo vacío
   const crearNuevoRiesgo = (): RiesgoFormData => {
@@ -333,8 +273,7 @@ export default function IdentificacionPage() {
     frecuencia: number
   ): number => {
     // Obtener valor especial de la configuración
-    const storedFormula = localStorage.getItem('config_formula_especial');
-    const formulaEspecial = storedFormula ? JSON.parse(storedFormula) : { valorEspecial: 3.99 };
+    const formulaEspecial = { valorEspecial: 3.99 };
 
     // Caso especial: si ambos son 2, usar valor especial
     if (calificacionGlobalImpacto === 2 && frecuencia === 2) {
@@ -607,7 +546,7 @@ export default function IdentificacionPage() {
 
                       // Para este paso, refactorizaré para que coincida con la lógica de negocio centralizada.
                       const getNivelRiesgo = (calificacion: number): { nivel: string; color: string; bgColor: string } => {
-                        // TODO: Consumir de getMockNivelesRiesgo() o props
+                        // Usar nivelesRiesgo de la API
                         if (calificacion === 0) return { nivel: 'Sin Calificar', color: '#666', bgColor: '#f5f5f5' };
                         if (calificacion >= 20) return { nivel: 'CRÍTICO', color: '#fff', bgColor: '#d32f2f' };
                         if (calificacion >= 15) return { nivel: 'ALTO', color: '#fff', bgColor: '#f57c00' };

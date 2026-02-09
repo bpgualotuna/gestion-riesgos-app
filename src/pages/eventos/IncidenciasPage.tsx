@@ -45,7 +45,7 @@ import { useNotification } from '../../hooks/useNotification';
 import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
 import AppDataGrid from '../../../../shared/components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { getMockRiesgos } from '../../api/services/mockData';
+import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
 
 // Tipo de incidencia
 interface Incidencia {
@@ -103,34 +103,14 @@ export default function IncidenciasPage() {
 
   const puedeElegirSinProceso = esSupervisorRiesgos || esGerenteGeneralDirector;
 
-  // Riesgos disponibles (con causas de identificación)
+  const { data: riesgosResponse } = useGetRiesgosQuery(
+    { procesoId: procesoSeleccionado?.id, pageSize: 500 },
+    { skip: false }
+  );
   const riesgosDisponibles = useMemo(() => {
-    if (puedeElegirSinProceso) {
-      const riesgosData = localStorage.getItem('riesgos');
-      if (riesgosData) {
-        try {
-          return JSON.parse(riesgosData);
-        } catch (error) {
-          console.error('Error al cargar riesgos:', error);
-        }
-      }
-      const mockResponse = getMockRiesgos();
-      return mockResponse.data || [];
-    }
-
-    if (!procesoSeleccionado?.id) return [];
-    const riesgosIdent = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-    if (riesgosIdent) {
-      try {
-        return JSON.parse(riesgosIdent);
-      } catch (error) {
-        console.error('Error al cargar riesgos de identificación:', error);
-      }
-    }
-
-    const mockResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
-    return mockResponse.data || [];
-  }, [procesoSeleccionado?.id, puedeElegirSinProceso]);
+    const data = riesgosResponse?.data || [];
+    return Array.isArray(data) ? data : [];
+  }, [riesgosResponse]);
 
   const causasDelRiesgo = useMemo(() => {
     if (!formData.riesgoId) return [];
@@ -257,30 +237,8 @@ export default function IncidenciasPage() {
 
       setIncidencias((prev) => [...prev, nuevaIncidencia]);
 
-      // Crear/Anclar plan de acción
-      const planesKey = `planes_${procesoSeleccionado.id}`;
-      const planesData = localStorage.getItem(planesKey);
-      const planesExistentes = planesData ? JSON.parse(planesData) : [];
-
-      const nuevoPlan = {
-        id: planId,
-        procesoId: procesoSeleccionado.id,
-        incidenciaId: incidenciaId,
-        riesgoId: formData.riesgoId,
-        riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-        causaId: formData.causaId,
-        causaNombre: causaSeleccionada?.descripcion,
-        descripcion: formData.descripcion,
-        responsable: planData.responsable,
-        decision: planData.decision,
-        fechaEstimada: planData.fechaEstimada,
-        estado: 'pendiente',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem(planesKey, JSON.stringify([...planesExistentes, nuevoPlan]));
-      showSuccess('Incidencia creada y plan de acción anclado');
+      // Plan de acción: la API no tiene endpoint para crear planes por incidencia
+      showSuccess('Incidencia registrada (los planes de acción requieren soporte en el backend)');
     }
 
     handleCerrarDialog();

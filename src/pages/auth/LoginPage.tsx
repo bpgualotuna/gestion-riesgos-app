@@ -28,11 +28,18 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
-import { getMockUsuarios } from '../../api/services/mockData';
+
+// Usuarios de prueba predefinidos (coinciden con la base de datos)
+const USUARIOS_PRUEBA = [
+    { nombre: 'Andrés Martínez', role: 'admin', username: 'admin', password: 'admin123' },
+    { nombre: 'Carlos Rodríguez', role: 'supervisor', username: 'supervisor', password: 'supervisor123' },
+    { nombre: 'Juan José Maldonado', role: 'gerente_general', username: 'gerente_general', password: 'gerente123' },
+    { nombre: 'Marco Alvarado', role: 'dueño_procesos', username: 'dueno_procesos', password: 'dueno123' },
+];
 
 export default function LoginPage() {
     const navigate = useNavigate();
-    const { login, user } = useAuth();
+    const { login } = useAuth();
 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -256,57 +263,50 @@ export default function LoginPage() {
                     </Divider>
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {getMockUsuarios()
-                            .filter(u => u.password) // Solo mostrar usuarios con contraseña configurada (demo)
-                            .filter((u, idx, arr) => {
-                                // Mostrar solo un usuario por cada rol principal
-                                const roles = ['admin', 'supervisor', 'gerente_general', 'dueño_procesos'];
-                                return roles.includes(u.role) && arr.findIndex(user => user.role === u.role) === idx;
-                            })
-                            .map((usuario) => (
-                                <Button
-                                    key={usuario.id}
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={() => handleDemoLogin(usuario.role || usuario.email?.split('@')[0] || '', usuario.password || '')}
-                                    disabled={isLoading}
-                                    sx={{
-                                        justifyContent: 'flex-start',
-                                        textTransform: 'none',
+                        {USUARIOS_PRUEBA.map((usuario) => (
+                            <Button
+                                key={usuario.role}
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleDemoLogin(usuario.username, usuario.password)}
+                                disabled={isLoading}
+                                sx={{
+                                    justifyContent: 'flex-start',
+                                    textTransform: 'none',
+                                    borderColor:
+                                        usuario.role === 'admin' ? '#d32f2f' :
+                                            usuario.role === 'supervisor' ? '#1976d2' :
+                                                usuario.role === 'gerente_general' ? '#9c27b0' :
+                                                    '#c8d900',
+                                    color:
+                                        usuario.role === 'admin' ? '#d32f2f' :
+                                            usuario.role === 'supervisor' ? '#1976d2' :
+                                                usuario.role === 'gerente_general' ? '#9c27b0' :
+                                                    '#c8d900',
+                                    '&:hover': {
                                         borderColor:
-                                            usuario.role === 'admin' ? '#d32f2f' :
-                                                usuario.role === 'supervisor' ? '#1976d2' :
-                                                    usuario.role === 'gerente_general' ? '#9c27b0' :
-                                                        '#c8d900', // Default / dueño_procesos
-                                        color:
-                                            usuario.role === 'admin' ? '#d32f2f' :
-                                                usuario.role === 'supervisor' ? '#1976d2' :
-                                                    usuario.role === 'gerente_general' ? '#9c27b0' :
-                                                        '#c8d900',
-                                        '&:hover': {
-                                            borderColor:
-                                                usuario.role === 'admin' ? '#c62828' :
-                                                    usuario.role === 'supervisor' ? '#1565c0' :
-                                                        usuario.role === 'gerente_general' ? '#7b1fa2' :
-                                                            '#b8c900',
-                                            backgroundColor:
-                                                usuario.role === 'admin' ? 'rgba(211, 47, 47, 0.08)' :
-                                                    usuario.role === 'supervisor' ? 'rgba(25, 118, 210, 0.08)' :
-                                                        usuario.role === 'gerente_general' ? 'rgba(156, 39, 176, 0.08)' :
-                                                            'rgba(200, 217, 0, 0.08)',
-                                        },
-                                    }}
-                                >
-                                    <Box sx={{ textAlign: 'left', width: '100%' }}>
-                                        <Typography variant="body2" fontWeight={600}>
-                                            {usuario.nombre} - {usuario.role} / {usuario.password}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {usuario.cargoNombre || usuario.role}
-                                        </Typography>
-                                    </Box>
-                                </Button>
-                            ))}
+                                            usuario.role === 'admin' ? '#c62828' :
+                                                usuario.role === 'supervisor' ? '#1565c0' :
+                                                    usuario.role === 'gerente_general' ? '#7b1fa2' :
+                                                        '#b8c900',
+                                        backgroundColor:
+                                            usuario.role === 'admin' ? 'rgba(211, 47, 47, 0.08)' :
+                                                usuario.role === 'supervisor' ? 'rgba(25, 118, 210, 0.08)' :
+                                                    usuario.role === 'gerente_general' ? 'rgba(156, 39, 176, 0.08)' :
+                                                        'rgba(200, 217, 0, 0.08)',
+                                    },
+                                }}
+                            >
+                                <Box sx={{ textAlign: 'left', width: '100%' }}>
+                                    <Typography variant="body2" fontWeight={600}>
+                                        {usuario.nombre} - {usuario.role}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {usuario.username} / {usuario.password}
+                                    </Typography>
+                                </Box>
+                            </Button>
+                        ))}
                     </Box>
 
                     {/* Footer */}

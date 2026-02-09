@@ -1,12 +1,11 @@
 /**
  * Authentication Context
- * Manages user authentication state with hardcoded users
+ * Manages user authentication state - usuarios desde API
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getMockUsuarios } from '../api/services/mockData';
-// User roles matching mockData
-export type UserRole = 'admin' | 'dueño_procesos' | 'supervisor' | 'gerente_general';
+import { createContext, useContext, useState, ReactNode } from 'react';
+import { API_BASE_URL } from '../utils/constants';
+export type UserRole = 'admin' | 'dueño_procesos' | 'dueno_procesos' | 'supervisor' | 'gerente_general';
 export type GerenteGeneralModo = 'director' | 'proceso';
 
 // User interface
@@ -23,8 +22,6 @@ export interface User {
   esDuenoProcesos?: boolean; // Indica si es dueño de procesos
 }
 
-// Hardcoded users database removed in favor of mockData
-// const USERS_DB = ...
 
 // Auth context interface
 interface AuthContextType {
@@ -69,32 +66,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return null;
   });
 
-  // Login function
+  // Login function - usa endpoint POST /api/auth/login
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
 
-    // Obtener usuarios frescos del mockData (que puede venir de localStorage)
-    const currentUsers = getMockUsuarios();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Usuario o contraseña incorrectos' };
+      }
 
-    // Buscar usuario por username (o email para compatibilidad) y contraseña
-    const foundUser = currentUsers.find(
-      u => (u.email?.split('@')[0] === username || u.role === username) && u.password === password
-    );
+      const apiUser = data.user;
+      if (!apiUser) {
+        return { success: false, error: 'Error en la respuesta del servidor' };
+      }
 
-    if (foundUser) {
-      // Map mockUser to Context User format if needed, though they are similar
+      const roleNormalized = apiUser.role === 'dueno_procesos' ? 'dueño_procesos' : apiUser.role;
       const contextUser: User = {
-        id: foundUser.id,
-        username: foundUser.role || foundUser.nombre, // Fallback
-        email: foundUser.email || '',
-        fullName: foundUser.nombre,
-        role: foundUser.role as UserRole, // Cast assuming roles match
-        department: foundUser.cargoNombre || 'General', // Map cargo to department/position
-        position: foundUser.cargoNombre || foundUser.role || 'Usuario',
-        esDuenoProcesos: foundUser.role === 'dueño_procesos',
+        id: String(apiUser.id),
+        username: apiUser.username || apiUser.fullName,
+        email: apiUser.email || '',
+        fullName: apiUser.fullName || apiUser.nombre,
+        role: roleNormalized as UserRole,
+        department: apiUser.department || 'General',
+        position: apiUser.position || apiUser.role || 'Usuario',
+        esDuenoProcesos: roleNormalized === 'dueño_procesos',
       };
-
       setUser(contextUser);
       localStorage.setItem('currentUser', JSON.stringify(contextUser));
       if (contextUser.role === 'gerente_general') {
@@ -102,12 +103,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('gerenteGeneralMode');
       }
       return { success: true };
+    } catch (err) {
+      return { success: false, error: 'Error al conectar con el servidor' };
     }
-
-    return {
-      success: false,
-      error: 'Usuario o contraseña incorrectos'
-    };
   };
 
   // Logout function

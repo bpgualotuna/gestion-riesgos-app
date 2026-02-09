@@ -32,14 +32,8 @@ import {
     Fuente,
     Objetivo
 } from '../../types';
-import { 
-    getMockTiposRiesgos, 
-    getMockImpactos, 
-    getMockObjetivos, 
-    getMockFrecuencias,
-    updateDescripcionesImpacto,
-    getDescripcionesImpacto
-} from '../../api/services/mockData';
+import { useGetTiposRiesgosQuery, useGetImpactosQuery, useGetObjetivosQuery, useGetFrecuenciasQuery, useGetFuentesQuery, useGetOrigenesQuery } from '../../api/services/riesgosApi';
+import { getDescripcionesImpacto } from '../../api/catalogHelpers';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -82,61 +76,27 @@ export default function CatalogosIdentificacion() {
     const [zonas, setZonas] = useState<any[]>([]);
     const [origenes, setOrigenes] = useState<any[]>([]);
 
-    // Cargar datos del localStorage al montar
-    useEffect(() => {
-        loadCatalogs();
-    }, []);
+    const { data: tiposRiesgoData = [] } = useGetTiposRiesgosQuery();
+    const { data: impactosData = [] } = useGetImpactosQuery();
+    const { data: objetivosData = [] } = useGetObjetivosQuery();
+    const { data: frecuenciasData = [] } = useGetFrecuenciasQuery();
+    const { data: fuentesData = [] } = useGetFuentesQuery();
+    const { data: origenesData = [] } = useGetOrigenesQuery();
 
-    const loadCatalogs = () => {
-        try {
-            // Cargar desde localStorage o valores por defecto desde mockData
-            const storedTiposRiesgo = localStorage.getItem('catalogos_tiposRiesgo');
-            const storedImpactos = localStorage.getItem('catalogos_impactos');
-            const storedVicepresidencias = localStorage.getItem('catalogos_vicepresidencias');
-            const storedGerencias = localStorage.getItem('catalogos_gerencias');
-            const storedFrecuencias = localStorage.getItem('catalogos_frecuencias');
-            const storedFuentes = localStorage.getItem('catalogos_fuentes');
-            const storedObjetivos = localStorage.getItem('catalogos_objetivos');
-            const storedZonas = localStorage.getItem('catalogos_zonas');
-            const storedOrigenes = localStorage.getItem('catalogos_origenes');
-
-            // Usar mockData como valores por defecto si no hay datos en localStorage
-            setTiposRiesgo(storedTiposRiesgo ? JSON.parse(storedTiposRiesgo) : getMockTiposRiesgos());
-            setImpactos(storedImpactos ? JSON.parse(storedImpactos) : getDescripcionesImpacto());
-            setObjetivos(storedObjetivos ? JSON.parse(storedObjetivos) : getMockObjetivos());
-            setFrecuencias(storedFrecuencias ? JSON.parse(storedFrecuencias) : getMockFrecuencias());
-            
-            if (storedVicepresidencias) setVicepresidencias(JSON.parse(storedVicepresidencias));
-            if (storedGerencias) setGerencias(JSON.parse(storedGerencias));
-            if (storedFuentes) setFuentes(JSON.parse(storedFuentes));
-            if (storedZonas) setZonas(JSON.parse(storedZonas));
-            if (storedOrigenes) setOrigenes(JSON.parse(storedOrigenes));
-        } catch (error) {
-            console.error('Error loading catalogs:', error);
-            // En caso de error, cargar valores por defecto
-            setTiposRiesgo(getMockTiposRiesgos());
-            setImpactos(getDescripcionesImpacto());
-            setObjetivos(getMockObjetivos());
-            setFrecuencias(getMockFrecuencias());
-        }
-    };
+    useEffect(() => { setTiposRiesgo((Array.isArray(tiposRiesgoData) ? tiposRiesgoData : []) as TipoRiesgo[]); }, [tiposRiesgoData]);
+    useEffect(() => { setImpactos(getDescripcionesImpacto(Array.isArray(impactosData) ? impactosData : [])); }, [impactosData]);
+    useEffect(() => { setObjetivos(Array.isArray(objetivosData) ? objetivosData : []); }, [objetivosData]);
+    useEffect(() => { setFrecuencias(Array.isArray(frecuenciasData) ? frecuenciasData : []); }, [frecuenciasData]);
+    useEffect(() => { setFuentes(Array.isArray(fuentesData) ? fuentesData : []); }, [fuentesData]);
+    useEffect(() => { setOrigenes(Array.isArray(origenesData) ? origenesData : []); }, [origenesData]);
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setCurrentTab(newValue);
     };
 
     // Handlers para guardar cada catálogo
-    const handleSaveTiposRiesgo = (items: TipoRiesgo[]) => {
-        setTiposRiesgo(items);
-        localStorage.setItem('catalogos_tiposRiesgo', JSON.stringify(items));
-    };
-
-    const handleSaveImpactos = (items: Record<string, Record<number, string>>) => {
-        setImpactos(items);
-        localStorage.setItem('catalogos_impactos', JSON.stringify(items));
-        // Also sync with mockData to ensure ParametrosCalificacionPage gets the updates
-        updateDescripcionesImpacto(items);
-    };
+    const handleSaveTiposRiesgo = (items: TipoRiesgo[]) => setTiposRiesgo(items);
+    const handleSaveImpactos = (items: Record<string, Record<number, string>>) => setImpactos(items);
 
     const handleSaveVicepresidencia = (item: Vicepresidencia) => {
         let newData = [...vicepresidencias];
@@ -148,14 +108,12 @@ export default function CatalogosIdentificacion() {
             newData.push(item);
         }
         setVicepresidencias(newData);
-        localStorage.setItem('catalogos_vicepresidencias', JSON.stringify(newData));
     };
 
     const handleDeleteVicepresidencia = (id: string) => {
         if (window.confirm('¿Está seguro de eliminar esta vicepresidencia?')) {
             const newData = vicepresidencias.filter(v => v.id !== id);
             setVicepresidencias(newData);
-            localStorage.setItem('catalogos_vicepresidencias', JSON.stringify(newData));
         }
     };
 
@@ -169,14 +127,12 @@ export default function CatalogosIdentificacion() {
             newData.push(item);
         }
         setGerencias(newData);
-        localStorage.setItem('catalogos_gerencias', JSON.stringify(newData));
     };
 
     const handleDeleteGerencia = (id: string) => {
         if (window.confirm('¿Está seguro de eliminar esta gerencia?')) {
             const newData = gerencias.filter(g => g.id !== id);
             setGerencias(newData);
-            localStorage.setItem('catalogos_gerencias', JSON.stringify(newData));
         }
     };
 
@@ -190,14 +146,12 @@ export default function CatalogosIdentificacion() {
             newData.push(item);
         }
         setZonas(newData);
-        localStorage.setItem('catalogos_zonas', JSON.stringify(newData));
     };
 
     const handleDeleteZona = (id: string) => {
         if (window.confirm('¿Está seguro de eliminar esta zona?')) {
             const newData = zonas.filter(z => z.id !== id);
             setZonas(newData);
-            localStorage.setItem('catalogos_zonas', JSON.stringify(newData));
         }
     };
 
@@ -211,14 +165,12 @@ export default function CatalogosIdentificacion() {
             newData.push(item);
         }
         setOrigenes(newData);
-        localStorage.setItem('catalogos_origenes', JSON.stringify(newData));
     };
 
     const handleDeleteOrigen = (id: string) => {
         if (window.confirm('¿Está seguro de eliminar este origen?')) {
             const newData = origenes.filter(o => o.id !== id);
             setOrigenes(newData);
-            localStorage.setItem('catalogos_origenes', JSON.stringify(newData));
         }
     };
 

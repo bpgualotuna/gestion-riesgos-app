@@ -146,8 +146,8 @@ export const ROUTES = {
   ADMIN_MAPA_CONFIG: '/admin/configuracion-mapa',
 } as const;
 
-// API Base URL (configurar según entorno)
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// API Base URL - API real desplegada en Render
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://apicomware.onrender.com';
 
 // Configuración de Paginación
 export const PAGINATION = {

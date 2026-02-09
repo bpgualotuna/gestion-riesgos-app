@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetPriorizacionesQuery, useCreatePriorizacionMutation } from '../../api/services/riesgosApi';
-import { getMockUsuarios } from '../../api/services/mockData';
+import { useGetUsuariosQuery } from '../../api/services/riesgosApi';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { getRiskColor } from '../../app/theme/colors';
 import { RESPUESTAS_RIESGO, type RespuestaRiesgo } from '../../utils/constants';
@@ -38,7 +38,8 @@ export default function PriorizaciónPage() {
   const { data: priorizaciones, isLoading } = useGetPriorizacionesQuery();
   const [createPriorización, { isLoading: isSaving }] = useCreatePriorizacionMutation();
   const { showSuccess, showError } = useNotification();
-  const [usuarios] = useState(getMockUsuarios());
+  const { data: usuariosData = [] } = useGetUsuariosQuery();
+  const usuarios = Array.isArray(usuariosData) ? usuariosData : [];
 
   const [díalogOpen, setDialogOpen] = useState(false);
   const [selectedPriorización, setSelectedPriorización] = useState<PriorizacionRiesgo | null>(null);

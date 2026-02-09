@@ -18,25 +18,20 @@ import { Save as SaveIcon } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import type { Proceso, Usuario } from '../../types';
-import {
-    getMockUsuarios,
-    getMockProcesos, updateMockProceso
-} from '../../api/services/mockData';
+import { useGetUsuariosQuery, useGetProcesosQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 
 export default function PermisosPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
-
-    const [procesos, setProcesos] = useState<Proceso[]>([]);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+    const { data: procesosData = [] } = useGetProcesosQuery(undefined, { skip: !esAdmin });
+    const { data: usuariosData = [] } = useGetUsuariosQuery(undefined, { skip: !esAdmin });
+    const [updateProceso] = useUpdateProcesoMutation();
+    const procesos = Array.isArray(procesosData) ? procesosData : [];
+    const usuarios = Array.isArray(usuariosData) ? usuariosData : [];
 
     const [procesoId, setProcesoId] = useState<string>('');
     const [puedeCrear, setPuedeCrear] = useState<string[]>([]);
 
-    useEffect(() => {
-        setProcesos(getMockProcesos());
-        setUsuarios(getMockUsuarios());
-    }, []);
 
     // Update selection when process changes
     useEffect(() => {
@@ -60,20 +55,16 @@ export default function PermisosPage() {
         );
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!procesoId) {
             showError('Debe seleccionar un proceso');
             return;
         }
-
-        const procesoToUpdate = procesos.find(p => p.id === procesoId);
-        if (procesoToUpdate) {
-            updateMockProceso(procesoToUpdate.id, {
-                puedeCrear: puedeCrear
-            });
-            // Update local state
-            setProcesos(getMockProcesos());
+        try {
+            await updateProceso({ id: procesoId, puedeCrear }).unwrap();
             showSuccess('Permisos de creación actualizados correctamente');
+        } catch {
+            showError('Error al actualizar permisos');
         }
     };
 

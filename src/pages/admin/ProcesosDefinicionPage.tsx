@@ -37,7 +37,7 @@ import {
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Proceso } from '../../types';
-import { getMockProcesos, updateMockProcesos, getMockTiposProceso } from '../../api/services/mockData';
+import { useGetProcesosQuery, useGetTiposProcesoQuery, useCreateProcesoMutation, useUpdateProcesoMutation, useDeleteProcesoMutation } from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import Grid2 from '../../utils/Grid2';
@@ -71,9 +71,14 @@ function TabPanel(props: TabPanelProps) {
 export default function ProcesosDefinicionPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
+    const { data: procesosData = [], refetch: refetchProcesos } = useGetProcesosQuery(undefined, { skip: !esAdmin });
+    const { data: tiposProcesoData = [] } = useGetTiposProcesoQuery(undefined, { skip: !esAdmin });
+    const [createProceso] = useCreateProcesoMutation();
+    const [updateProceso] = useUpdateProcesoMutation();
+    const [deleteProceso] = useDeleteProcesoMutation();
     const [currentTab, setCurrentTab] = useState(0);
-    const [procesos, setProcesos] = useState<Proceso[]>([]);
-    const [tiposProceso, setTiposProceso] = useState<any[]>([]);
+    const procesos = Array.isArray(procesosData) ? procesosData : [];
+    const tiposProceso = Array.isArray(tiposProcesoData) ? tiposProcesoData : [];
     const [searchProcesos, setSearchProcesos] = useState('');
     const [searchTipos, setSearchTipos] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,13 +101,8 @@ export default function ProcesosDefinicionPage() {
         descripcion: '',
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = () => {
-        setProcesos(getMockProcesos());
-        setTiposProceso(getMockTiposProceso());
+        refetchProcesos();
     };
 
     // Filtered data
@@ -203,72 +203,44 @@ export default function ProcesosDefinicionPage() {
                 t.id === editingTipo.id ? { ...t, ...tipoFormData } : t
             );
             showSuccess('Tipo de Proceso actualizado correctamente');
-        } else {
-            const newTipo = {
-                id: Math.max(...tiposProceso.map(t => t.id || 0), 0) + 1,
-                ...tipoFormData,
-            };
-            updatedTipos.push(newTipo);
-            showSuccess('Tipo de Proceso creado correctamente');
         }
-
-        localStorage.setItem('catalog_tiposProceso', JSON.stringify(updatedTipos));
-        setTiposProceso(updatedTipos);
+        // Tipos de proceso: catálogo de solo lectura desde API
+        showSuccess('Los tipos de proceso se gestionan desde la API. Los cambios locales no se persisten.');
         handleCloseTipoDialog();
     };
 
     const handleDeleteTipo = (id: number) => {
-        if (window.confirm('¿Está seguro de eliminar este Tipo de Proceso?')) {
-            const updatedTipos = tiposProceso.filter(t => t.id !== id);
-            localStorage.setItem('catalog_tiposProceso', JSON.stringify(updatedTipos));
-            setTiposProceso(updatedTipos);
-            showSuccess('Tipo de Proceso eliminado correctamente');
-        }
+        showError('Los tipos de proceso son de solo lectura. No se pueden eliminar desde esta interfaz.');
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.nombre) {
             showError('El nombre es requerido');
             return;
         }
-
-        let updatedProcesos = [...procesos];
-
-        if (editingProceso) {
-            updatedProcesos = updatedProcesos.map(p =>
-                p.id === editingProceso.id ? { ...p, ...formData } as Proceso : p
-            );
-            showSuccess('Proceso actualizado correctamente');
-        } else {
-            const newProceso: Proceso = {
-                id: `proc-${Date.now()}`,
-                ...(formData as Proceso),
-                estado: 'borrador', // Default state
-                puedeCrear: [],
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                responsableId: '',
-                responsableNombre: '',
-                areaId: '',
-                areaNombre: '',
-                directorId: '',
-                directorNombre: '',
-            } as Proceso;
-            updatedProcesos.push(newProceso);
-            showSuccess('Proceso creado correctamente');
+        try {
+            if (editingProceso) {
+                await updateProceso({ id: editingProceso.id, ...formData }).unwrap();
+                showSuccess('Proceso actualizado correctamente');
+            } else {
+                await createProceso(formData as Parameters<typeof createProceso>[0]).unwrap();
+                showSuccess('Proceso creado correctamente');
+            }
+            refetchProcesos();
+            handleCloseDialog();
+        } catch (err: any) {
+            showError(err?.data?.message || err?.message || 'Error al guardar proceso');
         }
-
-        updateMockProcesos(updatedProcesos);
-        setProcesos(updatedProcesos);
-        handleCloseDialog();
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm('¿Está seguro de eliminar este proceso?')) {
-            const updatedProcesos = procesos.filter(p => p.id !== id);
-            updateMockProcesos(updatedProcesos);
-            setProcesos(updatedProcesos);
+    const handleDelete = async (id: string) => {
+        if (!window.confirm('¿Está seguro de eliminar este proceso?')) return;
+        try {
+            await deleteProceso(id).unwrap();
             showSuccess('Proceso eliminado correctamente');
+            refetchProcesos();
+        } catch (err: any) {
+            showError(err?.data?.message || err?.message || 'Error al eliminar proceso');
         }
     };
 
