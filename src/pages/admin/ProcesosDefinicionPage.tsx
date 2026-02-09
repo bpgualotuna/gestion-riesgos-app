@@ -78,8 +78,10 @@ export default function ProcesosDefinicionPage() {
     const [searchTipos, setSearchTipos] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingProceso, setEditingProceso] = useState<Proceso | null>(null);
+    const [isViewProceso, setIsViewProceso] = useState(false);
     const [tipoDialogOpen, setTipoDialogOpen] = useState(false);
     const [editingTipo, setEditingTipo] = useState<any | null>(null);
+    const [isViewTipo, setIsViewTipo] = useState(false);
     const [formData, setFormData] = useState<Partial<Proceso>>({
         nombre: '',
         descripcion: '',
@@ -128,7 +130,7 @@ export default function ProcesosDefinicionPage() {
         );
     }
 
-    const handleOpenDialog = (proceso?: Proceso) => {
+    const handleOpenDialog = (proceso?: Proceso, mode: 'view' | 'edit' = 'edit') => {
         if (proceso) {
             setEditingProceso(proceso);
             setFormData({
@@ -140,8 +142,10 @@ export default function ProcesosDefinicionPage() {
                 tipoProceso: proceso.tipoProceso,
                 activo: proceso.activo,
             });
+            setIsViewProceso(mode === 'view');
         } else {
             setEditingProceso(null);
+            setIsViewProceso(false);
             setFormData({
                 nombre: '',
                 descripcion: '',
@@ -158,17 +162,20 @@ export default function ProcesosDefinicionPage() {
     const handleCloseDialog = () => {
         setDialogOpen(false);
         setEditingProceso(null);
+        setIsViewProceso(false);
     };
 
-    const handleOpenTipoDialog = (tipo?: any) => {
+    const handleOpenTipoDialog = (tipo?: any, mode: 'view' | 'edit' = 'edit') => {
         if (tipo) {
             setEditingTipo(tipo);
             setTipoFormData({
                 nombre: tipo.nombre,
                 descripcion: tipo.descripcion || '',
             });
+            setIsViewTipo(mode === 'view');
         } else {
             setEditingTipo(null);
+            setIsViewTipo(false);
             setTipoFormData({
                 nombre: '',
                 descripcion: '',
@@ -180,6 +187,7 @@ export default function ProcesosDefinicionPage() {
     const handleCloseTipoDialog = () => {
         setTipoDialogOpen(false);
         setEditingTipo(null);
+        setIsViewTipo(false);
     };
 
     const handleSaveTipo = () => {
@@ -299,7 +307,7 @@ export default function ProcesosDefinicionPage() {
                 <GridActionsCellItem
                     icon={<EditIcon sx={{ color: '#2196f3' }} />}
                     label="Editar"
-                    onClick={() => handleOpenDialog(params.row)}
+                    onClick={() => handleOpenDialog(params.row, 'edit')}
                 />,
                 <GridActionsCellItem
                     icon={<DeleteIcon sx={{ color: '#f44336' }} />}
@@ -379,7 +387,7 @@ export default function ProcesosDefinicionPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog(undefined, 'edit')}>
                                 Nuevo Proceso
                             </Button>
                         </Box>
@@ -387,6 +395,7 @@ export default function ProcesosDefinicionPage() {
                             rows={filteredProcesos}
                             columns={columns}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenDialog(params.row, 'view')}
                         />
                     </Box>
                 </TabPanel>
@@ -409,7 +418,7 @@ export default function ProcesosDefinicionPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenTipoDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenTipoDialog(undefined, 'edit')}>
                                 Nuevo Tipo de Proceso
                             </Button>
                         </Box>
@@ -428,7 +437,7 @@ export default function ProcesosDefinicionPage() {
                                         <GridActionsCellItem
                                             icon={<EditIcon sx={{ color: '#2196f3' }} />}
                                             label="Editar"
-                                            onClick={() => handleOpenTipoDialog(params.row)}
+                                            onClick={() => handleOpenTipoDialog(params.row, 'edit')}
                                         />,
                                         <GridActionsCellItem
                                             icon={<DeleteIcon sx={{ color: '#f44336' }} />}
@@ -439,13 +448,18 @@ export default function ProcesosDefinicionPage() {
                                 },
                             ]}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenTipoDialog(params.row, 'view')}
                         />
                     </Box>
                 </TabPanel>
             </Paper>
 
             <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-                <DialogTitle>{editingProceso ? 'Editar Proceso' : 'Nuevo Proceso'}</DialogTitle>
+                <DialogTitle>
+                    {editingProceso
+                        ? (isViewProceso ? 'Ver Proceso' : 'Editar Proceso')
+                        : 'Nuevo Proceso'}
+                </DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         <Grid2 xs={12} md={6}>
@@ -454,6 +468,7 @@ export default function ProcesosDefinicionPage() {
                                 fullWidth
                                 value={formData.nombre}
                                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                                disabled={isViewProceso}
                                 required
                             />
                         </Grid2>
@@ -465,6 +480,7 @@ export default function ProcesosDefinicionPage() {
                                 onChange={(_e, newValue) => setFormData({ ...formData, tipoProceso: newValue?.id.toString() || '' })}
                                 renderInput={(params) => <TextField {...params} label="Tipo de Proceso" />}
                                 fullWidth
+                                disabled={isViewProceso}
                             />
                         </Grid2>
                         <Grid2 xs={12}>
@@ -475,6 +491,7 @@ export default function ProcesosDefinicionPage() {
                                 rows={2}
                                 value={formData.descripcion}
                                 onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                                disabled={isViewProceso}
                             />
                         </Grid2>
                         <Grid2 xs={12}>
@@ -485,6 +502,7 @@ export default function ProcesosDefinicionPage() {
                                 rows={2}
                                 value={formData.objetivoProceso}
                                 onChange={(e) => setFormData({ ...formData, objetivoProceso: e.target.value })}
+                                disabled={isViewProceso}
                             />
                         </Grid2>
                         <Grid2 xs={12} md={6}>
@@ -493,6 +511,7 @@ export default function ProcesosDefinicionPage() {
                                 fullWidth
                                 value={formData.vicepresidencia}
                                 onChange={(e) => setFormData({ ...formData, vicepresidencia: e.target.value })}
+                                disabled={isViewProceso}
                             />
                         </Grid2>
                         <Grid2 xs={12} md={6}>
@@ -501,6 +520,7 @@ export default function ProcesosDefinicionPage() {
                                 fullWidth
                                 value={formData.gerencia}
                                 onChange={(e) => setFormData({ ...formData, gerencia: e.target.value })}
+                                disabled={isViewProceso}
                             />
                         </Grid2>
                         <Grid2 xs={12}>
@@ -509,6 +529,7 @@ export default function ProcesosDefinicionPage() {
                                     <Switch
                                         checked={formData.activo}
                                         onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                                        disabled={isViewProceso}
                                     />
                                 }
                                 label="Activo"
@@ -517,13 +538,23 @@ export default function ProcesosDefinicionPage() {
                     </Grid2>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>
+                        {isViewProceso ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isViewProceso && (
+                        <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>
+                            Guardar
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
 
             <Dialog open={tipoDialogOpen} onClose={handleCloseTipoDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingTipo ? 'Editar Tipo de Proceso' : 'Nuevo Tipo de Proceso'}</DialogTitle>
+                <DialogTitle>
+                    {editingTipo
+                        ? (isViewTipo ? 'Ver Tipo de Proceso' : 'Editar Tipo de Proceso')
+                        : 'Nuevo Tipo de Proceso'}
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -531,6 +562,7 @@ export default function ProcesosDefinicionPage() {
                             fullWidth
                             value={tipoFormData.nombre}
                             onChange={(e) => setTipoFormData({ ...tipoFormData, nombre: e.target.value })}
+                            disabled={isViewTipo}
                             required
                         />
                         <TextField
@@ -540,12 +572,19 @@ export default function ProcesosDefinicionPage() {
                             rows={2}
                             value={tipoFormData.descripcion}
                             onChange={(e) => setTipoFormData({ ...tipoFormData, descripcion: e.target.value })}
+                            disabled={isViewTipo}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseTipoDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveTipo} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleCloseTipoDialog} startIcon={<CancelIcon />}>
+                        {isViewTipo ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isViewTipo && (
+                        <Button onClick={handleSaveTipo} variant="contained" startIcon={<SaveIcon />}>
+                            Guardar
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
         </Box>

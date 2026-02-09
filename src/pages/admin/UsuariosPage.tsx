@@ -80,10 +80,13 @@ export default function UsuariosPage() {
     const [searchGerencias, setSearchGerencias] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null);
+    const [isViewUsuario, setIsViewUsuario] = useState(false);
     const [cargoDialogOpen, setCargoDialogOpen] = useState(false);
     const [editingCargo, setEditingCargo] = useState<Cargo | null>(null);
+    const [isViewCargo, setIsViewCargo] = useState(false);
     const [gerenciaDialogOpen, setGerenciaDialogOpen] = useState(false);
     const [editingGerencia, setEditingGerencia] = useState<Gerencia | null>(null);
+    const [isViewGerencia, setIsViewGerencia] = useState(false);
     const [formData, setFormData] = useState<Partial<Usuario>>({
         nombre: '',
         email: '',
@@ -145,7 +148,7 @@ export default function UsuariosPage() {
         );
     }
 
-    const handleOpenDialog = (usuario?: Usuario) => {
+    const handleOpenDialog = (usuario?: Usuario, mode: 'view' | 'edit' = 'edit') => {
         if (usuario) {
             setEditingUsuario(usuario);
             setFormData({
@@ -155,8 +158,10 @@ export default function UsuariosPage() {
                 activo: usuario.activo,
                 cargoId: usuario.cargoId || '',
             });
+            setIsViewUsuario(mode === 'view');
         } else {
             setEditingUsuario(null);
+            setIsViewUsuario(false);
             setFormData({
                 nombre: '',
                 email: '',
@@ -171,17 +176,20 @@ export default function UsuariosPage() {
     const handleCloseDialog = () => {
         setDialogOpen(false);
         setEditingUsuario(null);
+        setIsViewUsuario(false);
     };
 
-    const handleOpenCargoDialog = (cargo?: Cargo) => {
+    const handleOpenCargoDialog = (cargo?: Cargo, mode: 'view' | 'edit' = 'edit') => {
         if (cargo) {
             setEditingCargo(cargo);
             setCargoFormData({
                 nombre: cargo.nombre,
                 descripcion: cargo.descripcion || '',
             });
+            setIsViewCargo(mode === 'view');
         } else {
             setEditingCargo(null);
+            setIsViewCargo(false);
             setCargoFormData({
                 nombre: '',
                 descripcion: '',
@@ -193,9 +201,10 @@ export default function UsuariosPage() {
     const handleCloseCargoDialog = () => {
         setCargoDialogOpen(false);
         setEditingCargo(null);
+        setIsViewCargo(false);
     };
 
-    const handleOpenGerenciaDialog = (gerencia?: Gerencia) => {
+    const handleOpenGerenciaDialog = (gerencia?: Gerencia, mode: 'view' | 'edit' = 'edit') => {
         if (gerencia) {
             setEditingGerencia(gerencia);
             setGerenciaFormData({
@@ -203,8 +212,10 @@ export default function UsuariosPage() {
                 sigla: gerencia.sigla || '',
                 subdivision: gerencia.subdivision || '',
             });
+            setIsViewGerencia(mode === 'view');
         } else {
             setEditingGerencia(null);
+            setIsViewGerencia(false);
             setGerenciaFormData({
                 nombre: '',
                 sigla: '',
@@ -217,6 +228,7 @@ export default function UsuariosPage() {
     const handleCloseGerenciaDialog = () => {
         setGerenciaDialogOpen(false);
         setEditingGerencia(null);
+        setIsViewGerencia(false);
     };
 
     const handleSaveGerencia = () => {
@@ -381,7 +393,7 @@ export default function UsuariosPage() {
                 <GridActionsCellItem
                     icon={<EditIcon sx={{ color: '#2196f3' }} />}
                     label="Editar"
-                    onClick={() => handleOpenDialog(params.row)}
+                    onClick={() => handleOpenDialog(params.row, 'edit')}
                 />,
                 <GridActionsCellItem
                     icon={<DeleteIcon sx={{ color: '#f44336' }} />}
@@ -468,7 +480,7 @@ export default function UsuariosPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog(undefined, 'edit')}>
                                 Nuevo Usuario
                             </Button>
                         </Box>
@@ -476,6 +488,7 @@ export default function UsuariosPage() {
                             rows={filteredUsuarios}
                             columns={columns}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenDialog(params.row, 'view')}
                         />
                     </Box>
                 </TabPanel>
@@ -517,7 +530,7 @@ export default function UsuariosPage() {
                                         <GridActionsCellItem
                                             icon={<EditIcon />}
                                             label="Editar"
-                                            onClick={() => handleOpenCargoDialog(params.row)}
+                                            onClick={() => handleOpenCargoDialog(params.row, 'edit')}
                                         />,
                                         <GridActionsCellItem
                                             icon={<DeleteIcon />}
@@ -528,6 +541,7 @@ export default function UsuariosPage() {
                                 },
                             ]}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenCargoDialog(params.row, 'view')}
                         />
                     </Box>
                 </TabPanel>
@@ -570,7 +584,7 @@ export default function UsuariosPage() {
                                         <GridActionsCellItem
                                             icon={<EditIcon />}
                                             label="Editar"
-                                            onClick={() => handleOpenGerenciaDialog(params.row)}
+                                            onClick={() => handleOpenGerenciaDialog(params.row, 'edit')}
                                         />,
                                         <GridActionsCellItem
                                             icon={<DeleteIcon />}
@@ -581,13 +595,18 @@ export default function UsuariosPage() {
                                 },
                             ]}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenGerenciaDialog(params.row, 'view')}
                         />
                     </Box>
                 </TabPanel>
             </Paper>
 
             <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingUsuario ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
+                <DialogTitle>
+                    {editingUsuario
+                        ? (isViewUsuario ? 'Ver Usuario' : 'Editar Usuario')
+                        : 'Nuevo Usuario'}
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -595,6 +614,7 @@ export default function UsuariosPage() {
                             fullWidth
                             value={formData.nombre}
                             onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                            disabled={isViewUsuario}
                             required
                         />
                         <TextField
@@ -602,6 +622,7 @@ export default function UsuariosPage() {
                             fullWidth
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            disabled={isViewUsuario}
                         />
                         <Autocomplete
                             options={cargos}
@@ -610,6 +631,7 @@ export default function UsuariosPage() {
                             onChange={(_e, newValue) => setFormData({ ...formData, cargoId: newValue?.id || '' })}
                             renderInput={(params) => <TextField {...params} label="Cargo" variant="outlined" />}
                             fullWidth
+                            disabled={isViewUsuario}
                         />
                         <Autocomplete
                             options={['admin', 'manager', 'analyst', 'dueño_procesos', 'director_procesos']}
@@ -627,12 +649,14 @@ export default function UsuariosPage() {
                             onChange={(_e, newValue) => setFormData({ ...formData, role: newValue as any })}
                             renderInput={(params) => <TextField {...params} label="Rol" variant="outlined" />}
                             fullWidth
+                            disabled={isViewUsuario}
                         />
                         <FormControlLabel
                             control={
                                 <Switch
                                     checked={formData.activo}
                                     onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                                    disabled={isViewUsuario}
                                 />
                             }
                             label="Activo"
@@ -640,13 +664,23 @@ export default function UsuariosPage() {
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>
+                        {isViewUsuario ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isViewUsuario && (
+                        <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>
+                            Guardar
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
 
             <Dialog open={cargoDialogOpen} onClose={handleCloseCargoDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingCargo ? 'Editar Cargo' : 'Nuevo Cargo'}</DialogTitle>
+                <DialogTitle>
+                    {editingCargo
+                        ? (isViewCargo ? 'Ver Cargo' : 'Editar Cargo')
+                        : 'Nuevo Cargo'}
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -654,6 +688,7 @@ export default function UsuariosPage() {
                             fullWidth
                             value={cargoFormData.nombre}
                             onChange={(e) => setCargoFormData({ ...cargoFormData, nombre: e.target.value })}
+                            disabled={isViewCargo}
                             required
                         />
                         <TextField
@@ -663,17 +698,28 @@ export default function UsuariosPage() {
                             rows={2}
                             value={cargoFormData.descripcion}
                             onChange={(e) => setCargoFormData({ ...cargoFormData, descripcion: e.target.value })}
+                            disabled={isViewCargo}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseCargoDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveCargo} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleCloseCargoDialog} startIcon={<CancelIcon />}>
+                        {isViewCargo ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isViewCargo && (
+                        <Button onClick={handleSaveCargo} variant="contained" startIcon={<SaveIcon />}>
+                            Guardar
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
 
             <Dialog open={gerenciaDialogOpen} onClose={handleCloseGerenciaDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingGerencia ? 'Editar Gerencia' : 'Nueva Gerencia'}</DialogTitle>
+                <DialogTitle>
+                    {editingGerencia
+                        ? (isViewGerencia ? 'Ver Gerencia' : 'Editar Gerencia')
+                        : 'Nueva Gerencia'}
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -681,6 +727,7 @@ export default function UsuariosPage() {
                             fullWidth
                             value={gerenciaFormData.nombre}
                             onChange={(e) => setGerenciaFormData({ ...gerenciaFormData, nombre: e.target.value })}
+                            disabled={isViewGerencia}
                             required
                         />
                         <TextField
@@ -688,18 +735,26 @@ export default function UsuariosPage() {
                             fullWidth
                             value={gerenciaFormData.sigla}
                             onChange={(e) => setGerenciaFormData({ ...gerenciaFormData, sigla: e.target.value })}
+                            disabled={isViewGerencia}
                         />
                         <TextField
                             label="Subdivisión"
                             fullWidth
                             value={gerenciaFormData.subdivision}
                             onChange={(e) => setGerenciaFormData({ ...gerenciaFormData, subdivision: e.target.value })}
+                            disabled={isViewGerencia}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseGerenciaDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveGerencia} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleCloseGerenciaDialog} startIcon={<CancelIcon />}>
+                        {isViewGerencia ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isViewGerencia && (
+                        <Button onClick={handleSaveGerencia} variant="contained" startIcon={<SaveIcon />}>
+                            Guardar
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
         </Box>

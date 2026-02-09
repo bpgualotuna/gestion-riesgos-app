@@ -42,13 +42,15 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         descripcion: '',
         subtipos: []
     });
+    const [isView, setIsView] = useState(false);
 
     const [newSubtipo, setNewSubtipo] = useState({ codigo: '', descripcion: '' });
 
-    const handleOpen = (item?: TipoRiesgo) => {
+    const handleOpen = (item?: TipoRiesgo, mode: 'view' | 'edit' = 'edit') => {
         if (item) {
             setEditingItem(item);
             setFormData({ ...item, subtipos: [...item.subtipos] });
+            setIsView(mode === 'view');
         } else {
             setEditingItem(null);
             setFormData({
@@ -57,6 +59,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                 descripcion: '',
                 subtipos: []
             });
+            setIsView(false);
         }
         setOpen(true);
     };
@@ -64,6 +67,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     const handleClose = () => {
         setOpen(false);
         setEditingItem(null);
+        setIsView(false);
     };
 
     const handleSave = () => {
@@ -136,7 +140,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         <Box>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6">Tipos de Riesgo</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen(undefined, 'edit')}>
                     Nuevo Tipo
                 </Button>
             </Box>
@@ -144,10 +148,15 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
             <AppDataGrid
                 rows={rowsWithId}
                 columns={columns}
+                onRowClick={(params) => handleOpen(params.row, 'view')}
             />
 
             <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-                <DialogTitle>{editingItem ? 'Editar Tipo de Riesgo' : 'Nuevo Tipo de Riesgo'}</DialogTitle>
+                <DialogTitle>
+                    {editingItem
+                        ? (isView ? 'Ver Tipo de Riesgo' : 'Editar Tipo de Riesgo')
+                        : 'Nuevo Tipo de Riesgo'}
+                </DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         <Grid2 xs={12} md={4}>
@@ -156,7 +165,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                 label="Código"
                                 value={formData.codigo}
                                 onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                                disabled={!!editingItem} // Code is ID, usually immutable widely
+                                disabled={!!editingItem || isView} // Code is ID, usually immutable widely
                                 required
                             />
                         </Grid2>
@@ -167,6 +176,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                 value={formData.nombre}
                                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                                 required
+                                disabled={isView}
                             />
                         </Grid2>
                         <Grid2 xs={12}>
@@ -177,6 +187,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                 onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                                 multiline
                                 rows={2}
+                                disabled={isView}
                             />
                         </Grid2>
 
@@ -189,6 +200,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                         size="small"
                                         value={newSubtipo.codigo}
                                         onChange={(e) => setNewSubtipo({ ...newSubtipo, codigo: e.target.value })}
+                                        disabled={isView}
                                     />
                                     <TextField
                                         label="Descripción Subtipo"
@@ -196,20 +208,25 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                         fullWidth
                                         value={newSubtipo.descripcion}
                                         onChange={(e) => setNewSubtipo({ ...newSubtipo, descripcion: e.target.value })}
+                                        disabled={isView}
                                     />
-                                    <IconButton onClick={handleAddSubtipo} color="primary" disabled={!newSubtipo.codigo || !newSubtipo.descripcion}>
-                                        <AddIcon />
-                                    </IconButton>
+                                    {!isView && (
+                                        <IconButton onClick={handleAddSubtipo} color="primary" disabled={!newSubtipo.codigo || !newSubtipo.descripcion}>
+                                            <AddIcon />
+                                        </IconButton>
+                                    )}
                                 </Box>
                                 <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
                                     {formData.subtipos.map((sub, index) => (
                                         <ListItem key={index}>
                                             <ListItemText primary={sub.codigo} secondary={sub.descripcion} />
-                                            <ListItemSecondaryAction>
-                                                <IconButton edge="end" onClick={() => handleRemoveSubtipo(index)} size="small" color="error">
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </ListItemSecondaryAction>
+                                            {!isView && (
+                                                <ListItemSecondaryAction>
+                                                    <IconButton edge="end" onClick={() => handleRemoveSubtipo(index)} size="small" color="error">
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </ListItemSecondaryAction>
+                                            )}
                                         </ListItem>
                                     ))}
                                     {formData.subtipos.length === 0 && (
@@ -223,8 +240,12 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                     </Grid2>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleClose} startIcon={<CancelIcon />}>
+                        {isView ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isView && (
+                        <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    )}
                 </DialogActions>
             </Dialog>
         </Box>

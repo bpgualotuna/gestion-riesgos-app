@@ -77,6 +77,7 @@ export default function AreasPage() {
     // Area CRUD States
     const [areaDialogOpen, setAreaDialogOpen] = useState(false);
     const [editingArea, setEditingArea] = useState<Area | null>(null);
+    const [isViewArea, setIsViewArea] = useState(false);
     const [areaFormData, setAreaFormData] = useState<CreateAreaDto>({
         nombre: '',
         descripcion: '',
@@ -134,7 +135,7 @@ export default function AreasPage() {
     // ==========================================
     // AREA CRUD LOGIC
     // ==========================================
-    const handleOpenAreaDialog = (area?: Area) => {
+    const handleOpenAreaDialog = (area?: Area, mode: 'view' | 'edit' = 'edit') => {
         if (area) {
             setEditingArea(area);
             setAreaFormData({
@@ -142,8 +143,10 @@ export default function AreasPage() {
                 descripcion: area.descripcion || '',
                 directorId: area.directorId,
             });
+            setIsViewArea(mode === 'view');
         } else {
             setEditingArea(null);
+            setIsViewArea(false);
             setAreaFormData({
                 nombre: '',
                 descripcion: '',
@@ -156,6 +159,7 @@ export default function AreasPage() {
     const handleCloseAreaDialog = () => {
         setAreaDialogOpen(false);
         setEditingArea(null);
+        setIsViewArea(false);
     };
 
     const handleSaveArea = () => {
@@ -435,11 +439,16 @@ export default function AreasPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenAreaDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenAreaDialog(undefined, 'edit')}>
                                 Nueva Área
                             </Button>
                         </Box>
-                        <AppDataGrid rows={filteredAreas} columns={areaColumns} getRowId={(row) => row.id} />
+                        <AppDataGrid
+                            rows={filteredAreas}
+                            columns={areaColumns}
+                            getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenAreaDialog(params.row, 'view')}
+                        />
                     </Box>
                 </TabPanel>
 
@@ -616,7 +625,11 @@ export default function AreasPage() {
 
             {/* Dialogo Crea/Edita Area */}
             <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingArea ? 'Editar Área' : 'Nueva Área'}</DialogTitle>
+                <DialogTitle>
+                    {editingArea
+                        ? (isViewArea ? 'Ver Área' : 'Editar Área')
+                        : 'Nueva Área'}
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
@@ -624,6 +637,7 @@ export default function AreasPage() {
                             label="Nombre del Área *"
                             value={areaFormData.nombre}
                             onChange={(e) => setAreaFormData({ ...areaFormData, nombre: e.target.value })}
+                            disabled={isViewArea}
                             required
                         />
                         <TextField
@@ -633,6 +647,7 @@ export default function AreasPage() {
                             onChange={(e) => setAreaFormData({ ...areaFormData, descripcion: e.target.value })}
                             multiline
                             rows={3}
+                            disabled={isViewArea}
                         />
                         <Autocomplete
                             options={usuarios}
@@ -641,12 +656,19 @@ export default function AreasPage() {
                             onChange={(_e, newValue) => setAreaFormData({ ...areaFormData, directorId: newValue?.id || undefined })}
                             renderInput={(params) => <TextField {...params} label="Director del Área" />}
                             fullWidth
+                            disabled={isViewArea}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseAreaDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleCloseAreaDialog} startIcon={<CancelIcon />}>
+                        {isViewArea ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {!isViewArea && (
+                        <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />}>
+                            Guardar
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
         </Box>
