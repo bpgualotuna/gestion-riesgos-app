@@ -270,11 +270,6 @@ export default function MainLayout() {
 
   const handleMenuClick = (path?: string) => {
     if (path) {
-      // Verificar si es supervisor, dueño de procesos o gerente general sin asignaciones - simplemente no navegar
-      if ((esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector) && !esAdmin && !tieneAsignaciones) {
-        return; // No hacer nada, el mensaje ya aparece en la pantalla
-      }
-      
       navigate(path);
       if (isMobile) {
         setMobileOpen(false);
@@ -336,25 +331,10 @@ export default function MainLayout() {
       return null;
     }
 
-    // Ocultar "Procesos" si Dueño de Proceso o Gerente Proceso sin asignaciones
-    if (item.text === 'Procesos' && 
-        esDueñoProcesos && 
-        !esAdmin && 
-        !tieneAsignaciones) {
-      return null;
-    }
-
     if (hasChildren) {
       const shouldShowText = !sidebarCollapsed;
       
-      // Deshabilitar si es supervisor, dueño de procesos o gerente general sin asignaciones
-      const usuarioSinAsignaciones = (esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector) && !esAdmin && !tieneAsignaciones;
-      
-      const isDisabledParent = usuarioSinAsignaciones || (!procesoSeleccionado?.id &&
-        (esDueñoProcesos || esGerenteGeneralProceso) &&
-        (item.text === 'Identificación y Calificación' ||
-         item.text === 'Controles y Planes de Acción' ||
-         item.text === 'Eventos'));
+      const isDisabledParent = false;
 
       return (
         <Box key={item.text}>
@@ -448,8 +428,7 @@ export default function MainLayout() {
                 {item.children?.map((child) => {
                   const isChildActive = child.path ? (location.pathname === child.path || location.pathname === child.path.split('?')[0]) : false;
                   
-                  // Bloquear hijos de Dashboard (Estadísticas y Mapa) si no tiene asignaciones
-                  const isChildDisabled = isDisabledParent && item.text === 'Dashboard';
+                  const isChildDisabled = false;
                   
                   return (
                     <React.Fragment key={child.text}>
@@ -527,14 +506,7 @@ export default function MainLayout() {
       );
     }
 
-    const usuarioSinAsignaciones = (esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector || esGerenteGeneralProceso) && !esAdmin && !tieneAsignaciones;
-
-    const isDisabled = !item.path || usuarioSinAsignaciones ||
-      (!procesoSeleccionado?.id && esDueñoProcesos &&
-        (item.text === 'Procesos' ||
-         item.text === 'Identificación y Calificación' || 
-         item.text === 'Controles y Planes de Acción' || 
-         item.text === 'Eventos'));
+    const isDisabled = !item.path ? true : false;
 
     // Si es un item hijo, solo mostrar texto si el sidebar no está colapsado
     const shouldShowText = !sidebarCollapsed;

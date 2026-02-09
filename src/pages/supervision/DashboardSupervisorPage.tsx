@@ -25,6 +25,11 @@ import {
   List,
   ListItem,
   ListItemText,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -56,6 +61,7 @@ import OrigenRiesgosCard from '../../components/dashboard/OrigenRiesgosCard';
 import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos';
 import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getMockPlanesAccion, getMockIncidencias, getMockEstadisticas } from '../../api/services/mockData';
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
 import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor } from '../../hooks/useAsignaciones';
@@ -257,6 +263,74 @@ export default function DashboardSupervisorPage() {
 
   // Estadísticas - Usando hook personalizado
   const estadisticas = useDashboardEstadisticas({ riesgosFiltrados, procesos, puntos });
+
+  const kpis = useMemo(() => {
+    const totalRiesgos = riesgosFiltrados.length;
+    const totalProcesos = procesos.length;
+    const riesgosCriticos = puntos.filter((p: any) => (p.probabilidad * p.impacto) >= UMBRALES_RIESGO.CRITICO).length;
+    return {
+      totalRiesgos,
+      totalProcesos,
+      riesgosCriticos,
+      fueraApetito: estadisticas.fueraApetito || 0,
+    };
+  }, [riesgosFiltrados, procesos, puntos, estadisticas.fueraApetito]);
+
+  const topProcesos = useMemo(() => {
+    const counts = procesos.map((p: any) => {
+      const total = riesgosFiltrados.filter((r: any) => r.procesoId === p.id).length;
+      return { id: p.id, nombre: p.nombre || 'Sin nombre', total };
+    }).filter((p: any) => p.total > 0);
+
+    return counts.sort((a: any, b: any) => b.total - a.total).slice(0, 5);
+  }, [procesos, riesgosFiltrados]);
+
+  const topRiesgos = useMemo(() => {
+    const rows = puntos.map((p: any) => {
+      const riesgo = riesgosFiltrados.find((r: any) => r.id === p.riesgoId);
+      const proceso = procesos.find((proc: any) => proc.id === riesgo?.procesoId);
+      return {
+        id: p.riesgoId,
+        codigo: riesgo?.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `R${p.riesgoId}`,
+        descripcion: riesgo?.descripcion || p.descripcion || 'Sin descripcion',
+        proceso: proceso?.nombre || 'Sin proceso',
+        valor: p.probabilidad * p.impacto,
+      };
+    }).filter((r: any) => r.valor > 0);
+
+    return rows.sort((a: any, b: any) => b.valor - a.valor).slice(0, 5);
+  }, [puntos, riesgosFiltrados, procesos]);
+
+  const riesgosPorTipoProceso = useMemo(() => {
+    return Object.entries(estadisticas.porTipoProceso || {}).map(([name, value]) => ({
+      name: name.split(' ')[1] || name,
+      fullName: name,
+      value,
+    }));
+  }, [estadisticas.porTipoProceso]);
+
+  const tendenciaMensual = useMemo(() => {
+    const monthLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const now = new Date();
+    const months: { key: string; label: string; value: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${monthLabels[date.getMonth()]} ${String(date.getFullYear()).slice(-2)}`;
+      months.push({ key, label, value: 0 });
+    }
+
+    riesgosFiltrados.forEach((r: any) => {
+      const fecha = r.createdAt || r.updatedAt;
+      if (!fecha) return;
+      const key = String(fecha).slice(0, 7);
+      const item = months.find((m) => m.key === key);
+      if (item) item.value += 1;
+    });
+
+    return months;
+  }, [riesgosFiltrados]);
 
   // Preparar datos para tabla de resumen
   const filasTablaResumen = useMemo(() => {
@@ -669,6 +743,165 @@ export default function DashboardSupervisorPage() {
         riesgos={riesgos}
       />
 
+      {/* Bloques adicionales de Estadisticas */}
+      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid2 xs={12} md={4}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <AssessmentIcon color="primary" />
+                <Typography variant="subtitle2" fontWeight={600}>Total de Riesgos</Typography>
+              </Box>
+              <Typography variant="h4" fontWeight={700}>{kpis.totalRiesgos}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {kpis.totalProcesos} procesos en seguimiento
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid2>
+        <Grid2 xs={12} md={4}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <ReportProblemIcon color="error" />
+                <Typography variant="subtitle2" fontWeight={600}>Riesgos Criticos</Typography>
+              </Box>
+              <Typography variant="h4" fontWeight={700} color="error.main">{kpis.riesgosCriticos}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Fuera de apetito: {kpis.fueraApetito}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid2>
+        <Grid2 xs={12} md={4}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <AccountTreeIcon color="secondary" />
+                <Typography variant="subtitle2" fontWeight={600}>Procesos Activos</Typography>
+              </Box>
+              <Typography variant="h4" fontWeight={700}>{kpis.totalProcesos}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Asignaciones vigentes
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid2>
+      </Grid2>
+
+      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid2 xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                Resumen Ejecutivo
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {kpis.riesgosCriticos > 0
+                  ? `Hay ${kpis.riesgosCriticos} riesgos criticos que requieren seguimiento inmediato.`
+                  : 'No hay riesgos criticos registrados en el periodo actual.'}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip label={`Fuera de apetito: ${kpis.fueraApetito}`} color={kpis.fueraApetito > 0 ? 'warning' : 'success'} size="small" />
+                <Chip label={`Procesos: ${kpis.totalProcesos}`} color="primary" size="small" />
+                <Chip label={`Riesgos: ${kpis.totalRiesgos}`} color="secondary" size="small" />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid2>
+        <Grid2 xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                Tendencia Mensual (Ultimos 6 meses)
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120, mt: 1 }}>
+                {tendenciaMensual.map((item) => (
+                  <Box key={item.key} sx={{ flex: 1, textAlign: 'center' }}>
+                    <Box
+                      sx={{
+                        height: `${Math.max(6, item.value * 12)}px`,
+                        backgroundColor: item.value > 0 ? 'primary.main' : 'grey.300',
+                        borderRadius: 1,
+                        transition: 'height 0.2s ease',
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {item.label}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid2>
+      </Grid2>
+
+      <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+        <Grid2 xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                Top Procesos por Riesgos
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Proceso</TableCell>
+                    <TableCell align="right">Riesgos</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {topProcesos.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={2} align="center">Sin datos</TableCell>
+                    </TableRow>
+                  )}
+                  {topProcesos.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.nombre}</TableCell>
+                      <TableCell align="right">{row.total}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </Grid2>
+        <Grid2 xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                Top Riesgos por Impacto
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Codigo</TableCell>
+                    <TableCell>Proceso</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {topRiesgos.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} align="center">Sin datos</TableCell>
+                    </TableRow>
+                  )}
+                  {topRiesgos.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.codigo}</TableCell>
+                      <TableCell>{row.proceso}</TableCell>
+                      <TableCell align="right">{row.valor}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </Grid2>
+      </Grid2>
+
       {/* Primera Fila: Estadísticas */}
       <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
           {/* Card 1: Total de Riesgos - Usando componente */}
@@ -690,6 +923,45 @@ export default function DashboardSupervisorPage() {
             <OrigenRiesgosCard datos={estadisticas.origen} total={estadisticas.total} />
           </Grid2>
         </Grid2>
+
+      {/* Graficas adicionales */}
+      <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+        <Grid2 xs={12} md={7}>
+          <RiesgosPorProcesoCard datosReales={estadisticas.porProceso} />
+        </Grid2>
+        <Grid2 xs={12} md={5}>
+          <Card sx={{ height: '100%', minHeight: 350 }}>
+            <CardContent sx={{ height: '100%' }}>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Riesgos por Tipo de Proceso
+              </Typography>
+              {riesgosPorTipoProceso.length === 0 ? (
+                <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography color="text.secondary">No hay datos disponibles</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={riesgosPorTipoProceso} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip labelFormatter={(label, payload) => {
+                        if (payload && payload.length > 0) {
+                          return payload[0].payload.fullName;
+                        }
+                        return label;
+                      }} />
+                      <Legend />
+                      <Bar dataKey="value" name="Cantidad" fill="#4caf50" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid2>
+      </Grid2>
 
       {/* Dialog para Riesgos Fuera del Apetito */}
       <Dialog
