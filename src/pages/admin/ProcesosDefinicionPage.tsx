@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -9,18 +9,14 @@ import {
     DialogContent,
     DialogTitle,
     TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
     FormControlLabel,
     Switch,
     Alert,
     Autocomplete,
     Tabs,
     Tab,
-    Paper,
-    InputAdornment
+    InputAdornment,
+    CircularProgress
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -38,7 +34,14 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Proceso } from '../../types';
-import { getMockProcesos, updateMockProcesos, getMockTiposProceso, getMockGerencias, getMockVicepresidencias } from '../../api/services/mockData';
+import { getMockGerencias, getMockVicepresidencias, getMockAreas, getMockTiposProceso } from '../../api/services/mockData';
+import {
+    useGetProcesosQuery,
+    useCreateProcesoMutation,
+    useUpdateProcesoMutation,
+    useDeleteProcesoMutation,
+    useGetTiposProcesoQuery
+} from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import Grid2 from '../../utils/Grid2';
@@ -73,10 +76,21 @@ export default function ProcesosDefinicionPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
     const [currentTab, setCurrentTab] = useState(0);
-    const [procesos, setProcesos] = useState<Proceso[]>([]);
-    const [tiposProceso, setTiposProceso] = useState<any[]>([]);
-    const [gerencias, setGerencias] = useState<any[]>([]);
-    const [vicepresidencias, setVicepresidencias] = useState<any[]>([]);
+
+    // RTK Query Hooks
+    const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
+    const { data: tiposProceso = [], isLoading: loadingTipos } = useGetTiposProcesoQuery();
+
+    // Mutations
+    const [createProceso] = useCreateProcesoMutation();
+    const [updateProceso] = useUpdateProcesoMutation();
+    const [deleteProceso] = useDeleteProcesoMutation();
+
+    // Mock data for catalogs not yet in API
+    const gerencias = getMockGerencias();
+    const vicepresidencias = getMockVicepresidencias();
+    const areas = getMockAreas();
+
     const [searchProcesos, setSearchProcesos] = useState('');
     const [searchTipos, setSearchTipos] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -94,23 +108,14 @@ export default function ProcesosDefinicionPage() {
         gerencia: '',
         objetivoProceso: '',
         tipoProceso: '',
+        areaId: '',
+        areaNombre: '',
         activo: true,
     });
     const [tipoFormData, setTipoFormData] = useState<any>({
         nombre: '',
         descripcion: '',
     });
-
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = () => {
-        setProcesos(getMockProcesos());
-        setTiposProceso(getMockTiposProceso());
-        setGerencias(getMockGerencias());
-        setVicepresidencias(getMockVicepresidencias());
-    };
 
     // Filtered data
     const filteredProcesos = useMemo(() => {
@@ -121,9 +126,9 @@ export default function ProcesosDefinicionPage() {
     }, [procesos, searchProcesos]);
 
     const filteredTipos = useMemo(() => {
-        return tiposProceso.filter(t =>
+        return tiposProceso.filter((t: any) =>
             t.nombre.toLowerCase().includes(searchTipos.toLowerCase()) ||
-            t.descripcion.toLowerCase().includes(searchTipos.toLowerCase())
+            (t.descripcion && t.descripcion.toLowerCase().includes(searchTipos.toLowerCase()))
         );
     }, [tiposProceso, searchTipos]);
 
@@ -147,6 +152,8 @@ export default function ProcesosDefinicionPage() {
                 gerencia: proceso.gerencia,
                 objetivoProceso: proceso.objetivoProceso,
                 tipoProceso: proceso.tipoProceso,
+                areaId: proceso.areaId,
+                areaNombre: proceso.areaNombre,
                 activo: proceso.activo,
             });
         } else {
@@ -158,6 +165,8 @@ export default function ProcesosDefinicionPage() {
                 gerencia: '',
                 objetivoProceso: '',
                 tipoProceso: '',
+                areaId: '',
+                areaNombre: '',
                 activo: true,
             });
         }
@@ -211,85 +220,46 @@ export default function ProcesosDefinicionPage() {
         setSelectedTipoDetail(null);
     };
 
+    // Tipos de Proceso are read-only from API for now
     const handleSaveTipo = () => {
-        if (!tipoFormData.nombre) {
-            showError('El nombre es requerido');
-            return;
-        }
-
-        let updatedTipos = [...tiposProceso];
-
-        if (editingTipo) {
-            updatedTipos = updatedTipos.map(t =>
-                t.id === editingTipo.id ? { ...t, ...tipoFormData } : t
-            );
-            showSuccess('Tipo de Proceso actualizado correctamente');
-        } else {
-            const newTipo = {
-                id: Math.max(...tiposProceso.map(t => t.id || 0), 0) + 1,
-                ...tipoFormData,
-            };
-            updatedTipos.push(newTipo);
-            showSuccess('Tipo de Proceso creado correctamente');
-        }
-
-        localStorage.setItem('catalog_tiposProceso', JSON.stringify(updatedTipos));
-        setTiposProceso(updatedTipos);
+        showError('Edición de tipos de proceso no soportada vía API aún.');
         handleCloseTipoDialog();
     };
 
-    const handleDeleteTipo = (id: number) => {
-        if (window.confirm('¿Está seguro de eliminar este Tipo de Proceso?')) {
-            const updatedTipos = tiposProceso.filter(t => t.id !== id);
-            localStorage.setItem('catalog_tiposProceso', JSON.stringify(updatedTipos));
-            setTiposProceso(updatedTipos);
-            showSuccess('Tipo de Proceso eliminado correctamente');
-        }
+    const handleDeleteTipo = (id: string | number) => {
+        showError('Eliminación de tipos de proceso no soportada vía API aún.');
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.nombre) {
             showError('El nombre es requerido');
             return;
         }
 
-        let updatedProcesos = [...procesos];
-
-        if (editingProceso) {
-            updatedProcesos = updatedProcesos.map(p =>
-                p.id === editingProceso.id ? { ...p, ...formData } as Proceso : p
-            );
-            showSuccess('Proceso actualizado correctamente');
-        } else {
-            const newProceso: Proceso = {
-                id: `proc-${Date.now()}`,
-                ...(formData as Proceso),
-                estado: 'borrador', // Default state
-                puedeCrear: [],
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                responsableId: '',
-                responsableNombre: '',
-                areaId: '',
-                areaNombre: '',
-                directorId: '',
-                directorNombre: '',
-            } as Proceso;
-            updatedProcesos.push(newProceso);
-            showSuccess('Proceso creado correctamente');
+        try {
+            if (editingProceso) {
+                await updateProceso({ id: editingProceso.id, ...formData } as any).unwrap();
+                showSuccess('Proceso actualizado correctamente');
+            } else {
+                await createProceso(formData as any).unwrap();
+                showSuccess('Proceso creado correctamente');
+            }
+            handleCloseDialog();
+        } catch (error) {
+            console.error('Error saving proceso:', error);
+            showError('Error al guardar el proceso');
         }
-
-        updateMockProcesos(updatedProcesos);
-        setProcesos(updatedProcesos);
-        handleCloseDialog();
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (window.confirm('¿Está seguro de eliminar este proceso?')) {
-            const updatedProcesos = procesos.filter(p => p.id !== id);
-            updateMockProcesos(updatedProcesos);
-            setProcesos(updatedProcesos);
-            showSuccess('Proceso eliminado correctamente');
+            try {
+                await deleteProceso(id).unwrap();
+                showSuccess('Proceso eliminado correctamente');
+            } catch (error) {
+                console.error('Error deleting proceso:', error);
+                showError('Error al eliminar el proceso');
+            }
         }
     };
 
@@ -301,18 +271,49 @@ export default function ProcesosDefinicionPage() {
             field: 'tipoProceso',
             headerName: 'Tipo',
             width: 150,
+            valueGetter: (value: any, row: any) => {
+                // Safe access for both v5 (params.row) and v6+ (row argument)
+                const data = row || value?.row || value;
+                if (!data) return '';
+                return data.tipoProceso || data.tipo || data.tipo_proceso || data.tipoProcesoId || '';
+            },
             renderCell: (params) => {
-                const tipo = tiposProceso.find(tp => tp.id === parseInt(params.value) || tp.id === params.value);
-                return tipo?.nombre || params.value || '-';
+                const val = params.value;
+                if (!val) return '-';
+
+                // Robust matching: ID string, ID number, or Name string
+                const tipo = tiposProceso.find(tp =>
+                    String(tp.id) === String(val) ||
+                    (tp.nombre && String(tp.nombre).toLowerCase() === String(val).toLowerCase())
+                );
+                return tipo ? tipo.nombre : val;
             }
         },
         {
             field: 'vicepresidencia',
             headerName: 'Subdivisión',
             width: 150,
+            valueGetter: (value: any, row: any) => {
+                const data = row || value?.row || value;
+                if (!data) return '';
+                return data.vicepresidencia || data.vicepresidenciaId || data.subdivision || '';
+            },
             renderCell: (params) => {
-                const vp = vicepresidencias.find(v => v.id === params.value);
-                return vp?.nombre || '-';
+                const val = params.value;
+                if (!val) return '-';
+
+                // Robust matching for VP
+                const vp = vicepresidencias.find(v =>
+                    String(v.id) === String(val) ||
+                    (v.nombre && String(v.nombre).toLowerCase() === String(val).toLowerCase())
+                );
+                // Also check if it matches a gerencia ID acting as VP
+                if (!vp) {
+                    const ger = gerencias.find(g => String(g.id) === String(val));
+                    if (ger) return ger.subdivision || ger.nombre; // Try to show Subdivision name or Gerencia name
+                }
+
+                return vp ? vp.nombre : val;
             }
         },
         {
@@ -417,6 +418,7 @@ export default function ProcesosDefinicionPage() {
                             columns={columns}
                             getRowId={(row) => row.id}
                             onRowClick={(params) => handleOpenDetailDialog(params.row)}
+                            loading={loadingProcesos}
                         />
                     </Box>
                 </TabPanel>
@@ -470,6 +472,7 @@ export default function ProcesosDefinicionPage() {
                             ]}
                             getRowId={(row) => row.id}
                             onRowClick={(params) => handleOpenTipoDetailDialog(params.row)}
+                            loading={loadingTipos}
                         />
                     </Box>
                 </TabPanel>
@@ -535,6 +538,20 @@ export default function ProcesosDefinicionPage() {
                                 value={gerencias.find(g => g.id === formData.gerencia) || null}
                                 onChange={(_e, newValue) => setFormData({ ...formData, gerencia: newValue?.id || '' })}
                                 renderInput={(params) => <TextField {...params} label="Gerencia" />}
+                                fullWidth
+                            />
+                        </Grid2>
+                        <Grid2 xs={12} md={6}>
+                            <Autocomplete
+                                options={areas}
+                                getOptionLabel={(option) => option.nombre || ''}
+                                value={areas.find(a => String(a.id) === String(formData.areaId)) || null}
+                                onChange={(_e, newValue) => setFormData({
+                                    ...formData,
+                                    areaId: newValue?.id || '',
+                                    areaNombre: newValue?.nombre || ''
+                                })}
+                                renderInput={(params) => <TextField {...params} label="Área de Asignación" />}
                                 fullWidth
                             />
                         </Grid2>
@@ -605,7 +622,7 @@ export default function ProcesosDefinicionPage() {
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Tipo de Proceso</Typography>
                                 <Typography variant="body1">
-                                    {tiposProceso.find(t => t.id === parseInt(selectedProcessDetail.tipoProceso) || t.id === selectedProcessDetail.tipoProceso)?.nombre || '-'}
+                                    {tiposProceso.find(t => String(t.id) === String(selectedProcessDetail.tipoProceso || selectedProcessDetail.tipo))?.nombre || selectedProcessDetail.tipoProceso || selectedProcessDetail.tipo || '-'}
                                 </Typography>
                             </Box>
                             <Box>
@@ -620,6 +637,13 @@ export default function ProcesosDefinicionPage() {
                                     {gerencias.find(g => g.id === selectedProcessDetail.gerencia)?.nombre || '-'}
                                 </Typography>
                             </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Área</Typography>
+                                <Typography variant="body1">
+                                    {selectedProcessDetail.areaNombre || areas.find(a => a.id === selectedProcessDetail.areaId)?.nombre || '-'}
+                                </Typography>
+                            </Box>
+
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Objetivo del Proceso</Typography>
                                 <Typography variant="body1">{selectedProcessDetail.objetivoProceso || '-'}</Typography>
@@ -673,6 +697,6 @@ export default function ProcesosDefinicionPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
-        </AppPageLayout>
+        </AppPageLayout >
     );
 }

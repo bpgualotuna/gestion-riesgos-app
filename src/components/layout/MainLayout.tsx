@@ -640,8 +640,8 @@ export default function MainLayout() {
               </Typography>
               {[
                 { text: 'Usuarios', icon: <PeopleIcon />, path: ROUTES.ADMIN_USUARIOS },
-                { text: 'Áreas y Asignaciones', icon: <BusinessIcon />, path: ROUTES.ADMIN_AREAS },
                 { text: 'Procesos', icon: <AccountTreeIcon />, path: ROUTES.ADMIN_PROCESOS },
+                { text: 'Áreas y Asignaciones', icon: <BusinessIcon />, path: ROUTES.ADMIN_AREAS },
                 { text: 'Conf. Mapa Riesgos', icon: <MapIcon />, path: ROUTES.ADMIN_MAPA_CONFIG },
                 { text: 'Parámetros de Calificación', icon: <SettingsIcon />, path: '/admin/parametros-calificacion' },
               ].map((item) => {
@@ -891,7 +891,7 @@ export default function MainLayout() {
                       <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
                       <Box sx={{ flex: 1 }}>
                         <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
-                        <Typography variant="caption" color="text.secondary">{option.areaNombre || 'Sin área'}</Typography>
+                        <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
                       </Box>
                       <Chip
                         label={option.activo ? 'Activo' : 'Inactivo'}
@@ -917,8 +917,8 @@ export default function MainLayout() {
                     value={modoProceso || ''}
                     onChange={(e) => {
                       const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
-                      if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar') {
-                        showError('Los procesos aprobados no se pueden editar');
+                      if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar' && !esDueñoProcesos) {
+                        showError('Los procesos aprobados solo pueden ser editados por el Dueño del Proceso');
                         return;
                       }
                       setModoProceso(nuevoModo === '' ? null : nuevoModo);
@@ -945,7 +945,7 @@ export default function MainLayout() {
                   >
                     <MenuItem value=""><em>Modo</em></MenuItem>
                     <MenuItem value="visualizar">Visualizar</MenuItem>
-                    {procesoSeleccionado?.estado !== 'aprobado' && <MenuItem value="editar">Editar</MenuItem>}
+                    {(procesoSeleccionado?.estado !== 'aprobado' || esDueñoProcesos) && <MenuItem value="editar">Editar</MenuItem>}
                   </Select>
                 </FormControl>
               </Box>

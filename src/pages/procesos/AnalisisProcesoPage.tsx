@@ -39,16 +39,35 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 
 export default function AnalisisProcesoPage() {
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
-  const [descripcion, setDescripcion] = useState(
-    'El proceso de Gestión de Talento Humano comprende todas las actividades relacionadas con la administración, desarrollo y retención del capital humano de la organización...'
-  );
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
+    skip: !procesoSeleccionado?.id
+  });
+  const [updateProceso] = useUpdateProcesoMutation();
+
+  const [descripcion, setDescripcion] = useState('');
   const [savedFile, setSavedFile] = useState<{ name: string; url: string; date: string } | null>(null);
+
+  useEffect(() => {
+    if (procesoData) {
+      setDescripcion(procesoData.analisis || '');
+      if (procesoData.documentoUrl) {
+        setSavedFile({
+          name: procesoData.documentoNombre || 'Documento adjunto',
+          url: procesoData.documentoUrl,
+          date: new Date().toISOString()
+        });
+      }
+    }
+  }, [procesoData]);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | null>(null);
@@ -57,17 +76,6 @@ export default function AnalisisProcesoPage() {
   const [fileToDelete, setFileToDelete] = useState<'selected' | 'saved' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('analisis_proceso');
-    if (saved) {
-      const data = JSON.parse(saved);
-      setDescripcion(data.descripcion || '');
-      if (data.archivo) {
-        setSavedFile(data.archivo);
-      }
-    }
-  }, []);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -93,31 +101,31 @@ export default function AnalisisProcesoPage() {
       }
     } else if (fileToDelete === 'saved') {
       setSavedFile(null);
-      const saved = localStorage.getItem('analisis_proceso');
-      if (saved) {
-        const data = JSON.parse(saved);
-        const newData = { ...data, archivo: null };
-        localStorage.setItem('analisis_proceso', JSON.stringify(newData));
-      }
     }
     setDeleteConfirmationOpen(false);
     setFileToDelete(null);
   };
 
-  const handleSave = () => {
-    const archivoData = selectedFile
-      ? { name: selectedFile.name, url: URL.createObjectURL(selectedFile), date: new Date().toISOString() }
-      : savedFile;
+  const handleSave = async () => {
+    if (!procesoSeleccionado?.id) {
+      showError('Debe seleccionar un proceso');
+      return;
+    }
 
-    const dataToSave = {
-      descripcion,
-      archivo: archivoData
-    };
+    try {
+      // Mocking file upload for now, just saving current state
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        analisis: descripcion,
+        documentoUrl: selectedFile ? URL.createObjectURL(selectedFile) : (savedFile ? savedFile.url : null),
+        documentoNombre: selectedFile ? selectedFile.name : (savedFile ? savedFile.name : null)
+      }).unwrap();
 
-    localStorage.setItem('analisis_proceso', JSON.stringify(dataToSave));
-    setSavedFile(archivoData);
-    setSelectedFile(null); // Clear selection after save as it's now "saved"
-    showSuccess('Análisis de proceso y documentación guardados exitosamente');
+      setSelectedFile(null);
+      showSuccess('Análisis de proceso y documentación guardados exitosamente');
+    } catch (error) {
+      showError('Error al guardar el análisis');
+    }
   };
 
   const handlePreview = (url: string, name: string) => {

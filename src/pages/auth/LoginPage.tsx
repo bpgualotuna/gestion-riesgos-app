@@ -268,7 +268,7 @@ export default function LoginPage() {
                                     key={usuario.id}
                                     variant="outlined"
                                     size="small"
-                                    onClick={() => handleDemoLogin(usuario.role || usuario.email?.split('@')[0] || '', usuario.password || '')}
+                                    onClick={() => handleDemoLogin(usuario.email?.split('@')[0] || usuario.role || '', usuario.password || '')}
                                     disabled={isLoading}
                                     sx={{
                                         justifyContent: 'flex-start',

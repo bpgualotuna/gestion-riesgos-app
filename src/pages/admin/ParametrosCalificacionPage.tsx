@@ -59,17 +59,35 @@ function SubtiposCatalog({
 
     const subtipos = useMemo(() => {
         const tipo = tiposRiesgo.find(t => t.codigo === tipoSeleccionado);
-        return (tipo?.subtipos || []).map((s) => ({ codigo: s.codigo, descripcion: s.descripcion }));
+        return (tipo?.subtipos || []).map((s) => ({
+            id: s.codigo || `temp-${Date.now()}-${Math.random()}`,
+            codigo: s.codigo,
+            descripcion: s.descripcion
+        }));
     }, [tiposRiesgo, tipoSeleccionado]);
 
     const handleSaveSubtipo = (item: any) => {
         const newTipos = tiposRiesgo.map((t) => {
             if (t.codigo !== tipoSeleccionado) return t;
-            const subtiposActuales = t.subtipos || [];
-            const existe = subtiposActuales.some((s) => s.codigo === item.codigo);
+
+            let subtiposActuales = t.subtipos || [];
+            let itemGuardar = { ...item };
+
+            // Si no tiene código, generar uno nuevo
+            if (!itemGuardar.codigo) {
+                const maxCod = subtiposActuales.reduce((max, s) => {
+                    const cod = parseInt(s.codigo);
+                    return isNaN(cod) ? max : Math.max(max, cod);
+                }, 0);
+                itemGuardar.codigo = String(maxCod + 1);
+            }
+
+            const existe = subtiposActuales.some((s) => s.codigo === itemGuardar.codigo);
+
             const nuevosSubtipos: SubtipoRiesgo[] = existe
-                ? subtiposActuales.map((s) => (s.codigo === item.codigo ? { codigo: item.codigo, descripcion: item.descripcion } : s))
-                : [...subtiposActuales, { codigo: item.codigo, descripcion: item.descripcion }];
+                ? subtiposActuales.map((s) => (s.codigo === itemGuardar.codigo ? { codigo: itemGuardar.codigo, descripcion: itemGuardar.descripcion } : s))
+                : [...subtiposActuales, { codigo: itemGuardar.codigo, descripcion: itemGuardar.descripcion }];
+
             return { ...t, subtipos: nuevosSubtipos };
         });
         onSaveTiposRiesgo(newTipos);

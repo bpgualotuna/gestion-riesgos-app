@@ -299,7 +299,7 @@ export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string
 /**
  * Genera ID con contador secuencial por sigla
  */
-function generarIdConContador(sigla: string): string {
+export function generarIdConContador(sigla: string): string {
   const key = `contador_riesgos_${sigla}`;
   const contadorActual = parseInt(localStorage.getItem(key) || '0', 10);
   const nuevoContador = contadorActual + 1;

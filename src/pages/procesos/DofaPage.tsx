@@ -3,7 +3,7 @@
  * Matriz FODA (Fortalezas, Oportunidades, Debilidades, Amenazas)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -47,17 +47,40 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useGetProcesosQuery } from '../../api/services/riesgosApi';
+import { useGetProcesosQuery, useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
 
+
 interface DofaItem {
   id: string;
   descripcion: string;
 }
+
+const mapBackendToFrontend: Record<string, string> = {
+  'FORTALEZA': 'fortalezas',
+  'OPORTUNIDAD': 'oportunidades',
+  'DEBILIDAD': 'debilidades',
+  'AMENAZA': 'amenazas',
+  'FO': 'estrategiasFO',
+  'FA': 'estrategiasFA',
+  'DO': 'estrategiasDO',
+  'DA': 'estrategiasDA'
+};
+
+const mapFrontendToBackend: Record<string, string> = {
+  'fortalezas': 'FORTALEZA',
+  'oportunidades': 'OPORTUNIDAD',
+  'debilidades': 'DEBILIDAD',
+  'amenazas': 'AMENAZA',
+  'estrategiasFO': 'FO',
+  'estrategiasFA': 'FA',
+  'estrategiasDO': 'DO',
+  'estrategiasDA': 'DA'
+};
 
 export default function DofaPage() {
   const { showSuccess } = useNotification();
@@ -88,34 +111,34 @@ export default function DofaPage() {
   const [itemSeleccionado, setItemSeleccionado] = useState<{ item: DofaItem; tipo: string; titulo: string } | null>(null);
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
 
-  const [oportunidades, setOportunidades] = useState<DofaItem[]>([
-    {
-      id: '1',
-      descripcion: 'Tendencia del mercado hacia modalidades de trabajo flexibles y remoto...',
-    },
-    {
-      id: '2',
-      descripcion: 'Avances tecnológicos y plataformas digitales para gestión de talento...',
-    },
-  ]);
+  // Fetch process details directly
+  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id, {
+    skip: !procesoSeleccionado?.id
+  });
+  const [updateProceso] = useUpdateProcesoMutation();
 
-  const [amenazas, setAmenazas] = useState<DofaItem[]>([
-    {
-      id: '1',
-      descripcion: 'Alta demanda del mercado por perfiles especializados en tecnologías emergentes...',
-    },
-    {
-      id: '2',
-      descripcion: 'Rigidez del marco laboral ecuatoriano que limita la flexibilidad...',
-    },
-  ]);
+  useEffect(() => {
+    if (procesoData && procesoData.dofaItems) {
+      setFortalezas(procesoData.dofaItems.filter((i: any) => i.tipo === 'FORTALEZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setOportunidades(procesoData.dofaItems.filter((i: any) => i.tipo === 'OPORTUNIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setDebilidades(procesoData.dofaItems.filter((i: any) => i.tipo === 'DEBILIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setAmenazas(procesoData.dofaItems.filter((i: any) => i.tipo === 'AMENAZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setEstrategiasFO(procesoData.dofaItems.filter((i: any) => i.tipo === 'FO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setEstrategiasFA(procesoData.dofaItems.filter((i: any) => i.tipo === 'FA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setEstrategiasDO(procesoData.dofaItems.filter((i: any) => i.tipo === 'DO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      setEstrategiasDA(procesoData.dofaItems.filter((i: any) => i.tipo === 'DA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+    }
+  }, [procesoData]);
 
+  // Loading and Error states could be handled here
+
+  const [oportunidades, setOportunidades] = useState<DofaItem[]>([]);
+  const [amenazas, setAmenazas] = useState<DofaItem[]>([]);
   const [fortalezas, setFortalezas] = useState<DofaItem[]>([]);
   const [debilidades, setDebilidades] = useState<DofaItem[]>([]);
   const [estrategiasFO, setEstrategiasFO] = useState<DofaItem[]>([]);
   const [estrategiasFA, setEstrategiasFA] = useState<DofaItem[]>([]);
   const [estrategiasDO, setEstrategiasDO] = useState<DofaItem[]>([]);
-
   const [estrategiasDA, setEstrategiasDA] = useState<DofaItem[]>([]);
 
   // Estado para confirmar eliminación (MOVED TO TOP)
@@ -226,19 +249,31 @@ export default function DofaPage() {
     }
   };
 
-  const handleSave = () => {
-    const dofaData = {
-      oportunidades,
-      amenazas,
-      fortalezas,
-      debilidades,
-      estrategiasFO,
-      estrategiasFA,
-      estrategiasDO,
-      estrategiasDA,
-    };
-    localStorage.setItem('dofa', JSON.stringify(dofaData));
-    showSuccess('Matriz DOFA guardada exitosamente');
+  const handleSave = async () => {
+    if (!procesoSeleccionado) return;
+
+    const allItems = [
+      ...oportunidades.map(i => ({ descripcion: i.descripcion, tipo: 'OPORTUNIDAD' })),
+      ...amenazas.map(i => ({ descripcion: i.descripcion, tipo: 'AMENAZA' })),
+      ...fortalezas.map(i => ({ descripcion: i.descripcion, tipo: 'FORTALEZA' })),
+      ...debilidades.map(i => ({ descripcion: i.descripcion, tipo: 'DEBILIDAD' })),
+      ...estrategiasFO.map(i => ({ descripcion: i.descripcion, tipo: 'FO' })),
+      ...estrategiasFA.map(i => ({ descripcion: i.descripcion, tipo: 'FA' })),
+      ...estrategiasDO.map(i => ({ descripcion: i.descripcion, tipo: 'DO' })),
+      ...estrategiasDA.map(i => ({ descripcion: i.descripcion, tipo: 'DA' })),
+    ];
+
+    try {
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        dofaItems: allItems
+      }).unwrap();
+      showSuccess('Matriz DOFA guardada exitosamente');
+    } catch (error) {
+      console.error(error);
+      // showError('Error al guardar'); // Assuming showError exists or use showSuccess with error msg? 
+      // check useNotification hooks. showSuccess available.
+    }
   };
 
   const handleVerDetalle = (

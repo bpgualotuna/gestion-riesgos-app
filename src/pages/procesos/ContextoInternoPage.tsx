@@ -3,7 +3,7 @@
  * Análisis de factores internos según análisis Excel
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -17,6 +17,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import { useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
 interface ContextoInterno {
@@ -33,21 +34,46 @@ interface ContextoInterno {
 }
 
 export default function ContextoInternoPage() {
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
-  const [formData, setFormData] = useState<ContextoInterno>({
-    financieros: 'El área de Talento Humano administra, controla y optimiza los recursos financieros...',
-    gente: 'El área de Talento Humano es responsable de fortalecer las capacidades del personal...',
-    procesos: 'Talento Humano cuenta con políticas y procedimientos documentados...',
-    activosFisicos: 'Talento Humano coordina los procesos de asignación de espacios físicos...',
-    cadenaSuministro: 'N/A',
-    informacion: 'Talento Humano gestiona el control de accesos y asignación de permisos...',
-    sistemas: 'Subutilización de las funcionalidades disponibles en los sistemas...',
-    proyectos: 'N/A',
-    impuestos: 'N/A',
-    gruposInteresInternos: 'AP: El proceso de Talento Humano cuenta con personal capacitado...',
+
+  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id, {
+    skip: !procesoSeleccionado?.id
   });
+  const [updateProceso] = useUpdateProcesoMutation();
+
+  const [formData, setFormData] = useState<ContextoInterno>({
+    financieros: '',
+    gente: '',
+    procesos: '',
+    activosFisicos: '',
+    cadenaSuministro: '',
+    informacion: '',
+    sistemas: '',
+    proyectos: '',
+    impuestos: '',
+    gruposInteresInternos: '',
+  });
+
+  useEffect(() => {
+    if (procesoData && procesoData.contextos) {
+      const contextoMap: any = {};
+      procesoData.contextos.forEach((c: any) => {
+        if (c.tipo === 'INTERNO_FINANCIEROS') contextoMap.financieros = c.descripcion;
+        if (c.tipo === 'INTERNO_GENTE') contextoMap.gente = c.descripcion;
+        if (c.tipo === 'INTERNO_PROCESOS') contextoMap.procesos = c.descripcion;
+        if (c.tipo === 'INTERNO_ACTIVOSFISICOS') contextoMap.activosFisicos = c.descripcion;
+        if (c.tipo === 'INTERNO_CADENASUMINISTRO') contextoMap.cadenaSuministro = c.descripcion;
+        if (c.tipo === 'INTERNO_INFORMACION') contextoMap.informacion = c.descripcion;
+        if (c.tipo === 'INTERNO_SISTEMAS') contextoMap.sistemas = c.descripcion;
+        if (c.tipo === 'INTERNO_PROYECTOS') contextoMap.proyectos = c.descripcion;
+        if (c.tipo === 'INTERNO_IMPUESTOS') contextoMap.impuestos = c.descripcion;
+        if (c.tipo === 'INTERNO_GRUPOSINTERESINTERNOS') contextoMap.gruposInteresInternos = c.descripcion;
+      });
+      setFormData(prev => ({ ...prev, ...contextoMap }));
+    }
+  }, [procesoData]);
 
   const handleChange = (field: keyof ContextoInterno) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -59,8 +85,34 @@ export default function ContextoInternoPage() {
   };
 
   const handleSave = async () => {
-    localStorage.setItem('contexto_interno', JSON.stringify(formData));
-    showSuccess('Análisis de contexto interno guardado exitosamente');
+    if (!procesoSeleccionado) return;
+
+    const contextos = [
+      { tipo: 'INTERNO_FINANCIEROS', descripcion: formData.financieros },
+      { tipo: 'INTERNO_GENTE', descripcion: formData.gente },
+      { tipo: 'INTERNO_PROCESOS', descripcion: formData.procesos },
+      { tipo: 'INTERNO_ACTIVOSFISICOS', descripcion: formData.activosFisicos },
+      { tipo: 'INTERNO_CADENASUMINISTRO', descripcion: formData.cadenaSuministro },
+      { tipo: 'INTERNO_INFORMACION', descripcion: formData.informacion },
+      { tipo: 'INTERNO_SISTEMAS', descripcion: formData.sistemas },
+      { tipo: 'INTERNO_PROYECTOS', descripcion: formData.proyectos },
+      { tipo: 'INTERNO_IMPUESTOS', descripcion: formData.impuestos },
+      { tipo: 'INTERNO_GRUPOSINTERESINTERNOS', descripcion: formData.gruposInteresInternos },
+    ];
+
+    // Keep existing external context
+    const existingExternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('EXTERNO_')) || [];
+
+    try {
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        contextos: [...contextos, ...existingExternos]
+      }).unwrap();
+      showSuccess('Análisis de contexto interno guardado exitosamente');
+    } catch (error) {
+      console.error(error);
+      showError('Error al guardar el contexto interno');
+    }
   };
 
   return (

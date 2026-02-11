@@ -11,7 +11,6 @@ import {
     Alert,
     Tooltip,
     TextField,
-    Snackbar,
     InputAdornment
 } from '@mui/material';
 import {
@@ -28,6 +27,7 @@ import {
     useGetEjesMapaQuery
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useNotification } from '../../hooks/useNotification';
 
 
 // Tipos para la configuración
@@ -297,6 +297,12 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     const [searchTerm, setSearchTerm] = useState('');
     const { data: configDataRaw, isLoading: isLoadingConfig } = useGetMapaConfigQuery();
     const { data: nivelesData, isLoading: isLoadingNiveles } = useGetNivelesRiesgoQuery();
+
+    // Debug logs
+    console.log('📊 MapasConfigPage - configDataRaw:', configDataRaw);
+    console.log('📊 MapasConfigPage - nivelesData:', nivelesData);
+    console.log('📊 MapasConfigPage - isLoadingConfig:', isLoadingConfig);
+    console.log('📊 MapasConfigPage - isLoadingNiveles:', isLoadingNiveles);
     const [updateMapaConfig, { isLoading: isUpdating }] = useUpdateMapaConfigMutation();
 
     // Simplify type handling
@@ -306,13 +312,14 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     // but localConfig only holds the tab-specific data.
     // We'll read maxRiesgosVisible directly from configDataRaw where needed.
 
+    const { showSuccess, showError } = useNotification();
     const [localConfig, setLocalConfig] = useState<any>(null);
-    const [showSnackbar, setShowSnackbar] = useState(false);
-    const [snackbarMessage, setSnackbarMessage] = useState('');
-    const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
     useEffect(() => {
         if (configData) {
+            console.log('📊 useEffect - configData:', configData);
+            console.log('📊 useEffect - tabValue:', tabValue);
+            console.log('📊 useEffect - configData[tabValue]:', configData[tabValue]);
             setLocalConfig(configData[tabValue]);
         }
     }, [configData, tabValue]);
@@ -328,15 +335,16 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
 
     const handleSave = async () => {
         if (!localConfig) return;
+        console.log('💾 handleSave - Guardando configuración...');
+        console.log('💾 handleSave - tabValue:', tabValue);
+        console.log('💾 handleSave - localConfig:', localConfig);
         try {
-            await updateMapaConfig({ type: tabValue as any, data: localConfig }).unwrap();
-            setSnackbarMessage('Configuración guardada correctamente');
-            setSnackbarSeverity('success');
-            setShowSnackbar(true);
+            const result = await updateMapaConfig({ type: tabValue as any, data: localConfig }).unwrap();
+            console.log('✅ handleSave - Guardado exitoso:', result);
+            showSuccess('Guardado correctamente');
         } catch (error) {
-            setSnackbarMessage('Error al guardar configuración');
-            setSnackbarSeverity('error');
-            setShowSnackbar(true);
+            console.error('❌ handleSave - Error al guardar:', error);
+            showError('Error al guardar configuración');
         }
     };
 
@@ -434,15 +442,7 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                 </Box>
             </Box>
 
-            <Snackbar
-                open={showSnackbar}
-                autoHideDuration={6000}
-                onClose={() => setShowSnackbar(false)}
-            >
-                <Alert onClose={() => setShowSnackbar(false)} severity={snackbarSeverity} sx={{ width: '100%' }}>
-                    {snackbarMessage}
-                </Alert>
-            </Snackbar>
+
         </>
     );
 

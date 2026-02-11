@@ -73,43 +73,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Login function
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
 
-    // Obtener usuarios frescos del mockData (que puede venir de localStorage)
-    const currentUsers = getMockUsuarios();
+      const data = await response.json();
 
-    // Buscar usuario por username (o email para compatibilidad) y contraseña
-    const foundUser = currentUsers.find(
-      u => (u.email?.split('@')[0] === username || u.role === username) && u.password === password
-    );
+      if (response.ok && data.success) {
+        const backendUser = data.user;
 
-    if (foundUser) {
-      // Map mockUser to Context User format if needed, though they are similar
-      const contextUser: User = {
-        id: foundUser.id,
-        username: foundUser.role || foundUser.nombre, // Fallback
-        email: foundUser.email || '',
-        fullName: foundUser.nombre,
-        role: foundUser.role as UserRole, // Cast assuming roles match
-        department: foundUser.cargoNombre || 'General', // Map cargo to department/position
-        position: foundUser.cargoNombre || foundUser.role || 'Usuario',
-        esDuenoProcesos: foundUser.role === 'dueño_procesos',
-      };
+        // Map backend user to context User format
+        const contextUser: User = {
+          id: backendUser.id,
+          username: backendUser.username,
+          email: backendUser.email,
+          fullName: backendUser.fullName,
+          role: backendUser.role as UserRole,
+          department: backendUser.department,
+          position: backendUser.position,
+          esDuenoProcesos: backendUser.esDuenoProcesos,
+        };
 
-      setUser(contextUser);
-      localStorage.setItem('currentUser', JSON.stringify(contextUser));
-      if (contextUser.role === 'gerente_general') {
-        setGerenteGeneralModeState(null);
-        localStorage.removeItem('gerenteGeneralMode');
+        setUser(contextUser);
+        localStorage.setItem('currentUser', JSON.stringify(contextUser));
+        if (contextUser.role === 'gerente_general') {
+          setGerenteGeneralModeState(null);
+          localStorage.removeItem('gerenteGeneralMode');
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Credenciales inválidas' };
       }
-      return { success: true };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: 'Error de conexión con el servidor' };
     }
-
-    return {
-      success: false,
-      error: 'Usuario o contraseña incorrectos'
-    };
   };
 
   // Logout function

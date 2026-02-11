@@ -24,7 +24,7 @@ import Grid2 from '../../utils/Grid2';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import type { RiesgoFormData } from '../../types';
-import { obtenerPorcentajeMitigacion, calcularFrecuenciaResidual, calcularImpactoResidual } from '../../utils/calculations';
+import { useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
 
 interface RiesgoResidual {
   numeroIdentificacion: string;
@@ -97,7 +97,7 @@ const getColorZona = (zona: string): string => {
 
 export default function MapaResidualPage() {
   const { procesoSeleccionado } = useProceso();
-  const { showError } = useNotification();
+  // const { showError } = useNotification();
 
   const [riesgosResidiales, setRiesgosResidiales] = useState<RiesgoResidual[]>([]);
   const [riesgosOrdenados, setRiesgosOrdenados] = useState<RiesgoResidual[]>([]);
@@ -109,83 +109,51 @@ export default function MapaResidualPage() {
     minimo: 0,
   });
 
-  // Cargar riesgos de localStorage
-  const cargarRiesgosResidiales = () => {
-    if (!procesoSeleccionado?.id) return [];
-
-    try {
-      const stored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-      if (!stored) return [];
-
-      const riesgos: RiesgoFormData[] = JSON.parse(stored);
-      const riesgosCalculados: RiesgoResidual[] = [];
-
-      riesgos.forEach((riesgo) => {
-        if (riesgo.causas && riesgo.causas.length > 0) {
-          // Calcular residual para cada causa y tomar el máximo
-          const calificacionesResiduales = riesgo.causas.map((causa) => {
-            const efectividadControl = causa.efectividadControl || 'No Aplica';
-            const porcentajeMitigacion = obtenerPorcentajeMitigacion(efectividadControl);
-            const frecuenciaInherente = causa.frecuencia || 1;
-            const impactoInherente = causa.calificacionGlobalImpacto || 1;
-
-            const frecuenciaResidual = calcularFrecuenciaResidual(frecuenciaInherente, porcentajeMitigacion);
-            const impactoResidual = calcularImpactoResidual(impactoInherente, porcentajeMitigacion);
-
-            return {
-              frecuenciaResidual,
-              impactoResidual,
-              calificacionResidual: frecuenciaResidual * impactoResidual,
-            };
-          });
-
-          // Tomar el máximo de las calificaciones residuales
-          const riesgoResidualMax = calificacionesResiduales.reduce((max, curr) =>
-            curr.calificacionResidual > max.calificacionResidual ? curr : max
-          );
-
-          const zonaRiesgo = determinarZonaRiesgo(riesgoResidualMax.frecuenciaResidual, riesgoResidualMax.impactoResidual);
-
-          riesgosCalculados.push({
-            numeroIdentificacion: riesgo.numeroIdentificacion || 'Sin ID',
-            descripcion: riesgo.descripcionRiesgo || 'Sin descripción',
-            frecuenciaResidual: riesgoResidualMax.frecuenciaResidual,
-            impactoResidual: riesgoResidualMax.impactoResidual,
-            calificacionResidual: riesgoResidualMax.calificacionResidual,
-            consecuencia: riesgo.consecuencia === 'Positiva' ? 'Positiva' : 'Negativa',
-            nivelFrequencia: FRECUENCIAS[riesgoResidualMax.frecuenciaResidual as keyof typeof FRECUENCIAS] || 'N/A',
-            nivelImpacto: IMPACTOS[riesgoResidualMax.impactoResidual as keyof typeof IMPACTOS] || 'N/A',
-            zonaRiesgo,
-          });
-        }
-      });
-
-      return riesgosCalculados;
-    } catch (error) {
-      console.error('Error cargando riesgos residuales:', error);
-      showError('Error al cargar los riesgos residuales');
-      return [];
-    }
-  };
+  const { data: puntosMapa, isLoading } = useGetPuntosMapaQuery(
+    { procesoId: procesoSeleccionado?.id },
+    { skip: !procesoSeleccionado?.id }
+  );
 
   useEffect(() => {
-    const riesgos = cargarRiesgosResidiales();
-    setRiesgosResidiales(riesgos);
+    if (puntosMapa) {
+      const riesgosCalculados: RiesgoResidual[] = puntosMapa
+        .filter(p => p.probabilidadResidual !== undefined && p.impactoResidual !== undefined)
+        .map(p => {
+          const f = p.probabilidadResidual || 1;
+          const i = p.impactoResidual || 1;
+          const cal = f * i;
+          const zona = determinarZonaRiesgo(f, i);
 
-    // Ordenar por calificación residual descendente (mayor a menor)
-    const ordenados = [...riesgos].sort((a, b) => b.calificacionResidual - a.calificacionResidual);
-    setRiesgosOrdenados(ordenados);
+          return {
+            numeroIdentificacion: p.numeroIdentificacion || p.numero.toString(),
+            descripcion: p.descripcion,
+            frecuenciaResidual: f,
+            impactoResidual: i,
+            calificacionResidual: cal,
+            consecuencia: p.clasificacion === 'Positiva' ? 'Positiva' : 'Negativa',
+            nivelFrequencia: FRECUENCIAS[f as keyof typeof FRECUENCIAS] || 'N/A',
+            nivelImpacto: IMPACTOS[i as keyof typeof IMPACTOS] || 'N/A',
+            zonaRiesgo: zona
+          };
+        });
 
-    // Contar por zonas de riesgo
-    const conteo: ConteoZonasRiesgo = {
-      critico: riesgos.filter((r) => r.zonaRiesgo === 'Crítico').length,
-      alto: riesgos.filter((r) => r.zonaRiesgo === 'Alto').length,
-      medio: riesgos.filter((r) => r.zonaRiesgo === 'Medio').length,
-      bajo: riesgos.filter((r) => r.zonaRiesgo === 'Bajo').length,
-      minimo: riesgos.filter((r) => r.zonaRiesgo === 'Mínimo').length,
-    };
-    setConteoZonas(conteo);
-  }, [procesoSeleccionado?.id]);
+      setRiesgosResidiales(riesgosCalculados);
+
+      // Ordenar por calificación residual descendente (mayor a menor)
+      const ordenados = [...riesgosCalculados].sort((a, b) => b.calificacionResidual - a.calificacionResidual);
+      setRiesgosOrdenados(ordenados);
+
+      // Contar por zonas de riesgo
+      const conteo: ConteoZonasRiesgo = {
+        critico: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Crítico').length,
+        alto: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Alto').length,
+        medio: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Medio').length,
+        bajo: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Bajo').length,
+        minimo: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Mínimo').length,
+      };
+      setConteoZonas(conteo);
+    }
+  }, [puntosMapa]);
 
   // Construir matriz 5x5 con riesgos negativos y positivos
   const { matrizNegativa, matrizPositiva } = useMemo(() => {

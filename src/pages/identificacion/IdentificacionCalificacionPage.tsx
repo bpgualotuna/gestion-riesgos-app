@@ -69,13 +69,15 @@ import {
   getMockConsecuencias,
   getMockNivelesRiesgo,
   getMockClasificacionesRiesgo,
+  getMockVicepresidencias,
+  getMockGerencias,
 } from '../../api/services/mockData';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useRiesgo } from '../../contexts/RiesgoContext';
 import type { Riesgo, FiltrosRiesgo, CausaRiesgo, RiesgoFormData } from '../../types';
-import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente } from '../../utils/calculations';
+import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente, generarIdConContador } from '../../utils/calculations';
 import {
   obtenerPorcentajeMitigacion,
   calcularFrecuenciaResidual,
@@ -296,14 +298,42 @@ export default function IdentificacionPage() {
   const crearNuevoRiesgo = (): RiesgoFormData => {
     const nuevoId = `riesgo-${Date.now()}`;
 
-    // Generar ID automático basado en la vicepresidencia del proceso seleccionado
+    // Generar ID automático basado en la sigla de la Vicepresidencia/Gerencia
     let numeroIdentificacion = '';
-    if (procesoSeleccionado?.vicepresidencia) {
-      console.log('Generando ID para proceso:', procesoSeleccionado.nombre, 'Vicepresidencia:', procesoSeleccionado.vicepresidencia);
-      numeroIdentificacion = generarIdRiesgoAutomatico(procesoSeleccionado.vicepresidencia);
-      console.log('ID generado:', numeroIdentificacion);
-    } else {
-      console.warn('El proceso seleccionado no tiene vicepresidencia configurada:', procesoSeleccionado);
+
+    if (procesoSeleccionado) {
+      // Intentar obtener la sigla de la Gerencia primero si existe (campo gerencia del proceso)
+      const gerencias = getMockGerencias();
+      let gerenciaEncontrada = null;
+      if (procesoSeleccionado.gerencia) {
+        gerenciaEncontrada = gerencias.find(g => g.id === procesoSeleccionado.gerencia);
+      }
+
+      // Intentar obtener la sigla de la Vicepresidencia (campo vicepresidencia del proceso)
+      const vps = getMockVicepresidencias();
+      let vpEncontrada = vps.find(v => v.id === procesoSeleccionado.vicepresidencia);
+
+      // Si no se encuentra como VP, buscar si el ID en 'vicepresidencia' es en realidad una gerencia (caso común si se seleccionó en un dropdown genérico)
+      let gerenciaComoVP = null;
+      if (!vpEncontrada && procesoSeleccionado.vicepresidencia) {
+        gerenciaComoVP = gerencias.find(g => g.id === procesoSeleccionado.vicepresidencia);
+      }
+
+      // Prioridad: Gerencia Específica > Gerencia en campo VP > Vicepresidencia
+      // Si hay gerencia específica, usuar esa. Si no, si el campo VP es una gerencia, usar esa. Si no, usar la VP.
+      // Ojo: Si el proceso tiene VP y Gerencia, normalmente queremos la Gerencia (más específica).
+
+      const entidad = gerenciaEncontrada || gerenciaComoVP || vpEncontrada;
+
+      if (entidad && entidad.sigla) {
+        console.log('Generando ID usando sigla de:', entidad.nombre, 'Sigla:', entidad.sigla);
+        numeroIdentificacion = generarIdConContador(entidad.sigla);
+      } else {
+        console.warn('No se encontró entidad con sigla para el proceso:', procesoSeleccionado?.nombre);
+        // Fallback: intentar usar el nombre de la vicepresidencia con la lógica antigua de adivinanza
+        const nombreVP = procesoSeleccionado.vicepresidencia || 'GEN';
+        numeroIdentificacion = generarIdRiesgoAutomatico(nombreVP);
+      }
     }
 
     return {

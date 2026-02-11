@@ -54,6 +54,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
+import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
 import { getMockRiesgos, getDescripcionesImpacto, getEstadosIncidencia } from '../../api/services/mockData';
 import { LABELS_IMPACTO } from '../../utils/constants';
 import Grid2 from '../../utils/Grid2';
@@ -161,55 +162,14 @@ export default function MaterializarRiesgosPage() {
     const impactosData = storedImpactos ? JSON.parse(storedImpactos) : getDescripcionesImpacto();
     return normalizarDescripcionesImpacto(impactosData);
   }, []);
+  const { data: riesgosResponse } = useGetRiesgosQuery({ procesoId: procesoSeleccionado?.id });
+  const riesgosData = riesgosResponse?.data || [];
+
   // Obtener riesgos del proceso seleccionado
-  // NOTA: Esta implementación reconstruye desde localStorage individual
-  // si el array consolidado 'riesgos' está vacío (problema de consistencia)
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
-
-    // Intentar leer array consolidado
-    let riesgos: any[] = [];
-    const riesgosData = localStorage.getItem('riesgos');
-
-    if (riesgosData) {
-      try {
-        riesgos = JSON.parse(riesgosData);
-      } catch (e) {
-        console.error('Error parsing riesgos:', e);
-        riesgos = [];
-      }
-    }
-
-    // Si está vacío, reconstruir desde riesgos individuales (riesgo_{id})
-    if (riesgos.length === 0) {
-      console.warn('⚠️ Array consolidado "riesgos" vacío. Reconstruyendo desde riesgos individuales...');
-
-      const keys = Object.keys(localStorage).filter(key => key.startsWith('riesgo_'));
-
-      riesgos = keys.map(key => {
-        try {
-          return JSON.parse(localStorage.getItem(key)!);
-        } catch (e) {
-          console.error(`Error parsing ${key}:`, e);
-          return null;
-        }
-      }).filter(r => r !== null);
-
-      // Consolidar para futuras lecturas
-      if (riesgos.length > 0) {
-        console.log(`✅ Reconstruidos ${riesgos.length} riesgos. Consolidando en localStorage...`);
-        localStorage.setItem('riesgos', JSON.stringify(riesgos));
-      } else {
-        // Si no hay individuales tampoco, usar mock data
-        console.log('📦 No hay riesgos en localStorage. Usando mock data...');
-        const mockRiesgos = getMockRiesgos();
-        riesgos = mockRiesgos.data;
-      }
-    }
-
-    // Filtrar por proceso
-    return riesgos.filter((r: any) => r.procesoId === procesoSeleccionado.id) || [];
-  }, [procesoSeleccionado?.id]);
+    return riesgosData;
+  }, [riesgosData, procesoSeleccionado?.id]);
 
   // Filtrar incidencias por proceso
   const incidenciasFiltradas = useMemo(() => {
@@ -257,15 +217,8 @@ export default function MaterializarRiesgosPage() {
 
     // Validar que al menos un impacto esté completado
     const impactos = formData.impactosMaterializacion || {
-      economico: 0, reputacional: 0, legal: 0, operacional: 0, personas: 0, ambiental: 0, tecnologico: 0, cumplimiento: 0
+      economico: 1, reputacional: 1, legal: 1, operacional: 1, personas: 1, ambiental: 1, tecnologico: 1, cumplimiento: 1
     };
-    /* Relax validation for inline quick report 
-    const algunImpactoCompletado = Object.values(impactos).some((valor) => valor > 0);
-    if (!algunImpactoCompletado) {
-      showError('Debe completar al menos un impacto de materialización');
-      return;
-    }
-    */
 
 
     // Solo crear nueva incidencia (el formulario inline no soporta edición)
@@ -277,7 +230,7 @@ export default function MaterializarRiesgosPage() {
       ...formData,
       procesoId: procesoSeleccionado.id,
       procesoNombre: procesoSeleccionado.nombre,
-      riesgoNombre: riesgoSeleccionado?.nombre,
+      riesgoNombre: (riesgoSeleccionado as any)?.descripcion || (riesgoSeleccionado as any)?.nombre,
       impactosMaterializacion: impactos, // Ensure impacts object exists
       fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
       reportadoPor: 'Usuario Actual',
@@ -397,7 +350,7 @@ export default function MaterializarRiesgosPage() {
               {/* Column Headers */}
               <Box sx={{
                 display: 'grid',
-                gridTemplateColumns: '48px 100px 1fr 180px 220px 100px 48px',
+                gridTemplateColumns: '48px 100px 1.5fr 150px 150px 100px 48px',
                 gap: 2,
                 px: 3,
                 py: 1.5,
@@ -411,7 +364,7 @@ export default function MaterializarRiesgosPage() {
                 <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">TIPO RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">CAUSAS</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">SUBTIPO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
               </Box>
@@ -420,7 +373,7 @@ export default function MaterializarRiesgosPage() {
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '48px 100px 1fr 180px 220px 100px 48px',
+                      gridTemplateColumns: '48px 100px 1.5fr 150px 150px 100px 48px',
                       gap: 2,
                       p: 2,
                       cursor: 'pointer',
@@ -436,7 +389,7 @@ export default function MaterializarRiesgosPage() {
                     </IconButton>
 
                     <Typography variant="subtitle2" fontWeight={700} color="primary">
-                      {riesgo.numeroIdentificacion || 'Sin ID'}
+                      {riesgo.numeroIdentificacion || riesgo.numero || 'Sin ID'}
                     </Typography>
 
                     <Typography variant="body2" sx={{
@@ -447,15 +400,15 @@ export default function MaterializarRiesgosPage() {
                       overflow: 'hidden',
                       lineHeight: 1.2
                     }}>
-                      {riesgo.nombre || riesgo.descripcionRiesgo || 'Sin descripción'}
+                      {riesgo.descripcion || riesgo.descripcionRiesgo || 'Sin descripción'}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary">
-                      {riesgo.tipoRiesgo || '02 Operacional'}
+                      {riesgo.tipologiaNivelI || riesgo.tipoRiesgo || '02 Operacional'}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                      {riesgo.causas?.length || 0} causas
+                    <Typography variant="body2" color="text.secondary">
+                      {riesgo.tipologiaNivelII || riesgo.subtipoRiesgo || 'Sin subtipo'}
                     </Typography>
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>

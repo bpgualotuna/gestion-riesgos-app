@@ -3,7 +3,7 @@
  * Análisis de factores externos según análisis Excel
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -18,6 +18,7 @@ import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon } from
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import { useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
 interface ContextoExterno {
@@ -31,18 +32,40 @@ interface ContextoExterno {
 }
 
 export default function ContextoExternoPage() {
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
-  const [formData, setFormData] = useState<ContextoExterno>({
-    economico: 'Alta demanda del mercado por perfiles especializados en tecnologías emergentes...',
-    culturalSocial: 'Preferencia del sector laboral tecnológico por modalidades de trabajo flexibles...',
-    legalRegulatorio: 'La compañía mantiene un proceso documental que asegura el cumplimiento...',
-    tecnologico: 'Gestión del talento humano mediante plataformas innovadoras...',
-    ambiental: 'N/A',
-    gruposInteresExternos: 'El área de Talento Humano interactúa de manera permanente...',
-    otrosFactores: 'N/A',
+
+  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id, {
+    skip: !procesoSeleccionado?.id
   });
+  const [updateProceso] = useUpdateProcesoMutation();
+
+  const [formData, setFormData] = useState<ContextoExterno>({
+    economico: '',
+    culturalSocial: '',
+    legalRegulatorio: '',
+    tecnologico: '',
+    ambiental: '',
+    gruposInteresExternos: '',
+    otrosFactores: '',
+  });
+
+  useEffect(() => {
+    if (procesoData && procesoData.contextos) {
+      const contextoMap: any = {};
+      procesoData.contextos.forEach((c: any) => {
+        if (c.tipo === 'EXTERNO_ECONOMICO') contextoMap.economico = c.descripcion;
+        if (c.tipo === 'EXTERNO_CULTURALSOCIAL') contextoMap.culturalSocial = c.descripcion;
+        if (c.tipo === 'EXTERNO_LEGALREGULATORIO') contextoMap.legalRegulatorio = c.descripcion;
+        if (c.tipo === 'EXTERNO_TECNOLOGICO') contextoMap.tecnologico = c.descripcion;
+        if (c.tipo === 'EXTERNO_AMBIENTAL') contextoMap.ambiental = c.descripcion;
+        if (c.tipo === 'EXTERNO_GRUPOSINTERESEXTERNOS') contextoMap.gruposInteresExternos = c.descripcion;
+        if (c.tipo === 'EXTERNO_OTROSFACTORES') contextoMap.otrosFactores = c.descripcion;
+      });
+      setFormData(prev => ({ ...prev, ...contextoMap }));
+    }
+  }, [procesoData]);
 
   const handleChange = (field: keyof ContextoExterno) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -54,8 +77,31 @@ export default function ContextoExternoPage() {
   };
 
   const handleSave = async () => {
-    localStorage.setItem('contexto_externo', JSON.stringify(formData));
-    showSuccess('Análisis de contexto externo guardado exitosamente');
+    if (!procesoSeleccionado) return;
+
+    const contextos = [
+      { tipo: 'EXTERNO_ECONOMICO', descripcion: formData.economico },
+      { tipo: 'EXTERNO_CULTURALSOCIAL', descripcion: formData.culturalSocial },
+      { tipo: 'EXTERNO_LEGALREGULATORIO', descripcion: formData.legalRegulatorio },
+      { tipo: 'EXTERNO_TECNOLOGICO', descripcion: formData.tecnologico },
+      { tipo: 'EXTERNO_AMBIENTAL', descripcion: formData.ambiental },
+      { tipo: 'EXTERNO_GRUPOSINTERESEXTERNOS', descripcion: formData.gruposInteresExternos },
+      { tipo: 'EXTERNO_OTROSFACTORES', descripcion: formData.otrosFactores },
+    ];
+
+    // Keep existing internal context
+    const existingInternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('INTERNO_')) || [];
+
+    try {
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        contextos: [...existingInternos, ...contextos]
+      }).unwrap();
+      showSuccess('Análisis de contexto externo guardado exitosamente');
+    } catch (error) {
+      console.error(error);
+      showError('Error al guardar el contexto externo');
+    }
   };
 
   return (

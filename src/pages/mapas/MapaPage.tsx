@@ -201,11 +201,9 @@ export default function MapaPage() {
       const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
       if (!riesgo) return;
 
-      // Aproximación: reducir probabilidad e impacto en un 20% para riesgo residual
-      // En producción, esto vendría de las evaluaciones residuales reales
-      const factorReduccion = 0.8; // 20% de reducción
-      const probabilidadResidual = Math.max(1, Math.round(punto.probabilidad * factorReduccion));
-      const impactoResidual = Math.max(1, Math.round(punto.impacto * factorReduccion));
+      // Usar valores residuales del backend
+      const probabilidadResidual = punto.probabilidadResidual ?? Math.max(1, Math.round(punto.probabilidad * 0.8));
+      const impactoResidual = punto.impactoResidual ?? Math.max(1, Math.round(punto.impacto * 0.8));
 
       const clave = `${probabilidadResidual}-${impactoResidual}`;
       if (!matriz[clave]) {
@@ -300,9 +298,8 @@ export default function MapaPage() {
       const nivelInherente = calcularNivelRiesgo(punto.probabilidad, punto.impacto);
 
       // Calcular residual (aproximación: reducir 20%)
-      const factorReduccion = 0.8;
-      const probabilidadResidual = Math.max(1, Math.round(punto.probabilidad * factorReduccion));
-      const impactoResidual = Math.max(1, Math.round(punto.impacto * factorReduccion));
+      const probabilidadResidual = punto.probabilidadResidual ?? Math.max(1, Math.round(punto.probabilidad * 0.8));
+      const impactoResidual = punto.impactoResidual ?? Math.max(1, Math.round(punto.impacto * 0.8));
       const nivelResidual = calcularNivelRiesgo(probabilidadResidual, impactoResidual);
 
       // Contar por nivel residual
@@ -336,9 +333,8 @@ export default function MapaPage() {
 
       const scoreInherente = punto.probabilidad * punto.impacto;
       // Aproximación residual (usando la misma lógica global)
-      const factorReduccion = 0.8;
-      const probRes = Math.max(1, Math.round(punto.probabilidad * factorReduccion));
-      const impRes = Math.max(1, Math.round(punto.impacto * factorReduccion));
+      const probRes = punto.probabilidadResidual ?? Math.max(1, Math.round(punto.probabilidad * 0.8));
+      const impRes = punto.impactoResidual ?? Math.max(1, Math.round(punto.impacto * 0.8));
       const scoreResidual = probRes * impRes;
 
       const reduccion = scoreInherente - scoreResidual;
@@ -428,39 +424,21 @@ export default function MapaPage() {
 
   /* Hook moved to top */
   const getCellColor = (probabilidad: number, impacto: number): string => {
-    const riesgo = probabilidad * impacto;
     const cellKey = `${probabilidad}-${impacto}`;
-    const cellColorMap: { [key: string]: string } = {
-      '1-5': colors.risk.high.main,
-      '2-5': colors.risk.high.main,
-      '3-5': colors.risk.critical.main,
-      '4-5': colors.risk.critical.main,
-      '5-5': colors.risk.critical.main,
-      '1-4': colors.risk.medium.main,
-      '2-4': colors.risk.medium.main,
-      '3-4': colors.risk.high.main,
-      '4-4': colors.risk.critical.main,
-      '5-4': colors.risk.critical.main,
-      '1-3': colors.risk.low.main,
-      '2-3': colors.risk.medium.main,
-      '3-3': colors.risk.medium.main,
-      '4-3': colors.risk.high.main,
-      '5-3': colors.risk.critical.main,
-      '1-2': colors.risk.low.main,
-      '2-2': colors.risk.low.main,
-      '3-2': colors.risk.medium.main,
-      '4-2': colors.risk.medium.main,
-      '5-2': colors.risk.high.main,
-      '1-1': colors.risk.low.main,
-      '2-1': colors.risk.low.main,
-      '3-1': colors.risk.low.main,
-      '4-1': colors.risk.medium.main,
-      '5-1': colors.risk.high.main,
-    };
-    if (cellColorMap[cellKey]) {
-      return cellColorMap[cellKey];
+
+    // Use backend configuration if available
+    if (mapaConfig && mapaConfig.inherente) {
+      const nivelId = mapaConfig.inherente[cellKey];
+      if (nivelId) {
+        const nivel = niveles?.find(n => n.id === nivelId);
+        if (nivel && nivel.color) {
+          return nivel.color;
+        }
+      }
     }
-    // Fallback logic
+
+    // Fallback to theme colors
+    const riesgo = probabilidad * impacto;
     if (riesgo >= 25) return colors.risk.critical.main;
     if (riesgo >= 17) return '#d32f2f';
     if (riesgo >= 10) return colors.risk.high.main;

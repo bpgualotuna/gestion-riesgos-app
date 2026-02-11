@@ -95,7 +95,16 @@ export interface Proceso {
   objetivoProceso: string;
   tipoProceso: string;
   activo: boolean;
-  estado: 'borrador' | 'aprobado' | 'en_revision';
+  estado: string; // borrador, en_revision, aprobado
+
+  // Análisis y documentación
+  analisis?: string;
+  documentoUrl?: string;
+  documentoNombre?: string;
+
+  dofaItems?: any[];
+  normatividades?: any[];
+  contextos?: any[];
   createdAt: string;
   updatedAt: string;
   puedeCrear?: string[];
@@ -183,9 +192,16 @@ export interface CreateProcesoDto {
   responsableId: string;
   areaId: string;
   directorId: string;
+  analisis?: string;
+  documentoUrl?: string;
+  documentoNombre?: string;
 }
 
-export interface UpdateProcesoDto extends Partial<CreateProcesoDto> { }
+export interface UpdateProcesoDto extends Partial<CreateProcesoDto> {
+  dofaItems?: Array<{ tipo: string; descripcion: string }>;
+  normatividades?: any[];
+  contextos?: Array<{ tipo: string; descripcion: string }>;
+}
 
 export interface CreateNotificacionDto {
   mensaje: string;
@@ -250,6 +266,9 @@ export interface PuntoMapa {
   clasificacion: string;
   numero: number;
   siglaGerencia: string;
+  numeroIdentificacion?: string;
+  probabilidadResidual?: number;
+  impactoResidual?: number;
 }
 
 export interface RiesgoMapa {
