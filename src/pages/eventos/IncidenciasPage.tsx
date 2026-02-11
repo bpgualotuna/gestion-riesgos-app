@@ -30,6 +30,7 @@ import {
   Paper,
   IconButton,
   Autocomplete,
+  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,7 +43,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
+import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import AppDataGrid from '../../../../shared/components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { getMockRiesgos } from '../../api/services/mockData';
@@ -76,13 +77,14 @@ interface Incidencia {
 }
 
 export default function IncidenciasPage() {
-  const { esAdmin, esAuditoria, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos } = useAuth();
+  const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos } = useAuth();
   const { procesoSeleccionado } = useProceso();
   const { showSuccess, showError } = useNotification();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
+  const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
 
   // Formulario
   const [formData, setFormData] = useState<Partial<Incidencia>>({
@@ -148,6 +150,32 @@ export default function IncidenciasPage() {
     }
     return [];
   }, [incidencias, procesoSeleccionado, puedeElegirSinProceso]);
+
+  // Agrupar incidencias por riesgo para el nuevo diseño
+  const incidenciasAgrupadasPorRiesgo = useMemo(() => {
+    const grupos: Record<string, { riesgo: any, incidencias: Incidencia[] }> = {};
+
+    // Primero, inicializamos grupos con los riesgos que tienen incidencias
+    incidenciasFiltradas.forEach(inc => {
+      if (inc.riesgoId && !grupos[inc.riesgoId]) {
+        const infoRiesgo = riesgosDisponibles.find((r: any) => r.id === inc.riesgoId) || {
+          id: inc.riesgoId,
+          nombre: inc.riesgoNombre,
+          numeroIdentificacion: inc.codigo?.split('-')[0] // Fallback
+        };
+        grupos[inc.riesgoId] = { riesgo: infoRiesgo, incidencias: [] };
+      }
+      if (inc.riesgoId) {
+        grupos[inc.riesgoId].incidencias.push(inc);
+      }
+    });
+
+    return Object.values(grupos);
+  }, [incidenciasFiltradas, riesgosDisponibles]);
+
+  const handleToggleExpandirRiesgo = (id: string) => {
+    setRiesgosExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleAbrirDialog = (incidencia?: Incidencia) => {
     if (incidencia) {
@@ -233,7 +261,7 @@ export default function IncidenciasPage() {
       );
       showSuccess('Incidencia actualizada exitosamente');
     } else {
-      const riesgoSeleccionado = riesgosDelProceso.find((r: any) => r.id === formData.riesgoId);
+      const riesgoSeleccionado = riesgosDisponibles.find((r: any) => r.id === formData.riesgoId);
       const causaSeleccionada = causasDelRiesgo.find((c: any) => c.id === formData.causaId);
 
       // Crear nueva incidencia
@@ -456,8 +484,6 @@ export default function IncidenciasPage() {
         </Button>
       </Box>
 
-      {/* Filtros para Supervisor */}
-      <ProcesoFiltros />
 
       {!puedeElegirSinProceso && !procesoSeleccionado?.id && (
         <Alert severity="warning" sx={{ mb: 3 }}>
@@ -465,23 +491,138 @@ export default function IncidenciasPage() {
         </Alert>
       )}
 
-      {/* Tabla de Incidencias */}
-      <Card>
-        <CardContent>
-          <AppDataGrid
-            rows={incidenciasFiltradas}
-            columns={columns}
-            loading={false}
-            getRowId={(row) => row.id}
-            pageSizeOptions={[10, 25, 50, 100]}
-            initialState={{
-              pagination: {
-                paginationModel: { pageSize: 25 },
-              },
-            }}
-          />
-        </CardContent>
-      </Card>
+      {/* Tabla de Incidencias - REDISEÑADA ESTILO ACORDEÓN GRID */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Column Headers */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: '48px 100px 1fr 180px 220px 100px 48px',
+          gap: 2,
+          px: 3,
+          py: 1.5,
+          mb: 1,
+          bgcolor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #e0e0e0',
+          alignItems: 'center'
+        }}>
+          <Box />
+          <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+          <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+          <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+          <Typography variant="caption" fontWeight={700} color="text.secondary">CAUSA ASOCIADA</Typography>
+          <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">EVENTOS</Typography>
+          <Box />
+        </Box>
+
+        {incidenciasAgrupadasPorRiesgo.length === 0 ? (
+          <Card sx={{ p: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">No se han registrado eventos para los riesgos de este proceso.</Typography>
+          </Card>
+        ) : (
+          incidenciasAgrupadasPorRiesgo.map((grupo) => {
+            const { riesgo, incidencias: eventos } = grupo;
+            const estaExpandido = riesgosExpandidos[riesgo.id] || false;
+
+            return (
+              <Card key={riesgo.id} sx={{ overflow: 'hidden' }}>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '48px 100px 1fr 180px 220px 100px 48px',
+                    gap: 2,
+                    p: 2,
+                    cursor: 'pointer',
+                    bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
+                    transition: 'all 0.2s',
+                    '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' },
+                    alignItems: 'center'
+                  }}
+                  onClick={() => handleToggleExpandirRiesgo(riesgo.id)}
+                >
+                  <IconButton size="small" color="primary">
+                    {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+
+                  <Typography variant="subtitle2" fontWeight={700} color="primary">
+                    {riesgo.numeroIdentificacion || riesgo.id}
+                  </Typography>
+
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {riesgo.descripcionRiesgo || riesgo.nombre}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary">
+                    {riesgo.tipologiaNivelI || '02 Operacional'}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                    {riesgo.causaRiesgo || 'No especificada'}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Chip
+                      label={`${eventos.length} ev.`}
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
+                    />
+                  </Box>
+                  <Box />
+                </Box>
+
+                <Collapse in={estaExpandido}>
+                  <Box sx={{ p: 2, bgcolor: '#fafafa', borderTop: '1px solid #eee' }}>
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: '#eee' }}>
+                            <TableCell>Título Evento / Incidencia</TableCell>
+                            <TableCell>Tipo</TableCell>
+                            <TableCell>Severidad</TableCell>
+                            <TableCell>Estado</TableCell>
+                            <TableCell>Fecha</TableCell>
+                            <TableCell align="center">Acciones</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {eventos.map((inc) => (
+                            <TableRow key={inc.id}>
+                              <TableCell>
+                                <Typography variant="body2" fontWeight={600}>{inc.titulo}</Typography>
+                                <Typography variant="caption" color="text.secondary">{inc.descripcion.substring(0, 100)}...</Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Chip label={inc.tipo.replace('_', ' ')} size="small" variant="outlined" />
+                              </TableCell>
+                              <TableCell>
+                                <Chip label={inc.severidad} size="small" color={obtenerColorSeveridad(inc.severidad) as any} />
+                              </TableCell>
+                              <TableCell>
+                                <Chip label={inc.estado} size="small" color={obtenerColorEstado(inc.estado) as any} variant="outlined" />
+                              </TableCell>
+                              <TableCell>{new Date(inc.fechaOcurrencia).toLocaleDateString()}</TableCell>
+                              <TableCell align="center">
+                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleAbrirDialog(inc); }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleEliminar(inc.id); }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                </Collapse>
+              </Card>
+            )
+          })
+        )}
+      </Box>
 
       {/* Dialog para crear/editar incidencia */}
       <Dialog open={dialogOpen} onClose={handleCerrarDialog} maxWidth="md" fullWidth>

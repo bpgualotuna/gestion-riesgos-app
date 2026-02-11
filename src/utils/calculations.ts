@@ -13,21 +13,26 @@ export interface Impactos {
   procesos: number;
   reputacion: number;
   economico: number;
-  tecnologico?: number;
+  confidencialidadSGSI?: number;
+  disponibilidadSGSI?: number;
+  integridadSGSI?: number;
 }
 
 /**
  * Calcula el impacto global ponderado
- * Fórmula Excel: =+ROUNDUP((X11*14%+Y11*22%+Z11*22%+AA11*10%+AB11*10%+AC11*22%),0)
+ * Fórmula actualizada según documento de diseño
  */
 export function calcularImpactoGlobal(impactos: Impactos): number {
   const impactoGlobal =
-    (impactos.personas || 0) * PESOS_IMPACTO.personas +
-    (impactos.legal || 0) * PESOS_IMPACTO.legal +
-    (impactos.ambiental || 0) * PESOS_IMPACTO.ambiental +
-    (impactos.procesos || 0) * PESOS_IMPACTO.procesos +
-    (impactos.reputacion || 0) * PESOS_IMPACTO.reputacion +
-    (impactos.economico || 0) * PESOS_IMPACTO.economico;
+    (impactos.personas || 1) * PESOS_IMPACTO.personas +
+    (impactos.legal || 1) * PESOS_IMPACTO.legal +
+    (impactos.ambiental || 1) * PESOS_IMPACTO.ambiental +
+    (impactos.procesos || 1) * PESOS_IMPACTO.procesos +
+    (impactos.reputacion || 1) * PESOS_IMPACTO.reputacion +
+    (impactos.economico || 1) * PESOS_IMPACTO.economico +
+    (impactos.confidencialidadSGSI || 1) * PESOS_IMPACTO.confidencialidadSGSI +
+    (impactos.disponibilidadSGSI || 1) * PESOS_IMPACTO.disponibilidadSGSI +
+    (impactos.integridadSGSI || 1) * PESOS_IMPACTO.integridadSGSI;
 
   return Math.ceil(impactoGlobal);
 }
@@ -37,13 +42,15 @@ export function calcularImpactoGlobal(impactos: Impactos): number {
  */
 export function calcularImpactoMaximo(impactos: Impactos): number {
   return Math.max(
-    impactos.personas || 0,
-    impactos.legal || 0,
-    impactos.ambiental || 0,
-    impactos.procesos || 0,
-    impactos.reputacion || 0,
-    impactos.economico || 0,
-    impactos.tecnologico || 0
+    impactos.personas || 1,
+    impactos.legal || 1,
+    impactos.ambiental || 1,
+    impactos.procesos || 1,
+    impactos.reputacion || 1,
+    impactos.economico || 1,
+    impactos.confidencialidadSGSI || 1,
+    impactos.disponibilidadSGSI || 1,
+    impactos.integridadSGSI || 1
   );
 }
 
@@ -242,7 +249,7 @@ export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string
   }
 
   const siglas: Array<{ nombre: string; sigla: string }> = JSON.parse(storedSiglas);
-  
+
   // Normalizar la vicepresidencia para búsqueda (remover palabras comunes como "Vicepresidencia de", "Gerencia de", etc.)
   const normalizarNombre = (nombre: string): string => {
     return nombre
@@ -252,7 +259,7 @@ export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string
   };
 
   const vicepresidenciaNormalizada = normalizarNombre(vicepresidenciaNombre);
-  
+
   // Buscar coincidencia exacta primero
   let siglaEncontrada = siglas.find(
     (s) => s.nombre.trim().toLowerCase() === vicepresidenciaNombre.trim().toLowerCase()
@@ -422,8 +429,8 @@ export function determinarEvaluacionPreliminar(
   puntajeTotal: number,
   rangos: { umbral1: number; umbral2: number; umbral3: number; umbral4: number } = {
     umbral1: 25,
-    umbral2: 50,
-    umbral3: 70,
+    umbral2: 46,
+    umbral3: 65,
     umbral4: 85,
   }
 ): string {
@@ -432,46 +439,31 @@ export function determinarEvaluacionPreliminar(
   if (puntajeTotal >= rangos.umbral2 && puntajeTotal < rangos.umbral3) return 'Medianamente Efectivo';
   if (puntajeTotal >= rangos.umbral3 && puntajeTotal < rangos.umbral4) return 'Efectivo';
   if (puntajeTotal >= rangos.umbral4) return 'Altamente Efectivo';
-  return 'ERROR';
+  return 'Inefectivo';
 }
 
 /**
- * EVALUACIÓN DEFINITIVA - Ajusta la evaluación preliminar según condiciones adicionales
- * Fórmula Excel: SI.ERROR(SI(BT11=$BW$5;Formulas!$B$13;SI(Y(BT11=$BW$4;BV11="Altamente Efectivo");"Efectivo";BV11));"No Aplica")
- * 
+ * EVALUACIÓN DEFINITIVA - Ajusta la evaluación preliminar según condiciones adicionales (Desviaciones)
  * Lógica:
- * - Si recomendación = X (condición especial) → valor especial (ej: "Efectivo")
- * - Si recomendación = Y Y evaluación preliminar = "Altamente Efectivo" → "Efectivo"
- * - Si recomendación = Z → mantener evaluación preliminar
- * - Si hay error → "No Aplica"
+ * - Si Desviaciones = 'C' (Falla mayoría) → "Inefectivo"
+ * - Si Desviaciones = 'B' (Se han encontrado desviaciones) Y Preliminar = "Altamente Efectivo" → "Efectivo"
+ * - En cualquier otro caso, mantiene la Preliminar
  */
 export function determinarEvaluacionDefinitiva(
   evaluacionPreliminar: string,
-  recomendacion: string | undefined,
-  condicionEspecial1?: { valor: string; resultado: string },
-  condicionEspecial2?: { valor: string; resultado: string }
+  desviaciones: string = 'A' // A: Sin fallos, B: Con desviaciones, C: Falla mayoría
 ): string {
-  try {
-    // Condición especial 1
-    if (condicionEspecial1 && recomendacion === condicionEspecial1.valor) {
-      return condicionEspecial1.resultado;
-    }
-
-    // Condición especial 2 (ajustar "Altamente Efectivo" a "Efectivo" si hay cierta recomendación)
-    if (
-      condicionEspecial2 &&
-      recomendacion === condicionEspecial2.valor &&
-      evaluacionPreliminar === 'Altamente Efectivo'
-    ) {
-      return 'Efectivo';
-    }
-
-    // Mantener evaluación preliminar por defecto
-    return evaluacionPreliminar;
-  } catch (error) {
-    return 'No Aplica';
+  if (desviaciones === 'C') {
+    return 'Inefectivo';
   }
+
+  if (desviaciones === 'B' && evaluacionPreliminar === 'Altamente Efectivo') {
+    return 'Efectivo';
+  }
+
+  return evaluacionPreliminar;
 }
+
 
 /**
  * TABLA DE BÚSQUEDA - % MITIGACIÓN según evaluación definitiva
@@ -479,18 +471,18 @@ export function determinarEvaluacionDefinitiva(
  * 
  * Tabla de referencia:
  * | Evaluación | % Mitigación |
- * | Altamente Efectivo | 34% |
- * | Efectivo | 34% |
- * | Medianamente Efectivo | 20% |
- * | Baja Efectividad | 10% |
+ * | Altamente Efectivo | 81% |
+ * | Efectivo | 61% |
+ * | Medianamente Efectivo | 33% |
+ * | Baja Efectividad | 20% |
  * | Inefectivo | 0% |
  */
 export function obtenerPorcentajeMitigacionAvanzado(evaluacionDefinitiva: string): number {
   const tablaMitigacion: Record<string, number> = {
-    'Altamente Efectivo': 0.34,
-    'Efectivo': 0.34,
-    'Medianamente Efectivo': 0.20,
-    'Baja Efectividad': 0.10,
+    'Altamente Efectivo': 0.81,
+    'Efectivo': 0.61,
+    'Medianamente Efectivo': 0.33,
+    'Baja Efectividad': 0.20,
     'Inefectivo': 0.0,
     'No Aplica': 0.0,
   };

@@ -1,6 +1,6 @@
 /**
  * Página de Observaciones
- * Muestra las observaciones y tareas generadías a partir de notificaciones
+ * Muestra las observaciones y tareas generadas a partir de notificaciones
  */
 
 import { useState } from 'react';
@@ -20,7 +20,7 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  ListItemSecondíaryAction,
+  ListItemSecondaryAction,
   Divider,
   Alert,
   Dialog,
@@ -41,78 +41,83 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../utils/constants';
+
 // Funciones simples para formatear fechas
-const formatDistanceToNow = (díate: Date) => {
+const formatDistanceToNow = (date: Date) => {
   const now = new Date();
-  const diff = now.getTime() - díate.getTime();
+  const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
-  const díays = Math.floor(diff / 86400000);
-  
+  const days = Math.floor(diff / 86400000);
+
   if (minutes < 1) return 'hace unos momentos';
   if (minutes < 60) return `hace ${minutes} minuto${minutes > 1 ? 's' : ''}`;
   if (hours < 24) return `hace ${hours} hora${hours > 1 ? 's' : ''}`;
-  return `hace ${díays} día${díays > 1 ? 's' : ''}`;
+  return `hace ${days} día${days > 1 ? 's' : ''}`;
 };
 
-const formatDate = (díate: Date, formatStr: string) => {
-  const d = new Date(díate);
-  const díay = d.getDate().toString().padStart(2, '0');
+const formatDate = (date: Date, formatStr: string) => {
+  const d = new Date(date);
+  const day = d.getDate().toString().padStart(2, '0');
   const month = (d.getMonth() + 1).toString().padStart(2, '0');
   const year = d.getFullYear();
   const hours = d.getHours().toString().padStart(2, '0');
   const minutes = d.getMinutes().toString().padStart(2, '0');
-  
-  if (formatStr.includes('HH:mm')) {
-    return `${díay}/${month}/${year} ${hours}:${minutes}`;
-  }
-  return `${díay}/${month}/${year}`;
-};
-import type { Tarea } from '../types';
 
-type FiltroEstado = 'todías' | 'pendientes' | 'en_progreso' | 'completadías';
-type FiltroPrioridíad = 'todías' | 'baja' | 'medía' | 'alta' | 'critica';
+  if (formatStr.includes('HH:mm')) {
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+  return `${day}/${month}/${year}`;
+};
+import type { Tarea } from '../../types';
+
+type FiltroEstado = 'todas' | 'pendientes' | 'en_progreso' | 'completadas';
+type FiltroPrioridad = 'todas' | 'baja' | 'media' | 'alta' | 'critica';
 
 export default function TareasPage() {
-  const { tareas, marcarTareaCompletadía } = useNotificacion();
+  const { tareas, marcarTareaCompletada } = useNotificacion();
   const { showSuccess, showError } = useNotification();
   const navigate = useNavigate();
-  
+
   const { procesoSeleccionado } = useProceso();
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todías');
-  const [filtroPrioridíad, setFiltroPrioridíad] = useState<FiltroPrioridíad>('todías');
-  const [tareaSeleccionadía, setTareaSeleccionadía] = useState<Tarea | null>(null);
-  const [díalogCompletarOpen, setDialogCompletarOpen] = useState(false);
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todas');
+  const [filtroPrioridad, setFiltroPrioridad] = useState<FiltroPrioridad>('todas');
+  const [tareaSeleccionada, setTareaSeleccionada] = useState<Tarea | null>(null);
+  const [dialogCompletarOpen, setDialogCompletarOpen] = useState(false);
 
   // Filtrar tareas por proceso seleccionado y otros criterios
-  const tareasFiltradías = tareas.filter((tarea) => {
+  const tareasFiltradas = tareas.filter((tarea) => {
     // Si hay proceso seleccionado, mostrar solo tareas de ese proceso
     if (procesoSeleccionado?.id && tarea.procesoId !== procesoSeleccionado.id) return false;
-    if (filtroEstado !== 'todías' && tarea.estado !== filtroEstado) return false;
-    if (filtroPrioridíad !== 'todías' && tarea.prioridíad !== filtroPrioridíad) return false;
+
+    if (filtroEstado === 'pendientes' && tarea.estado !== 'pendiente') return false;
+    if (filtroEstado === 'en_progreso' && tarea.estado !== 'en_progreso') return false;
+    if (filtroEstado === 'completadas' && tarea.estado !== 'completada') return false;
+
+    if (filtroPrioridad !== 'todas' && tarea.prioridad !== filtroPrioridad) return false;
     return true;
   });
 
   const getEstadoColor = (estado: Tarea['estado']) => {
     switch (estado) {
-      case 'completadía':
+      case 'completada':
         return 'success';
       case 'en_progreso':
         return 'info';
-      case 'canceladía':
+      case 'cancelada':
         return 'default';
       default:
         return 'warning';
     }
   };
 
-  const getPrioridíadColor = (prioridíad: Tarea['prioridíad']) => {
-    switch (prioridíad) {
-      case 'critica':
-        return 'error';
+  const getPrioridadColor = (prioridad: Tarea['prioridad']) => {
+    switch (prioridad) {
       case 'alta':
+        return 'error';
+      case 'media':
         return 'warning';
-      case 'medía':
+      case 'baja':
         return 'info';
       default:
         return 'default';
@@ -121,11 +126,11 @@ export default function TareasPage() {
 
   const getEstadoIcon = (estado: Tarea['estado']) => {
     switch (estado) {
-      case 'completadía':
+      case 'completada':
         return <CheckCircleIcon />;
       case 'en_progreso':
         return <PlayArrowIcon />;
-      case 'canceladía':
+      case 'cancelada':
         return <CancelIcon />;
       default:
         return <PendingIcon />;
@@ -133,27 +138,28 @@ export default function TareasPage() {
   };
 
   const handleCompletarTarea = (tarea: Tarea) => {
-    setTareaSeleccionadía(tarea);
+    setTareaSeleccionada(tarea);
     setDialogCompletarOpen(true);
   };
 
   const confirmarCompletar = () => {
-    if (tareaSeleccionadía) {
-      marcarTareaCompletadía(tareaSeleccionadía.id);
-      showSuccess('Tarea marcadía como completadía');
+    if (tareaSeleccionada) {
+      marcarTareaCompletada(tareaSeleccionada.id);
+      showSuccess('Tarea marcada como completada');
       setDialogCompletarOpen(false);
-      setTareaSeleccionadía(null);
+      setTareaSeleccionada(null);
     }
   };
 
   const handleIrAProceso = (procesoId?: string) => {
     if (procesoId) {
-      navigate(ROUTES.PROCESOS);
+      // En una aplicación real, navegaríamos al proceso específico
+      navigate(ROUTES.DASHBOARD);
     }
   };
 
-  const tareasPendientes = tareas.filter(t => !t.completadía && t.estado !== 'canceladía').length;
-  const tareasCompletadías = tareas.filter(t => t.completadía).length;
+  const tareasPendientes = tareas.filter(t => !t.completada && t.estado !== 'cancelada').length;
+  const tareasCompletadas = tareas.filter(t => t.completada).length;
 
   return (
     <Box>
@@ -162,40 +168,40 @@ export default function TareasPage() {
           <Typography variant="h4" fontWeight={700}>
             Mis Tareas
           </Typography>
-          <Typography variant="body2" color="text.secondíary">
-            Tareas generadías a partir de notificaciones del sistema
+          <Typography variant="body2" color="text.secondary">
+            Tareas generadas para la gestión de riesgos y procesos
           </Typography>
         </Box>
       </Box>
 
       {/* Estadísticas */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        <Card sx={{ flex: 1 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Card sx={{ flex: 1, minWidth: 200 }}>
           <CardContent>
             <Typography variant="h6" fontWeight={600}>
               {tareasPendientes}
             </Typography>
-            <Typography variant="body2" color="text.secondíary">
+            <Typography variant="body2" color="text.secondary">
               Tareas Pendientes
             </Typography>
           </CardContent>
         </Card>
-        <Card sx={{ flex: 1 }}>
+        <Card sx={{ flex: 1, minWidth: 200 }}>
           <CardContent>
             <Typography variant="h6" fontWeight={600} color="success.main">
-              {tareasCompletadías}
+              {tareasCompletadas}
             </Typography>
-            <Typography variant="body2" color="text.secondíary">
-              Tareas Completadías
+            <Typography variant="body2" color="text.secondary">
+              Tareas Completadas
             </Typography>
           </CardContent>
         </Card>
-        <Card sx={{ flex: 1 }}>
+        <Card sx={{ flex: 1, minWidth: 200 }}>
           <CardContent>
             <Typography variant="h6" fontWeight={600}>
               {tareas.length}
             </Typography>
-            <Typography variant="body2" color="text.secondíary">
+            <Typography variant="body2" color="text.secondary">
               Total de Tareas
             </Typography>
           </CardContent>
@@ -205,7 +211,7 @@ export default function TareasPage() {
       {/* Filtros */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FilterListIcon color="action" />
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Estado</InputLabel>
@@ -214,23 +220,23 @@ export default function TareasPage() {
                 label="Estado"
                 onChange={(e) => setFiltroEstado(e.target.value as FiltroEstado)}
               >
-                <MenuItem value="todías">Todías</MenuItem>
+                <MenuItem value="todas">Todas</MenuItem>
                 <MenuItem value="pendientes">Pendientes</MenuItem>
                 <MenuItem value="en_progreso">En Progreso</MenuItem>
-                <MenuItem value="completadías">Completadías</MenuItem>
+                <MenuItem value="completadas">Completadas</MenuItem>
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Prioridíad</InputLabel>
+              <InputLabel>Prioridad</InputLabel>
               <Select
-                value={filtroPrioridíad}
-                label="Prioridíad"
-                onChange={(e) => setFiltroPrioridíad(e.target.value as FiltroPrioridíad)}
+                value={filtroPrioridad}
+                label="Prioridad"
+                onChange={(e) => setFiltroPrioridad(e.target.value as FiltroPrioridad)}
               >
-                <MenuItem value="todías">Todías</MenuItem>
+                <MenuItem value="todas">Todas</MenuItem>
                 <MenuItem value="critica">Crítica</MenuItem>
                 <MenuItem value="alta">Alta</MenuItem>
-                <MenuItem value="medía">Medía</MenuItem>
+                <MenuItem value="media">Media</MenuItem>
                 <MenuItem value="baja">Baja</MenuItem>
               </Select>
             </FormControl>
@@ -239,34 +245,33 @@ export default function TareasPage() {
       </Card>
 
       {/* Lista de Tareas */}
-      {tareasFiltradías.length === 0 ? (
+      {tareasFiltradas.length === 0 ? (
         <Alert severity="info">
-          No hay tareas que coincidían con los filtros seleccionados.
+          No hay tareas que coincidan con los filtros seleccionados.
         </Alert>
       ) : (
         <Box>
-          {tareasFiltradías.map((tarea) => (
-            <Card 
-              key={tarea.id} 
-              sx={{ 
+          {tareasFiltradas.map((tarea) => (
+            <Card
+              key={tarea.id}
+              sx={{
                 mb: 2,
-                borderLeft: `4px solid ${
-                  tarea.prioridíad === 'critica' ? '#d32f2f' :
-                  tarea.prioridíad === 'alta' ? '#ed6c02' :
-                  tarea.prioridíad === 'medía' ? '#1976d2' :
-                  '#757575'
-                }`,
-                boxShadow: tarea.completadía ? 1 : 3,
-                opacity: tarea.completadía ? 0.8 : 1,
+                borderLeft: `4px solid ${tarea.prioridad === 'critica' ? '#d32f2f' :
+                    tarea.prioridad === 'alta' ? '#ed6c02' :
+                      tarea.prioridad === 'media' ? '#1976d2' :
+                        '#757575'
+                  }`,
+                boxShadow: tarea.completada ? 1 : 3,
+                opacity: tarea.completada ? 0.8 : 1,
               }}
             >
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
                   <Box sx={{ flex: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
                       <ListItemIcon sx={{ minWidth: 40 }}>
-                        <AssignmentIcon 
-                          color={tarea.completadía ? 'success' : 'primary'} 
+                        <AssignmentIcon
+                          color={tarea.completada ? 'success' : 'primary'}
                           sx={{ fontSize: 28 }}
                         />
                       </ListItemIcon>
@@ -275,58 +280,48 @@ export default function TareasPage() {
                       </Typography>
                       <Chip
                         icon={getEstadoIcon(tarea.estado)}
-                        label={tarea.estado === 'completadía' ? 'REALIZADA' : tarea.estado.replace('_', ' ').toUpperCase()}
+                        label={tarea.estado.replace('_', ' ').toUpperCase()}
                         size="small"
                         color={getEstadoColor(tarea.estado)}
                         sx={{ fontWeight: 600 }}
                       />
                       <Chip
-                        label={`Prioridíad: ${tarea.prioridíad.toUpperCase()}`}
+                        label={`Prioridad: ${tarea.prioridad.toUpperCase()}`}
                         size="small"
-                        color={getPrioridíadColor(tarea.prioridíad)}
-                        sx={{ 
+                        color={getPrioridadColor(tarea.prioridad)}
+                        sx={{
                           fontWeight: 600,
                           borderWidth: 2,
                         }}
                       />
                     </Box>
                     <Box sx={{ ml: 5, mb: 1.5 }}>
-                      <Typography variant="body1" color="text.secondíary" paragraph>
+                      <Typography variant="body1" color="text.secondary" paragraph>
                         {tarea.descripcion}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 2, mt: 1.5, ml: 5, flexWrap: 'wrap' }}>
-                      <Typography variant="caption" color="text.secondíary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <strong>Creadía:</strong> {formatDistanceToNow(new Date(tarea.createdAt))}
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <strong>Creada:</strong> {formatDistanceToNow(new Date(tarea.createdAt))}
                       </Typography>
-                      {tarea.fechaLímite && (
-                        <Typography 
-                          variant="caption" 
-                          color={new Date(tarea.fechaLímite) < new Date() && !tarea.completadía ? 'error' : 'text.secondíary'}
-                          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: new Date(tarea.fechaLímite) < new Date() && !tarea.completadía ? 600 : 400 }}
-                        >
-                          <strong>Límite:</strong> {formatDate(new Date(tarea.fechaLímite), 'dd/MM/yyyy')}
-                        </Typography>
-                      )}
-                      {tarea.fechaCompletadía && (
+                      {tarea.fechaCompletada && (
                         <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600 }}>
                           <CheckCircleIcon fontSize="small" />
-                          <strong>Completadía:</strong> {formatDate(new Date(tarea.fechaCompletadía), 'dd/MM/yyyy HH:mm')}
+                          <strong>Completada:</strong> {formatDate(new Date(tarea.fechaCompletada), 'dd/MM/yyyy HH:mm')}
                         </Typography>
                       )}
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', ml: 2 }}>
-                    {!tarea.completadía && (
+                  <Box sx={{ display: 'flex', gap: 1, flexDirection: 'row', ml: 'auto' }}>
+                    {!tarea.completada && (
                       <Button
                         variant="contained"
                         color="success"
                         size="small"
                         startIcon={<CheckCircleIcon />}
                         onClick={() => handleCompletarTarea(tarea)}
-                        sx={{ minWidth: 120 }}
                       >
-                        Marcar Realizadía
+                        Realizada
                       </Button>
                     )}
                     {tarea.procesoId && (
@@ -334,7 +329,6 @@ export default function TareasPage() {
                         variant="outlined"
                         size="small"
                         onClick={() => handleIrAProceso(tarea.procesoId)}
-                        sx={{ minWidth: 120 }}
                       >
                         Ver Proceso
                       </Button>
@@ -348,28 +342,25 @@ export default function TareasPage() {
       )}
 
       {/* Diálogo de confirmación */}
-      <Dialog open={díalogCompletarOpen} onClose={() => setDialogCompletarOpen(false)}>
+      <Dialog open={dialogCompletarOpen} onClose={() => setDialogCompletarOpen(false)}>
         <DialogTitle>Completar Tarea</DialogTitle>
         <DialogContent>
           <Typography>
-            ¿Está seguro de que desea marcar esta tarea como completadía?
+            ¿Está seguro de que desea marcar esta tarea como realizada?
           </Typography>
-          {tareaSeleccionadía && (
-            <Typography variant="body2" color="text.secondíary" sx={{ mt: 1 }}>
-              <strong>{tareaSeleccionadía.titulo}</strong>
+          {tareaSeleccionada && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>{tareaSeleccionada.titulo}</strong>
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogCompletarOpen(false)}>Cancelar</Button>
           <Button variant="contained" color="success" onClick={confirmarCompletar}>
-            Completar
+            Confirmar
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 }
-
-
-

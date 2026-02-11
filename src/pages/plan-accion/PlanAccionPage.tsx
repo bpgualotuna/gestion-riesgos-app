@@ -1,9 +1,9 @@
 /**
- * Plan de Acción Page
- * Gestión de planes de acción para riesgos con seguimiento y tareas
+ * Gestión de Controles y Planes de Acción
+ * Incluye: Clasificación de Causas, Calificación Residual y Planes de Acción
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -11,7 +11,6 @@ import {
   CardContent,
   Button,
   TextField,
-  Alert,
   Chip,
   Dialog,
   DialogTitle,
@@ -25,1279 +24,674 @@ import {
   TableRow,
   Paper,
   IconButton,
-  LinearProgress,
   MenuItem,
   FormControl,
   InputLabel,
   Select,
+  Tabs,
+  Tab,
+  Collapse,
+  Alert,
   Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  Badge,
-  Autocomplete,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  LinearProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Save as SaveIcon,
-  Visibility as VisibilityIcon,
-  CheckCircle as CheckCircleIcon,
-  Pending as PendingIcon,
-  PlayArrow as PlayArrowIcon,
-  Cancel as CancelIcon,
-  Warning as WarningIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+  Security as SecurityIcon,
   Assignment as AssignmentIcon,
+  FactCheck as FactCheckIcon,
 } from '@mui/icons-material';
-// Usaremos TextField con type="date" en lugar de DatePicker para evitar dependencias adicionales
 import { useProceso } from '../../contexts/ProcesoContext';
-import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
-// Tipos locales para Plan de Acción (en producción vendrían de la API)
+import { RiesgoFormData, CausaRiesgo } from '../../types';
+import {
+  calcularPuntajeControl,
+  determinarEfectividadControl,
+  obtenerPorcentajeMitigacion,
+  calcularFrecuenciaResidual,
+  calcularImpactoResidual,
+  calcularCalificacionResidual,
+  determinarEvaluacionPreliminar,
+  determinarEvaluacionDefinitiva,
+  obtenerPorcentajeMitigacionAvanzado,
+  calcularFrecuenciaResidualAvanzada,
+  calcularImpactoResidualAvanzado,
+} from '../../utils/calculations';
+
+// Tipos locales para Plan de Acción (Mock)
 interface PlanAccion {
   id: string;
   riesgoId: string;
-  procesoId: string;
-  nombre: string;
-  descripcion?: string;
-  objetivo: string;
-  fechaCreacion: string;
-  fechaInicio: string;
-  fechaLimite: string;
-  estado: 'borrador' | 'en_ejecucion' | 'completado' | 'cancelado' | 'atrasado';
-  responsableId?: string;
-  responsableNombre?: string;
-  creadorId: string;
-  creadorNombre: string;
-  tareas: TareaPlanAccion[];
-  porcentajeAvance: number;
-  presupuesto?: number;
-  observaciones?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface TareaPlanAccion {
-  id: string;
-  planAccionId: string;
-  descripcion: string;
-  responsableId?: string;
-  responsableNombre?: string;
-  fechaInicio: string;
-  fechaLimite: string;
-  fechaCumplimiento?: string;
-  estado: 'pendiente' | 'en_progreso' | 'completada' | 'atrasada' | 'cancelada';
-  prioridad: 'alta' | 'media' | 'baja';
-  porcentajeAvance: number;
-  observaciones?: string;
-  evidencias?: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface CreatePlanAccionDto {
-  riesgoId: string;
-  procesoId: string;
   nombre: string;
   descripcion?: string;
   objetivo: string;
   fechaInicio: string;
   fechaLimite: string;
-  responsableId?: string;
+  responsableNombre?: string;
+  estado: 'borrador' | 'en_ejecucion' | 'completado' | 'atrasado';
+  porcentajeAvance: number;
   presupuesto?: number;
   observaciones?: string;
 }
-
-interface CreateTareaPlanAccionDto {
-  planAccionId: string;
-  descripcion: string;
-  responsableId?: string;
-  fechaInicio: string;
-  fechaLimite: string;
-  prioridad: 'alta' | 'media' | 'baja';
-  observaciones?: string;
-}
-
-// Mock de planes de acción - En producción vendría de la API
-const mockPlanesAccion: PlanAccion[] = [
-  {
-    id: 'plan-1',
-    riesgoId: '1',
-    procesoId: '1',
-    nombre: 'Plan de Mejora - Selección de Personal',
-    descripcion: 'Plan para mejorar el proceso de selección de personal y reducir tiempos de contratación',
-    objetivo: 'Reducir el tiempo de contratación en un 30% y mejorar la calidad de los candidatos seleccionados',
-    fechaCreacion: '2024-01-15T10:00:00Z',
-    fechaInicio: '2024-01-20T00:00:00Z',
-    fechaLimite: '2024-03-31T23:59:59Z',
-    estado: 'en_ejecucion',
-    responsableId: '2',
-    responsableNombre: 'María Gerente',
-    creadorId: '1',
-    creadorNombre: 'Dueño de Procesos',
-    tareas: [
-      {
-        id: 'tarea-1',
-        planAccionId: 'plan-1',
-        descripcion: 'Revisar y actualizar perfiles de cargo',
-        responsableId: '2',
-        responsableNombre: 'María Gerente',
-        fechaInicio: '2024-01-20T00:00:00Z',
-        fechaLimite: '2024-02-15T23:59:59Z',
-        estado: 'en_progreso',
-        prioridad: 'alta',
-        porcentajeAvance: 60,
-        observaciones: 'Se han actualizado 8 de 12 perfiles',
-        createdAt: '2024-01-20T10:00:00Z',
-        updatedAt: '2024-01-25T14:30:00Z',
-      },
-      {
-        id: 'tarea-2',
-        planAccionId: 'plan-1',
-        descripcion: 'Implementar pruebas psicométricas mejoradas',
-        responsableId: '2',
-        responsableNombre: 'María Gerente',
-        fechaInicio: '2024-02-01T00:00:00Z',
-        fechaLimite: '2024-02-28T23:59:59Z',
-        estado: 'pendiente',
-        prioridad: 'alta',
-        porcentajeAvance: 0,
-        createdAt: '2024-01-20T10:00:00Z',
-        updatedAt: '2024-01-20T10:00:00Z',
-      },
-    ],
-    porcentajeAvance: 30,
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-25T14:30:00Z',
-  },
-];
 
 export default function PlanAccionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
-  const { riesgoSeleccionado: riesgoSeleccionadoContext, iniciarVer } = useRiesgo();
-  const { user } = useAuth();
-  const { showSuccess, showError } = useNotification();
-  
-  // Estado local para el riesgo seleccionado en esta página
-  const [riesgoSeleccionadoLocal, setRiesgoSeleccionadoLocal] = useState<any>(riesgoSeleccionadoContext);
-  
-  // Obtener todos los riesgos del proceso seleccionado
-  // Primero intentar desde localStorage (riesgos de Identificación)
+  const { showSuccess } = useNotification();
+
+  // Estados
+  const [activeTab, setActiveTab] = useState(0); // 0: Clasificación, 1: Residual, 2: Planes
+  const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
+
+  // Estados para Clasificación
+  const [clasificacionDialogOpen, setClasificacionDialogOpen] = useState(false);
+  const [causaSeleccionada, setCausaSeleccionada] = useState<CausaRiesgo | null>(null);
+  const [tipoGestion, setTipoGestion] = useState<'CONTROL' | 'PLAN' | null>(null);
+
+  // Estados para Evaluación de Control
+  const [dialogEvaluacionOpen, setDialogEvaluacionOpen] = useState(false);
+  const [riesgoIdEvaluacion, setRiesgoIdEvaluacion] = useState<string | null>(null);
+  const [causaIdEvaluacion, setCausaIdEvaluacion] = useState<string | null>(null);
+  const [criteriosEvaluacion, setCriteriosEvaluacion] = useState({
+    aplicabilidad: '', puntajeAplicabilidad: 0,
+    cobertura: '', puntajeCobertura: 0,
+    facilidadUso: '', puntajeFacilidad: 0,
+    segregacion: '', puntajeSegregacion: 0,
+    naturaleza: '', puntajeNaturaleza: 0,
+    tipoMitigacion: 'AMBAS' as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
+    recomendacion: '',
+  });
+
+  // Mock Planes
+  const [planesAccion, setPlanesAccion] = useState<PlanAccion[]>([]);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [planDetalleOpen, setPlanDetalleOpen] = useState(false);
+  const [planSeleccionadoDetalle, setPlanSeleccionadoDetalle] = useState<PlanAccion | null>(null);
+  const [formPlan, setFormPlan] = useState({
+    nombre: '',
+    descripcion: '',
+    objetivo: '',
+    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    responsableNombre: '',
+    presupuesto: 0,
+    observaciones: ''
+  });
+
+  // Carga de Riesgos
   const riesgosIdentificacion = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
     const stored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
     if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error('Error al cargar riesgos desde localStorage:', e);
-      }
+      try { return JSON.parse(stored); } catch (e) { console.error(e); }
     }
     return [];
   }, [procesoSeleccionado?.id]);
 
-  // También obtener de la API (riesgos ya guardados)
   const { data: riesgosData } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
   );
-  const riesgosAPI = riesgosData?.data || [];
 
-  // Combinar riesgos de Identificación y API, adaptando el formato para el Autocomplete
   const riesgos = useMemo(() => {
     const riesgosCombinados: any[] = [];
-    
-    // Agregar riesgos de Identificación (formato RiesgoFormData)
-    riesgosIdentificacion.forEach(riesgo => {
-      // Extraer número y sigla del numeroIdentificacion (ej: "1GTH" -> numero: 1, sigla: "GTH")
-      const match = riesgo.numeroIdentificacion?.match(/^(\d+)([A-Z]+)$/);
-      const numero = match ? parseInt(match[1]) : 0;
-      const sigla = match ? match[2] : '';
-      
+    riesgosIdentificacion.forEach((riesgo: RiesgoFormData) => {
       riesgosCombinados.push({
         id: riesgo.id,
-        numero: numero,
-        siglaGerencia: sigla,
-        descripcion: riesgo.descripcionRiesgo,
-        clasificacion: riesgo.consecuencia === '01 Negativa' ? 'Negativa' : 'Positiva',
-        zona: riesgo.tipoRiesgo || riesgo.tipoProceso,
-        proceso: procesoSeleccionado?.nombre || '',
-        // Mantener datos originales para uso interno
+        numeroIdentificacion: riesgo.numeroIdentificacion,
+        descripcionRiesgo: riesgo.descripcionRiesgo,
+        tipoRiesgo: riesgo.tipoRiesgo,
+        causas: riesgo.causas || [],
         _datosCompletos: riesgo,
       });
     });
-    
-    // Agregar riesgos de API que no estén ya en Identificación
-    riesgosAPI.forEach(riesgoAPI => {
-      if (!riesgosCombinados.find(r => r.id === riesgoAPI.id)) {
-        riesgosCombinados.push({
-          id: riesgoAPI.id,
-          numero: riesgoAPI.numero || 0,
-          siglaGerencia: riesgoAPI.siglaGerencia || '',
-          descripcion: riesgoAPI.descripcion,
-          clasificacion: riesgoAPI.clasificacion || 'Negativa',
-          zona: riesgoAPI.zona || '',
-          proceso: riesgoAPI.proceso || procesoSeleccionado?.nombre || '',
-          _datosCompletos: riesgoAPI,
-        });
-      }
-    });
-    
     return riesgosCombinados;
-  }, [riesgosIdentificacion, riesgosAPI, procesoSeleccionado]);
-  
-  // Usar el riesgo del contexto si existe, sino el local
-  const riesgoSeleccionado = riesgoSeleccionadoContext || riesgoSeleccionadoLocal;
+  }, [riesgosIdentificacion, riesgosData, procesoSeleccionado]);
 
-  const [planesAccion, setPlanesAccion] = useState<PlanAccion[]>(mockPlanesAccion);
-  const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const [tareaDialogOpen, setTareaDialogOpen] = useState(false);
-  const [planSeleccionado, setPlanSeleccionado] = useState<PlanAccion | null>(null);
-  const [modoEdicion, setModoEdicion] = useState<'crear' | 'editar'>('crear');
-  const [modoEdicionTarea, setModoEdicionTarea] = useState<'crear' | 'editar'>('crear');
-  const [tareaSeleccionada, setTareaSeleccionada] = useState<TareaPlanAccion | null>(null);
+  const handleToggleExpandir = (id: string) => {
+    setRiesgosExpandidos((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
-  const [formPlan, setFormPlan] = useState<CreatePlanAccionDto>({
-    riesgoId: riesgoSeleccionado?.id || '',
-    procesoId: procesoSeleccionado?.id || '',
-    nombre: '',
-    descripcion: '',
-    objetivo: '',
-    fechaInicio: new Date().toISOString(),
-    fechaLimite: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 días
-    responsableId: '',
-    presupuesto: undefined,
-    observaciones: '',
-  });
-
-  const [formTarea, setFormTarea] = useState<CreateTareaPlanAccionDto>({
-    planAccionId: '',
-    descripcion: '',
-    responsableId: '',
-    fechaInicio: new Date().toISOString(),
-    fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
-    prioridad: 'media',
-    observaciones: '',
-  });
+  const actualizarRiesgoLocalStorage = (riesgoId: string, updates: Partial<RiesgoFormData>) => {
+    const storedRiesgos = JSON.parse(localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado?.id}`) || '[]');
+    const newStoredRiesgos = storedRiesgos.map((r: any) =>
+      r.id === riesgoId ? { ...r, ...updates } : r
+    );
+    localStorage.setItem(`riesgos_identificacion_${procesoSeleccionado?.id}`, JSON.stringify(newStoredRiesgos));
+    window.dispatchEvent(new Event('storage'));
+  };
 
   const isReadOnly = modoProceso === 'visualizar';
 
-  // Filtrar planes de acción por riesgo seleccionado (obligatorio)
-  const planesFiltrados = useMemo(() => {
-    if (!riesgoSeleccionado) {
-      return [];
-    }
-    const riesgoId = riesgoSeleccionado._datosCompletos?.id || riesgoSeleccionado.id;
-    return planesAccion.filter((plan) => plan.riesgoId === riesgoId);
-  }, [planesAccion, riesgoSeleccionado]);
+  // Handlers Clasificación
+  const handleClasificarCausa = (riesgo: any, causa: CausaRiesgo) => {
+    setRiesgoIdEvaluacion(riesgo.id);
+    setCausaSeleccionada(causa);
+    setCausaIdEvaluacion(causa.id);
+    setTipoGestion(null);
 
-  // Calcular porcentaje de avance de un plan
-  const calcularAvancePlan = (plan: PlanAccion): number => {
-    if (plan.tareas.length === 0) return 0;
-    const totalAvance = plan.tareas.reduce((sum: number, tarea: TareaPlanAccion) => sum + tarea.porcentajeAvance, 0);
-    return Math.round(totalAvance / plan.tareas.length);
-  };
-
-  // Obtener color del estado
-  const getColorEstado = (estado: PlanAccion['estado'] | TareaPlanAccion['estado']) => {
-    switch (estado) {
-      case 'completado':
-      case 'completada':
-        return 'success';
-      case 'en_ejecucion':
-      case 'en_progreso':
-        return 'info';
-      case 'atrasado':
-      case 'atrasada':
-        return 'error';
-      case 'cancelado':
-      case 'cancelada':
-        return 'default';
-      default:
-        return 'warning';
-    }
-  };
-
-  // Obtener icono del estado
-  const getIconoEstado = (estado: PlanAccion['estado'] | TareaPlanAccion['estado']) => {
-    switch (estado) {
-      case 'completado':
-      case 'completada':
-        return <CheckCircleIcon fontSize="small" />;
-      case 'en_ejecucion':
-      case 'en_progreso':
-        return <PlayArrowIcon fontSize="small" />;
-      case 'atrasado':
-      case 'atrasada':
-        return <WarningIcon fontSize="small" />;
-      case 'cancelado':
-      case 'cancelada':
-        return <CancelIcon fontSize="small" />;
-      default:
-        return <PendingIcon fontSize="small" />;
-    }
-  };
-
-  // Verificar si una tarea está atrasada
-  const estaAtrasada = (fechaLimite: string): boolean => {
-    return new Date(fechaLimite) < new Date() && new Date(fechaLimite).getTime() !== 0;
-  };
-
-  const handleCrearPlan = () => {
-    if (!riesgoSeleccionado) {
-      showError('Debe seleccionar un riesgo desde "Identificación y Calificación" o "Riesgos de los Procesos" para crear un plan de acción');
-      return;
-    }
-    // Validación removida - permite crear plan sin proceso explícitamente seleccionado
-    const riesgoId = riesgoSeleccionado._datosCompletos?.id || riesgoSeleccionado.id;
-    setFormPlan({
-      riesgoId: riesgoId,
-      procesoId: procesoSeleccionado.id,
-      nombre: '',
-      descripcion: '',
-      objetivo: '',
-      fechaInicio: new Date().toISOString(),
-      fechaLimite: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-      responsableId: '',
-      presupuesto: undefined,
-      observaciones: '',
-    });
-    setModoEdicion('crear');
-    setPlanSeleccionado(null);
-    setPlanDialogOpen(true);
-  };
-
-  const handleEditarPlan = (plan: PlanAccion) => {
-    const riesgoId = riesgoSeleccionado?._datosCompletos?.id || riesgoSeleccionado?.id || plan.riesgoId;
-    setFormPlan({
-      riesgoId: riesgoId,
-      procesoId: plan.procesoId,
-      nombre: plan.nombre,
-      descripcion: plan.descripcion || '',
-      objetivo: plan.objetivo,
-      fechaInicio: plan.fechaInicio,
-      fechaLimite: plan.fechaLimite,
-      responsableId: plan.responsableId || '',
-      presupuesto: plan.presupuesto,
-      observaciones: plan.observaciones || '',
-    });
-    setModoEdicion('editar');
-    setPlanSeleccionado(plan);
-    setPlanDialogOpen(true);
-  };
-
-  const handleGuardarPlan = () => {
-    if (!formPlan.nombre.trim() || !formPlan.objetivo.trim()) {
-      showError('El nombre y objetivo son requeridos');
-      return;
-    }
-
-    if (modoEdicion === 'crear') {
-      const nuevoPlan: PlanAccion = {
-        id: `plan-${Date.now()}`,
-        ...formPlan,
-        fechaCreacion: new Date().toISOString(),
-        estado: 'borrador',
-        creadorId: user?.id || '',
-        creadorNombre: user?.fullName || 'Usuario',
-        responsableNombre: formPlan.responsableId ? 'Responsable' : (user?.fullName || 'Usuario'), // En producción vendría de la API
-        tareas: [],
-        porcentajeAvance: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setPlanesAccion([...planesAccion, nuevoPlan]);
-      showSuccess('Plan de acción creado exitosamente');
+    // Precargar si ya tiene evaluacion de control
+    if (causa.puntajeTotal !== undefined) {
+      setCriteriosEvaluacion({
+        aplicabilidad: causa.aplicabilidad || '',
+        puntajeAplicabilidad: causa.puntajeAplicabilidad || 0,
+        cobertura: causa.cobertura || '',
+        puntajeCobertura: causa.puntajeCobertura || 0,
+        facilidadUso: causa.facilidadUso || '',
+        puntajeFacilidad: causa.puntajeFacilidad || 0,
+        segregacion: causa.segregacion || '',
+        puntajeSegregacion: causa.puntajeSegregacion || 0,
+        naturaleza: causa.naturaleza || '',
+        puntajeNaturaleza: causa.puntajeNaturaleza || 0,
+        tipoMitigacion: causa.tipoMitigacion || 'AMBAS',
+        recomendacion: causa.recomendacion || '',
+      });
+      setTipoGestion('CONTROL');
     } else {
-      const planActualizado = planesAccion.map((plan) =>
-        plan.id === planSeleccionado?.id
-          ? {
-              ...plan,
-              nombre: formPlan.nombre,
-              descripcion: formPlan.descripcion,
-              objetivo: formPlan.objetivo,
-              fechaInicio: formPlan.fechaInicio,
-              fechaLimite: formPlan.fechaLimite,
-              responsableId: formPlan.responsableId,
-              presupuesto: formPlan.presupuesto,
-              observaciones: formPlan.observaciones,
-              porcentajeAvance: calcularAvancePlan(plan),
-              updatedAt: new Date().toISOString(),
-            }
-          : plan
-      );
-      setPlanesAccion(planActualizado);
-      showSuccess('Plan de acción actualizado exitosamente');
+      // Reset
+      setCriteriosEvaluacion({
+        aplicabilidad: '', puntajeAplicabilidad: 0,
+        cobertura: '', puntajeCobertura: 0,
+        facilidadUso: '', puntajeFacilidad: 0,
+        segregacion: '', puntajeSegregacion: 0,
+        naturaleza: '', puntajeNaturaleza: 0,
+        tipoMitigacion: 'AMBAS', recomendaciones: ''
+      } as any);
     }
-    setPlanDialogOpen(false);
+    setClasificacionDialogOpen(true);
   };
 
-  const handleEliminarPlan = (planId: string) => {
-    if (window.confirm('¿Está seguro de eliminar este plan de acción?')) {
-      setPlanesAccion(planesAccion.filter((plan) => plan.id !== planId));
-      showSuccess('Plan de acción eliminado exitosamente');
+  const handleProcesarClasificacion = () => {
+    if (tipoGestion === 'CONTROL') {
+      setClasificacionDialogOpen(false);
+      setDialogEvaluacionOpen(true);
+    } else if (tipoGestion === 'PLAN') {
+      setFormPlan({
+        nombre: `Plan: ${causaSeleccionada?.descripcion.substring(0, 30)}...`,
+        descripcion: '',
+        objetivo: `Mitigar la causa: ${causaSeleccionada?.descripcion}`,
+        fechaInicio: new Date().toISOString().split('T')[0],
+        fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        responsableNombre: '',
+        presupuesto: 0,
+        observaciones: ''
+      });
+      setClasificacionDialogOpen(false);
+      setPlanDialogOpen(true);
     }
-  };
-
-  const handleCrearTarea = (plan: PlanAccion) => {
-    setFormTarea({
-      planAccionId: plan.id,
-      descripcion: '',
-      responsableId: '',
-      fechaInicio: new Date().toISOString(),
-      fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      prioridad: 'media',
-      observaciones: '',
-    });
-    setModoEdicionTarea('crear');
-    setTareaSeleccionada(null);
-    setPlanSeleccionado(plan);
-    setTareaDialogOpen(true);
-  };
-
-  const handleEditarTarea = (tarea: TareaPlanAccion, plan: PlanAccion) => {
-    setFormTarea({
-      planAccionId: plan.id,
-      descripcion: tarea.descripcion,
-      responsableId: tarea.responsableId || '',
-      fechaInicio: tarea.fechaInicio,
-      fechaLimite: tarea.fechaLimite,
-      prioridad: tarea.prioridad,
-      observaciones: tarea.observaciones || '',
-    });
-    setModoEdicionTarea('editar');
-    setTareaSeleccionada(tarea);
-    setPlanSeleccionado(plan);
-    setTareaDialogOpen(true);
-  };
-
-  const handleGuardarTarea = () => {
-    if (!formTarea.descripcion.trim()) {
-      showError('La descripción de la tarea es requerida');
-      return;
-    }
-
-    if (modoEdicionTarea === 'crear') {
-      const nuevaTarea: TareaPlanAccion = {
-        id: `tarea-${Date.now()}`,
-        ...formTarea,
-        estado: 'pendiente',
-        porcentajeAvance: 0,
-        responsableNombre: 'Responsable', // En producción vendría de la API
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const planesActualizados = planesAccion.map((plan) =>
-        plan.id === formTarea.planAccionId
-          ? {
-              ...plan,
-              tareas: [...plan.tareas, nuevaTarea],
-              porcentajeAvance: calcularAvancePlan({ ...plan, tareas: [...plan.tareas, nuevaTarea] }),
-              updatedAt: new Date().toISOString(),
-            }
-          : plan
-      );
-      setPlanesAccion(planesActualizados);
-      showSuccess('Tarea creada exitosamente');
-    } else {
-      const planesActualizados = planesAccion.map((plan) =>
-        plan.id === formTarea.planAccionId
-          ? {
-              ...plan,
-              tareas: plan.tareas.map((tarea) =>
-                tarea.id === tareaSeleccionada?.id
-                  ? {
-                      ...tarea,
-                      descripcion: formTarea.descripcion,
-                      responsableId: formTarea.responsableId,
-                      fechaInicio: formTarea.fechaInicio,
-                      fechaLimite: formTarea.fechaLimite,
-                      prioridad: formTarea.prioridad,
-                      observaciones: formTarea.observaciones,
-                      updatedAt: new Date().toISOString(),
-                    }
-                  : tarea
-              ),
-              porcentajeAvance: calcularAvancePlan(plan),
-              updatedAt: new Date().toISOString(),
-            }
-          : plan
-      );
-      setPlanesAccion(planesActualizados);
-      showSuccess('Tarea actualizada exitosamente');
-    }
-    setTareaDialogOpen(false);
-  };
-
-  const handleActualizarAvanceTarea = (planId: string, tareaId: string, nuevoAvance: number) => {
-    const planesActualizados = planesAccion.map((plan) =>
-      plan.id === planId
-        ? {
-            ...plan,
-            tareas: plan.tareas.map((tarea) =>
-              tarea.id === tareaId
-                ? {
-                    ...tarea,
-                    porcentajeAvance: nuevoAvance,
-                    estado: (nuevoAvance === 100 ? 'completada' : nuevoAvance > 0 ? 'en_progreso' : 'pendiente') as TareaPlanAccion['estado'],
-                    fechaCumplimiento: nuevoAvance === 100 ? new Date().toISOString() : undefined,
-                    updatedAt: new Date().toISOString(),
-                  }
-                : tarea
-            ),
-            porcentajeAvance: calcularAvancePlan(plan),
-            updatedAt: new Date().toISOString(),
-          }
-        : plan
-    );
-    setPlanesAccion(planesActualizados);
-    showSuccess('Avance de tarea actualizado');
-  };
-
-  const handleEliminarTarea = (planId: string, tareaId: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta tarea?')) {
-      const planesActualizados = planesAccion.map((plan) =>
-        plan.id === planId
-          ? {
-              ...plan,
-              tareas: plan.tareas.filter((tarea) => tarea.id !== tareaId),
-              porcentajeAvance: calcularAvancePlan(plan),
-              updatedAt: new Date().toISOString(),
-            }
-          : plan
-      );
-      setPlanesAccion(planesActualizados);
-      showSuccess('Tarea eliminada exitosamente');
-    }
-  };
-
-  // Validación removida - permite cargar sin proceso seleccionado
-
-  // Función para seleccionar un riesgo
-  const handleSeleccionarRiesgo = (riesgo: any) => {
-    // Usar los datos completos si están disponibles (riesgos de Identificación)
-    const riesgoCompleto = riesgo._datosCompletos || riesgo;
-    setRiesgoSeleccionadoLocal(riesgoCompleto);
-    iniciarVer(riesgoCompleto);
-    showSuccess(`Riesgo seleccionado: ${riesgo.descripcion?.substring(0, 50) || riesgoCompleto.descripcionRiesgo?.substring(0, 50) || 'Riesgo'}...`);
-  };
-
-  // Función helper para formatear fecha para input type="date"
-  const formatDateForInput = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
   };
 
   return (
     <Box>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h4" gutterBottom fontWeight={700}>
-              Plan de Acción
-            </Typography>
-            {!isReadOnly && riesgoSeleccionado && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCrearPlan}
-                sx={{ background: '#1976d2' }}
-              >
-                Nuevo Plan de Acción
-              </Button>
-            )}
-          </Box>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom fontWeight={700}>Controles y Planes de Acción</Typography>
 
-          {/* Tabla Consolidada de Planes de Acción con Fechas */}
-          {riesgoSeleccionado && planesFiltrados.length > 0 && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  Tabla de Planes de Acción
-                </Typography>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell><strong>Nombre</strong></TableCell>
-                        <TableCell><strong>Objetivo</strong></TableCell>
-                        <TableCell><strong>Responsable</strong></TableCell>
-                        <TableCell><strong>Fecha Inicio</strong></TableCell>
-                        <TableCell><strong>Fecha Límite</strong></TableCell>
-                        <TableCell><strong>Estado</strong></TableCell>
-                        <TableCell><strong>Progreso</strong></TableCell>
-                        <TableCell><strong>Tareas</strong></TableCell>
-                        {!isReadOnly && <TableCell><strong>Acciones</strong></TableCell>}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {planesFiltrados.map((plan) => {
-                        const avance = calcularAvancePlan(plan);
-                        return (
-                          <TableRow key={plan.id} hover>
-                            <TableCell>{plan.nombre}</TableCell>
-                            <TableCell>{plan.objetivo}</TableCell>
-                            <TableCell>{plan.responsableNombre || 'Sin asignar'}</TableCell>
-                            <TableCell>
-                              {new Date(plan.fechaInicio).toLocaleDateString('es-ES')}
-                            </TableCell>
-                            <TableCell>
-                              <Typography
-                                variant="body2"
-                                color={estaAtrasada(plan.fechaLimite) ? 'error' : 'inherit'}
-                                fontWeight={estaAtrasada(plan.fechaLimite) ? 600 : 400}
-                              >
-                                {new Date(plan.fechaLimite).toLocaleDateString('es-ES')}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                icon={getIconoEstado(plan.estado)}
-                                label={plan.estado.replace('_', ' ').toUpperCase()}
-                                color={getColorEstado(plan.estado)}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <LinearProgress
-                                  variant="determinate"
-                                  value={avance}
-                                  sx={{ width: 80, height: 6, borderRadius: 1 }}
-                                />
-                                <Typography variant="body2" fontWeight={600}>
-                                  {avance}%
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={`${plan.tareas.length} tarea${plan.tareas.length !== 1 ? 's' : ''}`}
-                                size="small"
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            {!isReadOnly && (
-                              <TableCell>
-                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleEditarPlan(plan)}
-                                    title="Editar"
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => handleEliminarPlan(plan.id)}
-                                    title="Eliminar"
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Selector de Riesgo */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight={600}>
-                Seleccionar Riesgo
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Busque y seleccione un riesgo del proceso <strong>{procesoSeleccionado?.nombre}</strong> para ver o crear sus planes de acción
-              </Typography>
-              <Autocomplete
-                options={riesgos}
-                getOptionLabel={(option) => {
-                  const idRiesgo = `${option.numero}${option.siglaGerencia || ''}`;
-                  return `${idRiesgo} - ${option.descripcion.substring(0, 60)}...`;
-                }}
-                value={riesgoSeleccionado || null}
-                onChange={(event, newValue) => {
-                  if (newValue) {
-                    handleSeleccionarRiesgo(newValue);
-                  } else {
-                    setRiesgoSeleccionadoLocal(null);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Buscar riesgo"
-                    placeholder="Escriba para buscar un riesgo..."
-                    variant="outlined"
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const idRiesgo = `${option.numero}${option.siglaGerencia || ''}`;
-                  return (
-                    <Box component="li" {...props} key={option.id}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Chip
-                            label={idRiesgo}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                          <Typography variant="body2" fontWeight={600}>
-                            {option.descripcion.substring(0, 80)}
-                            {option.descripcion.length > 80 ? '...' : ''}
-                          </Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {option.clasificacion} • {option.zona}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                }}
-                noOptionsText="No se encontraron riesgos"
-                sx={{ width: '100%' }}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Información del Riesgo Seleccionado */}
-          {riesgoSeleccionado && (
-            <Card sx={{ mb: 3, bgcolor: 'rgba(25, 118, 210, 0.05)', border: '1px solid rgba(25, 118, 210, 0.2)' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Box>
-                    <Typography variant="h6" gutterBottom fontWeight={600}>
-                      Riesgo Seleccionado
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={`ID: ${riesgoSeleccionado.numeroIdentificacion || `${riesgoSeleccionado.numero || ''}${riesgoSeleccionado.siglaGerencia || ''}`}`}
-                        size="small"
-                        color="primary"
-                      />
-                      <Chip
-                        label={riesgoSeleccionado.consecuencia || riesgoSeleccionado.clasificacion || 'Negativa'}
-                        size="small"
-                        color={(riesgoSeleccionado.consecuencia === '02 Positiva' || riesgoSeleccionado.clasificacion?.includes('positiva')) ? 'success' : 'error'}
-                      />
-                      <Chip
-                        label={`Tipo: ${riesgoSeleccionado.tipoRiesgo || riesgoSeleccionado.zona || 'N/A'}`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {riesgoSeleccionado.descripcionRiesgo || riesgoSeleccionado.descripcion}
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          )}
-
-          {isReadOnly && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Está en modo visualización. Solo puede ver la información.
-            </Alert>
-          )}
-
-          {!riesgoSeleccionado && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Seleccione un riesgo del buscador arriba para ver o crear planes de acción.
-            </Alert>
-          )}
+        {/* Tabs Principales */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, bgcolor: 'white', borderRadius: 1 }}>
+          <Tabs
+            value={activeTab}
+            onChange={(_, val) => setActiveTab(val)}
+            indicatorColor="primary"
+            textColor="primary"
+          >
+            <Tab key="clasif" label="CLASIFICACIÓN DE CAUSA" icon={<FactCheckIcon />} iconPosition="start" sx={{ fontWeight: 600 }} />
+            <Tab key="residual" label="CALIFICACIÓN RESIDUAL" icon={<SecurityIcon />} iconPosition="start" sx={{ fontWeight: 600 }} />
+            <Tab key="planes" label="PLANES DE ACCIÓN" icon={<AssignmentIcon />} iconPosition="start" sx={{ fontWeight: 600 }} />
+          </Tabs>
         </Box>
 
-        {/* Lista de Planes de Acción */}
-        {!riesgoSeleccionado ? (
-          <Card>
-            <CardContent>
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <AssignmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Seleccione un riesgo
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Use el buscador de arriba para seleccionar un riesgo y ver o crear sus planes de acción.
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        ) : planesFiltrados.length === 0 ? (
-          <Card>
-            <CardContent>
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <AssignmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  No hay planes de acción
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  {!isReadOnly
-                    ? 'Cree un plan de acción para gestionar las acciones correctivas y preventivas del riesgo seleccionado.'
-                    : 'No hay planes de acción para visualizar.'}
-                </Typography>
-                {!isReadOnly && (
-                  <Button variant="contained" startIcon={<AddIcon />} onClick={handleCrearPlan}>
-                    Crear Plan de Acción
-                  </Button>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {planesFiltrados.map((plan) => {
-              const avance = calcularAvancePlan(plan);
-              const tareasAtrasadas = plan.tareas.filter((tarea: TareaPlanAccion) => estaAtrasada(tarea.fechaLimite) && tarea.estado !== 'completada');
-              const tareasPendientes = plan.tareas.filter((tarea: TareaPlanAccion) => tarea.estado === 'pendiente').length;
-              const tareasEnProgreso = plan.tareas.filter((tarea: TareaPlanAccion) => tarea.estado === 'en_progreso').length;
-              const tareasCompletadas = plan.tareas.filter((tarea: TareaPlanAccion) => tarea.estado === 'completada').length;
-
-              return (
-                <Card key={plan.id} sx={{ border: '1px solid #e0e0e0' }}>
-                  <CardContent>
-                    {/* Header del Plan */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Typography variant="h6" fontWeight={600}>
-                            {plan.nombre}
-                          </Typography>
-                          <Chip
-                            icon={getIconoEstado(plan.estado)}
-                            label={plan.estado.replace('_', ' ').toUpperCase()}
-                            color={getColorEstado(plan.estado)}
-                            size="small"
-                          />
+        {/* TAB 0: CLASIFICACIÓN DE CAUSA */}
+        {activeTab === 0 && (
+          <Box>
+            {riesgos.length === 0 ? (
+              <Card><CardContent><Typography align="center">No hay riesgos registrados.</Typography></CardContent></Card>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {riesgos.map((riesgo) => {
+                  const estaExpandido = riesgosExpandidos[riesgo.id] || false;
+                  return (
+                    <Card key={riesgo.id} sx={{ mb: 2 }}>
+                      <Box
+                        sx={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          p: 2, cursor: 'pointer',
+                          backgroundColor: estaExpandido ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+                          '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+                        }}
+                        onClick={() => handleToggleExpandir(riesgo.id)}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <IconButton size="small">{estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+                          <Typography variant="subtitle1" fontWeight={600}>{riesgo.numeroIdentificacion} - {riesgo.descripcionRiesgo}</Typography>
                         </Box>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          {plan.descripcion}
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600} sx={{ mt: 1 }}>
-                          Objetivo: <span style={{ fontWeight: 400 }}>{plan.objetivo}</span>
-                        </Typography>
-                      </Box>
-                      {!isReadOnly && (
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton size="small" onClick={() => handleEditarPlan(plan)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleEliminarPlan(plan.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Información del Plan */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 2 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Responsable
-                        </Typography>
-                        <Typography variant="body2">{plan.responsableNombre || 'Sin asignar'}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Fecha Inicio
-                        </Typography>
-                        <Typography variant="body2">
-                          {new Date(plan.fechaInicio).toLocaleDateString('es-ES')}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Fecha Límite
-                        </Typography>
-                        <Typography variant="body2" color={estaAtrasada(plan.fechaLimite) ? 'error' : 'inherit'}>
-                          {new Date(plan.fechaLimite).toLocaleDateString('es-ES')}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Presupuesto
-                        </Typography>
-                        <Typography variant="body2">
-                          {plan.presupuesto ? `$${plan.presupuesto.toLocaleString()}` : 'No definido'}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {/* Barra de Progreso */}
-                    <Box sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Typography variant="body2" fontWeight={600}>
-                          Progreso General
-                        </Typography>
-                        <Typography variant="body2" color="primary" fontWeight={600}>
-                          {avance}%
-                        </Typography>
-                      </Box>
-                      <LinearProgress variant="determinate" value={avance} sx={{ height: 8, borderRadius: 1 }} />
-                    </Box>
-
-                    {/* Estadísticas de Tareas */}
-                    <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                      <Chip label={`${plan.tareas.length} tarea(s)`} size="small" variant="outlined" />
-                      <Chip
-                        label={`${tareasPendientes} pendiente(s)`}
-                        size="small"
-                        color="warning"
-                        icon={<PendingIcon />}
-                      />
-                      <Chip
-                        label={`${tareasEnProgreso} en progreso`}
-                        size="small"
-                        color="info"
-                        icon={<PlayArrowIcon />}
-                      />
-                      <Chip
-                        label={`${tareasCompletadas} completada(s)`}
-                        size="small"
-                        color="success"
-                        icon={<CheckCircleIcon />}
-                      />
-                      {tareasAtrasadas.length > 0 && (
-                        <Chip
-                          label={`${tareasAtrasadas.length} atrasada(s)`}
-                          size="small"
-                          color="error"
-                          icon={<WarningIcon />}
-                        />
-                      )}
-                    </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    {/* Tareas del Plan */}
-                    <Box sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="h6" fontWeight={600}>
-                          Tareas
-                        </Typography>
-                        {!isReadOnly && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<AddIcon />}
-                            onClick={() => handleCrearTarea(plan)}
-                          >
-                            Agregar Tarea
-                          </Button>
-                        )}
                       </Box>
 
-                      {plan.tareas.length === 0 ? (
-                        <Alert severity="info">No hay tareas asignadas a este plan de acción.</Alert>
-                      ) : (
-                        <TableContainer component={Paper} variant="outlined">
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Descripción</TableCell>
-                                <TableCell>Responsable</TableCell>
-                                <TableCell>Prioridad</TableCell>
-                                <TableCell>Fechas</TableCell>
-                                <TableCell>Estado</TableCell>
-                                <TableCell>Avance</TableCell>
-                                {!isReadOnly && <TableCell align="right">Acciones</TableCell>}
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {plan.tareas.map((tarea: TareaPlanAccion) => {
-                                const atrasada = estaAtrasada(tarea.fechaLimite) && tarea.estado !== 'completada';
-                                return (
-                                  <TableRow key={tarea.id} sx={{ bgcolor: atrasada ? 'rgba(211, 47, 47, 0.05)' : 'inherit' }}>
-                                    <TableCell>
-                                      <Typography variant="body2">{tarea.descripcion}</Typography>
-                                      {tarea.observaciones && (
-                                        <Typography variant="caption" color="text.secondary" display="block">
-                                          {tarea.observaciones}
-                                        </Typography>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Typography variant="body2">{tarea.responsableNombre || 'Sin asignar'}</Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={tarea.prioridad}
-                                        size="small"
-                                        color={tarea.prioridad === 'alta' ? 'error' : tarea.prioridad === 'media' ? 'warning' : 'default'}
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      <Typography variant="caption" display="block">
-                                        Inicio: {new Date(tarea.fechaInicio).toLocaleDateString('es-ES')}
-                                      </Typography>
-                                      <Typography
-                                        variant="caption"
-                                        display="block"
-                                        color={atrasada ? 'error' : 'text.secondary'}
-                                      >
-                                        Límite: {new Date(tarea.fechaLimite).toLocaleDateString('es-ES')}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        icon={getIconoEstado(tarea.estado)}
-                                        label={tarea.estado.replace('_', ' ')}
-                                        color={getColorEstado(tarea.estado)}
-                                        size="small"
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 150 }}>
-                                        <LinearProgress
-                                          variant="determinate"
-                                          value={tarea.porcentajeAvance}
-                                          sx={{ flexGrow: 1, height: 6, borderRadius: 1 }}
-                                        />
-                                        <Typography variant="caption" fontWeight={600}>
-                                          {tarea.porcentajeAvance}%
-                                        </Typography>
-                                      </Box>
-                                      {!isReadOnly && (
-                                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                          {[0, 25, 50, 75, 100].map((valor) => (
-                                            <Button
-                                              key={valor}
-                                              size="small"
-                                              variant={tarea.porcentajeAvance === valor ? 'contained' : 'outlined'}
-                                              onClick={() => handleActualizarAvanceTarea(plan.id, tarea.id, valor)}
-                                              sx={{ minWidth: 40, p: 0.5 }}
-                                            >
-                                              {valor}%
-                                            </Button>
-                                          ))}
-                                        </Box>
-                                      )}
-                                    </TableCell>
-                                    {!isReadOnly && (
-                                      <TableCell align="right">
-                                        <IconButton size="small" onClick={() => handleEditarTarea(tarea, plan)}>
-                                          <EditIcon fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                          size="small"
-                                          color="error"
-                                          onClick={() => handleEliminarTarea(plan.id, tarea.id)}
-                                        >
-                                          <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                      </TableCell>
-                                    )}
+                      <Collapse in={estaExpandido}>
+                        <Box sx={{ p: 2, pt: 0 }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Causas Identificadas</Typography>
+                          {riesgo.causas && riesgo.causas.length > 0 ? (
+                            <TableContainer component={Paper} sx={{ mb: 2 }}>
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                    <TableCell><strong>Causa</strong></TableCell>
+                                    <TableCell><strong>Estado Gestión</strong></TableCell>
+                                    <TableCell align="center"><strong>Acción</strong></TableCell>
                                   </TableRow>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      )}
-                    </Box>
-
-                    {/* Observaciones del Plan */}
-                    {plan.observaciones && (
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Observaciones
-                        </Typography>
-                        <Typography variant="body2">{plan.observaciones}</Typography>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                                </TableHead>
+                                <TableBody>
+                                  {riesgo.causas.map((causa: any) => (
+                                    <TableRow
+                                      key={causa.id}
+                                      hover
+                                      sx={{ cursor: 'pointer' }}
+                                      onClick={() => handleClasificarCausa(riesgo, causa)}
+                                    >
+                                      <TableCell><Typography variant="body2">{causa.descripcion}</Typography></TableCell>
+                                      <TableCell>
+                                        {causa.puntajeTotal !== undefined ?
+                                          <Chip label="Control Evaluado" color="success" size="small" /> :
+                                          <Chip label="Pendiente Clasificación" color="warning" size="small" />
+                                        }
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Button size="small" variant="contained" onClick={() => handleClasificarCausa(riesgo, causa)}>
+                                          Gestionar
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          ) : (<Alert severity="info">No hay causas registradas.</Alert>)}
+                        </Box>
+                      </Collapse>
+                    </Card>
+                  );
+                })}
+              </Box>
+            )}
           </Box>
         )}
 
-        {/* Diálogo para Crear/Editar Plan */}
-        <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>{modoEdicion === 'crear' ? 'Nuevo Plan de Acción' : 'Editar Plan de Acción'}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Nombre del Plan"
-                value={formPlan.nombre}
-                onChange={(e) => setFormPlan({ ...formPlan, nombre: e.target.value })}
-                required
-              />
-              <TextField
-                fullWidth
-                label="Descripción"
-                value={formPlan.descripcion}
-                onChange={(e) => setFormPlan({ ...formPlan, descripcion: e.target.value })}
-                multiline
-                rows={3}
-              />
-              <TextField
-                fullWidth
-                label="Objetivo"
-                value={formPlan.objetivo}
-                onChange={(e) => setFormPlan({ ...formPlan, objetivo: e.target.value })}
-                required
-                multiline
-                rows={2}
-              />
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <TextField
-                  label="Fecha de Inicio"
-                  type="date"
-                  value={formatDateForInput(formPlan.fechaInicio)}
-                  onChange={(e) =>
-                    setFormPlan({
-                      ...formPlan,
-                      fechaInicio: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
-                    })
-                  }
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ flex: '1 1 200px', minWidth: 200 }}
-                />
-                <TextField
-                  label="Fecha Límite"
-                  type="date"
-                  value={formatDateForInput(formPlan.fechaLimite)}
-                  onChange={(e) =>
-                    setFormPlan({
-                      ...formPlan,
-                      fechaLimite: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
-                    })
-                  }
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ flex: '1 1 200px', minWidth: 200 }}
-                />
-              </Box>
-              <TextField
-                fullWidth
-                label="Responsable (ID)"
-                value={formPlan.responsableId}
-                onChange={(e) => setFormPlan({ ...formPlan, responsableId: e.target.value })}
-                helperText="En producción, esto sería un selector de usuarios"
-              />
-              <TextField
-                fullWidth
-                label="Presupuesto"
-                type="number"
-                value={formPlan.presupuesto || ''}
-                onChange={(e) =>
-                  setFormPlan({ ...formPlan, presupuesto: e.target.value ? parseFloat(e.target.value) : undefined })
-                }
-              />
-              <TextField
-                fullWidth
-                label="Observaciones"
-                value={formPlan.observaciones}
-                onChange={(e) => setFormPlan({ ...formPlan, observaciones: e.target.value })}
-                multiline
-                rows={2}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPlanDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleGuardarPlan} variant="contained" startIcon={<SaveIcon />}>
-              Guardar
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* TAB 1: CALIFICACION RESIDUAL (Copia de Identificación) */}
+        {activeTab === 1 && (
+          <Box>
+            {riesgos.length === 0 ? (
+              <Card><CardContent><Typography align="center">No hay riesgos registrados.</Typography></CardContent></Card>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {riesgos.map((riesgo) => {
+                  const estaExpandido = riesgosExpandidos[riesgo.id] || false;
+                  return (
+                    <Card key={riesgo.id} sx={{ mb: 2 }}>
+                      <Box
+                        sx={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          p: 2, cursor: 'pointer',
+                          backgroundColor: estaExpandido ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+                          '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+                        }}
+                        onClick={() => handleToggleExpandir(riesgo.id)}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <IconButton size="small">{estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+                          <Typography variant="subtitle1" fontWeight={600}>{riesgo.numeroIdentificacion} - {riesgo.descripcionRiesgo}</Typography>
+                        </Box>
+                      </Box>
 
-        {/* Diálogo para Crear/Editar Tarea */}
-        <Dialog open={tareaDialogOpen} onClose={() => setTareaDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {modoEdicionTarea === 'crear' ? 'Nueva Tarea' : 'Editar Tarea'} - {planSeleccionado?.nombre}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Descripción de la Tarea"
-                value={formTarea.descripcion}
-                onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
-                required
-                multiline
-                rows={3}
-              />
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <TextField
-                  label="Fecha de Inicio"
-                  type="date"
-                  value={formatDateForInput(formTarea.fechaInicio)}
-                  onChange={(e) =>
-                    setFormTarea({
-                      ...formTarea,
-                      fechaInicio: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
-                    })
-                  }
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ flex: '1 1 200px', minWidth: 200 }}
-                />
-                <TextField
-                  label="Fecha Límite"
-                  type="date"
-                  value={formatDateForInput(formTarea.fechaLimite)}
-                  onChange={(e) =>
-                    setFormTarea({
-                      ...formTarea,
-                      fechaLimite: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
-                    })
-                  }
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ flex: '1 1 200px', minWidth: 200 }}
-                />
+                      <Collapse in={estaExpandido}>
+                        <Box sx={{ p: 2, pt: 0 }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Evaluación Residual</Typography>
+                          {riesgo.causas && riesgo.causas.length > 0 ? (
+                            <TableContainer component={Paper} sx={{ mb: 2 }}>
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                    <TableCell><strong>Causa</strong></TableCell>
+                                    <TableCell align="center"><strong>Frec. Inh.</strong></TableCell>
+                                    <TableCell align="center"><strong>Imp. Inh.</strong></TableCell>
+                                    <TableCell align="center"><strong>Control</strong></TableCell>
+                                    <TableCell align="center"><strong>% Mit.</strong></TableCell>
+                                    <TableCell align="center"><strong>Frec. Res.</strong></TableCell>
+                                    <TableCell align="center"><strong>Imp. Res.</strong></TableCell>
+                                    <TableCell align="center"><strong>Calif. Res.</strong></TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {riesgo.causas.map((causa: any) => {
+                                    const puntajeTotal = calcularPuntajeControl(
+                                      causa.puntajeAplicabilidad || 0, causa.puntajeCobertura || 0,
+                                      causa.puntajeFacilidad || 0, causa.puntajeSegregacion || 0,
+                                      causa.puntajeNaturaleza || 0
+                                    );
+                                    const efectividad = puntajeTotal > 0 ? determinarEfectividadControl(puntajeTotal) : 'No evaluado';
+                                    const mit = obtenerPorcentajeMitigacion(efectividad);
+                                    const fRes = calcularFrecuenciaResidual(causa.frecuencia || 1, mit);
+                                    const iRes = calcularImpactoResidual(causa.calificacionGlobalImpacto || 1, mit);
+                                    const cRes = calcularCalificacionResidual(fRes, iRes);
+
+                                    return (
+                                      <TableRow
+                                        key={causa.id}
+                                        hover
+                                        sx={{ cursor: 'pointer' }}
+                                        onClick={() => handleClasificarCausa(riesgo, causa)}
+                                      >
+                                        <TableCell><Typography variant="body2" sx={{ maxWidth: 200 }}>{causa.descripcion}</Typography></TableCell>
+                                        <TableCell align="center">{causa.frecuencia}</TableCell>
+                                        <TableCell align="center">{causa.calificacionGlobalImpacto?.toFixed(2)}</TableCell>
+                                        <TableCell align="center">
+                                          <Button size="small" variant={puntajeTotal > 0 ? "outlined" : "contained"}
+                                            onClick={() => handleClasificarCausa(riesgo, causa)}
+                                          >
+                                            {puntajeTotal > 0 ? `${puntajeTotal} pts` : 'Evaluar'}
+                                          </Button>
+                                        </TableCell>
+                                        <TableCell align="center">{(mit * 100).toFixed(0)}%</TableCell>
+                                        <TableCell align="center">{fRes}</TableCell>
+                                        <TableCell align="center">{iRes.toFixed(2)}</TableCell>
+                                        <TableCell align="center">
+                                          <Chip label={cRes.toFixed(2)} color={cRes >= 15 ? 'error' : cRes >= 10 ? 'warning' : 'success'} size="small" variant="outlined" />
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          ) : (<Alert severity="info">No hay causas.</Alert>)}
+                        </Box>
+                      </Collapse>
+                    </Card>
+                  );
+                })}
               </Box>
-              <FormControl fullWidth>
-                <InputLabel>Prioridad</InputLabel>
-                <Select
-                  value={formTarea.prioridad}
-                  label="Prioridad"
-                  onChange={(e) => setFormTarea({ ...formTarea, prioridad: e.target.value as 'alta' | 'media' | 'baja' })}
-                >
-                  <MenuItem value="alta">Alta</MenuItem>
-                  <MenuItem value="media">Media</MenuItem>
-                  <MenuItem value="baja">Baja</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                fullWidth
-                label="Responsable (ID)"
-                value={formTarea.responsableId}
-                onChange={(e) => setFormTarea({ ...formTarea, responsableId: e.target.value })}
-                helperText="En producción, esto sería un selector de usuarios"
-              />
-              <TextField
-                fullWidth
-                label="Observaciones"
-                value={formTarea.observaciones}
-                onChange={(e) => setFormTarea({ ...formTarea, observaciones: e.target.value })}
-                multiline
-                rows={2}
-              />
+            )}
+          </Box>
+        )}
+
+        {/* TAB 2: PLANES DE ACCIÓN */}
+        {activeTab === 2 && (
+          <Box>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
+                setFormPlan({
+                  nombre: '',
+                  descripcion: '',
+                  objetivo: '',
+                  fechaInicio: new Date().toISOString().split('T')[0],
+                  fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  responsableNombre: '',
+                  presupuesto: 0,
+                  observaciones: ''
+                });
+                setPlanDialogOpen(true);
+              }}>
+                Nuevo Plan
+              </Button>
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setTareaDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleGuardarTarea} variant="contained" startIcon={<SaveIcon />}>
-              Guardar
-            </Button>
-          </DialogActions>
-        </Dialog>
+            {planesAccion.length === 0 && <Typography align="center" sx={{ py: 3 }}>No hay planes creados.</Typography>}
+            {planesAccion.map((p, i) => (
+              <Card
+                key={i}
+                sx={{ mb: 1, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                onClick={() => { setPlanSeleccionadoDetalle(p); setPlanDetalleOpen(true); }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="h6">{p.nombre}</Typography>
+                    <Chip label={p.estado?.toUpperCase() || 'BORRADOR'} size="small" color="info" />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>{p.objetivo}</Typography>
+                  <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                    <Typography variant="caption"><strong>Inicio:</strong> {p.fechaInicio}</Typography>
+                    <Typography variant="caption"><strong>Límite:</strong> {p.fechaLimite}</Typography>
+                    <Typography variant="caption"><strong>Responsable:</strong> {p.responsableNombre || 'N/A'}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LinearProgress variant="determinate" value={p.porcentajeAvance} sx={{ flexGrow: 1, height: 8, borderRadius: 1 }} />
+                    <Typography variant="caption" fontWeight="bold">{p.porcentajeAvance}%</Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+      </Box>
+
+      {/* DIALOG CLASIFICACION */}
+      <Dialog open={clasificacionDialogOpen} onClose={() => setClasificacionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Gestionar Causa</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>Causa: <strong>{causaSeleccionada?.descripcion}</strong></Typography>
+          <Typography variant="subtitle2" gutterBottom>Seleccione el tipo de gestión para esta causa:</Typography>
+          <RadioGroup value={tipoGestion} onChange={(e) => setTipoGestion(e.target.value as any)}>
+            <FormControlLabel value="CONTROL" control={<Radio />} label="Control (Mitigación Inmediata - Afecta Residual)" />
+            <FormControlLabel value="PLAN" control={<Radio />} label="Plan de Acción (Mejora Futura)" />
+          </RadioGroup>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClasificacionDialogOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleProcesarClasificacion} disabled={!tipoGestion}>Continuar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG PLAN */}
+      <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Nuevo Plan de Acción</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField fullWidth label="Nombre del Plan" value={formPlan.nombre} onChange={e => setFormPlan({ ...formPlan, nombre: e.target.value })} />
+            <TextField fullWidth label="Descripción" multiline rows={2} value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} />
+            <TextField fullWidth label="Objetivo" multiline rows={2} value={formPlan.objetivo} onChange={e => setFormPlan({ ...formPlan, objetivo: e.target.value })} />
+
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField fullWidth label="Fecha Inicio" type="date" InputLabelProps={{ shrink: true }} value={formPlan.fechaInicio} onChange={e => setFormPlan({ ...formPlan, fechaInicio: e.target.value })} />
+              <TextField fullWidth label="Fecha Límite" type="date" InputLabelProps={{ shrink: true }} value={formPlan.fechaLimite} onChange={e => setFormPlan({ ...formPlan, fechaLimite: e.target.value })} />
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField fullWidth label="Responsable" value={formPlan.responsableNombre} onChange={e => setFormPlan({ ...formPlan, responsableNombre: e.target.value })} />
+              <TextField fullWidth label="Presupuesto" type="number" value={formPlan.presupuesto} onChange={e => setFormPlan({ ...formPlan, presupuesto: Number(e.target.value) })} />
+            </Box>
+
+            <TextField fullWidth label="Observaciones" multiline rows={2} value={formPlan.observaciones} onChange={e => setFormPlan({ ...formPlan, observaciones: e.target.value })} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPlanDialogOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={() => {
+            setPlanesAccion([...planesAccion, {
+              id: Date.now().toString(),
+              riesgoId: riesgoIdEvaluacion || '',
+              ...formPlan,
+              estado: 'borrador',
+              porcentajeAvance: 0
+            }]);
+            setPlanDialogOpen(false);
+            showSuccess('Plan de acción creado exitosamente');
+          }}>Guardar Plan</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG DETALLE PLAN */}
+      <Dialog open={planDetalleOpen} onClose={() => setPlanDetalleOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>Detalle del Plan de Acción</DialogTitle>
+        <DialogContent dividers>
+          {planSeleccionadoDetalle && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography variant="overline" color="text.secondary">Nombre</Typography>
+                <Typography variant="h6">{planSeleccionadoDetalle.nombre}</Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: 'flex', gap: 4 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="overline" color="text.secondary">Objetivo</Typography>
+                  <Typography variant="body1">{planSeleccionadoDetalle.objetivo}</Typography>
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="overline" color="text.secondary">Descripción</Typography>
+                  <Typography variant="body1">{planSeleccionadoDetalle.descripcion || 'Sin descripción'}</Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 4 }}>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Fecha Inicio</Typography>
+                  <Typography variant="body1">{planSeleccionadoDetalle.fechaInicio}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Fecha Límite</Typography>
+                  <Typography variant="body1">{planSeleccionadoDetalle.fechaLimite}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Estado</Typography>
+                  <Chip label={planSeleccionadoDetalle.estado?.toUpperCase()} color="info" size="small" />
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 4 }}>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Responsable</Typography>
+                  <Typography variant="body1">{planSeleccionadoDetalle.responsableNombre || 'No asignado'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Presupuesto</Typography>
+                  <Typography variant="body1">${planSeleccionadoDetalle.presupuesto?.toLocaleString() || '0'}</Typography>
+                </Box>
+              </Box>
+              <Box>
+                <Typography variant="overline" color="text.secondary">Avance</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <LinearProgress variant="determinate" value={planSeleccionadoDetalle.porcentajeAvance} sx={{ flexGrow: 1, height: 10, borderRadius: 1 }} />
+                  <Typography variant="h6">{planSeleccionadoDetalle.porcentajeAvance}%</Typography>
+                </Box>
+              </Box>
+              <Box>
+                <Typography variant="overline" color="text.secondary">Observaciones</Typography>
+                <Typography variant="body2">{planSeleccionadoDetalle.observaciones || 'Sin observaciones'}</Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPlanDetalleOpen(false)} variant="contained">Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG EVALUACIÓN CONTROL (Residual) */}
+      <Dialog open={dialogEvaluacionOpen} onClose={() => setDialogEvaluacionOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Evaluación de Control</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Aplicabilidad</InputLabel>
+              <Select value={criteriosEvaluacion.aplicabilidad} label="Aplicabilidad" onChange={(e) => {
+                const v = e.target.value; const p = v === 'totalmente' ? 100 : v === 'parcial' ? 30 : 0;
+                setCriteriosEvaluacion(pr => ({ ...pr, aplicabilidad: v, puntajeAplicabilidad: p }));
+              }}>
+                <MenuItem value="totalmente">Totalmente (100)</MenuItem>
+                <MenuItem value="parcial">Parcialmente (30)</MenuItem>
+                <MenuItem value="nula">Nula (0)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Cobertura</InputLabel>
+              <Select value={criteriosEvaluacion.cobertura} label="Cobertura" onChange={(e) => {
+                const v = e.target.value; const p = v === 'total' ? 100 : v === 'significativa' ? 70 : 10;
+                setCriteriosEvaluacion(pr => ({ ...pr, cobertura: v, puntajeCobertura: p }));
+              }}>
+                <MenuItem value="total">Total (100)</MenuItem>
+                <MenuItem value="significativa">Significativa (70)</MenuItem>
+                <MenuItem value="minima">Mínima (10)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Facilidad de Uso</InputLabel>
+              <Select value={criteriosEvaluacion.facilidadUso} label="Facilidad de Uso" onChange={(e) => {
+                const v = e.target.value; const p = v === 'facil' ? 100 : v === 'moderada' ? 70 : 30;
+                setCriteriosEvaluacion(pr => ({ ...pr, facilidadUso: v, puntajeFacilidad: p }));
+              }}>
+                <MenuItem value="facil">Fácil (100)</MenuItem>
+                <MenuItem value="moderada">Moderada (70)</MenuItem>
+                <MenuItem value="dificil">Difícil (30)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Segregación</InputLabel>
+              <Select value={criteriosEvaluacion.segregacion} label="Segregación" onChange={(e) => {
+                const v = e.target.value; const p = v === 'si' ? 100 : 0;
+                setCriteriosEvaluacion(pr => ({ ...pr, segregacion: v, puntajeSegregacion: p }));
+              }}>
+                <MenuItem value="si">Sí (100)</MenuItem>
+                <MenuItem value="no">No (0)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Naturaleza</InputLabel>
+              <Select value={criteriosEvaluacion.naturaleza} label="Naturaleza" onChange={(e) => {
+                const v = e.target.value; const p = v === 'preventivo' ? 100 : v === 'detective' ? 60 : 40;
+                setCriteriosEvaluacion(pr => ({ ...pr, naturaleza: v, puntajeNaturaleza: p }));
+              }}>
+                <MenuItem value="preventivo">Preventivo (100)</MenuItem>
+                <MenuItem value="detective">Detective (60)</MenuItem>
+                <MenuItem value="correctivo">Correctivo (40)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Tipo Mitigación</InputLabel>
+              <Select value={criteriosEvaluacion.tipoMitigacion} label="Tipo Mitigación" onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tipoMitigacion: e.target.value as any }))}>
+                <MenuItem value="FRECUENCIA">Frecuencia</MenuItem>
+                <MenuItem value="IMPACTO">Impacto</MenuItem>
+                <MenuItem value="AMBAS">Ambas</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField label="Recomendación" multiline rows={2} value={criteriosEvaluacion.recomendacion} onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, recomendacion: e.target.value }))} />
+
+            {/* Calculo Preview */}
+            {(() => {
+              const pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+              return <Typography variant="subtitle2" align="right">Puntaje Total: {pt.toFixed(0)}</Typography>;
+            })()}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogEvaluacionOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={() => {
+            const riesgo = riesgos.find(r => r.id === riesgoIdEvaluacion);
+            if (riesgo && causaIdEvaluacion) {
+              const causasUpd = riesgo.causas.map((c: any) => {
+                if (c.id === causaIdEvaluacion) {
+                  // Logic recalculation
+                  const pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+                  const prel = determinarEvaluacionPreliminar(pt);
+                  const def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.recomendacion);
+                  const mit = obtenerPorcentajeMitigacionAvanzado(def);
+                  const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
+                  const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
+
+                  return {
+                    ...c, ...criteriosEvaluacion,
+                    puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
+                    frecuenciaResidual: fRes, impactoResidual: iRes,
+                    calificacionResidual: calcularCalificacionResidual(fRes, iRes)
+                  };
+                }
+                return c;
+              });
+              actualizarRiesgoLocalStorage(riesgoIdEvaluacion!, { causas: causasUpd });
+              setDialogEvaluacionOpen(false);
+              window.location.reload();
+            }
+          }}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
-
-

@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { Area, CreateAreaDto, Usuario, Proceso } from '../../types';
@@ -77,6 +78,8 @@ export default function AreasPage() {
     // Area CRUD States
     const [areaDialogOpen, setAreaDialogOpen] = useState(false);
     const [editingArea, setEditingArea] = useState<Area | null>(null);
+    const [areaDetailDialogOpen, setAreaDetailDialogOpen] = useState(false);
+    const [selectedAreaDetail, setSelectedAreaDetail] = useState<Area | null>(null);
     const [areaFormData, setAreaFormData] = useState<CreateAreaDto>({
         nombre: '',
         descripcion: '',
@@ -88,7 +91,7 @@ export default function AreasPage() {
     const [searchFilterAssignment, setSearchFilterAssignment] = useState('');
     const [assignmentSubTab, setAssignmentSubTab] = useState(0); // 0: Director, 1: Proceso
     const [filtroRol, setFiltroRol] = useState<string>('all');
-    
+
     // Detectar si el usuario seleccionado es Gerente General
     const esGerenteGeneral = selectedUserForAssignment?.role === 'gerente_general';
 
@@ -96,7 +99,7 @@ export default function AreasPage() {
         if (!selectedUserForAssignment) return `gg_${modo}_unknown`;
         return `gg_${modo}_${selectedUserForAssignment.id}`;
     };
-    
+
     // Filtrar usuarios por rol
     const usuariosFiltrados = useMemo(() => {
         if (filtroRol === 'all') return usuarios;
@@ -156,6 +159,16 @@ export default function AreasPage() {
     const handleCloseAreaDialog = () => {
         setAreaDialogOpen(false);
         setEditingArea(null);
+    };
+
+    const handleOpenAreaDetailDialog = (area: Area) => {
+        setSelectedAreaDetail(area);
+        setAreaDetailDialogOpen(true);
+    };
+
+    const handleCloseAreaDetailDialog = () => {
+        setAreaDetailDialogOpen(false);
+        setSelectedAreaDetail(null);
     };
 
     const handleSaveArea = () => {
@@ -251,7 +264,7 @@ export default function AreasPage() {
             const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
             const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
             const currentAssignments = currentData.procesos || [];
-            
+
             if (isChecked) {
                 if (!currentAssignments.includes(procesoId)) {
                     currentAssignments.push(procesoId);
@@ -262,7 +275,7 @@ export default function AreasPage() {
                     currentAssignments.splice(index, 1);
                 }
             }
-            
+
             currentData.procesos = currentAssignments;
             localStorage.setItem(storageKey, JSON.stringify(currentData));
             // Force re-render
@@ -291,7 +304,7 @@ export default function AreasPage() {
             const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
             const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
             const currentAreas = currentData.areas || [];
-            
+
             if (isChecked) {
                 if (!currentAreas.includes(areaId)) {
                     currentAreas.push(areaId);
@@ -302,7 +315,7 @@ export default function AreasPage() {
                     currentAreas.splice(index, 1);
                 }
             }
-            
+
             currentData.areas = currentAreas;
             localStorage.setItem(storageKey, JSON.stringify(currentData));
             // Force re-render
@@ -348,12 +361,12 @@ export default function AreasPage() {
             const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
             const areasAsignadas = currentData.areas || [];
             const procesosAsignados = currentData.procesos || [];
-            
+
             // Si el área está asignada directamente, todos los procesos están checked
             if (areasAsignadas.includes(areaId)) {
                 return { checked: true, indeterminate: false };
             }
-            
+
             // Si no, verificar procesos individuales
             const allOwned = areaProcesos.every(p => procesosAsignados.includes(p.id));
             const someOwned = areaProcesos.some(p => procesosAsignados.includes(p.id));
@@ -373,22 +386,16 @@ export default function AreasPage() {
     };
 
     return (
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" gutterBottom fontWeight={700}>
-                    Configuración de Áreas y Responsables
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    Gestione las áreas de la organización y asigne responsables a los procesos.
-                </Typography>
-            </Box>
-
-            <Paper sx={{ bgcolor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+        <AppPageLayout
+            title="Configuración de Áreas y Responsables"
+            description="Gestione las áreas de la organización y asigne responsables a los procesos."
+        >
+            <Box sx={{ mt: -2 }}>
                 <Tabs
                     value={tabValue}
                     onChange={(_e, v) => setTabValue(v)}
-                    sx={{ 
-                        borderBottom: 1, 
+                    sx={{
+                        borderBottom: 1,
                         borderColor: 'divider',
                         bgcolor: '#f9f9f9',
                         '& .MuiTab-root': {
@@ -405,15 +412,15 @@ export default function AreasPage() {
                         }
                     }}
                 >
-                    <Tab 
-                        icon={<BusinessIcon sx={{ fontSize: 24 }} />} 
+                    <Tab
+                        icon={<BusinessIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Gestión de Áreas" 
+                        label="Gestión de Áreas"
                     />
-                    <Tab 
-                        icon={<PersonIcon sx={{ fontSize: 24 }} />} 
+                    <Tab
+                        icon={<PersonIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Asignación de Responsabilidades" 
+                        label="Asignación de Responsabilidades"
                     />
                 </Tabs>
 
@@ -439,7 +446,7 @@ export default function AreasPage() {
                                 Nueva Área
                             </Button>
                         </Box>
-                        <AppDataGrid rows={filteredAreas} columns={areaColumns} getRowId={(row) => row.id} />
+                        <AppDataGrid rows={filteredAreas} columns={areaColumns} getRowId={(row) => row.id} onRowClick={(params) => handleOpenAreaDetailDialog(params.row)} />
                     </Box>
                 </TabPanel>
 
@@ -468,7 +475,7 @@ export default function AreasPage() {
                                     <MenuItem value="dueño_procesos">Dueño de Procesos</MenuItem>
                                 </Select>
                             </FormControl>
-                            
+
                             <Autocomplete
                                 fullWidth
                                 options={usuariosFiltrados}
@@ -493,7 +500,7 @@ export default function AreasPage() {
                                         </Tabs>
                                     </Paper>
                                 )}
-                                
+
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2 }}>
                                     <Box sx={{ flex: 1 }}>
                                         <TextField
@@ -612,7 +619,7 @@ export default function AreasPage() {
                         )}
                     </Box>
                 </TabPanel>
-            </Paper>
+            </Box>
 
             {/* Dialogo Crea/Edita Area */}
             <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" fullWidth>
@@ -649,6 +656,42 @@ export default function AreasPage() {
                     <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+
+            {/* MODAL DE DETALLE DEL ÁREA */}
+            <Dialog open={areaDetailDialogOpen} onClose={handleCloseAreaDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Área</DialogTitle>
+                <DialogContent>
+                    {selectedAreaDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedAreaDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedAreaDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripción</Typography>
+                                <Typography variant="body1">{selectedAreaDetail.descripcion || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Director Asignado</Typography>
+                                <Typography variant="body1">{selectedAreaDetail.directorNombre || '-'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseAreaDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenAreaDialog(selectedAreaDetail!);
+                        handleCloseAreaDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </AppPageLayout>
     );
 }

@@ -35,6 +35,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useUpdateProcesoMutation, useGetProcesosQuery } from '../../api/services/riesgosApi';
 import { useEffect } from 'react';
 import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
+import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import AppPageLayout from '../../components/layout/AppPageLayout';
+
 
 interface FichaData {
   vicepresidencia: string;
@@ -54,15 +57,15 @@ export default function FichaPage() {
   const { data: procesos = [] } = useGetProcesosQuery();
   const { procesoId } = useParams<{ procesoId?: string }>();
   const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
-  
+
   // Obtener proceso del parámetro de ruta o del contexto
-  const procesoActual = procesoId 
+  const procesoActual = procesoId
     ? procesos.find(p => String(p.id) === String(procesoId))
     : procesoSeleccionado;
 
   const procesosDisponibles = useMemo(() => {
     if (esAdmin) return procesos;
-    
+
     // Gerente General Director o Supervisor
     if (esGerenteGeneralDirector || esSupervisorRiesgos) {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
@@ -136,11 +139,11 @@ export default function FichaPage() {
     esGerenteGeneralDirector ||
     user?.role === 'supervisor' ||
     user?.role === 'gerente_general';
-  
+
   // La ficha es del proceso, solo depende del modo del proceso
   const isReadOnly = modoProceso === 'visualizar';
   const isEditMode = modoProceso === 'editar';
-  
+
   // Solo admin puede editar información organizacional
   const puedeEditarInfoOrganizacional = esAdmin && isEditMode;
   const puedeEditarFechaCreacion = esAdmin && isEditMode;
@@ -325,26 +328,11 @@ export default function FichaPage() {
   }
 
   return (
-    <Box>
-      {/* Header Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography 
-              variant="h4" 
-              gutterBottom 
-              fontWeight={700}
-              sx={{
-                color: '#1976d2',
-                fontWeight: 700,
-              }}
-            >
-              Ficha del Proceso
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              Formulario de diligenciamiento obligatorio con información básica del proceso
-            </Typography>
-          </Box>
+    <AppPageLayout
+      title="Ficha del Proceso"
+      description="Formulario de diligenciamiento obligatorio con información básica del proceso"
+      action={
+        <Box sx={{ display: 'flex', gap: 1 }}>
           {isReadOnly && (
             <Chip
               icon={<VisibilityIcon />}
@@ -361,303 +349,175 @@ export default function FichaPage() {
               sx={{ fontWeight: 600 }}
             />
           )}
+          {puedeEditarInfoOrganizacional && (
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              sx={{ borderRadius: 2, fontWeight: 600 }}
+            >
+              Guardar Cambios
+            </Button>
+          )}
         </Box>
-        {isReadOnly && modoProceso === 'visualizar' && (
-          <Alert severity="info" sx={{ mb: 2 }}>
+      }
+      topContent={<FiltroProcesoSupervisor />}
+      alert={
+        isReadOnly && (
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
             Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
           </Alert>
-        )}
-      </Box>
-
-      {mostrarFiltrosProceso && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-              Filtros de Proceso
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <FormControl sx={{ minWidth: 220 }}>
-                <InputLabel>Filtrar por Área</InputLabel>
-                <Select
-                  value={filtroArea}
-                  onChange={(e) => {
-                    setFiltroArea(e.target.value);
-                  }}
-                  label="Filtrar por Área"
-                >
-                  <MenuItem value="all">Todas las áreas</MenuItem>
-                  {areasDisponibles.map((area) => (
-                    <MenuItem key={area.id} value={area.id}>
-                      {area.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl sx={{ minWidth: 260 }}>
-                <InputLabel>Seleccionar Proceso</InputLabel>
-                <Select
-                  value={procesoActual?.id || ''}
-                  onChange={(e) => {
-                    const procesoId = e.target.value as string;
-                    const proceso = procesosFiltrados.find((p) => p.id === procesoId);
-                    if (proceso) {
-                      setProcesoSeleccionado(proceso);
-                      iniciarModoVisualizar();
-                      showSuccess(`Proceso "${proceso.nombre}" seleccionado`);
-                    }
-                  }}
-                  label="Seleccionar Proceso"
-                >
-                  {procesosFiltradosUnicos.map((proceso) => (
-                    <MenuItem key={proceso.id} value={proceso.id}>
-                      {proceso.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Info Alert */}
-      <Alert 
-        icon={<InfoIcon />} 
-        severity="info" 
-        sx={{ 
-          mb: 3,
-          borderRadius: 2,
-          '& .MuiAlert-icon': {
-            color: '#00BFFF',
-          },
-        }}
-      >
-        Esta información es requerida para el correcto funcionamiento del sistema de gestión de riesgos.
-      </Alert>
-
-      {/* Main Form Card */}
-      <Card
-        elevation={0}
-        sx={{
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          overflow: 'hidden',
-        }}
-      >
-        <Box
-          sx={{
-            background: '#F5F5F5',
-            p: 3,
-            borderBottom: '2px solid #1976d2',
-          }}
-        >
-          <Typography variant="h6" fontWeight={600}>
+        )
+      }
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box>
+          <Typography variant="h6" fontWeight={700} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box component="span" sx={{ width: 4, height: 24, bgcolor: 'primary.main', borderRadius: 1 }} />
             Información Organizacional
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Complete los datos de la estructura organizacional
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Complete los datos de la estructura organizacional del proceso.
           </Typography>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+            <TextField
+              fullWidth
+              label="Vicepresidencia / Gerencia Alta"
+              value={formData.vicepresidencia}
+              onChange={handleChange('vicepresidencia')}
+              required
+              disabled={!puedeEditarInfoOrganizacional}
+              helperText={!puedeEditarInfoOrganizacional ? 'Campo bloqueado por el administrador' : ''}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+
+            <TextField
+              fullWidth
+              label="Gerencia"
+              value={formData.gerencia}
+              onChange={handleChange('gerencia')}
+              required
+              disabled={!puedeEditarInfoOrganizacional}
+              helperText={!puedeEditarInfoOrganizacional ? 'Campo bloqueado por el administrador' : ''}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+
+            <TextField
+              fullWidth
+              label="Área"
+              value={formData.area}
+              disabled={true}
+              helperText="Asignada automáticamente"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+
+            <TextField
+              fullWidth
+              label="Responsable del Proceso"
+              value={formData.responsable}
+              disabled={true}
+              helperText="Responsable líder según sistema"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+
+            <TextField
+              fullWidth
+              label="Fecha de Creación"
+              type="date"
+              value={formData.fechaCreacion}
+              onChange={handleChange('fechaCreacion')}
+              InputLabelProps={{ shrink: true }}
+              disabled={!puedeEditarFechaCreacion}
+              helperText={!puedeEditarFechaCreacion ? 'Campo bloqueado' : ''}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+          </Box>
         </Box>
 
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
-            <Box>
+        <Divider />
+
+        <Box>
+          <Typography variant="h6" fontWeight={700} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box component="span" sx={{ width: 4, height: 24, bgcolor: 'primary.main', borderRadius: 1 }} />
+            Gestión y Objetivos
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Defina quién está a cargo de la ejecución y el objetivo principal.
+          </Typography>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box sx={{ maxWidth: { md: '50%' } }}>
               <TextField
                 fullWidth
-                label="Vicepresidencia / Gerencia Alta"
-                value={formData.vicepresidencia}
-                onChange={handleChange('vicepresidencia')}
-                required
-                disabled={!puedeEditarInfoOrganizacional}
-                variant="outlined"
-                helperText={!puedeEditarInfoOrganizacional ? 'Solo el administrador puede editar este campo' : ''}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            <Box>
-              <TextField
-                fullWidth
-                label="Gerencia"
-                value={formData.gerencia}
-                onChange={handleChange('gerencia')}
-                required
-                disabled={!puedeEditarInfoOrganizacional}
-                variant="outlined"
-                helperText={!puedeEditarInfoOrganizacional ? 'Solo el administrador puede editar este campo' : ''}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            <Box>
-              <TextField
-                fullWidth
-                label="Área"
-                value={formData.area}
-                disabled={true}
-                variant="outlined"
-                helperText="Asignada por el administrador"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            <Box>
-              <TextField
-                fullWidth
-                label="Responsable del Proceso"
-                value={formData.responsable}
-                disabled={true}
-                variant="outlined"
-                helperText="Asignado por el administrador"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            <Box>
-              <TextField
-                fullWidth
-                label="Fecha de Creación"
-                type="date"
-                value={formData.fechaCreacion}
-                onChange={handleChange('fechaCreacion')}
-                InputLabelProps={{ shrink: true }}
-                disabled={!puedeEditarFechaCreacion}
-                variant="outlined"
-                helperText={!puedeEditarFechaCreacion ? 'Solo el administrador puede editar este campo' : ''}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <Divider sx={{ my: 2 }} />
-            </Box>
-
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Quién está a cargo del Proceso
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Puede modificar quién está a cargo del proceso
-              </Typography>
-            </Box>
-
-            <Box>
-              <TextField
-                fullWidth
-                label="Quién está a cargo del Proceso"
+                label="Quién está a cargo del Proceso (Encargado)"
                 value={formData.encargado}
                 onChange={handleChange('encargado')}
                 required
                 disabled={isReadOnly}
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
             </Box>
 
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <Divider sx={{ my: 2 }} />
-            </Box>
-
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Objetivo del Proceso
-              </Typography>
-            </Box>
-
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <TextField
-                fullWidth
-                label="Objetivo del Proceso"
-                value={formData.objetivoProceso}
-                onChange={handleChange('objetivoProceso')}
-                multiline
-                rows={5}
-                disabled={isReadOnly}
-                variant="outlined"
-                placeholder="Describa el objetivo principal del proceso..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Box>
-
-            {!isReadOnly && (
-              <Box sx={{ gridColumn: '1 / -1' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      if (procesoActual) {
-                        setFormData({
-                          vicepresidencia: procesoActual.vicepresidencia || '',
-                          gerencia: procesoActual.gerencia || '',
-                          area: procesoActual.areaNombre || '',
-                          responsable: procesoActual.responsableNombre || procesoActual.responsable || '',
-                          encargado: procesoActual.responsableNombre || procesoActual.responsable || '',
-                          fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                          objetivoProceso: procesoActual.objetivoProceso || '',
-                        });
-                      }
-                    }}
-                    sx={{
-                      borderRadius: 2,
-                      px: 3,
-                    }}
-                  >
-                    Restaurar
-                  </Button>
-                  <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSave}
-                    sx={{
-                      borderRadius: 2,
-                      px: 4,
-                      background: '#1976d2',
-                      '&:hover': {
-                        background: '#1565c0',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      },
-                      transition: 'all 0.3s ease',
-                    }}
-                  >
-                    Guardar Ficha
-                  </Button>
-                </Box>
-              </Box>
-            )}
+            <TextField
+              fullWidth
+              label="Objetivo del Proceso"
+              value={formData.objetivoProceso}
+              onChange={handleChange('objetivoProceso')}
+              multiline
+              rows={4}
+              disabled={isReadOnly}
+              placeholder="Describa el objetivo principal del proceso..."
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
           </Box>
-        </CardContent>
-      </Card>
-    </Box>
+        </Box>
+
+        {!isReadOnly && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, pt: 2 }}>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => {
+                if (procesoActual) {
+                  setFormData({
+                    vicepresidencia: procesoActual.vicepresidencia || '',
+                    gerencia: procesoActual.gerencia || '',
+                    area: procesoActual.areaNombre || '',
+                    responsable: procesoActual.responsableNombre || procesoActual.responsable || '',
+                    encargado: procesoActual.responsableNombre || procesoActual.responsable || '',
+                    fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                    objetivoProceso: procesoActual.objetivoProceso || '',
+                  });
+                }
+              }}
+              sx={{ borderRadius: 2, px: 4 }}
+            >
+              Restaurar
+            </Button>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              sx={{
+                borderRadius: 2,
+                px: 5,
+                background: '#1976d2',
+                '&:hover': {
+                  background: '#1565c0',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              Guardar Ficha
+            </Button>
+          </Box>
+        )}
+      </Box>
+    </AppPageLayout>
   );
 }
 

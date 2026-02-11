@@ -17,7 +17,8 @@ import {
 import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
+import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 
 interface ContextoExterno {
   economico: string;
@@ -57,145 +58,133 @@ export default function ContextoExternoPage() {
     showSuccess('Análisis de contexto externo guardado exitosamente');
   };
 
-  // Validación removida - permite cargar sin proceso seleccionado
-
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight={700}>
-            Análisis de Contexto Externo
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Análisis de factores externos que afectan el proceso
-          </Typography>
+    <AppPageLayout
+      title="Análisis de Contexto Externo"
+      description="Análisis de factores externos que afectan el proceso"
+      topContent={<FiltroProcesoSupervisor />}
+      action={
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {isReadOnly && (
+            <Chip
+              icon={<VisibilityIcon />}
+              label="Modo Visualización"
+              color="info"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {modoProceso === 'editar' && (
+            <Chip
+              icon={<EditIcon />}
+              label="Modo Edición"
+              color="warning"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {!isReadOnly && (
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              sx={{
+                background: '#1976d2',
+                color: '#fff',
+              }}
+            >
+              Guardar Análisis
+            </Button>
+          )}
         </Box>
-        {isReadOnly && (
-          <Chip
-            icon={<VisibilityIcon />}
-            label="Modo Visualización"
-            color="info"
-            sx={{ fontWeight: 600 }}
+      }
+      alert={
+        isReadOnly && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Está en modo visualización. Solo puede ver la información.
+          </Alert>
+        )
+      }
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+        <TextField
+          fullWidth
+          label="Económico"
+          value={formData.economico}
+          onChange={handleChange('economico')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Cultural y Social"
+          value={formData.culturalSocial}
+          onChange={handleChange('culturalSocial')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Legal/Regulatorio"
+          value={formData.legalRegulatorio}
+          onChange={handleChange('legalRegulatorio')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Tecnológico"
+          value={formData.tecnologico}
+          onChange={handleChange('tecnologico')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Ambiental"
+          value={formData.ambiental}
+          onChange={handleChange('ambiental')}
+          disabled={isReadOnly}
+          multiline
+          rows={3}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Grupos de Interés Externos"
+          value={formData.gruposInteresExternos}
+          onChange={handleChange('gruposInteresExternos')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <Box sx={{ gridColumn: { md: '1 / -1' } }}>
+          <TextField
+            fullWidth
+            label="Otros Factores Externos"
+            value={formData.otrosFactores}
+            onChange={handleChange('otrosFactores')}
+            disabled={isReadOnly}
+            multiline
+            rows={3}
+            variant="outlined"
           />
-        )}
-        {modoProceso === 'editar' && (
-          <Chip
-            icon={<EditIcon />}
-            label="Modo Edición"
-            color="warning"
-            sx={{ fontWeight: 600 }}
-          />
-        )}
+        </Box>
       </Box>
-      {isReadOnly && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Está en modo visualización. Solo puede ver la información.
-        </Alert>
-      )}
-
-      <ProcesoFiltros />
-
-      <Card>
-        <CardContent>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-            <TextField
-              fullWidth
-              label="Económico"
-              value={formData.economico}
-              onChange={handleChange('economico')}
-              disabled={isReadOnly}
-              multiline
-              rows={4}
-              variant="outlined"
-            />
-
-            <TextField
-              fullWidth
-              label="Cultural y Social"
-              value={formData.culturalSocial}
-              onChange={handleChange('culturalSocial')}
-              disabled={isReadOnly}
-              multiline
-              rows={4}
-              variant="outlined"
-            />
-
-            <TextField
-              fullWidth
-              label="Legal/Regulatorio"
-              value={formData.legalRegulatorio}
-              onChange={handleChange('legalRegulatorio')}
-              disabled={isReadOnly}
-              multiline
-              rows={4}
-              variant="outlined"
-            />
-
-            <TextField
-              fullWidth
-              label="Tecnológico"
-              value={formData.tecnologico}
-              onChange={handleChange('tecnologico')}
-              disabled={isReadOnly}
-              multiline
-              rows={4}
-              variant="outlined"
-            />
-
-            <TextField
-              fullWidth
-              label="Ambiental"
-              value={formData.ambiental}
-              onChange={handleChange('ambiental')}
-              disabled={isReadOnly}
-              multiline
-              rows={3}
-              variant="outlined"
-            />
-
-            <TextField
-              fullWidth
-              label="Grupos de Interés Externos"
-              value={formData.gruposInteresExternos}
-              onChange={handleChange('gruposInteresExternos')}
-              disabled={isReadOnly}
-              multiline
-              rows={4}
-              variant="outlined"
-            />
-
-            <Box sx={{ gridColumn: { md: '1 / -1' } }}>
-              <TextField
-                fullWidth
-                label="Otros Factores Externos"
-                value={formData.otrosFactores}
-                onChange={handleChange('otrosFactores')}
-                disabled={isReadOnly}
-                multiline
-                rows={3}
-                variant="outlined"
-              />
-            </Box>
-
-            {!isReadOnly && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gridColumn: { md: '1 / -1' } }}>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSave}
-                  sx={{
-                    background: '#1976d2',
-                    color: '#fff',
-                  }}
-                >
-                  Guardar Análisis
-                </Button>
-              </Box>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-    </Box>
+    </AppPageLayout>
   );
 }
 

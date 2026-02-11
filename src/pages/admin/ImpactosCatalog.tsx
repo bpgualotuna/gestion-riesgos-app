@@ -48,6 +48,8 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
     const [openNew, setOpenNew] = useState(false);
     const [newImpactType, setNewImpactType] = useState('');
     const [newError, setNewError] = useState('');
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedDetailKey, setSelectedDetailKey] = useState<string | null>(null);
 
     // Convert object to array for DataGrid
     const rows = Object.keys(data).map(key => ({
@@ -65,6 +67,16 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
     const handleClose = () => {
         setOpen(false);
         setEditingKey(null);
+    };
+
+    const handleOpenDetailDialog = (row: any) => {
+        setSelectedDetailKey(row.key);
+        setDetailDialogOpen(true);
+    };
+
+    const handleCloseDetailDialog = () => {
+        setDetailDialogOpen(false);
+        setSelectedDetailKey(null);
     };
 
     const handleSave = () => {
@@ -135,16 +147,15 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
             width: 150,
             renderCell: (params) => (
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton size="small" onClick={() => handleOpen(params.row)} color="primary" title="Editar">
-                        <EditIcon fontSize="small" />
+                    <IconButton size="small" onClick={() => handleOpen(params.row)} title="Editar">
+                        <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />
                     </IconButton>
                     <IconButton 
                         size="small" 
                         onClick={() => handleDeleteImpact(params.row.key)} 
-                        color="error"
                         title="Eliminar"
                     >
-                        <DeleteIcon fontSize="small" />
+                        <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
                     </IconButton>
                 </Box>
             ),
@@ -174,6 +185,7 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
                 rows={rows}
                 columns={columns}
                 getRowId={(row) => row.id}
+                onRowClick={(params) => handleOpenDetailDialog(params.row)}
             />
 
             {/* Diálogo para editar descripción */}
@@ -232,6 +244,48 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
                 <DialogActions>
                     <Button onClick={handleCloseNew} startIcon={<CancelIcon />}>Cancelar</Button>
                     <Button onClick={handleAddNewImpact} variant="contained" startIcon={<AddIcon />}>Agregar</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE */}
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Tipo de Impacto</DialogTitle>
+                <DialogContent>
+                    {selectedDetailKey && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedDetailKey}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{IMPACT_TYPE_LABELS[selectedDetailKey] || selectedDetailKey}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripciones por Nivel</Typography>
+                                {[1, 2, 3, 4, 5].map((level) => (
+                                    <Box key={level} sx={{ mt: 1 }}>
+                                        <Typography variant="caption" color="text.secondary">Nivel {level}:</Typography>
+                                        <Typography variant="body2">{data[selectedDetailKey][level] || '-'}</Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        if (selectedDetailKey) {
+                            const row = rows.find(r => r.key === selectedDetailKey);
+                            if (row) {
+                                handleOpen(row);
+                                handleCloseDetailDialog();
+                            }
+                        }
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>

@@ -3,7 +3,7 @@
  */
 
 import { createSlice } from '@reduxjs/toolkit';
-import type { Riesgo, FiltrosRiesgo } from '../types';
+import type { Riesgo, FiltrosRiesgo } from '../../types';
 
 interface RiesgoState {
   selectedRiesgo: Riesgo | null;

@@ -41,6 +41,7 @@ import { Usuario, Cargo, Gerencia } from '../../types';
 import { getMockUsuarios, updateMockUsuarios, getMockCargos, getMockGerencias } from '../../api/services/mockData';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -80,10 +81,16 @@ export default function UsuariosPage() {
     const [searchGerencias, setSearchGerencias] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedUserDetail, setSelectedUserDetail] = useState<Usuario | null>(null);
     const [cargoDialogOpen, setCargoDialogOpen] = useState(false);
     const [editingCargo, setEditingCargo] = useState<Cargo | null>(null);
+    const [cargoDetailDialogOpen, setCargoDetailDialogOpen] = useState(false);
+    const [selectedCargoDetail, setSelectedCargoDetail] = useState<Cargo | null>(null);
     const [gerenciaDialogOpen, setGerenciaDialogOpen] = useState(false);
     const [editingGerencia, setEditingGerencia] = useState<Gerencia | null>(null);
+    const [gerenciaDetailDialogOpen, setGerenciaDetailDialogOpen] = useState(false);
+    const [selectedGerenciaDetail, setSelectedGerenciaDetail] = useState<Gerencia | null>(null);
     const [formData, setFormData] = useState<Partial<Usuario>>({
         nombre: '',
         email: '',
@@ -173,6 +180,16 @@ export default function UsuariosPage() {
         setEditingUsuario(null);
     };
 
+    const handleOpenUserDetailDialog = (usuario: Usuario) => {
+        setSelectedUserDetail(usuario);
+        setDetailDialogOpen(true);
+    };
+
+    const handleCloseUserDetailDialog = () => {
+        setDetailDialogOpen(false);
+        setSelectedUserDetail(null);
+    };
+
     const handleOpenCargoDialog = (cargo?: Cargo) => {
         if (cargo) {
             setEditingCargo(cargo);
@@ -193,6 +210,16 @@ export default function UsuariosPage() {
     const handleCloseCargoDialog = () => {
         setCargoDialogOpen(false);
         setEditingCargo(null);
+    };
+
+    const handleOpenCargoDetailDialog = (cargo: Cargo) => {
+        setSelectedCargoDetail(cargo);
+        setCargoDetailDialogOpen(true);
+    };
+
+    const handleCloseCargoDetailDialog = () => {
+        setCargoDetailDialogOpen(false);
+        setSelectedCargoDetail(null);
     };
 
     const handleOpenGerenciaDialog = (gerencia?: Gerencia) => {
@@ -217,6 +244,16 @@ export default function UsuariosPage() {
     const handleCloseGerenciaDialog = () => {
         setGerenciaDialogOpen(false);
         setEditingGerencia(null);
+    };
+
+    const handleOpenGerenciaDetailDialog = (gerencia: Gerencia) => {
+        setSelectedGerenciaDetail(gerencia);
+        setGerenciaDetailDialogOpen(true);
+    };
+
+    const handleCloseGerenciaDetailDialog = () => {
+        setGerenciaDetailDialogOpen(false);
+        setSelectedGerenciaDetail(null);
     };
 
     const handleSaveGerencia = () => {
@@ -393,24 +430,16 @@ export default function UsuariosPage() {
     ];
 
     return (
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                    <Typography variant="h4" gutterBottom fontWeight={700}>
-                        Gestión de Usuarios
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Administre los usuarios del sistema, sus roles, cargos y estados.
-                    </Typography>
-                </Box>
-            </Box>
-
-            <Paper sx={{ bgcolor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
-                <Tabs 
-                    value={currentTab} 
+        <AppPageLayout
+            title="Gestión de Usuarios"
+            description="Administre los usuarios del sistema, sus roles, cargos y estados."
+        >
+            <Box sx={{ mt: -2 }}>
+                <Tabs
+                    value={currentTab}
                     onChange={(e, newValue) => setCurrentTab(newValue)}
-                    sx={{ 
-                        borderBottom: 1, 
+                    sx={{
+                        borderBottom: 1,
                         borderColor: 'divider',
                         bgcolor: '#f9f9f9',
                         '& .MuiTab-root': {
@@ -427,26 +456,26 @@ export default function UsuariosPage() {
                         }
                     }}
                 >
-                    <Tab 
+                    <Tab
                         icon={<PeopleIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Usuarios" 
-                        id="usuario-tab-0" 
-                        aria-controls="usuario-tabpanel-0" 
+                        label="Usuarios"
+                        id="usuario-tab-0"
+                        aria-controls="usuario-tabpanel-0"
                     />
-                    <Tab 
+                    <Tab
                         icon={<BadgeIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Cargos" 
-                        id="usuario-tab-1" 
-                        aria-controls="usuario-tabpanel-1" 
+                        label="Cargos"
+                        id="usuario-tab-1"
+                        aria-controls="usuario-tabpanel-1"
                     />
-                    <Tab 
+                    <Tab
                         icon={<BusinessIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Gerencias" 
-                        id="usuario-tab-2" 
-                        aria-controls="usuario-tabpanel-2" 
+                        label="Gerencias"
+                        id="usuario-tab-2"
+                        aria-controls="usuario-tabpanel-2"
                     />
                 </Tabs>
 
@@ -476,6 +505,7 @@ export default function UsuariosPage() {
                             rows={filteredUsuarios}
                             columns={columns}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenUserDetailDialog(params.row)}
                         />
                     </Box>
                 </TabPanel>
@@ -515,12 +545,12 @@ export default function UsuariosPage() {
                                     width: 100,
                                     getActions: (params) => [
                                         <GridActionsCellItem
-                                            icon={<EditIcon />}
+                                            icon={<EditIcon sx={{ color: '#2196f3' }} />}
                                             label="Editar"
                                             onClick={() => handleOpenCargoDialog(params.row)}
                                         />,
                                         <GridActionsCellItem
-                                            icon={<DeleteIcon />}
+                                            icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                                             label="Eliminar"
                                             onClick={() => handleDeleteCargo(params.row.id)}
                                         />,
@@ -528,6 +558,7 @@ export default function UsuariosPage() {
                                 },
                             ]}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenCargoDetailDialog(params.row)}
                         />
                     </Box>
                 </TabPanel>
@@ -568,12 +599,12 @@ export default function UsuariosPage() {
                                     width: 100,
                                     getActions: (params) => [
                                         <GridActionsCellItem
-                                            icon={<EditIcon />}
+                                            icon={<EditIcon sx={{ color: '#2196f3' }} />}
                                             label="Editar"
                                             onClick={() => handleOpenGerenciaDialog(params.row)}
                                         />,
                                         <GridActionsCellItem
-                                            icon={<DeleteIcon />}
+                                            icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                                             label="Eliminar"
                                             onClick={() => handleDeleteGerencia(params.row.id)}
                                         />,
@@ -581,10 +612,11 @@ export default function UsuariosPage() {
                                 },
                             ]}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenGerenciaDetailDialog(params.row)}
                         />
                     </Box>
                 </TabPanel>
-            </Paper>
+            </Box>
 
             <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
                 <DialogTitle>{editingUsuario ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
@@ -702,6 +734,125 @@ export default function UsuariosPage() {
                     <Button onClick={handleSaveGerencia} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+
+            {/* MODAL DE DETALLE DEL USUARIO */}
+            <Dialog open={detailDialogOpen} onClose={handleCloseUserDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Usuario</DialogTitle>
+                <DialogContent>
+                    {selectedUserDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedUserDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedUserDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Email</Typography>
+                                <Typography variant="body1">{selectedUserDetail.email || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Cargo</Typography>
+                                <Typography variant="body1">{selectedUserDetail.cargoNombre || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Rol</Typography>
+                                <Typography variant="body1">
+                                    {selectedUserDetail.role === 'admin' ? 'Administrador' :
+                                        selectedUserDetail.role === 'manager' ? 'Gerente' :
+                                            selectedUserDetail.role === 'analyst' ? 'Analista' :
+                                                selectedUserDetail.role === 'dueño_procesos' ? 'Dueño del Proceso' :
+                                                    selectedUserDetail.role === 'director_procesos' ? 'Director de Procesos' :
+                                                        selectedUserDetail.role}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Estado</Typography>
+                                <Typography variant="body1">{selectedUserDetail.activo ? 'Activo' : 'Inactivo'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseUserDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenDialog(selectedUserDetail!);
+                        handleCloseUserDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE DEL CARGO */}
+            <Dialog open={cargoDetailDialogOpen} onClose={handleCloseCargoDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Cargo</DialogTitle>
+                <DialogContent>
+                    {selectedCargoDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedCargoDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedCargoDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripción</Typography>
+                                <Typography variant="body1">{selectedCargoDetail.descripcion || '-'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseCargoDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenCargoDialog(selectedCargoDetail!);
+                        handleCloseCargoDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE DE LA GERENCIA */}
+            <Dialog open={gerenciaDetailDialogOpen} onClose={handleCloseGerenciaDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información de la Gerencia</DialogTitle>
+                <DialogContent>
+                    {selectedGerenciaDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedGerenciaDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedGerenciaDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Sigla</Typography>
+                                <Typography variant="body1">{selectedGerenciaDetail.sigla || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Subdivisión</Typography>
+                                <Typography variant="body1">{selectedGerenciaDetail.subdivision || '-'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseGerenciaDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenGerenciaDialog(selectedGerenciaDetail!);
+                        handleCloseGerenciaDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </AppPageLayout>
     );
 }

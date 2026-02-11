@@ -42,6 +42,8 @@ interface AuthContextType {
   esDueñoProcesos: boolean; // Alias for compatibility
   esAdmin: boolean; // Helper para verificar si es admin
   esSupervisorRiesgos: boolean; // Helper para verificar si es supervisor de riesgos
+  esDirectorProcesos: boolean; // Alias for supervisor de riesgos
+  esAuditoria: boolean; // Helper para verificar si es auditor
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -146,6 +148,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     esDueñoProcesos: user?.role === 'dueño_procesos' || esGerenteGeneralProceso,
     esAdmin: user?.role === 'admin',
     esSupervisorRiesgos: user?.role === 'supervisor' || esGerenteGeneralDirector,
+    esDirectorProcesos: user?.role === 'supervisor' || esGerenteGeneralDirector,
+    esAuditoria: user?.role === 'gerente_general' && !gerenteGeneralMode, // Por ahora el GG en modo vista es lo más cercano a auditor
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

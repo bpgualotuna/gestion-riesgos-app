@@ -27,6 +27,7 @@ import {
     useGetClasificacionesRiesgoQuery,
     useGetEjesMapaQuery
 } from '../../api/services/riesgosApi';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 
 
 // Tipos para la configuración
@@ -291,7 +292,7 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
     );
 };
 
-export default function MapasConfigPage() {
+export default function MapasConfigPage({ embedded = false }: { embedded?: boolean }) {
     const [tabValue, setTabValue] = useState<MapaTabType>('inherente');
     const [searchTerm, setSearchTerm] = useState('');
     const { data: configDataRaw, isLoading: isLoadingConfig } = useGetMapaConfigQuery();
@@ -343,23 +344,22 @@ export default function MapasConfigPage() {
         return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
     }
 
-    return (
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-            <Typography variant="h4" gutterBottom fontWeight={700}>
-                Configuración de Mapa de Riesgos
-            </Typography>
-            <Alert severity="info" sx={{ mb: 3 }}>
-                {tabValue === 'tolerancia'
-                    ? 'Haga clic en las celdas para definir qué combinaciones son TOLERABLES (Azul). La línea de tolerancia se dibujará automáticamente en el límite.'
-                    : 'Haga clic en las celdas de la matriz para cambiar el Nivel de Riesgo asignado. Asegúrese de guardar los cambios antes de cambiar de pestaña.'}
-            </Alert>
+    const alertContent = (
+        <Alert severity="info" sx={{ mb: 3 }}>
+            {tabValue === 'tolerancia'
+                ? 'Haga clic en las celdas para definir qué combinaciones son TOLERABLES (Azul). La línea de tolerancia se dibujará automáticamente en el límite.'
+                : 'Haga clic en las celdas de la matriz para cambiar el Nivel de Riesgo asignado. Asegúrese de guardar los cambios antes de cambiar de pestaña.'}
+        </Alert>
+    );
 
-            <Paper sx={{ bgcolor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
-                <Tabs 
-                    value={tabValue} 
-                    onChange={handleTabChange} 
-                    sx={{ 
-                        borderBottom: 1, 
+    const mainContent = (
+        <>
+            <Box sx={{ mt: embedded ? 0 : -2 }}>
+                <Tabs
+                    value={tabValue}
+                    onChange={handleTabChange}
+                    sx={{
+                        borderBottom: 1,
                         borderColor: 'divider',
                         bgcolor: '#f9f9f9',
                         '& .MuiTab-root': {
@@ -376,23 +376,23 @@ export default function MapasConfigPage() {
                         }
                     }}
                 >
-                    <Tab 
+                    <Tab
                         icon={<InherentIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Mapa Inherente (Negativo)" 
-                        value="inherente" 
+                        label="Mapa Inherente (Negativo)"
+                        value="inherente"
                     />
-                    <Tab 
+                    <Tab
                         icon={<ResidualIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Mapa Residual (Negativo)" 
-                        value="residual" 
+                        label="Mapa Residual (Negativo)"
+                        value="residual"
                     />
-                    <Tab 
+                    <Tab
                         icon={<ToleranceIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Línea de Tolerancia" 
-                        value="tolerancia" 
+                        label="Línea de Tolerancia"
+                        value="tolerancia"
                     />
                 </Tabs>
 
@@ -407,32 +407,32 @@ export default function MapasConfigPage() {
                                     onUpdate={handleUpdateConfig}
                                 />
                             </Box>
-                                    <Box sx={{ flex: 1, minWidth: '250px' }}>
-                                        <Paper variant="outlined" sx={{ p: 2 }}>
-                                            <Typography variant="subtitle2" gutterBottom>Acciones</Typography>
+                            <Box sx={{ flex: 1, minWidth: '250px' }}>
+                                <Paper variant="outlined" sx={{ p: 2 }}>
+                                    <Typography variant="subtitle2" gutterBottom>Acciones</Typography>
 
-                                            <Button
-                                                variant="contained"
-                                                color="primary"
-                                                fullWidth
-                                                onClick={handleSave}
-                                                disabled={isUpdating}
-                                            >
-                                                {isUpdating ? 'Guardando...' : 'Guardar Cambios'}
-                                            </Button>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                                                {tabValue === 'tolerancia'
-                                                    ? 'La línea de tolerancia es una referencia visual importante para los reportes.'
-                                                    : 'Esta configuración afectará colores y niveles de riesgo en todo el sistema.'}
-                                            </Typography>
-                                        </Paper>
-                                    </Box>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        fullWidth
+                                        onClick={handleSave}
+                                        disabled={isUpdating}
+                                    >
+                                        {isUpdating ? 'Guardando...' : 'Guardar Cambios'}
+                                    </Button>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                                        {tabValue === 'tolerancia'
+                                            ? 'La línea de tolerancia es una referencia visual importante para los reportes.'
+                                            : 'Esta configuración afectará colores y niveles de riesgo en todo el sistema.'}
+                                    </Typography>
+                                </Paper>
+                            </Box>
                         </Box>
                     ) : (
                         <CircularProgress size={20} />
                     )}
                 </Box>
-            </Paper>
+            </Box>
 
             <Snackbar
                 open={showSnackbar}
@@ -443,6 +443,25 @@ export default function MapasConfigPage() {
                     {snackbarMessage}
                 </Alert>
             </Snackbar>
-        </Box>
+        </>
+    );
+
+    if (embedded) {
+        return (
+            <Box>
+                {alertContent}
+                {mainContent}
+            </Box>
+        );
+    }
+
+    return (
+        <AppPageLayout
+            title="Configuración de Mapa de Riesgos"
+            description="Defina los niveles de riesgo y tolerancia para los mapas inherente y residual."
+            alert={alertContent}
+        >
+            {mainContent}
+        </AppPageLayout>
     );
 }

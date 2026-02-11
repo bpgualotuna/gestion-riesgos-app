@@ -37,7 +37,8 @@ import {
 } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
+import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 
 export default function AnalisisProcesoPage() {
   const { showSuccess } = useNotification();
@@ -151,29 +152,13 @@ export default function AnalisisProcesoPage() {
     'Indicadores de desempeño',
   ];
 
-  // Validación removida - permite cargar sin proceso seleccionado
-
   return (
-    <Box>
-      {/* Header Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography
-              variant="h4"
-              gutterBottom
-              fontWeight={700}
-              sx={{
-                color: '#1976d2',
-                fontWeight: 700,
-              }}
-            >
-              Análisis de Proceso
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              Documentación del análisis del proceso mediante diagramas y descripciones
-            </Typography>
-          </Box>
+    <AppPageLayout
+      title="Análisis de Proceso"
+      description="Documentación del análisis del proceso mediante diagramas y descripciones"
+      topContent={<FiltroProcesoSupervisor />}
+      action={
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isReadOnly && (
             <Chip
               icon={<VisibilityIcon />}
@@ -190,16 +175,32 @@ export default function AnalisisProcesoPage() {
               sx={{ fontWeight: 600 }}
             />
           )}
+          {!isReadOnly && (
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              sx={{
+                background: '#1976d2',
+                color: '#fff',
+                borderRadius: 2,
+                px: 3,
+                fontWeight: 700,
+              }}
+            >
+              Guardar Análisis
+            </Button>
+          )}
         </Box>
-        {isReadOnly && (
+      }
+      alert={
+        isReadOnly && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Está en modo visualización. Solo puede ver la información.
           </Alert>
-        )}
-      </Box>
-
-      <ProcesoFiltros />
-
+        )
+      }
+    >
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 3 }}>
         {/* Instructions Card */}
         <Box>
@@ -214,7 +215,7 @@ export default function AnalisisProcesoPage() {
           >
             <Box
               sx={{
-                background: '#F5F5F5',
+                background: (theme) => theme.palette.background.paper,
                 p: 2.5,
                 borderBottom: '2px solid #1976d2',
               }}
@@ -273,7 +274,7 @@ export default function AnalisisProcesoPage() {
           >
             <Box
               sx={{
-                background: '#F5F5F5',
+                background: (theme) => theme.palette.background.paper,
                 p: 2.5,
                 borderBottom: '2px solid #1976d2',
               }}
@@ -454,6 +455,7 @@ export default function AnalisisProcesoPage() {
           </Card>
         </Box>
       </Box>
+
       {/* Preview Modal */}
       <Dialog
         open={previewOpen}
@@ -525,6 +527,6 @@ export default function AnalisisProcesoPage() {
           </Button>
         </Box>
       </Dialog>
-    </Box>
+    </AppPageLayout>
   );
 }

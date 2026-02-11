@@ -46,7 +46,7 @@ import { useGetProcesosQuery, useGetRiesgosQuery } from '../../api/services/ries
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../utils/constants';
-import type { Proceso } from '../types';
+import type { Proceso } from '../../types';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 
@@ -230,16 +230,16 @@ export default function SupervisionPage() {
       width: 150,
       renderCell: (params) => {
         const estado = params.row.estado || (params.row.activo ? 'activo' : 'inactivo');
-        const estadoLabel = estado === 'aprobado' ? 'Aprobado' : 
-                           estado === 'en_revision' ? 'En Revisión' :
-                           estado === 'con_observaciones' ? 'Con Observaciones' :
-                           estado === 'borrador' ? 'Borrador' :
-                           params.row.activo ? 'Activo' : 'Inactivo';
+        const estadoLabel = estado === 'aprobado' ? 'Aprobado' :
+          estado === 'en_revision' ? 'En Revisión' :
+            estado === 'con_observaciones' ? 'Con Observaciones' :
+              estado === 'borrador' ? 'Borrador' :
+                params.row.activo ? 'Activo' : 'Inactivo';
         const estadoColor = estado === 'aprobado' ? 'success' :
-                           estado === 'en_revision' ? 'info' :
-                           estado === 'con_observaciones' ? 'warning' :
-                           estado === 'borrador' ? 'default' :
-                           params.row.activo ? 'success' : 'default';
+          estado === 'en_revision' ? 'info' :
+            estado === 'con_observaciones' ? 'warning' :
+              estado === 'borrador' ? 'default' :
+                params.row.activo ? 'success' : 'default';
         return (
           <Chip
             label={estadoLabel}
@@ -294,7 +294,7 @@ export default function SupervisionPage() {
 
       {/* Estadísticas Generales */}
       <Grid2 container spacing={3} sx={{ mb: 4 }}>
-            <Grid2 xs={12} sm={6} md={3}>
+        <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -311,7 +311,7 @@ export default function SupervisionPage() {
             </CardContent>
           </Card>
         </Grid2>
-            <Grid2 xs={12} sm={6} md={3}>
+        <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -328,7 +328,7 @@ export default function SupervisionPage() {
             </CardContent>
           </Card>
         </Grid2>
-            <Grid2 xs={12} sm={6} md={3}>
+        <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -345,7 +345,7 @@ export default function SupervisionPage() {
             </CardContent>
           </Card>
         </Grid2>
-            <Grid2 xs={12} sm={6} md={3}>
+        <Grid2 xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

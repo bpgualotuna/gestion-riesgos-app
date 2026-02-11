@@ -35,7 +35,7 @@ import {
   Paper,
   Badge,
 } from '@mui/material';
-import Grid2 from '../../../../../shared/components/ui/Grid2';
+import Grid2 from '../../utils/Grid2';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
@@ -53,7 +53,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../utils/constants';
-import type { Proceso, Observacion, CreateObservacionDto } from '../types';
+import type { Proceso, Observacion, CreateObservacionDto } from '../../types';
 
 // Mock de áreas - En producción vendría de la API
 const mockAreas = [
@@ -454,13 +454,12 @@ export default function ResumenDirectorPage() {
                                       <ListItem
                                         key={obs.id}
                                         sx={{
-                                          borderLeft: `3px solid ${
-                                            obs.estado === 'pendiente'
+                                          borderLeft: `3px solid ${obs.estado === 'pendiente'
                                               ? '#d32f2f'
                                               : obs.estado === 'revisada'
-                                              ? '#ed6c02'
-                                              : '#2e7d32'
-                                          }`,
+                                                ? '#ed6c02'
+                                                : '#2e7d32'
+                                            }`,
                                           pl: 2,
                                           mb: 1,
                                           bgcolor: 'rgba(0, 0, 0, 0.02)',
@@ -485,8 +484,8 @@ export default function ResumenDirectorPage() {
                                                   obs.estado === 'pendiente'
                                                     ? 'error'
                                                     : obs.estado === 'revisada'
-                                                    ? 'warning'
-                                                    : 'success'
+                                                      ? 'warning'
+                                                      : 'success'
                                                 }
                                                 icon={
                                                   obs.estado === 'pendiente' ? (

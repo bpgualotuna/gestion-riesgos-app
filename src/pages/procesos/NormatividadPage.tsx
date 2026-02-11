@@ -23,10 +23,10 @@ import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '
 import type { GridColDef } from '@mui/x-data-grid';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { useNotification } from '../../hooks/useNotification';
+import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useProceso } from '../../contexts/ProcesoContext';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
 import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO } from "../../utils/constants";
-import { formatDate } from '../../../../shared/utils/formatters';
+import { formatDate } from '../../utils/formatters';
 
 interface Normatividad {
   id: string;
@@ -74,12 +74,14 @@ const mockNormatividades: Normatividad[] = [
   },
 ];
 
-export default function Normatividadíage() {
+import AppPageLayout from '../../components/layout/AppPageLayout';
+
+export default function NormatividadPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
-  const [normatividíades] = useState<Normatividad[]>(mockNormatividades);
-  const [díalogOpen, setDialogOpen] = useState(false);
+  const [normatividades] = useState<Normatividad[]>(mockNormatividades);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedNormatividad, setSelectedNormatividad] = useState<Normatividad | null>(null);
 
   const columns: GridColDef[] = [
@@ -149,21 +151,12 @@ export default function Normatividadíage() {
     },
   ];
 
-  // Validación removida - permite cargar sin proceso seleccionado
-
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-
-        <ProcesoFiltros />
-          <Typography variant="h4" gutterBottom fontWeight={700}>
-            Inventario de Normatividad
-          </Typography>
-          <Typography variant="body2" color="text.secondíary">
-            Catálogo de normativas aplicables al proceso
-          </Typography>
-        </Box>
+    <AppPageLayout
+      title="Inventario de Normatividad"
+      description="Catálogo de normativas aplicables al proceso"
+      topContent={<FiltroProcesoSupervisor />}
+      action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isReadOnly && (
             <Chip
@@ -201,28 +194,26 @@ export default function Normatividadíage() {
             </Button>
           )}
         </Box>
-      </Box>
-      {isReadOnly && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Está en modo visualización. Solo puede ver la información.
-        </Alert>
-      )}
+      }
+      alert={
+        isReadOnly && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Está en modo visualización. Solo puede ver la información.
+          </Alert>
+        )
+      }
+    >
+      <AppDataGrid
+        rows={normatividades}
+        columns={columns}
+        pageSizeOptions={[5, 10, 25, 50]}
+        onRowClick={(params) => {
+          setSelectedNormatividad(params.row as Normatividad);
+          setDialogOpen(true);
+        }}
+      />
 
-      <Card>
-        <CardContent>
-          <AppDataGrid
-            rows={normatividíades}
-            columns={columns}
-            pageSizeOptions={[5, 10, 25, 50]}
-            onRowClick={(params) => {
-              setSelectedNormatividad(params.row as Normatividad);
-              setDialogOpen(true);
-            }}
-          />
-        </CardContent>
-      </Card>
-
-      <Dialog open={díalogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           {selectedNormatividad ? 'Editar Normatividad' : 'Nueva Normatividad'}
         </DialogTitle>
@@ -352,7 +343,7 @@ export default function Normatividadíage() {
             <Button
               variant="contained"
               onClick={() => {
-                showSuccess('Normatividad guardíadía exitosamente');
+                showSuccess('Normatividad guardada exitosamente');
                 setDialogOpen(false);
               }}
               sx={{
@@ -360,12 +351,12 @@ export default function Normatividadíage() {
                 color: '#fff',
               }}
             >
-              Guardíar
+              Guardar
             </Button>
           )}
         </DialogActions>
       </Dialog>
-    </Box>
+    </AppPageLayout>
   );
 }
 

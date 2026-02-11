@@ -173,7 +173,7 @@ export const mockTipologias = [
 
 export const mockFormulas = [
   { id: 'formula-1', nombre: 'Riesgo Inherente', descripcion: 'Cálculo del riesgo inherente', formula: 'IF(AND(impacto=2,probabilidad=2),3.99,impacto*probabilidad)', categoria: 'riesgo', activa: true, variables: ['impacto', 'probabilidad'], createdAt: new Date().toISOString() },
-  { id: 'formula-2', nombre: 'Impacto Global', descripcion: 'Cálculo del impacto global ponderado', formula: 'ROUNDUP((personas*0.14+legal*0.22+ambiental*0.22+procesos*0.10+reputacion*0.10+economico*0.22),0)', categoria: 'impacto', activa: true, variables: ['personas', 'legal', 'ambiental', 'procesos', 'reputacion', 'economico'], createdAt: new Date().toISOString() },
+  { id: 'formula-2', nombre: 'Impacto Global', descripcion: 'Cálculo del impacto global ponderado', formula: 'ROUNDUP((economico*0.22+legal*0.22+reputacion*0.22+procesos*0.14+ambiental*0.10+personas*0.10+confidencialidadSGSI*0+disponibilidadSGSI*0+integridadSGSI*0),0)', categoria: 'impacto', activa: true, variables: ['economico', 'legal', 'reputacion', 'procesos', 'ambiental', 'personas', 'confidencialidadSGSI', 'disponibilidadSGSI', 'integridadSGSI'], createdAt: new Date().toISOString() },
 ];
 
 export const mockConfiguraciones = [
@@ -200,21 +200,21 @@ let mockTiposRiesgos: TipoRiesgo[] = loadFromStorage('catalog_tipos_riesgo', [
     nombre: 'Estratégico',
     descripcion: 'Son los riesgos de fallar en la implementación del plan estratégico',
     subtipos: [
-      { id: 1, nombre: 'alianzas', descripcion: 'Alianzas comerciales ineficientes y/o inefectivas y/o no rentables.' },
-      { id: 2, nombre: 'alineación estratégico', descripcion: 'Inexistencia, desconocimiento y/o falta de alineación entre la misión, visión, estrategias y los objetivos de negocio y proyectos de alto impacto de las unidades de negocio.' },
-      { id: 3, nombre: 'canales de distribución', descripcion: 'Fallas en los canales de distribución que afectan la capacidad de la compañía de llegar a los clientes.' },
-      { id: 4, nombre: 'capacidad industrial', descripcion: 'Riesgos de obsolescencia tecnológica y/o ineficiente uso de activos críticos.' },
-      { id: 5, nombre: 'competencia', descripcion: 'Acciones de competidores o nuevos jugadores en el mercado.' },
-      { id: 6, nombre: 'continuidad de negocio', descripcion: 'Eventos mayores (natural u ocasionado por el hombre) que afecten o inhabiliten la operación de la compañía.' },
-      { id: 7, nombre: 'cultura organizacional', descripcion: 'Fallas en la alineación de los funcionarios con la misión, visión y objetivos estrátegicos de la compañía, fallas en la transmisión de conocimiento, y aceptación de cambios en la compañía.' },
-      { id: 8, nombre: 'emergentes', descripcion: 'Un riesgo emergente es un evento cuya naturaleza y consecuencias no se conocen completamente y que podrían llegar a tener un gran impacto en la compañía. Estos usualmente suceden a gran escala y surgen de tendencias globales.' },
-      { id: 9, nombre: 'grupo', descripcion: 'Potenciales pérdidas producto de transacciones con empresas del mismo grupo realizadas en condiciones distintas a las dominantes en el mercado, efectos negativos en la compañía producto de problemas reputacionales y/o económicos en otra empresa del grupo, concentración de operaciones con otra empresa del mismo grupo.' },
-      { id: 10, nombre: 'mercado', descripcion: 'Cambios en las condiciones macroeconómicas y/o sectoriales relevantes para el negocio. Fluctuaciones en precios y/o indisponibilidad de inventario para comercializar' },
-      { id: 11, nombre: 'político', descripcion: 'Es el riesgo que emerge debido a la exposición de la compañía a situaciones políticas nacionales y/o internacionales adversas, tensiones geopolíticas, o guerra.' },
-      { id: 12, nombre: 'proyecto estratégico', descripcion: 'Riesgo de fallas en los estándares de gerencia de proyectos, incluidas las actividades de gobierno, actividades de monitoreo y control, manejo de presupuesto. Inhabilidad de mantener el alcance del proyecto y cronograma, así como fallar en la entrega exitosa del proyecto y la asociada gestión del cambio. Esta tipología se debe seleccionar cuando se trata de un proyecto de gran envergadura que afecta directamente el plan estratégico de la compañía.' },
-      { id: 13, nombre: 'rentabilidad', descripcion: 'Posibilidad de no cumplir con la maximización del ROE presupuestado.' },
-      { id: 14, nombre: 'satisfacción del cliente', descripcion: 'Fallo en la identificación de preferencias/necesidades de los clientes para la atracción de nuevos clientes y mantenimiento de la lealtad de los existentes, y/o en la ejecución de las estrategias de entrega de soluciones integrales a los clientes.' },
-      { id: 15, nombre: 'talento humano', descripcion: 'Riesgo asociado con la falta y/o pérdida de funcionarios clave en la compañía, y/o en la atracción, desarrollo y retención de funcionarios competentes.' },
+      { codigo: '1', nombre: 'alianzas', descripcion: 'Alianzas comerciales ineficientes y/o inefectivas y/o no rentables.' },
+      { codigo: '2', nombre: 'alineación estratégico', descripcion: 'Inexistencia, desconocimiento y/o falta de alineación entre la misión, visión, estrategias y los objetivos de negocio y proyectos de alto impacto de las unidades de negocio.' },
+      { codigo: '3', nombre: 'canales de distribución', descripcion: 'Fallas en los canales de distribución que afectan la capacidad de la compañía de llegar a los clientes.' },
+      { codigo: '4', nombre: 'capacidad industrial', descripcion: 'Riesgos de obsolescencia tecnológica y/o ineficiente uso de activos críticos.' },
+      { codigo: '5', nombre: 'competencia', descripcion: 'Acciones de competidores o nuevos jugadores en el mercado.' },
+      { codigo: '6', nombre: 'continuidad de negocio', descripcion: 'Eventos mayores (natural u ocasionado por el hombre) que afecten o inhabiliten la operación de la compañía.' },
+      { codigo: '7', nombre: 'cultura organizacional', descripcion: 'Fallas en la alineación de los funcionarios con la misión, visión y objetivos estrátegicos de la compañía, fallas en la transmisión de conocimiento, y aceptación de cambios en la compañía.' },
+      { codigo: '8', nombre: 'emergentes', descripcion: 'Un riesgo emergente es un evento cuya naturaleza y consecuencias no se conocen completamente y que podrían llegar a tener un gran impacto en la compañía. Estos usualmente suceden a gran escala y surgen de tendencias globales.' },
+      { codigo: '9', nombre: 'grupo', descripcion: 'Potenciales pérdidas producto de transacciones con empresas del mismo grupo realizadas en condiciones distintas a las dominantes en el mercado, efectos negativos en la compañía producto de problemas reputacionales y/o económicos en otra empresa del grupo, concentración de operaciones con otra empresa del mismo grupo.' },
+      { codigo: '10', nombre: 'mercado', descripcion: 'Cambios en las condiciones macroeconómicas y/o sectoriales relevantes para el negocio. Fluctuaciones en precios y/o indisponibilidad de inventario para comercializar' },
+      { codigo: '11', nombre: 'político', descripcion: 'Es el riesgo que emerge debido a la exposición de la compañía a situaciones políticas nacionales y/o internacionales adversas, tensiones geopolíticas, o guerra.' },
+      { codigo: '12', nombre: 'proyecto estratégico', descripcion: 'Riesgo de fallas en los estándares de gerencia de proyectos, incluidas las actividades de gobierno, actividades de monitoreo y control, manejo de presupuesto. Inhabilidad de mantener el alcance del proyecto y cronograma, así como fallar en la entrega exitosa del proyecto y la asociada gestión del cambio. Esta tipología se debe seleccionar cuando se trata de un proyecto de gran envergadura que afecta directamente el plan estratégico de la compañía.' },
+      { codigo: '13', nombre: 'rentabilidad', descripcion: 'Posibilidad de no cumplir con la maximización del ROE presupuestado.' },
+      { codigo: '14', nombre: 'satisfacción del cliente', descripcion: 'Fallo en la identificación de preferencias/necesidades de los clientes para la atracción de nuevos clientes y mantenimiento de la lealtad de los existentes, y/o en la ejecución de las estrategias de entrega de soluciones integrales a los clientes.' },
+      { codigo: '15', nombre: 'talento humano', descripcion: 'Riesgo asociado con la falta y/o pérdida de funcionarios clave en la compañía, y/o en la atracción, desarrollo y retención de funcionarios competentes.' },
     ],
   },
   {
@@ -222,16 +222,16 @@ let mockTiposRiesgos: TipoRiesgo[] = loadFromStorage('catalog_tipos_riesgo', [
     nombre: 'Operacional',
     descripcion: 'Son aquellos riesgos relacionados con fallas en procesos, personas y/o tecnología',
     subtipos: [
-      { id: 1, nombre: 'ambiental', descripcion: 'Riesgos asociados a los daños ocasionados al medio ambiente a causa de la operación de la compañía.' },
-      { id: 2, nombre: 'físico', descripcion: 'Riesgo de pérdida y/o daño en los activos físicos de la compañía (edificios, espacios de trabajo, almacenamiento y transporte).' },
-      { id: 3, nombre: 'fraude externo', descripcion: 'Es el riesgo de que una persona natural y/o jurídica, actuando individualmente o en concierto con otros, deshonestamente o engañosamente gane o ayude a otros a ganar alguna ventaja injusta o ilegal sobre la compañía y/o sus partes interesadas (clientes, empleados, accionistas).' },
-      { id: 4, nombre: 'fraude interno', descripcion: 'Es el riesgo que una persona dentro de la compañía y/o del grupo corporativo, actuando individualmente o en concierto con otros, deshonestamente o engañosamente gane o ayude a otros a ganar alguna ventaja injusta o ilegal sobre la compañía y/o sus partes interesadas (clientes, empleados, accionistas).' },
-      { id: 5, nombre: 'información', descripcion: 'Brechas en la confidencialidad, integridad y/o disponibilidad de la información confidencial de la compañía. Que resulte en pérdidas de información, uso de la información para fines criminales, o que la información sea usada de tal manera que cause daño reputacional y/o pérdidas financieras.' },
-      { id: 6, nombre: 'Proceso', descripcion: 'Son los riesgos relacionados con la inexistencia, fallas y/o ineficiencias en la ejecución de los procesos de la compañía.' },
-      { id: 7, nombre: 'proyecto', descripcion: 'Riesgo de fallas en los estándares de gerencia de proyectos, incluidas las actividades de gobierno, actividades de monitoreo y control, manejo de presupuesto. Inhabilidad de mantener el alcance del proyecto y cronograma, así como fallar en la entrega exitosa del proyecto y la asociada gestión del cambio.' },
-      { id: 8, nombre: 'seguridad en la cadena de suministro', descripcion: 'Son los riesgos asociados con el daño, pérdida y/o contaminación del producto, a nivel nacional e internacional. Por cadena de suministro se entiende, todas las actividades necesarias para la preparación y distribución de un producto para su venta.' },
-      { id: 9, nombre: 'sistemas', descripcion: 'Es el riesgo de fallas, u otra deficiencia en las plataformas automáticas que soportan la operación diaria de la compañía (aplicaciones), y en los sistemas de infraestructura en las que ellas residen (date centers, redes, computadores, etc.)' },
-      { id: 10, nombre: 'social', descripcion: 'Potencial pérdida producto del daño en la calidad de vida de la comunidad aledaña a las operaciones.' },
+      { codigo: '1', nombre: 'ambiental', descripcion: 'Riesgos asociados a los daños ocasionados al medio ambiente a causa de la operación de la compañía.' },
+      { codigo: '2', nombre: 'físico', descripcion: 'Riesgo de pérdida y/o daño en los activos físicos de la compañía (edificios, espacios de trabajo, almacenamiento y transporte).' },
+      { codigo: '3', nombre: 'fraude externo', descripcion: 'Es el riesgo de que una persona natural y/o jurídica, actuando individualmente o en concierto con otros, deshonestamente o engañosamente gane o ayude a otros a ganar alguna ventaja injusta o ilegal sobre la compañía y/o sus partes interesadas (clientes, empleados, accionistas).' },
+      { codigo: '4', nombre: 'fraude interno', descripcion: 'Es el riesgo que una persona dentro de la compañía y/o del grupo corporativo, actuando individualmente o en concierto con otros, deshonestamente o engañosamente gane o ayude a otros a ganar alguna ventaja injusta o ilegal sobre la compañía y/o sus partes interesadas (clientes, empleados, accionistas).' },
+      { codigo: '5', nombre: 'información', descripcion: 'Brechas en la confidencialidad, integridad y/o disponibilidad de la información confidencial de la compañía. Que resulte en pérdidas de información, uso de la información para fines criminales, o que la información sea usada de tal manera que cause daño reputacional y/o pérdidas financieras.' },
+      { codigo: '6', nombre: 'Proceso', descripcion: 'Son los riesgos relacionados con la inexistencia, fallas y/o ineficiencias en la ejecución de los procesos de la compañía.' },
+      { codigo: '7', nombre: 'proyecto', descripcion: 'Riesgo de fallas en los estándares de gerencia de proyectos, incluidas las actividades de gobierno, actividades de monitoreo y control, manejo de presupuesto. Inhabilidad de mantener el alcance del proyecto y cronograma, así como fallar en la entrega exitosa del proyecto y la asociada gestión del cambio.' },
+      { codigo: '8', nombre: 'seguridad en la cadena de suministro', descripcion: 'Son los riesgos asociados con el daño, pérdida y/o contaminación del producto, a nivel nacional e internacional. Por cadena de suministro se entiende, todas las actividades necesarias para la preparación y distribución de un producto para su venta.' },
+      { codigo: '9', nombre: 'sistemas', descripcion: 'Es el riesgo de fallas, u otra deficiencia en las plataformas automáticas que soportan la operación diaria de la compañía (aplicaciones), y en los sistemas de infraestructura en las que ellas residen (date centers, redes, computadores, etc.)' },
+      { codigo: '10', nombre: 'social', descripcion: 'Potencial pérdida producto del daño en la calidad de vida de la comunidad aledaña a las operaciones.' },
     ],
   },
   {
@@ -239,11 +239,11 @@ let mockTiposRiesgos: TipoRiesgo[] = loadFromStorage('catalog_tipos_riesgo', [
     nombre: 'Financiero',
     descripcion: 'Riesgos relacionados con aspectos financieros',
     subtipos: [
-      { id: 1, nombre: 'contable', descripcion: 'Es el riesgo de que información financiera sea capturada incorrectamente, mal calculada, omitida o mal reportada a usuarios externos como inversionistas o entes reguladores, o como información de gestión interna.' },
-      { id: 2, nombre: 'crédito', descripcion: 'Posibilidad de que la compañía incurra en pérdidas y/o se disminuya el valor de sus activos, como consecuencia de que un deudor o contraparte incumpla sus obligaciones.' },
-      { id: 3, nombre: 'impuestos', descripcion: 'Es el riesgo de incremento en las obligaciones tributarias de la compañía, y/o insuficiencias relacionadas con los procesos de impuestos que generen un impacto adverso en las relaciones y/o reputación de la compañía con sus contrapartes.' },
-      { id: 4, nombre: 'liquidez', descripcion: 'Se define como la contingencia de no poder cumplir plenamente, de manera oportuna y eficiente los flujos de caja esperados, vigentes y futuros, sin afectar el curso de las operaciones diarias o la condición financiera de la compañía.' },
-      { id: 5, nombre: 'riesgo de mercado', descripcion: 'Posibilidad de que la compañía incurra en pérdidas asociadas a la variación de los precios de mercado de materias primas, productos, inversiones, variación en tasas de interés que afecte sus pasivos y demás factores de mercado.' },
+      { codigo: '1', nombre: 'contable', descripcion: 'Es el riesgo de que información financiera sea capturada incorrectamente, mal calculada, omitida o mal reportada a usuarios externos como inversionistas o entes reguladores, o como información de gestión interna.' },
+      { codigo: '2', nombre: 'crédito', descripcion: 'Posibilidad de que la compañía incurra en pérdidas y/o se disminuya el valor de sus activos, como consecuencia de que un deudor o contraparte incumpla sus obligaciones.' },
+      { codigo: '3', nombre: 'impuestos', descripcion: 'Es el riesgo de incremento en las obligaciones tributarias de la compañía, y/o insuficiencias relacionadas con los procesos de impuestos que generen un impacto adverso en las relaciones y/o reputación de la compañía con sus contrapartes.' },
+      { codigo: '4', nombre: 'liquidez', descripcion: 'Se define como la contingencia de no poder cumplir plenamente, de manera oportuna y eficiente los flujos de caja esperados, vigentes y futuros, sin afectar el curso de las operaciones diarias o la condición financiera de la compañía.' },
+      { codigo: '5', nombre: 'riesgo de mercado', descripcion: 'Posibilidad de que la compañía incurra en pérdidas asociadas a la variación de los precios de mercado de materias primas, productos, inversiones, variación en tasas de interés que afecte sus pasivos y demás factores de mercado.' },
     ],
   },
   {
@@ -251,11 +251,11 @@ let mockTiposRiesgos: TipoRiesgo[] = loadFromStorage('catalog_tipos_riesgo', [
     nombre: 'Cumplimiento',
     descripcion: 'Riesgos relacionados con el cumplimiento normativo y legal',
     subtipos: [
-      { id: 1, nombre: 'gobierno corporativo y ética', descripcion: 'Incumplimiento de los principios y normas que regulan el funcionamiento de Gobierno de la Compañía.' },
-      { id: 2, nombre: 'Legal', descripcion: 'Es el riesgo de que funcionarios de la empresa influencien o sean influenciados por medio del pago de dadivas, regalos y/o favores, ya sea de forma directa o indirecta, con el fin de obtener y/o propiciar un negocio u otra ventaja por parte de un tercero, ya sea público o privado.' },
-      { id: 3, nombre: 'legal', descripcion: 'Es el riesgo de pérdida financiera, sanciones y/o daño reputacional resultado de que los derechos y/u obligaciones de la compañía en una relación contractual sean defectuosos; que la compañía se encuentre envuelta o tenga potenciales o actuales disputas.' },
-      { id: 4, nombre: 'protección de datos personales', descripcion: '' },
-      { id: 5, nombre: 'regulatorio', descripcion: 'Es el riesgo de que la compañía falle en adherirse a las leyes operables en el país o en las jurisdicciones donde tenga relación en el transcurso de sus operaciones.' },
+      { codigo: '1', nombre: 'gobierno corporativo y ética', descripcion: 'Incumplimiento de los principios y normas que regulan el funcionamiento de Gobierno de la Compañía.' },
+      { codigo: '2', nombre: 'Legal', descripcion: 'Es el riesgo de que funcionarios de la empresa influencien o sean influenciados por medio del pago de dadivas, regalos y/o favores, ya sea de forma directa o indirecta, con el fin de obtener y/o propiciar un negocio u otra ventaja por parte de un tercero, ya sea público o privado.' },
+      { codigo: '3', nombre: 'legal', descripcion: 'Es el riesgo de pérdida financiera, sanciones y/o daño reputacional resultado de que los derechos y/u obligaciones de la compañía en una relación contractual sean defectuosos; que la compañía se encuentre envuelta o tenga potenciales o actuales disputas.' },
+      { codigo: '4', nombre: 'protección de datos personales', descripcion: '' },
+      { codigo: '5', nombre: 'regulatorio', descripcion: 'Es el riesgo de que la compañía falle en adherirse a las leyes operables en el país o en las jurisdicciones donde tenga relación en el transcurso de sus operaciones.' },
     ],
   },
   {
@@ -263,10 +263,10 @@ let mockTiposRiesgos: TipoRiesgo[] = loadFromStorage('catalog_tipos_riesgo', [
     nombre: 'Seguridad de la Información',
     descripcion: 'Riesgos relacionados con la seguridad de la información',
     subtipos: [
-      { id: 1, nombre: 'Información', descripcion: 'Corresponden a este tipo datos e información almacenada o procesada física o electrónicamente tales como: bases y archivos de datos, contratos, documentación del sistema, investigaciones, acuerdos de confidencialidad, manuales de usuario, procedimientos operativos o de soporte, planes para la continuidad del negocio, acuerdos sobre retiro y pruebas de auditoría, entre otros.' },
-      { id: 2, nombre: 'información', descripcion: 'Corresponden a este tipo datos e información almacenada o procesada física o electrónicamente tales como: bases y archivos de datos, contratos, documentación del sistema, investigaciones, acuerdos de confidencialidad, manuales de usuario, procedimientos operativos o de soporte, planes para la continuidad del negocio, acuerdos sobre retiro y pruebas de auditoría, entre otros.' },
-      { id: 3, nombre: 'servicio', descripcion: 'Servicios de computación y comunicaciones, tales como Internet, páginas de consulta, directorios compartidos e Intranet.' },
-      { id: 4, nombre: 'software', descripcion: 'Software de aplicación, interfaces, software del sistema, herramientas de desarrollo y otras utilidades relacionadas.' },
+      { codigo: '1', nombre: 'Información', descripcion: 'Corresponden a este tipo datos e información almacenada o procesada física o electrónicamente tales como: bases y archivos de datos, contratos, documentación del sistema, investigaciones, acuerdos de confidencialidad, manuales de usuario, procedimientos operativos o de soporte, planes para la continuidad del negocio, acuerdos sobre retiro y pruebas de auditoría, entre otros.' },
+      { codigo: '2', nombre: 'información', descripcion: 'Corresponden a este tipo datos e información almacenada o procesada física o electrónicamente tales como: bases y archivos de datos, contratos, documentación del sistema, investigaciones, acuerdos de confidencialidad, manuales de usuario, procedimientos operativos o de soporte, planes para la continuidad del negocio, acuerdos sobre retiro y pruebas de auditoría, entre otros.' },
+      { codigo: '3', nombre: 'servicio', descripcion: 'Servicios de computación y comunicaciones, tales como Internet, páginas de consulta, directorios compartidos e Intranet.' },
+      { codigo: '4', nombre: 'software', descripcion: 'Software de aplicación, interfaces, software del sistema, herramientas de desarrollo y otras utilidades relacionadas.' },
     ],
   },
   {
@@ -274,16 +274,16 @@ let mockTiposRiesgos: TipoRiesgo[] = loadFromStorage('catalog_tipos_riesgo', [
     nombre: 'Seguridad y Salud en el Trabajo',
     descripcion: 'Riesgos relacionados con la seguridad y salud en el trabajo',
     subtipos: [
-      { id: 1, nombre: 'caminatas', descripcion: 'Desplazamientos Por Largas Jornadas A Pie..' },
-      { id: 2, nombre: 'diseño', descripcion: 'Diseño Inadecuado Del Puesto De Trabajo' },
-      { id: 3, nombre: 'distribución del puesto', descripcion: 'Distribución/Organización Inadecuada Del Puesto De Trabajo' },
-      { id: 4, nombre: 'hábitos posturales', descripcion: 'Hábitos Posturales Inadecuados Durante…' },
-      { id: 5, nombre: 'manipulación de cargas', descripcion: 'Manipulación De Cargas Manual Por Encima De 12.5(Mujeres) 25 Kg (Hombres) durante..' },
-      { id: 6, nombre: 'movimientos repetitivos', descripcion: 'Movimientos Repetitivos Al…' },
-      { id: 7, nombre: 'otros', descripcion: 'Indique la situación' },
-      { id: 8, nombre: 'postura de pie', descripcion: 'Posturas Prolongadas O Sostenidas De Pie durante..' },
-      { id: 9, nombre: 'postura sentado', descripcion: 'Posturas Prolongadas O Sostenidas  Sentado durante..' },
-      { id: 10, nombre: 'posturas forzadas', descripcion: 'Posturas forzadas o sostenidas o posturas incómodas debido a:' },
+      { codigo: '1', nombre: 'caminatas', descripcion: 'Desplazamientos Por Largas Jornadas A Pie..' },
+      { codigo: '2', nombre: 'diseño', descripcion: 'Diseño Inadecuado Del Puesto De Trabajo' },
+      { codigo: '3', nombre: 'distribución del puesto', descripcion: 'Distribución/Organización Inadecuada Del Puesto De Trabajo' },
+      { codigo: '4', nombre: 'hábitos posturales', descripcion: 'Hábitos Posturales Inadecuados Durante…' },
+      { codigo: '5', nombre: 'manipulación de cargas', descripcion: 'Manipulación De Cargas Manual Por Encima De 12.5(Mujeres) 25 Kg (Hombres) durante..' },
+      { codigo: '6', nombre: 'movimientos repetitivos', descripcion: 'Movimientos Repetitivos Al…' },
+      { codigo: '7', nombre: 'otros', descripcion: 'Indique la situación' },
+      { codigo: '8', nombre: 'postura de pie', descripcion: 'Posturas Prolongadas O Sostenidas De Pie durante..' },
+      { codigo: '9', nombre: 'postura sentado', descripcion: 'Posturas Prolongadas O Sostenidas  Sentado durante..' },
+      { codigo: '10', nombre: 'posturas forzadas', descripcion: 'Posturas forzadas o sostenidas o posturas incómodas debido a:' },
     ],
   },
 ]);
@@ -306,14 +306,17 @@ let mockObjetivos: Objetivo[] = loadFromStorage('catalog_objetivos', [
   { id: 14, codigo: '13', descripcion: 'Aplicar estándares de seguridad de la información' },
   { id: 15, codigo: '14', descripcion: 'Reducir los incidentes de Seguridad de la Información' },
   { id: 16, codigo: '15', descripcion: 'Gestionar el desempeño del Personal' },
+  { id: 17, codigo: '16', descripcion: 'Asegurar la continuidad operacional mediante personal capacitado' },
+  { id: 18, codigo: '17', descripcion: 'Cumplir con todas las normativas laborales vigentes' },
+  { id: 19, codigo: '18', descripcion: 'Retener el talento clave mediante planes de desarrollo' },
 ]);
 
 let mockFrecuencias: Frecuencia[] = loadFromStorage('catalog_frecuencias', [
-  { id: 1, frecuencia: 'Raro', descripcion: 'mayor a anual' },
-  { id: 2, frecuencia: 'Improbable', descripcion: 'mayor a trimestral y hasta anual' },
-  { id: 3, frecuencia: 'Posible', descripcion: 'mayor a mensual y hasta trimestral' },
-  { id: 4, frecuencia: 'Probable', descripcion: 'mayor a diaria y hasta mensual' },
-  { id: 5, frecuencia: 'Esperado', descripcion: 'diaria o varias veces al día' },
+  { id: 1, label: 'Raro', descripcion: 'mayor a anual' },
+  { id: 2, label: 'Improbable', descripcion: 'mayor a trimestral y hasta anual' },
+  { id: 3, label: 'Posible', descripcion: 'mayor a mensual y hasta trimestral' },
+  { id: 4, label: 'Probable', descripcion: 'mayor a diaria y hasta mensual' },
+  { id: 5, label: 'Esperado', descripcion: 'diaria o varias veces al día' },
 ]);
 
 let mockFuentes: Fuente[] = loadFromStorage('catalog_fuentes', [
@@ -394,7 +397,7 @@ let mockCausas: Causa[] = [
 // RIESGOS Y EVALUACIONES (De anterior mockData.ts)
 // ============================================
 
-const mockRiesgos: Riesgo[] = [
+const defaultRiesgos: Riesgo[] = [
   {
     id: '1',
     procesoId: '1', // Direccionamiento Estratégico
@@ -578,6 +581,21 @@ const mockRiesgos: Riesgo[] = [
     siglaGerencia: 'GTH',
     createdAt: '2024-02-10T10:00:00Z',
     updatedAt: '2024-02-18T10:30:00Z',
+    // CAUSAS AGREGADAS PARA INCIDENCIAS
+    causas: [
+      {
+        id: 'causa-th-1',
+        descripcion: 'Falta de planes de carrera y desarrollo profesional',
+        fuente: 'INTERNA',
+        orden: 1,
+      },
+      {
+        id: 'causa-th-2',
+        descripcion: 'Competencia agresiva del mercado laboral con mejores ofertas',
+        fuente: 'EXTERNA',
+        orden: 2,
+      },
+    ],
   },
   {
     id: '9',
@@ -671,7 +689,119 @@ const mockRiesgos: Riesgo[] = [
     createdAt: '2024-04-12T14:00:00Z',
     updatedAt: '2024-04-15T09:10:00Z',
   },
+  // RIESGOS DE GESTIÓN DE TALENTO HUMANO CON CAUSAS
+  {
+    id: 'riesgo-th-1',
+    procesoId: '8',
+    numero: 101,
+    descripcion: 'Probabilidad de afectar la continuidad operacional por falta de personal capacitado en procesos críticos',
+    clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
+    proceso: 'Gestión de Talento Humano',
+    zona: 'Operacional',
+    tipologiaNivelI: '02 Operacional',
+    tipoRiesgo: '02 Operacional',
+    tipologiaNivelII: 'Falta de actualización o cumplimiento de procedimientos',
+    subtipo: 'personas',
+    causaRiesgo: 'Personas',
+    objetivo: 'Asegurar la continuidad operacional mediante personal capacitado',
+    fuenteCausa: 'Talleres internos',
+    origen: 'Talleres internos',
+    vicepresidenciaGerenciaAlta: 'Talento Humano',
+    siglaVicepresidencia: 'TH',
+    gerencia: 'Gerencia de Talento Humano',
+    siglaGerencia: 'GTH',
+    createdAt: '2024-04-20T10:00:00Z',
+    updatedAt: '2024-04-20T10:00:00Z',
+    causas: [
+      {
+        id: 'causa-th-101-1',
+        descripcion: 'Falta de programas de capacitación continua',
+        fuente: 'INTERNA',
+        orden: 1,
+      },
+      {
+        id: 'causa-th-101-2',
+        descripcion: 'Rotación de personal sin transferencia de conocimiento',
+        fuente: 'INTERNA',
+        orden: 2,
+      },
+    ],
+  } as any,
+  {
+    id: 'riesgo-th-2',
+    procesoId: '8',
+    numero: 102,
+    descripcion: 'Riesgo de incumplimiento normativo en contratación laboral',
+    clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
+    proceso: 'Gestión de Talento Humano',
+    zona: 'Cumplimiento',
+    tipologiaNivelI: '04 Cumplimiento',
+    tipoRiesgo: '04 Cumplimiento',
+    tipologiaNivelII: 'Cumplimiento regulatorio',
+    subtipo: 'legal',
+    causaRiesgo: 'Legal',
+    objetivo: 'Cumplir con todas las normativas laborales vigentes',
+    fuenteCausa: 'Auditoría HHI',
+    origen: 'Auditoría HHI',
+    vicepresidenciaGerenciaAlta: 'Talento Humano',
+    siglaVicepresidencia: 'TH',
+    gerencia: 'Gerencia de Talento Humano',
+    siglaGerencia: 'GTH',
+    createdAt: '2024-04-20T11:00:00Z',
+    updatedAt: '2024-04-20T11:00:00Z',
+    causas: [
+      {
+        id: 'causa-th-102-1',
+        descripcion: 'Desactualización en normativas laborales',
+        fuente: 'EXTERNA',
+        orden: 1,
+      },
+    ],
+  } as any,
+  {
+    id: 'riesgo-th-3',
+    procesoId: '8',
+    numero: 103,
+    descripcion: 'Riesgo de pérdida de talento clave por falta de planes de retención',
+    clasificacion: CLASIFICACION_RIESGO.NEGATIVA,
+    proceso: 'Gestión de Talento Humano',
+    zona: 'Estratégico',
+    tipologiaNivelI: '01 Estratégico',
+    tipoRiesgo: '01 Estratégico',
+    tipologiaNivelII: 'Retención de talento',
+    subtipo: 'personas',
+    causaRiesgo: 'Personas',
+    objetivo: 'Retener el talento clave mediante planes de desarrollo',
+    fuenteCausa: 'Mercado laboral',
+    origen: 'Mercado laboral',
+    vicepresidenciaGerenciaAlta: 'Talento Humano',
+    siglaVicepresidencia: 'TH',
+    gerencia: 'Gerencia de Talento Humano',
+    siglaGerencia: 'GTH',
+    createdAt: '2024-04-20T12:00:00Z',
+    updatedAt: '2024-04-20T12:00:00Z',
+    causas: [
+      {
+        id: 'causa-th-103-1',
+        descripcion: 'Falta de planes de carrera y desarrollo',
+        fuente: 'INTERNA',
+        orden: 1,
+      },
+      {
+        id: 'causa-th-103-2',
+        descripcion: 'Competencia del mercado laboral',
+        fuente: 'EXTERNA',
+        orden: 2,
+      },
+    ],
+  } as any,
 ];
+
+// Helper to access centralized risks
+const getCurrentRiesgos = () => loadFromStorage<Riesgo[]>('riesgos', defaultRiesgos);
+
+export function getAllRiesgos() { return getCurrentRiesgos(); }
+export function saveRiesgos(riesgos: Riesgo[]) { saveToStorage('riesgos', riesgos); }
 
 const mockEvaluaciones: EvaluacionRiesgo[] = [
   {
@@ -693,203 +823,203 @@ const mockEvaluaciones: EvaluacionRiesgo[] = [
     evaluadoPor: 'Juan Analista',
   },
   {
-      id: 'eval-2',
-      riesgoId: '2',
-      impactoPersonas: 2,
-      impactoLegal: 5,
-      impactoAmbiental: 1,
-      impactoProcesos: 4,
-      impactoReputacion: 4,
-      impactoEconomico: 3,
-      impactoTecnologico: 1,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 2, legal: 5, ambiental: 1, procesos: 4, reputacion: 4, economico: 3 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 3),
-      nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-01-20T14:30:00Z',
-      evaluadoPor: 'María Auditora',
-    },
-    {
-      id: 'eval-3',
-      riesgoId: '3',
-      impactoPersonas: 5,
-      impactoLegal: 2,
-      impactoAmbiental: 0,
-      impactoProcesos: 3,
-      impactoReputacion: 2,
-      impactoEconomico: 5,
-      impactoTecnologico: 1,
-      probabilidad: 4,
-      impactoGlobal: calcularImpactoGlobal({ personas: 5, legal: 2, ambiental: 0, procesos: 3, reputacion: 2, economico: 5 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 4),
-      nivelRiesgo: determinarNivelRiesgo(20, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-01-20T14:30:00Z',
-      evaluadoPor: 'Carlos Especialista',
-    },
-    {
-      id: 'eval-4',
-      riesgoId: '4',
-      impactoPersonas: 3,
-      impactoLegal: 4,
-      impactoAmbiental: 2,
-      impactoProcesos: 5,
-      impactoReputacion: 5,
-      impactoEconomico: 4,
-      impactoTecnologico: 5,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 4, ambiental: 2, procesos: 5, reputacion: 5, economico: 4 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 3),
-      nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-01-20T14:30:00Z',
-      evaluadoPor: 'Luis Seguridad',
-    },
-    {
-      id: 'eval-5',
-      riesgoId: '5',
-      impactoPersonas: 4,
-      impactoLegal: 1,
-      impactoAmbiental: 1,
-      impactoProcesos: 5,
-      impactoReputacion: 3,
-      impactoEconomico: 4,
-      impactoTecnologico: 2,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 4, legal: 1, ambiental: 1, procesos: 5, reputacion: 3, economico: 4 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 3),
-      nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-01-20T14:30:00Z',
-      evaluadoPor: 'Patricia Analista',
-    },
-    {
-      id: 'eval-6',
-      riesgoId: '6',
-      impactoPersonas: 3,
-      impactoLegal: 4,
-      impactoAmbiental: 1,
-      impactoProcesos: 5,
-      impactoReputacion: 5,
-      impactoEconomico: 4,
-      impactoTecnologico: 5,
-      probabilidad: 4,
-      impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 4, ambiental: 1, procesos: 5, reputacion: 5, economico: 4 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 4),
-      nivelRiesgo: determinarNivelRiesgo(20, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2023-12-02T11:15:00Z',
-      evaluadoPor: 'Equipo TI',
-    },
-    {
-      id: 'eval-7',
-      riesgoId: '7',
-      impactoPersonas: 3,
-      impactoLegal: 2,
-      impactoAmbiental: 1,
-      impactoProcesos: 4,
-      impactoReputacion: 3,
-      impactoEconomico: 3,
-      impactoTecnologico: 2,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 2, ambiental: 1, procesos: 4, reputacion: 3, economico: 3 }),
-      impactoMaximo: 4,
-      riesgoInherente: calcularRiesgoInherente(4, 3),
-      nivelRiesgo: determinarNivelRiesgo(12, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-01-05T08:20:00Z',
-      evaluadoPor: 'Equipo Soporte',
-    },
-    {
-      id: 'eval-8',
-      riesgoId: '8',
-      impactoPersonas: 5,
-      impactoLegal: 2,
-      impactoAmbiental: 0,
-      impactoProcesos: 3,
-      impactoReputacion: 3,
-      impactoEconomico: 4,
-      impactoTecnologico: 1,
-      probabilidad: 4,
-      impactoGlobal: calcularImpactoGlobal({ personas: 5, legal: 2, ambiental: 0, procesos: 3, reputacion: 3, economico: 4 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 4),
-      nivelRiesgo: determinarNivelRiesgo(20, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-02-18T10:30:00Z',
-      evaluadoPor: 'Talento Humano',
-    },
-    {
-      id: 'eval-9',
-      riesgoId: '9',
-      impactoPersonas: 2,
-      impactoLegal: 3,
-      impactoAmbiental: 1,
-      impactoProcesos: 4,
-      impactoReputacion: 3,
-      impactoEconomico: 5,
-      impactoTecnologico: 1,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 2, legal: 3, ambiental: 1, procesos: 4, reputacion: 3, economico: 5 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 3),
-      nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-03-12T15:05:00Z',
-      evaluadoPor: 'Finanzas',
-    },
-    {
-      id: 'eval-10',
-      riesgoId: '10',
-      impactoPersonas: 2,
-      impactoLegal: 2,
-      impactoAmbiental: 1,
-      impactoProcesos: 5,
-      impactoReputacion: 4,
-      impactoEconomico: 4,
-      impactoTecnologico: 5,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 2, legal: 2, ambiental: 1, procesos: 5, reputacion: 4, economico: 4 }),
-      impactoMaximo: 5,
-      riesgoInherente: calcularRiesgoInherente(5, 3),
-      nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-03-28T16:40:00Z',
-      evaluadoPor: 'Infraestructura',
-    },
-    {
-      id: 'eval-11',
-      riesgoId: '11',
-      impactoPersonas: 3,
-      impactoLegal: 4,
-      impactoAmbiental: 1,
-      impactoProcesos: 4,
-      impactoReputacion: 4,
-      impactoEconomico: 3,
-      impactoTecnologico: 4,
-      probabilidad: 3,
-      impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 4, ambiental: 1, procesos: 4, reputacion: 4, economico: 3 }),
-      impactoMaximo: 4,
-      riesgoInherente: calcularRiesgoInherente(4, 3),
-      nivelRiesgo: determinarNivelRiesgo(12, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-04-05T12:50:00Z',
-      evaluadoPor: 'Seguridad',
-    },
-    {
-      id: 'eval-12',
-      riesgoId: '12',
-      impactoPersonas: 3,
-      impactoLegal: 3,
-      impactoAmbiental: 1,
-      impactoProcesos: 4,
-      impactoReputacion: 3,
-      impactoEconomico: 4,
-      impactoTecnologico: 2,
-      probabilidad: 2,
-      impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 3, ambiental: 1, procesos: 4, reputacion: 3, economico: 4 }),
-      impactoMaximo: 4,
-      riesgoInherente: calcularRiesgoInherente(4, 2),
-      nivelRiesgo: determinarNivelRiesgo(8, CLASIFICACION_RIESGO.NEGATIVA),
-      fechaEvaluacion: '2024-04-15T09:10:00Z',
-      evaluadoPor: 'Planeacion',
-    },
+    id: 'eval-2',
+    riesgoId: '2',
+    impactoPersonas: 2,
+    impactoLegal: 5,
+    impactoAmbiental: 1,
+    impactoProcesos: 4,
+    impactoReputacion: 4,
+    impactoEconomico: 3,
+    impactoTecnologico: 1,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 2, legal: 5, ambiental: 1, procesos: 4, reputacion: 4, economico: 3 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 3),
+    nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-01-20T14:30:00Z',
+    evaluadoPor: 'María Auditora',
+  },
+  {
+    id: 'eval-3',
+    riesgoId: '3',
+    impactoPersonas: 5,
+    impactoLegal: 2,
+    impactoAmbiental: 0,
+    impactoProcesos: 3,
+    impactoReputacion: 2,
+    impactoEconomico: 5,
+    impactoTecnologico: 1,
+    probabilidad: 4,
+    impactoGlobal: calcularImpactoGlobal({ personas: 5, legal: 2, ambiental: 0, procesos: 3, reputacion: 2, economico: 5 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 4),
+    nivelRiesgo: determinarNivelRiesgo(20, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-01-20T14:30:00Z',
+    evaluadoPor: 'Carlos Especialista',
+  },
+  {
+    id: 'eval-4',
+    riesgoId: '4',
+    impactoPersonas: 3,
+    impactoLegal: 4,
+    impactoAmbiental: 2,
+    impactoProcesos: 5,
+    impactoReputacion: 5,
+    impactoEconomico: 4,
+    impactoTecnologico: 5,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 4, ambiental: 2, procesos: 5, reputacion: 5, economico: 4 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 3),
+    nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-01-20T14:30:00Z',
+    evaluadoPor: 'Luis Seguridad',
+  },
+  {
+    id: 'eval-5',
+    riesgoId: '5',
+    impactoPersonas: 4,
+    impactoLegal: 1,
+    impactoAmbiental: 1,
+    impactoProcesos: 5,
+    impactoReputacion: 3,
+    impactoEconomico: 4,
+    impactoTecnologico: 2,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 4, legal: 1, ambiental: 1, procesos: 5, reputacion: 3, economico: 4 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 3),
+    nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-01-20T14:30:00Z',
+    evaluadoPor: 'Patricia Analista',
+  },
+  {
+    id: 'eval-6',
+    riesgoId: '6',
+    impactoPersonas: 3,
+    impactoLegal: 4,
+    impactoAmbiental: 1,
+    impactoProcesos: 5,
+    impactoReputacion: 5,
+    impactoEconomico: 4,
+    impactoTecnologico: 5,
+    probabilidad: 4,
+    impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 4, ambiental: 1, procesos: 5, reputacion: 5, economico: 4 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 4),
+    nivelRiesgo: determinarNivelRiesgo(20, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2023-12-02T11:15:00Z',
+    evaluadoPor: 'Equipo TI',
+  },
+  {
+    id: 'eval-7',
+    riesgoId: '7',
+    impactoPersonas: 3,
+    impactoLegal: 2,
+    impactoAmbiental: 1,
+    impactoProcesos: 4,
+    impactoReputacion: 3,
+    impactoEconomico: 3,
+    impactoTecnologico: 2,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 2, ambiental: 1, procesos: 4, reputacion: 3, economico: 3 }),
+    impactoMaximo: 4,
+    riesgoInherente: calcularRiesgoInherente(4, 3),
+    nivelRiesgo: determinarNivelRiesgo(12, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-01-05T08:20:00Z',
+    evaluadoPor: 'Equipo Soporte',
+  },
+  {
+    id: 'eval-8',
+    riesgoId: '8',
+    impactoPersonas: 5,
+    impactoLegal: 2,
+    impactoAmbiental: 0,
+    impactoProcesos: 3,
+    impactoReputacion: 3,
+    impactoEconomico: 4,
+    impactoTecnologico: 1,
+    probabilidad: 4,
+    impactoGlobal: calcularImpactoGlobal({ personas: 5, legal: 2, ambiental: 0, procesos: 3, reputacion: 3, economico: 4 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 4),
+    nivelRiesgo: determinarNivelRiesgo(20, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-02-18T10:30:00Z',
+    evaluadoPor: 'Talento Humano',
+  },
+  {
+    id: 'eval-9',
+    riesgoId: '9',
+    impactoPersonas: 2,
+    impactoLegal: 3,
+    impactoAmbiental: 1,
+    impactoProcesos: 4,
+    impactoReputacion: 3,
+    impactoEconomico: 5,
+    impactoTecnologico: 1,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 2, legal: 3, ambiental: 1, procesos: 4, reputacion: 3, economico: 5 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 3),
+    nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-03-12T15:05:00Z',
+    evaluadoPor: 'Finanzas',
+  },
+  {
+    id: 'eval-10',
+    riesgoId: '10',
+    impactoPersonas: 2,
+    impactoLegal: 2,
+    impactoAmbiental: 1,
+    impactoProcesos: 5,
+    impactoReputacion: 4,
+    impactoEconomico: 4,
+    impactoTecnologico: 5,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 2, legal: 2, ambiental: 1, procesos: 5, reputacion: 4, economico: 4 }),
+    impactoMaximo: 5,
+    riesgoInherente: calcularRiesgoInherente(5, 3),
+    nivelRiesgo: determinarNivelRiesgo(15, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-03-28T16:40:00Z',
+    evaluadoPor: 'Infraestructura',
+  },
+  {
+    id: 'eval-11',
+    riesgoId: '11',
+    impactoPersonas: 3,
+    impactoLegal: 4,
+    impactoAmbiental: 1,
+    impactoProcesos: 4,
+    impactoReputacion: 4,
+    impactoEconomico: 3,
+    impactoTecnologico: 4,
+    probabilidad: 3,
+    impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 4, ambiental: 1, procesos: 4, reputacion: 4, economico: 3 }),
+    impactoMaximo: 4,
+    riesgoInherente: calcularRiesgoInherente(4, 3),
+    nivelRiesgo: determinarNivelRiesgo(12, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-04-05T12:50:00Z',
+    evaluadoPor: 'Seguridad',
+  },
+  {
+    id: 'eval-12',
+    riesgoId: '12',
+    impactoPersonas: 3,
+    impactoLegal: 3,
+    impactoAmbiental: 1,
+    impactoProcesos: 4,
+    impactoReputacion: 3,
+    impactoEconomico: 4,
+    impactoTecnologico: 2,
+    probabilidad: 2,
+    impactoGlobal: calcularImpactoGlobal({ personas: 3, legal: 3, ambiental: 1, procesos: 4, reputacion: 3, economico: 4 }),
+    impactoMaximo: 4,
+    riesgoInherente: calcularRiesgoInherente(4, 2),
+    nivelRiesgo: determinarNivelRiesgo(8, CLASIFICACION_RIESGO.NEGATIVA),
+    fechaEvaluacion: '2024-04-15T09:10:00Z',
+    evaluadoPor: 'Planeacion',
+  },
 ];
 
 const mockPriorizaciones: PriorizacionRiesgo[] = [
@@ -1232,7 +1362,6 @@ let mockProcesos: Proceso[] = loadFromStorage('catalog_procesos', [
     descripcion: 'Gestión de recursos humanos y talento humano',
     vicepresidencia: 'Vicepresidencia de Talento Humano',
     gerencia: 'Gerencia de Talento Humano',
-    responsable: 'Katherine Chavez',
     responsable: 'Marco Alvarado',
     responsableId: '2',
     responsableNombre: 'Marco Alvarado',
@@ -1542,7 +1671,7 @@ export function updateMockCargos(data: Cargo[]): Cargo[] {
 export function getMockCausas() { return mockCausas; }
 
 export function getMockRiesgos(filtros?: FiltrosRiesgo): PaginatedResponse<Riesgo> {
-  let filtered = [...mockRiesgos];
+  let filtered = [...getCurrentRiesgos()];
   if (filtros?.procesoId) filtered = filtered.filter(r => r.procesoId === filtros.procesoId);
   if (filtros?.busqueda) { const s = filtros.busqueda.toLowerCase(); filtered = filtered.filter(r => r.descripcion.toLowerCase().includes(s) || r.numero.toString().includes(s)); }
   if (filtros?.clasificacion && filtros.clasificacion !== 'all') filtered = filtered.filter(r => r.clasificacion === filtros.clasificacion);
@@ -1560,8 +1689,8 @@ export function getMockRiesgos(filtros?: FiltrosRiesgo): PaginatedResponse<Riesg
 export function getMockEvaluacionesByRiesgo(riesgoId: string): EvaluacionRiesgo[] { return mockEvaluaciones.filter(e => e.riesgoId === riesgoId); }
 
 export function getMockEstadisticas(procesoId?: string): EstadisticasRiesgo {
-  let riesgosFiltrados = mockRiesgos;
-  if (procesoId) riesgosFiltrados = mockRiesgos.filter(r => r.procesoId === procesoId);
+  let riesgosFiltrados = getCurrentRiesgos();
+  if (procesoId) riesgosFiltrados = getCurrentRiesgos().filter(r => r.procesoId === procesoId);
   const evaluados = mockEvaluaciones.filter(e => riesgosFiltrados.find(r => r.id === e.riesgoId)).length;
   const sinEvaluar = riesgosFiltrados.length - evaluados;
   const evaluacionesFiltradas = mockEvaluaciones.filter((e) => riesgosFiltrados.find((r) => r.id === e.riesgoId));
@@ -1577,12 +1706,12 @@ export function getMockEstadisticas(procesoId?: string): EstadisticasRiesgo {
 }
 
 export function getMockRiesgosRecientes(limit: number = 10): RiesgoReciente[] {
-  return mockRiesgos.map(r => { const e = mockEvaluaciones.find(ev => ev.riesgoId === r.id); return { ...r, evaluacion: e, fechaUltimaModificacion: r.updatedAt || r.createdAt || '' }; }).sort((a, b) => new Date(b.fechaUltimaModificacion).getTime() - new Date(a.fechaUltimaModificacion).getTime()).slice(0, limit);
+  return getCurrentRiesgos().map(r => { const e = mockEvaluaciones.find(ev => ev.riesgoId === r.id); return { ...r, evaluacion: e, fechaUltimaModificacion: r.updatedAt || r.createdAt || '' }; }).sort((a, b) => new Date(b.fechaUltimaModificacion).getTime() - new Date(a.fechaUltimaModificacion).getTime()).slice(0, limit);
 }
 
 export function getMockPuntosMapa(filtros?: { clasificacion?: string; procesoId?: string }): PuntoMapa[] {
   return mockEvaluaciones.map(e => {
-    const r = mockRiesgos.find(r => r.id === e.riesgoId);
+    const r = getCurrentRiesgos().find(r => r.id === e.riesgoId);
     if (!r) return null;
     if (filtros?.procesoId && r.procesoId !== filtros.procesoId) return null;
     if (filtros?.clasificacion && filtros.clasificacion !== 'all' && r.clasificacion !== filtros.clasificacion) return null;
@@ -1590,12 +1719,22 @@ export function getMockPuntosMapa(filtros?: { clasificacion?: string; procesoId?
   }).filter(p => p !== null) as PuntoMapa[];
 }
 
-export function getMockPriorizaciones(): PriorizacionRiesgo[] { return mockPriorizaciones.map(p => { const r = mockRiesgos.find(ri => ri.id === p.riesgoId); const e = mockEvaluaciones.find(ev => ev.riesgoId === p.riesgoId); return { ...p, riesgo: r, evaluacion: e }; }); }
+export function getMockPriorizaciones(): PriorizacionRiesgo[] { return mockPriorizaciones.map(p => { const r = getCurrentRiesgos().find(ri => ri.id === p.riesgoId); const e = mockEvaluaciones.find(ev => ev.riesgoId === p.riesgoId); return { ...p, riesgo: r, evaluacion: e }; }); }
 
 export function createMockEvaluacion(data: any): EvaluacionRiesgo {
-  const r = mockRiesgos.find(ri => ri.id === data.riesgoId);
+  const r = getCurrentRiesgos().find(ri => ri.id === data.riesgoId);
   if (!r) throw new Error('Riesgo no encontrado');
-  const im = calcularImpactoMaximo({ personas: data.impactoPersonas, legal: data.impactoLegal, ambiental: data.impactoAmbiental, procesos: data.impactoProcesos, reputacion: data.impactoReputacion, economico: data.impactoEconomico, tecnologico: data.impactoTecnologico });
+  const im = calcularImpactoMaximo({
+    personas: data.impactoPersonas,
+    legal: data.impactoLegal,
+    ambiental: data.impactoAmbiental,
+    procesos: data.impactoProcesos,
+    reputacion: data.impactoReputacion,
+    economico: data.impactoEconomico,
+    confidencialidadSGSI: data.impactoConfidencialidadSGSI,
+    disponibilidadSGSI: data.impactoDisponibilidadSGSI,
+    integridadSGSI: data.impactoIntegridadSGSI
+  });
   const ri = calcularRiesgoInherente(im, data.probabilidad);
   const n: EvaluacionRiesgo = { id: `eval-${Date.now()}`, ...data, impactoGlobal: im, impactoMaximo: im, riesgoInherente: ri, nivelRiesgo: determinarNivelRiesgo(ri, r.clasificacion as any), fechaEvaluacion: new Date().toISOString(), evaluadoPor: 'Usuario' };
   mockEvaluaciones.push(n);
@@ -1777,7 +1916,7 @@ export function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
       consecuencia: '01 Negativa',
       tipoRiesgo: '02 Operacional',
       subtipoRiesgo: 'Falta de actualización o cumplimiento de procedimientos',
-      objetivo: 'Asegurar la continuidad operacional mediante personal capacitado',
+      objetivo: '16 Asegurar la continuidad operacional mediante personal capacitado',
       causas: [
         {
           id: 'causa-1',
@@ -1800,7 +1939,7 @@ export function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
         economico: 3,
         procesos: 5,
         legal: 2,
-        confidencialidad: 2,
+        confidencialidadSGSI: 2,
         reputacion: 3,
         disponibilidadSGSI: 4,
         personas: 5,
@@ -1817,7 +1956,7 @@ export function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
       consecuencia: '01 Negativa',
       tipoRiesgo: '04 Cumplimiento',
       subtipoRiesgo: 'Cumplimiento regulatorio',
-      objetivo: 'Cumplir con todas las normativas laborales vigentes',
+      objetivo: '17 Cumplir con todas las normativas laborales vigentes',
       causas: [
         {
           id: 'causa-3',
@@ -1832,7 +1971,7 @@ export function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
         economico: 4,
         procesos: 3,
         legal: 5,
-        confidencialidad: 1,
+        confidencialidadSGSI: 1,
         reputacion: 4,
         disponibilidadSGSI: 2,
         personas: 3,
@@ -1849,7 +1988,7 @@ export function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
       consecuencia: '01 Negativa',
       tipoRiesgo: '01 Estratégico',
       subtipoRiesgo: 'Retención de talento',
-      objetivo: 'Retener el talento clave mediante planes de desarrollo',
+      objetivo: '18 Retener el talento clave mediante planes de desarrollo',
       causas: [
         {
           id: 'causa-4',
@@ -1872,7 +2011,7 @@ export function getMockRiesgosTalentoHumano(): RiesgoFormData[] {
         economico: 4,
         procesos: 4,
         legal: 2,
-        confidencialidad: 2,
+        confidencialidadSGSI: 2,
         reputacion: 5,
         disponibilidadSGSI: 3,
         personas: 5,
@@ -2023,4 +2162,175 @@ export function updateMockMapaConfig(type: 'inherente' | 'residual' | 'toleranci
   }
   saveToStorage('catalog_mapa_config_v3', mockMapaConfig);
   return mockMapaConfig;
+}
+
+// ============================================================================
+// CATÁLOGOS CENTRALIZADOS - NO MÁS DATOS QUEMADOS
+// ============================================================================
+
+// Estados de Incidencia
+export const ESTADOS_INCIDENCIA = [
+  { value: 'abierta', label: 'Abierta', color: 'error', icon: 'FlagOutlined' },
+  { value: 'en_investigacion', label: 'En Investigación', color: 'warning', icon: 'SearchOutlined' },
+  { value: 'resuelta', label: 'Resuelta', color: 'info', icon: 'CheckCircleOutline' },
+  { value: 'cerrada', label: 'Cerrada', color: 'success', icon: 'DoneAll' }
+] as const;
+
+export function getEstadosIncidencia() {
+  return ESTADOS_INCIDENCIA;
+}
+
+// Roles del Sistema
+export const ROLES_SISTEMA = [
+  {
+    value: 'admin',
+    label: 'Administrador',
+    descripcion: 'Acceso total al sistema',
+    permisos: ['*']
+  },
+  {
+    value: 'supervisor',
+    label: 'Supervisor',
+    descripcion: 'Supervisa la gestión de riesgos',
+    permisos: ['view_dashboard', 'view_riesgos', 'approve_actions']
+  },
+  {
+    value: 'gerente_general',
+    label: 'Gerente General',
+    descripcion: 'Vista ejecutiva y toma de decisiones',
+    permisos: ['view_dashboard', 'view_reports', 'view_riesgos']
+  },
+  {
+    value: 'dueño_procesos',
+    label: 'Dueño de Procesos',
+    descripcion: 'Gestiona riesgos de sus procesos',
+    permisos: ['manage_procesos', 'manage_riesgos', 'create_incidencias']
+  },
+  {
+    value: 'director_procesos',
+    label: 'Director de Procesos',
+    descripcion: 'Dirige estrategia de procesos',
+    permisos: ['view_procesos', 'approve_procesos', 'view_riesgos']
+  },
+  {
+    value: 'manager',
+    label: 'Manager',
+    descripcion: 'Gestiona equipos y operaciones',
+    permisos: ['view_dashboard', 'manage_team', 'view_riesgos']
+  },
+  {
+    value: 'analyst',
+    label: 'Analista',
+    descripcion: 'Analiza riesgos y genera reportes',
+    permisos: ['view_riesgos', 'create_reports', 'view_dashboard']
+  }
+] as const;
+
+export function getRolesSistema() {
+  return ROLES_SISTEMA;
+}
+
+// Meses del Año
+export const MESES_ABREVIADOS = [
+  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+] as const;
+
+export const MESES_COMPLETOS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+] as const;
+
+export function getMesesAbreviados() {
+  return MESES_ABREVIADOS;
+}
+
+export function getMesesCompletos() {
+  return MESES_COMPLETOS;
+}
+
+// Empresas de Benchmarking
+export const EMPRESAS_BENCHMARKING = [
+  {
+    id: '1',
+    nombre: 'Empresa Referente Alpha',
+    sector: 'Financiero',
+    pais: 'Colombia',
+    calificacionPromedio: 4.5,
+    riesgosGestionados: 127,
+    madurezGestion: 'Avanzado'
+  },
+  {
+    id: '2',
+    nombre: 'Empresa Referente Beta',
+    sector: 'Tecnología',
+    pais: 'México',
+    calificacionPromedio: 4.2,
+    riesgosGestionados: 98,
+    madurezGestion: 'Intermedio'
+  },
+  {
+    id: '3',
+    nombre: 'Empresa Referente Gamma',
+    sector: 'Retail',
+    pais: 'Chile',
+    calificacionPromedio: 3.8,
+    riesgosGestionados: 65,
+    madurezGestion: 'Básico'
+  }
+];
+
+export function getEmpresasBenchmarking() {
+  return EMPRESAS_BENCHMARKING;
+}
+
+// Colores para Gráficos
+export const COLORES_GRAFICOS = {
+  primarios: ['#42a5f5', '#1976d2', '#90caf9', '#64b5f6', '#2196f3'],
+  riesgos: {
+    critico: '#d32f2f',
+    alto: '#f57c00',
+    moderado: '#fbc02d',
+    bajo: '#388e3c',
+    muyBajo: '#1976d2'
+  },
+  estados: {
+    activo: '#4caf50',
+    inactivo: '#9e9e9e',
+    pendiente: '#ff9800',
+    completado: '#2196f3'
+  },
+  categorias: [
+    '#e91e63', '#9c27b0', '#3f51b5', '#00bcd4',
+    '#4caf50', '#ff9800', '#f44336', '#795548'
+  ]
+} as const;
+
+export function getColoresGraficos() {
+  return COLORES_GRAFICOS;
+}
+
+// Estados de Controles
+export const ESTADOS_CONTROL = [
+  { value: 'activo', label: 'Activo', color: 'success' },
+  { value: 'inactivo', label: 'Inactivo', color: 'default' },
+  { value: 'en_revision', label: 'En Revisión', color: 'warning' },
+  { value: 'obsoleto', label: 'Obsoleto', color: 'error' }
+] as const;
+
+export function getEstadosControl() {
+  return ESTADOS_CONTROL;
+}
+
+// Estados de Tareas/Acciones
+export const ESTADOS_TAREA = [
+  { value: 'pendiente', label: 'Pendiente', color: 'warning', porcentaje: 0 },
+  { value: 'en_progreso', label: 'En Progreso', color: 'info', porcentaje: 50 },
+  { value: 'completada', label: 'Completada', color: 'success', porcentaje: 100 },
+  { value: 'vencida', label: 'Vencida', color: 'error', porcentaje: 0 },
+  { value: 'cancelada', label: 'Cancelada', color: 'default', porcentaje: 0 }
+] as const;
+
+export function getEstadosTarea() {
+  return ESTADOS_TAREA;
 }

@@ -53,7 +53,7 @@ const formatDate = (date: Date, formatStr: string) => {
   const hours = d.getHours().toString().padStart(2, '0');
   const minutes = d.getMinutes().toString().padStart(2, '0');
   const seconds = d.getSeconds().toString().padStart(2, '0');
-  
+
   if (formatStr.includes('HH:mm:ss')) {
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   }
@@ -62,7 +62,7 @@ const formatDate = (date: Date, formatStr: string) => {
   }
   return `${day}/${month}/${year}`;
 };
-import type { HistorialCambioProceso, Proceso } from '../types';
+import type { HistorialCambioProceso, Proceso } from '../../types';
 
 type FiltroAccion = 'todas' | 'creado' | 'modificado' | 'enviado_revision' | 'aprobado' | 'rechazado' | 'observaciones_agregadas' | 'observaciones_resueltas';
 
@@ -70,13 +70,13 @@ export default function HistorialPage() {
   const { procesoSeleccionado } = useProceso();
   const { obtenerHistorial } = useRevisionProceso();
   const { data: procesos = [] } = useGetProcesosQuery();
-  
+
   const [procesoFiltro, setProcesoFiltro] = useState<Proceso | null>(procesoSeleccionado);
   const [filtroAccion, setFiltroAccion] = useState<FiltroAccion>('todas');
 
   // Obtener historial del proceso seleccionado o del filtro
   const procesoParaHistorial = procesoFiltro || procesoSeleccionado;
-  const historialCompleto = procesoParaHistorial 
+  const historialCompleto = procesoParaHistorial
     ? obtenerHistorial(procesoParaHistorial.id)
     : [];
 
@@ -140,7 +140,7 @@ export default function HistorialPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight={700}>
+          <Typography variant="h4" fontWeight={700} sx={{ color: '#1976d2' }}>
             Historial de Cambios
           </Typography>
           <Typography variant="body2" color="text.secondary">

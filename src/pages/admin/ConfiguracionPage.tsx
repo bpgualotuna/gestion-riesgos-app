@@ -4,6 +4,7 @@ import {
     Inventory as CatalogsIcon,
     Settings as ConfigIcon,
 } from '@mui/icons-material';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 import CatalogosIdentificacion from './CatalogosIdentificacion';
 import MapasConfigPage from './MapasConfigPage';
 import { useAuth } from '../../contexts/AuthContext';
@@ -53,20 +54,17 @@ export default function ConfiguracionPage() {
     }
 
     return (
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-            <Typography variant="h4" gutterBottom fontWeight={700}>
-                Configuración del Sistema
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-                Gestione los catálogos base y la configuración de los mapas de riesgo.
-            </Typography>
+        <AppPageLayout
+            title="Configuración del Sistema"
+            description="Gestione los catálogos base y la configuración de los mapas de riesgo."
+        >
+            <Box sx={{ mt: -2 }}>
 
-            <Paper sx={{ bgcolor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
-                <Tabs 
-                    value={value} 
+                <Tabs
+                    value={value}
                     onChange={handleChange}
-                    sx={{ 
-                        borderBottom: 1, 
+                    sx={{
+                        borderBottom: 1,
                         borderColor: 'divider',
                         bgcolor: '#f9f9f9',
                         '& .MuiTab-root': {
@@ -83,30 +81,26 @@ export default function ConfiguracionPage() {
                         }
                     }}
                 >
-                    <Tab 
+                    <Tab
                         icon={<CatalogsIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Catálogos de Identificación" 
+                        label="Catálogos de Identificación"
                     />
-                    <Tab 
+                    <Tab
                         icon={<ConfigIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Configuración de Mapas" 
+                        label="Configuración de Mapas"
                     />
                 </Tabs>
 
                 <TabPanel value={value} index={0}>
-                    <Box sx={{ p: 3 }}>
-                        <CatalogosIdentificacion />
-                    </Box>
+                    <CatalogosIdentificacion embedded={true} />
                 </TabPanel>
 
                 <TabPanel value={value} index={1}>
-                    <Box sx={{ p: 3 }}>
-                        <MapasConfigPage />
-                    </Box>
+                    <MapasConfigPage embedded={true} />
                 </TabPanel>
-            </Paper>
-        </Box>
+            </Box>
+        </AppPageLayout>
     );
 }

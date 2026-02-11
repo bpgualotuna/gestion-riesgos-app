@@ -373,13 +373,13 @@ export default function MapaPage() {
   const riesgosFueraLimite = useMemo(() => {
     // Obtener umbral del límite de apetito configurado (por defecto 15)
     const umbralLimite = mapaConfig?.umbralApetito || 15;
-    
+
     // Extraer todos los puntos residuales de la matriz residual
     const puntosResiduales: PuntoMapa[] = [];
     Object.values(matrizResidual).forEach(puntos => {
       puntosResiduales.push(...puntos);
     });
-    
+
     // Filtrar solo los que están fuera del límite
     return puntosResiduales
       .filter((punto) => {
@@ -796,657 +796,657 @@ export default function MapaPage() {
 
       {/* Contenido del mapa - solo visible si tiene asignaciones */}
       {!sinAsignaciones && (<>
-      {/* Mostrar errores si existen */}
-      {(errorPuntos || errorRiesgos) ? (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Error al cargar los datos del mapa. Por favor, intente nuevamente.
-        </Alert>
-      ) : null}
-      
-      {/* Mostrar indicador de carga */}
-      {(isLoadingPuntos || isLoadingRiesgos) && !errorPuntos && !errorRiesgos ? (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Cargando mapa de riesgos...
-        </Alert>
-      ) : null}
-      
-      {/* Mostrar mensaje si no hay datos pero no está cargando */}
-      {!isLoadingPuntos && !isLoadingRiesgos && !errorPuntos && !errorRiesgos && puntosFiltrados.length === 0 ? (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          No hay riesgos disponibles con los filtros seleccionados.
-        </Alert>
-      ) : null}
-      
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight={700}>
-            Mapas de Calor de Riesgos
-          </Typography>
+        {/* Mostrar errores si existen */}
+        {(errorPuntos || errorRiesgos) ? (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            Error al cargar los datos del mapa. Por favor, intente nuevamente.
+          </Alert>
+        ) : null}
 
+        {/* Mostrar indicador de carga */}
+        {(isLoadingPuntos || isLoadingRiesgos) && !errorPuntos && !errorRiesgos ? (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Cargando mapa de riesgos...
+          </Alert>
+        ) : null}
+
+        {/* Mostrar mensaje si no hay datos pero no está cargando */}
+        {!isLoadingPuntos && !isLoadingRiesgos && !errorPuntos && !errorRiesgos && puntosFiltrados.length === 0 ? (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            No hay riesgos disponibles con los filtros seleccionados.
+          </Alert>
+        ) : null}
+
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h4" gutterBottom fontWeight={700} sx={{ color: '#1976d2' }}>
+              Mapas de Calor de Riesgos
+            </Typography>
+
+          </Box>
+          <Button
+            variant={mostrarFueraApetito ? 'contained' : 'outlined'}
+            color="error"
+            onClick={() => setDialogoRiesgosFueraApetitoAbierto(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Riesgos Fuera del Apetito
+          </Button>
         </Box>
-        <Button
-          variant={mostrarFueraApetito ? 'contained' : 'outlined'}
-          color="error"
-          onClick={() => setDialogoRiesgosFueraApetitoAbierto(true)}
-          sx={{ whiteSpace: 'nowrap' }}
-        >
-          Riesgos Fuera del Apetito
-        </Button>
-      </Box>
 
-      <Grid2 container spacing={3}>
-        {/* Columna principal: Filtros y Leyenda */}
-        <Grid2 xs={12}>
-          {/* Filter */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                {(esSupervisorRiesgos || esDueñoProcesos) && procesosPropios.length > 0 && (
-                  <>
-                    <FormControl sx={{ minWidth: 200 }}>
-                      <InputLabel>Filtrar por Área</InputLabel>
-                      <Select
-                        value={filtroArea || 'all'}
-                        onChange={(e) => {
-                          setFiltroArea(e.target.value);
-                          setFiltroProceso('all');
-                        }}
-                        label="Filtrar por Área"
-                      >
-                        <MenuItem value="all">Todas las áreas</MenuItem>
-                        {Array.from(new Set(procesosPropios.map(p => p.areaId).filter(Boolean))).map(areaId => {
-                          const proceso = procesosPropios.find(p => p.areaId === areaId);
-                          return (
-                            <MenuItem key={areaId} value={areaId}>
-                              {proceso?.areaNombre || `Área ${areaId}`}
-                            </MenuItem>
-                          );
-                        })}
-                      </Select>
-                    </FormControl>
-                    <FormControl sx={{ minWidth: 200 }}>
-                      <InputLabel>Filtrar por Proceso</InputLabel>
-                      <Select
-                        value={filtroProceso || 'all'}
-                        onChange={(e) => setFiltroProceso(e.target.value)}
-                        label="Filtrar por Proceso"
-                      >
-                        <MenuItem value="all">Todos los procesos</MenuItem>
-                        {procesosPropios
-                          .filter(p => !filtroArea || filtroArea === 'all' || p.areaId === filtroArea)
-                          .map((proceso) => (
-                            <MenuItem key={proceso.id} value={proceso.id}>
-                              {proceso.nombre}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  </>
-                )}
-                <FormControl sx={{ minWidth: 200 }}>
-                  <InputLabel>Clasificación</InputLabel>
-                  <Select
-                    value={clasificacion}
-                    onChange={(e) => setClasificacion(e.target.value)}
-                    label="Clasificación"
-                  >
-                    <MenuItem value="all">Todas</MenuItem>
-                    <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Positiva</MenuItem>
-                    <MenuItem value={CLASIFICACION_RIESGO.NEGATIVA}>Negativa</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-            </CardContent>
-          </Card>
+        <Grid2 container spacing={3}>
+          {/* Columna principal: Filtros y Leyenda */}
+          <Grid2 xs={12}>
+            {/* Filter */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  {(esSupervisorRiesgos || esDueñoProcesos) && procesosPropios.length > 0 && (
+                    <>
+                      <FormControl sx={{ minWidth: 200 }}>
+                        <InputLabel>Filtrar por Área</InputLabel>
+                        <Select
+                          value={filtroArea || 'all'}
+                          onChange={(e) => {
+                            setFiltroArea(e.target.value);
+                            setFiltroProceso('all');
+                          }}
+                          label="Filtrar por Área"
+                        >
+                          <MenuItem value="all">Todas las áreas</MenuItem>
+                          {Array.from(new Set(procesosPropios.map(p => p.areaId).filter(Boolean))).map(areaId => {
+                            const proceso = procesosPropios.find(p => p.areaId === areaId);
+                            return (
+                              <MenuItem key={areaId} value={areaId}>
+                                {proceso?.areaNombre || `Área ${areaId}`}
+                              </MenuItem>
+                            );
+                          })}
+                        </Select>
+                      </FormControl>
+                      <FormControl sx={{ minWidth: 200 }}>
+                        <InputLabel>Filtrar por Proceso</InputLabel>
+                        <Select
+                          value={filtroProceso || 'all'}
+                          onChange={(e) => setFiltroProceso(e.target.value)}
+                          label="Filtrar por Proceso"
+                        >
+                          <MenuItem value="all">Todos los procesos</MenuItem>
+                          {procesosPropios
+                            .filter(p => !filtroArea || filtroArea === 'all' || p.areaId === filtroArea)
+                            .map((proceso) => (
+                              <MenuItem key={proceso.id} value={proceso.id}>
+                                {proceso.nombre}
+                              </MenuItem>
+                            ))}
+                        </Select>
+                      </FormControl>
+                    </>
+                  )}
+                  <FormControl sx={{ minWidth: 200 }}>
+                    <InputLabel>Clasificación</InputLabel>
+                    <Select
+                      value={clasificacion}
+                      onChange={(e) => setClasificacion(e.target.value)}
+                      label="Clasificación"
+                    >
+                      <MenuItem value="all">Todas</MenuItem>
+                      <MenuItem value={CLASIFICACION_RIESGO.POSITIVA}>Positiva</MenuItem>
+                      <MenuItem value={CLASIFICACION_RIESGO.NEGATIVA}>Negativa</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </CardContent>
+            </Card>
 
 
-          {/* Legend */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight={600}>
-                Leyenda
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                {clasificacion === CLASIFICACION_RIESGO.POSITIVA ? (
-                  // Leyenda Positiva (Azul/Gris)
-                  <>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#1565c0', // Blue 800
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Extremo</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#42a5f5', // Blue 400
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Alto</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#757575', // Grey 600
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Medio</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#bdbdbd', // Grey 400
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Bajo</Typography>
-                    </Box>
-                  </>
-                ) : (
-                  // Leyenda Negativa (Rojo/Naranja/Verde)
-                  <>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: colors.risk.critical.main,
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Crítico (≥20)</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#d32f2f',
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Muy Alto (15-19)</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: colors.risk.high.main,
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Alto (10-14)</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: colors.risk.medium.main,
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Medio (5-9)</Typography>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: colors.risk.low.main,
-                          borderRadius: 1,
-                        }}
-                      />
-                      <Typography variant="body2">Bajo (≤4)</Typography>
-                    </Box>
-                  </>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
+            {/* Legend */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom fontWeight={600}>
+                  Leyenda
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  {clasificacion === CLASIFICACION_RIESGO.POSITIVA ? (
+                    // Leyenda Positiva (Azul/Gris)
+                    <>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: '#1565c0', // Blue 800
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Extremo</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: '#42a5f5', // Blue 400
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Alto</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: '#757575', // Grey 600
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Medio</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: '#bdbdbd', // Grey 400
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Bajo</Typography>
+                      </Box>
+                    </>
+                  ) : (
+                    // Leyenda Negativa (Rojo/Naranja/Verde)
+                    <>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: colors.risk.critical.main,
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Crítico (≥20)</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: '#d32f2f',
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Muy Alto (15-19)</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: colors.risk.high.main,
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Alto (10-14)</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: colors.risk.medium.main,
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Medio (5-9)</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            backgroundColor: colors.risk.low.main,
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Typography variant="body2">Bajo (≤4)</Typography>
+                      </Box>
+                    </>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
 
-          {/* Matrices lado a lado */}
-          <Grid2 container spacing={2} sx={{ mb: 3 }}>
-            {/* Mapa de Riesgo Inherente */}
-            <Grid2 xs={12} md={6}>
-              <Card>
-                <CardContent sx={{ p: 2 }}>
-                  <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2, textAlign: 'center' }}>
-                    MAPA DE RIESGOS INHERENTE
-                  </Typography>
-                  <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
-                    {renderMatrix(matrizInherente, 'inherente')}
-                  </Paper>
-                </CardContent>
-              </Card>
+            {/* Matrices lado a lado */}
+            <Grid2 container spacing={2} sx={{ mb: 3 }}>
+              {/* Mapa de Riesgo Inherente */}
+              <Grid2 xs={12} md={6}>
+                <Card>
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2, textAlign: 'center' }}>
+                      MAPA DE RIESGOS INHERENTE
+                    </Typography>
+                    <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
+                      {renderMatrix(matrizInherente, 'inherente')}
+                    </Paper>
+                  </CardContent>
+                </Card>
+              </Grid2>
+
+              {/* Mapa de Riesgo Residual */}
+              <Grid2 xs={12} md={6}>
+                <Card>
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2, textAlign: 'center' }}>
+                      MAPA DE RIESGOS RESIDUAL
+                    </Typography>
+                    <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
+                      {renderMatrix(matrizResidual, 'residual')}
+                    </Paper>
+                  </CardContent>
+                </Card>
+              </Grid2>
             </Grid2>
 
-            {/* Mapa de Riesgo Residual */}
-            <Grid2 xs={12} md={6}>
-              <Card>
-                <CardContent sx={{ p: 2 }}>
-                  <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2, textAlign: 'center' }}>
-                    MAPA DE RIESGOS RESIDUAL
-                  </Typography>
-                  <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
-                    {renderMatrix(matrizResidual, 'residual')}
-                  </Paper>
-                </CardContent>
-              </Card>
-            </Grid2>
           </Grid2>
-
         </Grid2>
-      </Grid2>
 
-      {/* Diálogo de Resumen */}
-      <Dialog
-        open={dialogoResumenAbierto}
-        onClose={() => setDialogoResumenAbierto(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Riesgos en la Celda ({celdaSeleccionada?.probabilidad}, {celdaSeleccionada?.impacto})
-        </DialogTitle>
-        <DialogContent>
-          {riesgosCeldaSeleccionada.length === 0 ? (
-            <Alert severity="info">No hay riesgos en esta celda.</Alert>
-          ) : (
-            <List>
-              {riesgosCeldaSeleccionada.map((punto) => {
-                const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
-                return (
-                  <Card key={punto.riesgoId} sx={{ mb: 2 }}>
+        {/* Diálogo de Resumen */}
+        <Dialog
+          open={dialogoResumenAbierto}
+          onClose={() => setDialogoResumenAbierto(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            Riesgos en la Celda ({celdaSeleccionada?.probabilidad}, {celdaSeleccionada?.impacto})
+          </DialogTitle>
+          <DialogContent>
+            {riesgosCeldaSeleccionada.length === 0 ? (
+              <Alert severity="info">No hay riesgos en esta celda.</Alert>
+            ) : (
+              <List>
+                {riesgosCeldaSeleccionada.map((punto) => {
+                  const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
+                  return (
+                    <Card key={punto.riesgoId} sx={{ mb: 2 }}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Box>
+                            <Typography variant="h6" gutterBottom>
+                              ID: {generarIdRiesgo(punto)}
+                            </Typography>
+                            <Chip
+                              label={punto.nivelRiesgo}
+                              size="small"
+                              sx={{
+                                backgroundColor: getCellColor(punto.probabilidad, punto.impacto),
+                                color: '#fff',
+                                mr: 1,
+                              }}
+                            />
+                            <Chip
+                              label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                              size="small"
+                              color={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
+                            />
+                          </Box>
+
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" paragraph>
+                          <strong>Descripción:</strong> {punto.descripcion}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                          <Typography variant="body2">
+                            <strong>Probabilidad:</strong> {punto.probabilidad}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Impacto:</strong> {punto.impacto}
+                          </Typography>
+                          {riesgo && (
+                            <>
+                              <Typography variant="body2">
+                                <strong>Zona:</strong> {riesgo.zona}
+                              </Typography>
+                              {riesgo.tipologiaNivelI && (
+                                <Typography variant="body2">
+                                  <strong>Tipología:</strong> {riesgo.tipologiaNivelI}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </List>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogoResumenAbierto(false)}>Cerrar</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Diálogo de Detalles del Riesgo Individual */}
+        <Dialog
+          open={dialogoDetalleRiesgoAbierto}
+          onClose={() => setDialogoDetalleRiesgoAbierto(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600}>
+                Resumen del Riesgo
+              </Typography>
+              {riesgoSeleccionadoDetalle && (
+                <Chip
+                  label={generarIdRiesgo(puntoSeleccionadoDetalle!)}
+                  size="small"
+                  color="primary"
+                  sx={{ fontWeight: 600 }}
+                />
+              )}
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {riesgoSeleccionadoDetalle && puntoSeleccionadoDetalle ? (
+              <Box>
+                {/* Información del Riesgo */}
+                <Card sx={{ mb: 2, bgcolor: 'rgba(25, 118, 210, 0.05)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom fontWeight={600}>
+                      Información del Riesgo
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                      <Chip
+                        label={puntoSeleccionadoDetalle.nivelRiesgo}
+                        size="small"
+                        sx={{
+                          backgroundColor: getCellColor(puntoSeleccionadoDetalle.probabilidad, puntoSeleccionadoDetalle.impacto),
+                          color: '#fff',
+                          fontWeight: 600,
+                        }}
+                      />
+                      <Chip
+                        label={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                        size="small"
+                        color={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
+                      />
+                      <Chip
+                        label={`Zona: ${riesgoSeleccionadoDetalle.zona}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                      <strong>Descripción:</strong> {riesgoSeleccionadoDetalle.descripcion}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
+                      <Typography variant="body2">
+                        <strong>Probabilidad:</strong> {puntoSeleccionadoDetalle.probabilidad}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Impacto:</strong> {puntoSeleccionadoDetalle.impacto}
+                      </Typography>
+                      {riesgoSeleccionadoDetalle.tipologiaNivelI && (
+                        <Typography variant="body2">
+                          <strong>Tipología:</strong> {riesgoSeleccionadoDetalle.tipologiaNivelI}
+                        </Typography>
+                      )}
+                    </Box>
+
+                    {/* Información del Proceso y Responsable */}
+                    {riesgoSeleccionadoDetalle.procesoId && (() => {
+                      const procesoRiesgo = procesos.find(p => p.id === riesgoSeleccionadoDetalle.procesoId);
+                      return procesoRiesgo ? (
+                        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                            Información del Proceso
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Typography variant="body2">
+                              <strong>Proceso:</strong> {procesoRiesgo.nombre}
+                            </Typography>
+                            {procesoRiesgo.responsableNombre && (
+                              <Typography variant="body2">
+                                <strong>Responsable (Dueño del Proceso):</strong>{' '}
+                                <Chip
+                                  label={procesoRiesgo.responsableNombre}
+                                  size="small"
+                                  color="primary"
+                                  sx={{ ml: 0.5 }}
+                                />
+                              </Typography>
+                            )}
+                            {procesoRiesgo.areaNombre && (
+                              <Typography variant="body2">
+                                <strong>Área:</strong> {procesoRiesgo.areaNombre}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : null;
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Evaluación del Riesgo */}
+                {evaluacionRiesgo ? (
+                  <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        Evaluación del Riesgo
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2, mt: 2 }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Probabilidad</Typography>
+                          <Typography variant="h6" fontWeight={600}>
+                            {evaluacionRiesgo.probabilidad}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Impacto Global</Typography>
+                          <Typography variant="h6" fontWeight={600}>
+                            {evaluacionRiesgo.impactoGlobal}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Riesgo Inherente</Typography>
+                          <Typography variant="h6" fontWeight={600} color="error">
+                            {evaluacionRiesgo.riesgoInherente}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Nivel de Riesgo</Typography>
+                          <Chip
+                            label={evaluacionRiesgo.nivelRiesgo}
+                            size="small"
+                            sx={{
+                              backgroundColor: getCellColor(evaluacionRiesgo.probabilidad, evaluacionRiesgo.impactoMaximo),
+                              color: '#fff',
+                              fontWeight: 600,
+                              mt: 0.5,
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                        Impactos por Dimensión
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mt: 1 }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Personas</Typography>
+                          <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoPersonas}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Legal</Typography>
+                          <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoLegal}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Ambiental</Typography>
+                          <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoAmbiental}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Procesos</Typography>
+                          <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoProcesos}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Reputación</Typography>
+                          <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoReputacion}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Económico</Typography>
+                          <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoEconomico}</Typography>
+                        </Box>
+                      </Box>
+                      {evaluacionRiesgo.evaluadoPor && (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Evaluado por: <strong>{evaluacionRiesgo.evaluadoPor}</strong>
+                          </Typography>
+                          {evaluacionRiesgo.fechaEvaluacion && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Fecha: {new Date(evaluacionRiesgo.fechaEvaluacion).toLocaleDateString('es-ES')}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Este riesgo aún no tiene evaluación registrada.
+                  </Alert>
+                )}
+              </Box>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogoDetalleRiesgoAbierto(false)}>
+              Cerrar
+            </Button>
+
+          </DialogActions>
+        </Dialog>
+
+        {/* Diálogo de Riesgos Fuera del Apetito */}
+        <Dialog
+          open={dialogoRiesgosFueraApetitoAbierto}
+          onClose={() => setDialogoRiesgosFueraApetitoAbierto(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600} color="error">
+                Riesgos Fuera del Límite (Residuales)
+              </Typography>
+              <Chip
+                label={`${riesgosFueraLimite.length} riesgo${riesgosFueraLimite.length !== 1 ? 's' : ''}`}
+                color="error"
+                size="small"
+              />
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Los siguientes riesgos residuales tienen un valor ≥ al límite configurado y requieren atención inmediata.
+            </Alert>
+            {riesgosFueraLimite.length === 0 ? (
+              <Alert severity="success">
+                No hay riesgos fuera del apetito. Todos los riesgos están dentro del nivel aceptable.
+              </Alert>
+            ) : (
+              <List>
+                {riesgosFueraLimite.map(({ punto, riesgo, valorRiesgo }) => (
+                  <Card key={punto.riesgoId} sx={{ mb: 2, border: '2px solid', borderColor: getCellColor(punto.probabilidad, punto.impacto) }}>
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Box>
                           <Typography variant="h6" gutterBottom>
                             ID: {generarIdRiesgo(punto)}
                           </Typography>
-                          <Chip
-                            label={punto.nivelRiesgo}
-                            size="small"
-                            sx={{
-                              backgroundColor: getCellColor(punto.probabilidad, punto.impacto),
-                              color: '#fff',
-                              mr: 1,
-                            }}
-                          />
-                          <Chip
-                            label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
-                            size="small"
-                            color={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
-                          />
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                            <Chip
+                              label={punto.nivelRiesgo}
+                              size="small"
+                              sx={{
+                                backgroundColor: getCellColor(punto.probabilidad, punto.impacto),
+                                color: '#fff',
+                                fontWeight: 600,
+                              }}
+                            />
+                            <Chip
+                              label={`Valor: ${valorRiesgo}`}
+                              size="small"
+                              color="error"
+                            />
+                            {riesgo?.procesoId && (
+                              <Chip
+                                label={procesos.find((p) => p.id === riesgo.procesoId)?.nombre || 'Sin proceso'}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )}
+                          </Box>
                         </Box>
-
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<VisibilityIcon />}
+                          onClick={() => {
+                            if (riesgo) {
+                              setRiesgoSeleccionadoDetalle(riesgo);
+                              setPuntoSeleccionadoDetalle(punto);
+                              setDialogoDetalleRiesgoAbierto(true);
+                              setDialogoRiesgosFueraApetitoAbierto(false);
+                            }
+                          }}
+                        >
+                          Ver Detalle
+                        </Button>
                       </Box>
                       <Typography variant="body2" color="text.secondary" paragraph>
-                        <strong>Descripción:</strong> {punto.descripcion}
+                        <strong>Descripción:</strong> {punto.descripcion || riesgo?.descripcion || 'Sin descripción'}
                       </Typography>
-                      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                      <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
                         <Typography variant="body2">
                           <strong>Probabilidad:</strong> {punto.probabilidad}
                         </Typography>
                         <Typography variant="body2">
                           <strong>Impacto:</strong> {punto.impacto}
                         </Typography>
-                        {riesgo && (
-                          <>
-                            <Typography variant="body2">
-                              <strong>Zona:</strong> {riesgo.zona}
-                            </Typography>
-                            {riesgo.tipologiaNivelI && (
-                              <Typography variant="body2">
-                                <strong>Tipología:</strong> {riesgo.tipologiaNivelI}
-                              </Typography>
-                            )}
-                          </>
+                        {riesgo?.zona && (
+                          <Typography variant="body2">
+                            <strong>Zona:</strong> {riesgo.zona}
+                          </Typography>
                         )}
                       </Box>
                     </CardContent>
                   </Card>
-                );
-              })}
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogoResumenAbierto(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Diálogo de Detalles del Riesgo Individual */}
-      <Dialog
-        open={dialogoDetalleRiesgoAbierto}
-        onClose={() => setDialogoDetalleRiesgoAbierto(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
-              Resumen del Riesgo
-            </Typography>
-            {riesgoSeleccionadoDetalle && (
-              <Chip
-                label={generarIdRiesgo(puntoSeleccionadoDetalle!)}
-                size="small"
-                color="primary"
-                sx={{ fontWeight: 600 }}
-              />
+                ))}
+              </List>
             )}
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {riesgoSeleccionadoDetalle && puntoSeleccionadoDetalle ? (
-            <Box>
-              {/* Información del Riesgo */}
-              <Card sx={{ mb: 2, bgcolor: 'rgba(25, 118, 210, 0.05)' }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom fontWeight={600}>
-                    Información del Riesgo
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                    <Chip
-                      label={puntoSeleccionadoDetalle.nivelRiesgo}
-                      size="small"
-                      sx={{
-                        backgroundColor: getCellColor(puntoSeleccionadoDetalle.probabilidad, puntoSeleccionadoDetalle.impacto),
-                        color: '#fff',
-                        fontWeight: 600,
-                      }}
-                    />
-                    <Chip
-                      label={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
-                      size="small"
-                      color={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
-                    />
-                    <Chip
-                      label={`Zona: ${riesgoSeleccionadoDetalle.zona}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" paragraph>
-                    <strong>Descripción:</strong> {riesgoSeleccionadoDetalle.descripcion}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
-                    <Typography variant="body2">
-                      <strong>Probabilidad:</strong> {puntoSeleccionadoDetalle.probabilidad}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Impacto:</strong> {puntoSeleccionadoDetalle.impacto}
-                    </Typography>
-                    {riesgoSeleccionadoDetalle.tipologiaNivelI && (
-                      <Typography variant="body2">
-                        <strong>Tipología:</strong> {riesgoSeleccionadoDetalle.tipologiaNivelI}
-                      </Typography>
-                    )}
-                  </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogoRiesgosFueraApetitoAbierto(false)}>Cerrar</Button>
+          </DialogActions>
+        </Dialog>
 
-                  {/* Información del Proceso y Responsable */}
-                  {riesgoSeleccionadoDetalle.procesoId && (() => {
-                    const procesoRiesgo = procesos.find(p => p.id === riesgoSeleccionadoDetalle.procesoId);
-                    return procesoRiesgo ? (
-                      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                          Información del Proceso
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <Typography variant="body2">
-                            <strong>Proceso:</strong> {procesoRiesgo.nombre}
-                          </Typography>
-                          {procesoRiesgo.responsableNombre && (
-                            <Typography variant="body2">
-                              <strong>Responsable (Dueño del Proceso):</strong>{' '}
-                              <Chip
-                                label={procesoRiesgo.responsableNombre}
-                                size="small"
-                                color="primary"
-                                sx={{ ml: 0.5 }}
-                              />
-                            </Typography>
-                          )}
-                          {procesoRiesgo.areaNombre && (
-                            <Typography variant="body2">
-                              <strong>Área:</strong> {procesoRiesgo.areaNombre}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    ) : null;
-                  })()}
-                </CardContent>
-              </Card>
-
-              {/* Evaluación del Riesgo */}
-              {evaluacionRiesgo ? (
-                <Card sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom fontWeight={600}>
-                      Evaluación del Riesgo
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2, mt: 2 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Probabilidad</Typography>
-                        <Typography variant="h6" fontWeight={600}>
-                          {evaluacionRiesgo.probabilidad}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Impacto Global</Typography>
-                        <Typography variant="h6" fontWeight={600}>
-                          {evaluacionRiesgo.impactoGlobal}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Riesgo Inherente</Typography>
-                        <Typography variant="h6" fontWeight={600} color="error">
-                          {evaluacionRiesgo.riesgoInherente}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Nivel de Riesgo</Typography>
-                        <Chip
-                          label={evaluacionRiesgo.nivelRiesgo}
-                          size="small"
-                          sx={{
-                            backgroundColor: getCellColor(evaluacionRiesgo.probabilidad, evaluacionRiesgo.impactoMaximo),
-                            color: '#fff',
-                            fontWeight: 600,
-                            mt: 0.5,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    <Divider sx={{ my: 2 }} />
-                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                      Impactos por Dimensión
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mt: 1 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Personas</Typography>
-                        <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoPersonas}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Legal</Typography>
-                        <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoLegal}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Ambiental</Typography>
-                        <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoAmbiental}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Procesos</Typography>
-                        <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoProcesos}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Reputación</Typography>
-                        <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoReputacion}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Económico</Typography>
-                        <Typography variant="body2" fontWeight={600}>{evaluacionRiesgo.impactoEconomico}</Typography>
-                      </Box>
-                    </Box>
-                    {evaluacionRiesgo.evaluadoPor && (
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Evaluado por: <strong>{evaluacionRiesgo.evaluadoPor}</strong>
-                        </Typography>
-                        {evaluacionRiesgo.fechaEvaluacion && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Fecha: {new Date(evaluacionRiesgo.fechaEvaluacion).toLocaleDateString('es-ES')}
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Este riesgo aún no tiene evaluación registrada.
-                </Alert>
-              )}
-            </Box>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogoDetalleRiesgoAbierto(false)}>
-            Cerrar
-          </Button>
-
-        </DialogActions>
-      </Dialog>
-
-      {/* Diálogo de Riesgos Fuera del Apetito */}
-      <Dialog
-        open={dialogoRiesgosFueraApetitoAbierto}
-        onClose={() => setDialogoRiesgosFueraApetitoAbierto(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} color="error">
-              Riesgos Fuera del Límite (Residuales)
-            </Typography>
-            <Chip
-              label={`${riesgosFueraLimite.length} riesgo${riesgosFueraLimite.length !== 1 ? 's' : ''}`}
-              color="error"
-              size="small"
-            />
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Los siguientes riesgos residuales tienen un valor ≥ al límite configurado y requieren atención inmediata.
-          </Alert>
-          {riesgosFueraLimite.length === 0 ? (
-            <Alert severity="success">
-              No hay riesgos fuera del apetito. Todos los riesgos están dentro del nivel aceptable.
-            </Alert>
-          ) : (
-            <List>
-              {riesgosFueraLimite.map(({ punto, riesgo, valorRiesgo }) => (
-                <Card key={punto.riesgoId} sx={{ mb: 2, border: '2px solid', borderColor: getCellColor(punto.probabilidad, punto.impacto) }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          ID: {generarIdRiesgo(punto)}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                          <Chip
-                            label={punto.nivelRiesgo}
-                            size="small"
-                            sx={{
-                              backgroundColor: getCellColor(punto.probabilidad, punto.impacto),
-                              color: '#fff',
-                              fontWeight: 600,
-                            }}
-                          />
-                          <Chip
-                            label={`Valor: ${valorRiesgo}`}
-                            size="small"
-                            color="error"
-                          />
-                          {riesgo?.procesoId && (
-                            <Chip
-                              label={procesos.find((p) => p.id === riesgo.procesoId)?.nombre || 'Sin proceso'}
-                              size="small"
-                              variant="outlined"
-                            />
-                          )}
-                        </Box>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<VisibilityIcon />}
-                        onClick={() => {
-                          if (riesgo) {
-                            setRiesgoSeleccionadoDetalle(riesgo);
-                            setPuntoSeleccionadoDetalle(punto);
-                            setDialogoDetalleRiesgoAbierto(true);
-                            setDialogoRiesgosFueraApetitoAbierto(false);
-                          }
-                        }}
-                      >
-                        Ver Detalle
-                      </Button>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary" paragraph>
-                      <strong>Descripción:</strong> {punto.descripcion || riesgo?.descripcion || 'Sin descripción'}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
-                      <Typography variant="body2">
-                        <strong>Probabilidad:</strong> {punto.probabilidad}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Impacto:</strong> {punto.impacto}
-                      </Typography>
-                      {riesgo?.zona && (
-                        <Typography variant="body2">
-                          <strong>Zona:</strong> {riesgo.zona}
-                        </Typography>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogoRiesgosFueraApetitoAbierto(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Resumen de Estadísticas: Comparativa Inherente vs Residual */}
-      <ResumenEstadisticasMapas
-        matrizInherente={matrizInherente}
-        matrizResidual={matrizResidual}
-        procesos={procesos}
-        filtroArea={filtroArea}
-        filtroProceso={filtroProceso}
-        puntosFiltrados={puntosFiltrados}
-      />
+        {/* Resumen de Estadísticas: Comparativa Inherente vs Residual */}
+        <ResumenEstadisticasMapas
+          matrizInherente={matrizInherente}
+          matrizResidual={matrizResidual}
+          procesos={procesos}
+          filtroArea={filtroArea}
+          filtroProceso={filtroProceso}
+          puntosFiltrados={puntosFiltrados}
+        />
       </>)}
     </Box>
   );

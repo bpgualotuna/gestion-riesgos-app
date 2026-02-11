@@ -28,6 +28,8 @@ import type {
 } from '../../types';
 import {
   getMockRiesgos,
+  getAllRiesgos,
+  saveRiesgos,
   getMockEvaluacionesByRiesgo,
   getMockEstadisticas,
   getMockRiesgosRecientes,
@@ -243,6 +245,8 @@ export const riesgosApi = createApi({
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         } as Riesgo;
+        const allRisks = getAllRiesgos();
+        saveRiesgos([...allRisks, nuevoRiesgo]);
         return { data: nuevoRiesgo };
       },
       invalidatesTags: ['Riesgo', 'Estadisticas'],
@@ -251,13 +255,14 @@ export const riesgosApi = createApi({
     updateRiesgo: builder.mutation<Riesgo, UpdateRiesgoDto>({
       queryFn: async ({ id, ...body }) => {
         await new Promise(resolve => setTimeout(resolve, 100));
-        const response = getMockRiesgos();
-        const riesgos = response.data;
-        const index = riesgos.findIndex((r: Riesgo) => r.id === id);
+        const allRisks = getAllRiesgos();
+        const index = allRisks.findIndex((r: Riesgo) => r.id === id);
         if (index === -1) {
           return { error: { status: 404, data: 'Riesgo no encontrado' } };
         }
-        const actualizado = { ...riesgos[index], ...body, updatedAt: new Date().toISOString() };
+        const actualizado = { ...allRisks[index], ...body, updatedAt: new Date().toISOString() };
+        allRisks[index] = actualizado;
+        saveRiesgos(allRisks);
         return { data: actualizado };
       },
       invalidatesTags: (_result, _error, { id }) => [
@@ -270,7 +275,9 @@ export const riesgosApi = createApi({
     deleteRiesgo: builder.mutation<void, string>({
       queryFn: async (id) => {
         await new Promise(resolve => setTimeout(resolve, 100));
-        // Eliminar de mockRiesgos
+        const allRisks = getAllRiesgos();
+        const updated = allRisks.filter(r => r.id !== id);
+        saveRiesgos(updated);
         return { data: undefined };
       },
       invalidatesTags: ['Riesgo', 'Estadisticas'],

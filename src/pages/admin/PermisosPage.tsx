@@ -13,8 +13,9 @@ import {
     Autocomplete,
     Alert
 } from '@mui/material';
-import Grid2 from '../../utils/Grid2';
+import Grid from '@mui/material/Grid';
 import { Save as SaveIcon } from '@mui/icons-material';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import type { Proceso, Usuario } from '../../types';
@@ -60,7 +61,7 @@ export default function PermisosPage() {
         );
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!procesoId) {
             showError('Debe seleccionar un proceso');
             return;
@@ -68,70 +69,60 @@ export default function PermisosPage() {
 
         const procesoToUpdate = procesos.find(p => p.id === procesoId);
         if (procesoToUpdate) {
-            updateMockProceso(procesoToUpdate.id, {
-                puedeCrear: puedeCrear
-            });
-            // Update local state
-            setProcesos(getMockProcesos());
+            // Mock update
+            const updatedProceso = { ...procesoToUpdate, puedeCrear };
+            // In a real app we would call API
+            // await updateProceso(updatedProceso);
+
             showSuccess('Permisos de creación actualizados correctamente');
         }
     };
 
     return (
-        <Box>
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h4" gutterBottom fontWeight={700}>
-                    Permisos de Creación
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    Asigne qué usuarios tienen permiso para registrar riesgos en procesos específicos.
-                </Typography>
-            </Box>
+        <AppPageLayout
+            title="Permisos de Creación"
+            description="Asigne qué usuarios tienen permiso para registrar riesgos en procesos específicos."
+        >
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <FormControl fullWidth>
+                    <InputLabel>Proceso</InputLabel>
+                    <Select
+                        value={procesoId}
+                        onChange={(e) => setProcesoId(e.target.value)}
+                        label="Proceso"
+                    >
+                        <MenuItem value=""><em>Seleccione un proceso</em></MenuItem>
+                        {procesos.map((p) => (
+                            <MenuItem key={p.id} value={p.id}>
+                                {p.nombre}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
 
-            <Grid2 container spacing={3} sx={{ maxWidth: 800 }}>
-                <Grid2 xs={12} md={6}>
-                    <FormControl fullWidth>
-                        <InputLabel>Proceso</InputLabel>
-                        <Select
-                            value={procesoId}
-                            onChange={(e) => setProcesoId(e.target.value)}
-                            label="Proceso"
-                        >
-                            <MenuItem value="">Seleccione un proceso</MenuItem>
-                            {procesos.map((p) => (
-                                <MenuItem key={p.id} value={p.id}>
-                                    {p.nombre}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid2>
+                <Autocomplete
+                    multiple
+                    options={usuarios}
+                    getOptionLabel={(option) => `${option.nombre} (${option.role})`}
+                    value={usuarios.filter((u) => puedeCrear.includes(u.id))}
+                    onChange={(_event, newValue) => {
+                        setPuedeCrear(newValue.map((u) => u.id));
+                    }}
+                    renderInput={(params) => (
+                        <TextField {...params} label="Usuarios autorizados a crear" placeholder="Seleccionar usuarios" />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                            <Chip
+                                label={`${option.nombre} (${option.role})`}
+                                {...getTagProps({ index })}
+                                key={option.id}
+                            />
+                        ))
+                    }
+                />
 
-                <Grid2 xs={12} md={6}>
-                    <Autocomplete
-                        multiple
-                        options={usuarios}
-                        getOptionLabel={(option) => `${option.nombre} (${option.role})`}
-                        value={usuarios.filter((u) => puedeCrear.includes(u.id))}
-                        onChange={(_event, newValue) => {
-                            setPuedeCrear(newValue.map((u) => u.id));
-                        }}
-                        renderInput={(params) => (
-                            <TextField {...params} label="Usuarios autorizados a crear" />
-                        )}
-                        renderTags={(value, getTagProps) =>
-                            value.map((option, index) => (
-                                <Chip
-                                    label={`${option.nombre} (${option.role})`}
-                                    {...getTagProps({ index })}
-                                    key={option.id}
-                                />
-                            ))
-                        }
-                    />
-                </Grid2>
-
-                <Grid2 xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
                         variant="contained"
                         startIcon={<SaveIcon />}
@@ -141,8 +132,8 @@ export default function PermisosPage() {
                     >
                         Guardar Permisos
                     </Button>
-                </Grid2>
-            </Grid2>
-        </Box>
+                </Box>
+            </Box>
+        </AppPageLayout>
     );
 }

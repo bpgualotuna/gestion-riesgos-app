@@ -17,14 +17,17 @@ import {
     LocationOn as ZonaIcon,
     Source as SourceIcon,
     Search as SearchIcon,
+    FactCheck as ObjetivoIcon,
 } from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
 import RiesgosCatalog from './RiesgosCatalog';
 import ImpactosCatalog from './ImpactosCatalog';
 import SimpleCatalog from './SimpleCatalog';
 import { GridColDef } from '@mui/x-data-grid';
-import { 
-    TipoRiesgo, 
+import AppPageLayout from '../../components/layout/AppPageLayout';
+
+import {
+    TipoRiesgo,
     ImpactoDescripcion,
     Vicepresidencia,
     Gerencia,
@@ -32,10 +35,10 @@ import {
     Fuente,
     Objetivo
 } from '../../types';
-import { 
-    getMockTiposRiesgos, 
-    getMockImpactos, 
-    getMockObjetivos, 
+import {
+    getMockTiposRiesgos,
+    getMockImpactos,
+    getMockObjetivos,
     getMockFrecuencias,
     updateDescripcionesImpacto,
     getDescripcionesImpacto
@@ -67,10 +70,10 @@ function TabPanel(props: TabPanelProps) {
     );
 }
 
-export default function CatalogosIdentificacion() {
+export default function CatalogosIdentificacion({ embedded = false }: { embedded?: boolean }) {
     const [currentTab, setCurrentTab] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     // Estados para cada catálogo
     const [tiposRiesgo, setTiposRiesgo] = useState<TipoRiesgo[]>([]);
     const [impactos, setImpactos] = useState<Record<string, Record<number, string>>>({});
@@ -92,8 +95,8 @@ export default function CatalogosIdentificacion() {
             // Cargar desde localStorage o valores por defecto desde mockData
             const storedTiposRiesgo = localStorage.getItem('catalogos_tiposRiesgo');
             const storedImpactos = localStorage.getItem('catalogos_impactos');
-            const storedVicepresidencias = localStorage.getItem('catalogos_vicepresidencias');
-            const storedGerencias = localStorage.getItem('catalogos_gerencias');
+            const storedVicepresidencias = localStorage.getItem('catalog_vicepresidencias');
+            const storedGerencias = localStorage.getItem('catalog_gerencias_v2');
             const storedFrecuencias = localStorage.getItem('catalogos_frecuencias');
             const storedFuentes = localStorage.getItem('catalogos_fuentes');
             const storedObjetivos = localStorage.getItem('catalogos_objetivos');
@@ -105,7 +108,7 @@ export default function CatalogosIdentificacion() {
             setImpactos(storedImpactos ? JSON.parse(storedImpactos) : getDescripcionesImpacto());
             setObjetivos(storedObjetivos ? JSON.parse(storedObjetivos) : getMockObjetivos());
             setFrecuencias(storedFrecuencias ? JSON.parse(storedFrecuencias) : getMockFrecuencias());
-            
+
             if (storedVicepresidencias) setVicepresidencias(JSON.parse(storedVicepresidencias));
             if (storedGerencias) setGerencias(JSON.parse(storedGerencias));
             if (storedFuentes) setFuentes(JSON.parse(storedFuentes));
@@ -148,14 +151,14 @@ export default function CatalogosIdentificacion() {
             newData.push(item);
         }
         setVicepresidencias(newData);
-        localStorage.setItem('catalogos_vicepresidencias', JSON.stringify(newData));
+        localStorage.setItem('catalog_vicepresidencias', JSON.stringify(newData));
     };
 
     const handleDeleteVicepresidencia = (id: string) => {
         if (window.confirm('¿Está seguro de eliminar esta vicepresidencia?')) {
             const newData = vicepresidencias.filter(v => v.id !== id);
             setVicepresidencias(newData);
-            localStorage.setItem('catalogos_vicepresidencias', JSON.stringify(newData));
+            localStorage.setItem('catalog_vicepresidencias', JSON.stringify(newData));
         }
     };
 
@@ -169,14 +172,14 @@ export default function CatalogosIdentificacion() {
             newData.push(item);
         }
         setGerencias(newData);
-        localStorage.setItem('catalogos_gerencias', JSON.stringify(newData));
+        localStorage.setItem('catalog_gerencias_v2', JSON.stringify(newData));
     };
 
     const handleDeleteGerencia = (id: string) => {
         if (window.confirm('¿Está seguro de eliminar esta gerencia?')) {
             const newData = gerencias.filter(g => g.id !== id);
             setGerencias(newData);
-            localStorage.setItem('catalogos_gerencias', JSON.stringify(newData));
+            localStorage.setItem('catalog_gerencias_v2', JSON.stringify(newData));
         }
     };
 
@@ -222,6 +225,27 @@ export default function CatalogosIdentificacion() {
         }
     };
 
+    const handleSaveObjetivo = (item: Objetivo) => {
+        let newData = [...objetivos];
+        const index = newData.findIndex(o => o.id === item.id);
+        if (index !== -1) {
+            newData[index] = item;
+        } else {
+            item.id = Date.now();
+            newData.push(item);
+        }
+        setObjetivos(newData);
+        localStorage.setItem('catalogos_objetivos', JSON.stringify(newData));
+    };
+
+    const handleDeleteObjetivo = (id: number) => {
+        if (window.confirm('¿Está seguro de eliminar este objetivo?')) {
+            const newData = objetivos.filter(o => o.id !== id);
+            setObjetivos(newData);
+            localStorage.setItem('catalogos_objetivos', JSON.stringify(newData));
+        }
+    };
+
     // Columnas para catálogos simples
     const vicepresidenciaColumns: GridColDef[] = [
         { field: 'id', headerName: 'ID', width: 80 },
@@ -248,139 +272,161 @@ export default function CatalogosIdentificacion() {
         { field: 'descripcion', headerName: 'Descripción', flex: 2 },
     ];
 
-    return (
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5' }}>
-            <Typography variant="h5" gutterBottom fontWeight={600}>
-                Catálogos de Identificación de Riesgos
-            </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
-                Configure los catálogos base utilizados en el proceso de identificación de riesgos.
-            </Typography>
+    const objetivoColumns: GridColDef[] = [
+        { field: 'id', headerName: 'ID', width: 80 },
+        { field: 'codigo', headerName: 'Código', width: 100 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 1 },
+    ];
 
-            <Paper sx={{ bgcolor: 'white', borderRadius: '8px', overflow: 'hidden', mt: 3 }}>
-                <Tabs 
-                    value={currentTab} 
-                    onChange={handleTabChange}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{ 
-                        borderBottom: 1, 
-                        borderColor: 'divider',
-                        bgcolor: '#f9f9f9',
-                        '& .MuiTab-root': {
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: 1,
-                            padding: '12px 16px',
-                            textTransform: 'none',
-                            fontSize: '13px'
-                        },
-                        '& .MuiTabs-indicator': {
-                            height: 3
-                        }
-                    }}
-                >
-                    <Tab 
-                        icon={<RiesgoIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Tipos de Riesgo" 
+    const content = (
+        <Box sx={{ mt: embedded ? 0 : -2 }}>
+            <Tabs
+                value={currentTab}
+                onChange={handleTabChange}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'white',
+                    '& .MuiTab-root': {
+                        minHeight: 64,
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        fontSize: '0.875rem'
+                    }
+                }}
+            >
+                <Tab
+                    icon={<RiesgoIcon />}
+                    iconPosition="start"
+                    label="Tipos de Riesgo"
+                />
+                <Tab
+                    icon={<ImpactIcon />}
+                    iconPosition="start"
+                    label="Impactos"
+                />
+                <Tab
+                    icon={<VpIcon />}
+                    iconPosition="start"
+                    label="Vicepresidencias"
+                />
+                <Tab
+                    icon={<GerenciaIcon />}
+                    iconPosition="start"
+                    label="Gerencias"
+                />
+                <Tab
+                    icon={<ZonaIcon />}
+                    iconPosition="start"
+                    label="Zonas"
+                />
+                <Tab
+                    icon={<SourceIcon />}
+                    iconPosition="start"
+                    label="Orígenes"
+                />
+                <Tab
+                    icon={<ObjetivoIcon />}
+                    iconPosition="start"
+                    label="Objetivos"
+                />
+            </Tabs>
+
+            <Box sx={{ p: 3 }}>
+                <TabPanel value={currentTab} index={0}>
+                    <RiesgosCatalog
+                        data={tiposRiesgo}
+                        onSave={handleSaveTiposRiesgo}
                     />
-                    <Tab 
-                        icon={<ImpactIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Impactos" 
+                </TabPanel>
+
+                <TabPanel value={currentTab} index={1}>
+                    <ImpactosCatalog
+                        data={impactos}
+                        onSave={handleSaveImpactos}
                     />
-                    <Tab 
-                        icon={<VpIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Vicepresidencias" 
+                </TabPanel>
+
+                <TabPanel value={currentTab} index={2}>
+                    <SimpleCatalog
+                        title="Vicepresidencias"
+                        data={vicepresidencias}
+                        columns={vicepresidenciaColumns}
+                        onSave={handleSaveVicepresidencia}
+                        onDelete={handleDeleteVicepresidencia}
+                        itemLabel="Vicepresidencia"
+                        defaultItem={{ id: '', nombre: '', sigla: '' }}
                     />
-                    <Tab 
-                        icon={<GerenciaIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Gerencias" 
+                </TabPanel>
+
+                <TabPanel value={currentTab} index={3}>
+                    <SimpleCatalog
+                        title="Gerencias"
+                        data={gerencias}
+                        columns={gerenciaColumns}
+                        onSave={handleSaveGerencia}
+                        onDelete={handleDeleteGerencia}
+                        itemLabel="Gerencia"
+                        defaultItem={{ id: '', nombre: '', sigla: '' }}
                     />
-                    <Tab 
-                        icon={<ZonaIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Zonas" 
+                </TabPanel>
+
+                <TabPanel value={currentTab} index={4}>
+                    <SimpleCatalog
+                        title="Zonas"
+                        data={zonas}
+                        columns={zonaColumns}
+                        onSave={handleSaveZona}
+                        onDelete={handleDeleteZona}
+                        itemLabel="Zona"
+                        defaultItem={{ id: '', nombre: '', descripcion: '' }}
                     />
-                    <Tab 
-                        icon={<SourceIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Orígenes" 
+                </TabPanel>
+
+                <TabPanel value={currentTab} index={5}>
+                    <SimpleCatalog
+                        title="Orígenes de Riesgo"
+                        data={origenes}
+                        columns={origenColumns}
+                        onSave={handleSaveOrigen}
+                        onDelete={handleDeleteOrigen}
+                        itemLabel="Origen"
+                        defaultItem={{ id: '', nombre: '', descripcion: '' }}
                     />
-                </Tabs>
+                </TabPanel>
 
-                <Box sx={{ p: 3 }}>
-                    <TabPanel value={currentTab} index={0}>
-                        <RiesgosCatalog 
-                            data={tiposRiesgo}
-                            onSave={handleSaveTiposRiesgo}
-                        />
-                    </TabPanel>
+                <TabPanel value={currentTab} index={6}>
+                    <SimpleCatalog
+                        title="Objetivos Estratégicos"
+                        data={objetivos}
+                        columns={objetivoColumns}
+                        onSave={handleSaveObjetivo}
+                        onDelete={handleDeleteObjetivo}
+                        itemLabel="Objetivo"
+                        defaultItem={{ id: '', codigo: '', descripcion: '' }}
+                    />
+                </TabPanel>
+            </Box>
 
-                    <TabPanel value={currentTab} index={1}>
-                        <ImpactosCatalog 
-                            data={impactos}
-                            onSave={handleSaveImpactos}
-                        />
-                    </TabPanel>
-
-                    <TabPanel value={currentTab} index={2}>
-                        <SimpleCatalog
-                            title="Vicepresidencias"
-                            data={vicepresidencias}
-                            columns={vicepresidenciaColumns}
-                            onSave={handleSaveVicepresidencia}
-                            onDelete={handleDeleteVicepresidencia}
-                            itemLabel="Vicepresidencia"
-                            defaultItem={{ id: '', nombre: '', sigla: '' }}
-                        />
-                    </TabPanel>
-
-                    <TabPanel value={currentTab} index={3}>
-                        <SimpleCatalog
-                            title="Gerencias"
-                            data={gerencias}
-                            columns={gerenciaColumns}
-                            onSave={handleSaveGerencia}
-                            onDelete={handleDeleteGerencia}
-                            itemLabel="Gerencia"
-                            defaultItem={{ id: '', nombre: '', sigla: '' }}
-                        />
-                    </TabPanel>
-
-                    <TabPanel value={currentTab} index={4}>
-                        <SimpleCatalog
-                            title="Zonas"
-                            data={zonas}
-                            columns={zonaColumns}
-                            onSave={handleSaveZona}
-                            onDelete={handleDeleteZona}
-                            itemLabel="Zona"
-                            defaultItem={{ id: '', nombre: '', descripcion: '' }}
-                        />
-                    </TabPanel>
-
-                    <TabPanel value={currentTab} index={5}>
-                        <SimpleCatalog
-                            title="Orígenes de Riesgo"
-                            data={origenes}
-                            columns={origenColumns}
-                            onSave={handleSaveOrigen}
-                            onDelete={handleDeleteOrigen}
-                            itemLabel="Origen"
-                            defaultItem={{ id: '', nombre: '', descripcion: '' }}
-                        />
-                    </TabPanel>
-                </Box>
-            </Paper>
-
-            <Alert severity="info" sx={{ mt: 3 }}>
-                Los cambios en los catálogos se guardan automáticamente en el navegador. 
+            <Alert severity="info" sx={{ mt: 3, borderRadius: 2 }}>
+                Los cambios en los catálogos se guardan automáticamente en el navegador.
                 Asegúrese de realizar respaldos periódicos de la información importante.
             </Alert>
         </Box>
+    );
+
+    if (embedded) {
+        return content;
+    }
+
+    return (
+        <AppPageLayout
+            title="Catálogos de Identificación de Riesgos"
+            description="Configure los catálogos base utilizados en el proceso de identificación de riesgos."
+        >
+            {content}
+        </AppPageLayout>
     );
 }

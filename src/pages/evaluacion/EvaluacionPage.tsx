@@ -1,6 +1,6 @@
 ﻿/**
  * Evaluación Page - COMPLETA según Excel
- * Incluye: Evaluación Inherente (Negativa/Positiva), Causas, Controles, Evaluación Residual
+ * Incluye: Evaluación Inherente (Negativa/Positiva), Causas, Controles
  */
 
 import { useState } from 'react';
@@ -42,7 +42,10 @@ import {
   Edit as EditIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  Edit as EditIconSmall,
+  Assessment as AssessmentIcon,
+  TrendingUp as TrendingUpIcon,
+  FormatListBulleted as ListIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import { useGetRiesgosQuery, useCreateEvaluacionMutation } from '../../api/services/riesgosApi';
 import { useCalculosRiesgo } from '../../hooks/useCalculosRiesgo';
@@ -51,6 +54,9 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { DIMENSIONES_IMPACTO, LABELS_PROBABILIDAD, LABELS_IMPACTO } from '../../utils/constants';
 import { getRiskColor } from '../../app/theme/colors';
 import { formatRiskValue } from "../../utils/formatters";
+import AppPageLayout from '../../components/layout/AppPageLayout';
+
+
 import type {
   Riesgo,
   Impactos,
@@ -59,7 +65,7 @@ import type {
   TipoControlHSEQ,
   TipoEfectoControl,
   NaturalezaControl,
-} from '../types';
+} from '../../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -124,6 +130,9 @@ export default function EvaluacionPage() {
     procesos: 1,
     reputacion: 1,
     economico: 1,
+    confidencialidadSGSI: 1,
+    disponibilidadSGSI: 1,
+    integridadSGSI: 1,
   });
   const [frecuenciaNegativa, setFrecuenciaNegativa] = useState<number>(1);
 
@@ -135,6 +144,9 @@ export default function EvaluacionPage() {
     procesos: 1,
     reputacion: 1,
     economico: 1,
+    confidencialidadSGSI: 1,
+    disponibilidadSGSI: 1,
+    integridadSGSI: 1,
   });
   const [frecuenciaPositiva, setFrecuenciaPositiva] = useState<number>(1);
 
@@ -373,33 +385,32 @@ export default function EvaluacionPage() {
   // Validación removida - permite cargar sin proceso seleccionado
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight={700}>
-            Evaluación de Riesgos
-          </Typography>
-          <Typography variant="body1" color="text.secondary" paragraph>
-            Evaluación completa según estructura del Excel: Inherente (Negativa/Positiva), Causas, Controles y Residual
-          </Typography>
+    <AppPageLayout
+      title="Evaluación de Riesgos"
+      description="Evaluación completa según estructura del Excel: Inherente (Negativa/Positiva), Causas y Controles."
+      action={
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {isReadOnly && (
+            <Chip
+              icon={<VisibilityIcon />}
+              label="Modo Visualización"
+              color="info"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+          {modoProceso === 'editar' && (
+            <Chip icon={<EditIcon />} label="Modo Edición" color="warning" sx={{ fontWeight: 600 }} />
+          )}
         </Box>
-        {isReadOnly && (
-          <Chip
-            icon={<VisibilityIcon />}
-            label="Modo Visualización"
-            color="info"
-            sx={{ fontWeight: 600 }}
-          />
-        )}
-        {modoProceso === 'editar' && (
-          <Chip icon={<EditIcon />} label="Modo Edición" color="warning" sx={{ fontWeight: 600 }} />
-        )}
-      </Box>
-      {isReadOnly && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Está en modo visualización. Solo puede ver la información.
-        </Alert>
-      )}
+      }
+      alert={
+        isReadOnly && (
+          <Alert severity="info" sx={{ mb: 0, borderRadius: 2 }}>
+            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
+          </Alert>
+        )
+      }
+    >
 
       {/* Selector de Riesgo */}
       <Card sx={{ mb: 3 }}>
@@ -510,18 +521,17 @@ export default function EvaluacionPage() {
       {selectedRiesgo && (
         <>
           <Card>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, bgcolor: 'white', borderRadius: 1 }}>
               <Tabs
                 value={tabValue}
                 onChange={(_, newValue) => setTabValue(newValue)}
                 variant="scrollable"
                 scrollButtons="auto"
               >
-                <Tab label="Evaluación Inherente - Negativa" />
-                <Tab label="Evaluación Inherente - Positiva" />
-                <Tab label="Causas del Riesgo" />
-                <Tab label="Controles" />
-                <Tab label="Evaluación Residual" />
+                <Tab icon={<AssessmentIcon />} iconPosition="start" label="INHERENTE - NEGATIVA" sx={{ fontWeight: 600 }} />
+                <Tab icon={<TrendingUpIcon />} iconPosition="start" label="INHERENTE - POSITIVA" sx={{ fontWeight: 600 }} />
+                <Tab icon={<ListIcon />} iconPosition="start" label="CAUSAS" sx={{ fontWeight: 600 }} />
+                <Tab icon={<SecurityIcon />} iconPosition="start" label="CONTROLES" sx={{ fontWeight: 600 }} />
               </Tabs>
             </Box>
 
@@ -545,7 +555,7 @@ export default function EvaluacionPage() {
                       Dimensiones de Impacto (1-5)
                     </Typography>
                     <Grid2 container spacing={3}>
-                      {DIMENSIONES_IMPACTO.filter((d) => d.key !== 'tecnologico').map((dimension) => (
+                      {DIMENSIONES_IMPACTO.map((dimension) => (
                         <Grid2 xs={12} sm={6} md={4} key={dimension.key}>
                           <Box>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -719,7 +729,7 @@ export default function EvaluacionPage() {
                       Dimensiones de Impacto (1-5)
                     </Typography>
                     <Grid2 container spacing={3}>
-                      {DIMENSIONES_IMPACTO.filter((d) => d.key !== 'tecnologico').map((dimension) => (
+                      {DIMENSIONES_IMPACTO.map((dimension) => (
                         <Grid2 xs={12} sm={6} md={4} key={dimension.key}>
                           <Box>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -902,7 +912,7 @@ export default function EvaluacionPage() {
                                   onClick={() => handleEditarCausa(causa)}
                                   color="primary"
                                 >
-                                  <EditIconSmall fontSize="small" />
+                                  <EditIcon fontSize="small" />
                                 </IconButton>
                                 <IconButton
                                   size="small"
@@ -1006,7 +1016,7 @@ export default function EvaluacionPage() {
                                     onClick={() => handleEditarControl(control)}
                                     color="primary"
                                   >
-                                    <EditIconSmall fontSize="small" />
+                                    <EditIcon fontSize="small" />
                                   </IconButton>
                                   <IconButton
                                     size="small"
@@ -1027,73 +1037,7 @@ export default function EvaluacionPage() {
               </CardContent>
             </TabPanel>
 
-            {/* TAB 5: Evaluación Residual */}
-            <TabPanel value={tabValue} index={4}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  Evaluación Residual
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Cálculo del riesgo residual después de aplicar los controles
-                </Typography>
 
-                {controles.length === 0 ? (
-                  <Alert severity="warning">
-                    No hay controles registrados. Agregue controles para calcular la evaluación residual.
-                  </Alert>
-                ) : (
-                  <Paper elevation={2} sx={{ p: 3, mt: 2 }}>
-                    <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-                      Resumen de Controles
-                    </Typography>
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2">
-                        Total de Controles: <strong>{controles.length}</strong>
-                      </Typography>
-                      <Typography variant="body2">
-                        Controles Efectivos:{' '}
-                        <strong>
-                          {controles.filter((c) => c.evaluacionDefinitiva === 'Efectivo').length}
-                        </strong>
-                      </Typography>
-                      <Typography variant="body2">
-                        Controles Inefectivos:{' '}
-                        <strong>
-                          {controles.filter((c) => c.evaluacionDefinitiva === 'Inefectivo').length}
-                        </strong>
-                      </Typography>
-                    </Box>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-                      Cálculo Residual
-                    </Typography>
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                      <Typography variant="body2">
-                        La evaluación residual se calcula aplicando la efectividad de los controles sobre el riesgo
-                        inherente.
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        <strong>Riesgo Inherente:</strong> {formatRiskValue(resultadosNegativos.riesgoInherente)}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Mitigación Promedio:</strong>{' '}
-                        {controles.length > 0
-                          ? Math.round(
-                            controles.reduce(
-                              (acc, c) => acc + (c.estandarizacionPorcentajeMitigacion || 0),
-                              0
-                            ) / controles.length
-                          )
-                          : 0}
-                        %
-                      </Typography>
-                    </Alert>
-                  </Paper>
-                )}
-              </CardContent>
-            </TabPanel>
           </Card>
         </>
       )}
@@ -1323,7 +1267,7 @@ export default function EvaluacionPage() {
           )}
         </DialogActions>
       </Dialog>
-    </Box>
+    </AppPageLayout>
   );
 }
 

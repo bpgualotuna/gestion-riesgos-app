@@ -18,7 +18,7 @@ import {
   Chip,
   Paper,
 } from '@mui/material';
-import { 
+import {
   ExpandMore as ExpandMoreIcon,
   Info as InfoIcon,
   Description as DescriptionIcon,
@@ -83,7 +83,7 @@ const secciones = [
 export default function AyudaPage() {
   const { esDirectorProcesos, user } = useAuth();
   const { data: procesos = [] } = useGetProcesosQuery();
-  
+
   // Si es director, obtener procesos que supervisa
   const procesosDirector = esDirectorProcesos && user
     ? procesos.filter((p) => p.directorId === user.id)
@@ -93,9 +93,9 @@ export default function AyudaPage() {
     <Box>
       {/* Header Section */}
       <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          gutterBottom 
+        <Typography
+          variant="h4"
+          gutterBottom
           fontWeight={700}
           sx={{
             color: '#1976d2',
@@ -123,7 +123,7 @@ export default function AyudaPage() {
           >
             <Box
               sx={{
-                background: '#F5F5F5',
+                background: (theme) => theme.palette.background.paper,
                 p: 2.5,
                 borderBottom: '2px solid #1976d2',
               }}
@@ -192,7 +192,7 @@ export default function AyudaPage() {
           >
             <Box
               sx={{
-                background: '#F5F5F5',
+                background: (theme) => theme.palette.background.paper,
                 p: 2.5,
                 borderBottom: '2px solid #1976d2',
               }}
@@ -267,7 +267,7 @@ export default function AyudaPage() {
           >
             <Box
               sx={{
-                background: '#F5F5F5',
+                background: (theme) => theme.palette.background.paper,
                 p: 2.5,
                 borderBottom: '2px solid #1976d2',
               }}

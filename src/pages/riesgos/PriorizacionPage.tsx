@@ -36,12 +36,12 @@ export default function PriorizaciónPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
   const { data: priorizaciones, isLoading } = useGetPriorizacionesQuery();
-  const [createPriorización, { isLoading: isSaving }] = useCreatePriorizacionMutation();
+  const [createPriorizacion, { isLoading: isSaving }] = useCreatePriorizacionMutation();
   const { showSuccess, showError } = useNotification();
   const [usuarios] = useState(getMockUsuarios());
 
-  const [díalogOpen, setDialogOpen] = useState(false);
-  const [selectedPriorización, setSelectedPriorización] = useState<PriorizacionRiesgo | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedPriorizacion, setSelectedPriorizacion] = useState<PriorizacionRiesgo | null>(null);
   const [respuesta, setRespuesta] = useState<RespuestaRiesgo>('Aceptar');
   const [responsableId, setResponsableId] = useState<string>('');
 
@@ -119,7 +119,7 @@ export default function PriorizaciónPage() {
       width: 180,
     },
     {
-      field: 'fechaAsignación',
+      field: 'fechaAsignacion',
       headerName: 'Fecha Asignación',
       width: 150,
       valueFormatter: (value: any) => formatDate(value),
@@ -127,24 +127,23 @@ export default function PriorizaciónPage() {
   ];
 
   const handleSave = async () => {
-    if (!selectedPriorización?.riesgoId) {
+    if (!selectedPriorizacion?.riesgoId) {
       showError('Error: No se pudo identificar el riesgo');
       return;
     }
 
     try {
       const responsableNombre = usuarios.find(u => u.id === responsableId)?.nombre || '';
-      await createPriorización({
-        riesgoId: selectedPriorización.riesgoId,
+      await createPriorizacion({
+        riesgoId: selectedPriorizacion.riesgoId,
         respuesta,
-        calificacionFinal: selectedPriorización.calificacionFinal || 0,
-        responsableId,
-        responsable: responsableNombre || undefined,
+        calificacionFinal: selectedPriorizacion.calificacionFinal || 0,
+        responsable: responsableId || undefined,
       }).unwrap();
 
       showSuccess('Priorización guardada exitosamente');
       setDialogOpen(false);
-      setSelectedPriorización(null);
+      setSelectedPriorizacion(null);
       setRespuesta('Aceptar');
       setResponsableId('');
     } catch (error) {
@@ -158,10 +157,10 @@ export default function PriorizaciónPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
-          <Typography variant="h4" gutterBottom fontWeight={700}>
+          <Typography variant="h4" gutterBottom fontWeight={700} sx={{ color: '#1976d2' }}>
             Priorización y Respuesta
           </Typography>
-          <Typography variant="body1" color="text.secondíary" paragraph>
+          <Typography variant="body1" color="text.secondary" paragraph>
             Asigna respuestas y responsables a los riesgos evaluados
           </Typography>
         </Box>
@@ -247,7 +246,7 @@ export default function PriorizaciónPage() {
         loading={isLoading}
         getRowId={(row) => row.id}
         onRowClick={isReadOnly ? undefined : (params) => {
-          setSelectedPriorización(params.row);
+          setSelectedPriorizacion(params.row);
           setRespuesta(params.row.respuesta || 'Aceptar');
           setResponsableId(params.row.responsableId || '');
           setDialogOpen(true);
@@ -255,16 +254,16 @@ export default function PriorizaciónPage() {
       />
 
       {/* Edit Dialog */}
-      <Dialog open={díalogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Asignar Respuesta al Riesgo</DialogTitle>
         <DialogContent>
-          {selectedPriorización && (
+          {selectedPriorizacion && (
             <Box sx={{ pt: 2 }}>
-              <Typography variant="subtitle2" color="text.secondíary" gutterBottom>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Riesgo
               </Typography>
               <Typography variant="body1" paragraph>
-                {selectedPriorización.riesgo?.descripcion}
+                {selectedPriorizacion.riesgo?.descripcion}
               </Typography>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -299,7 +298,7 @@ export default function PriorizaciónPage() {
           <Button onClick={() => setDialogOpen(false)}>Cerrar</Button>
           {!isReadOnly && (
             <Button variant="contained" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Guardíando...' : 'Guardíar'}
+              {isSaving ? 'Guardando...' : 'Guardar'}
             </Button>
           )}
         </DialogActions>

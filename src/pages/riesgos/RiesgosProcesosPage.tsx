@@ -24,6 +24,8 @@ import {
   Edit as EditIcon,
   BusinessCenter as BusinessCenterIcon,
 } from '@mui/icons-material';
+import AppPageLayout from '../../components/layout/AppPageLayout';
+
 import { useGetRiesgosQuery, useGetEstadisticasQuery, useGetProcesosQuery } from '../../api/services/riesgosApi';
 import { colors } from '../../app/theme/colors';
 import AppDataGrid from "../../components/ui/AppDataGrid";
@@ -32,7 +34,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Riesgo } from '../types';
+import type { Riesgo } from '../../types';
 
 export default function RiesgosProcesosPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
@@ -50,7 +52,7 @@ export default function RiesgosProcesosPage() {
 
   // Obtener todos los procesos para mostrar el nombre en la tabla (solo para admin/auditoría)
   const { data: procesosData } = useGetProcesosQuery();
-  const procesos = procesosData?.data || [];
+  const procesos = procesosData || [];
 
   // Filtrar riesgos según el rol del usuario
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
@@ -189,7 +191,23 @@ export default function RiesgosProcesosPage() {
   ];
 
   return (
-    <Box>
+    <AppPageLayout
+      title={puedeVerTodosLosRiesgos ? 'Riesgos de la Compañía' : procesoSeleccionado ? `Riesgos del Proceso: ${procesoSeleccionado.nombre}` : 'Gestión de Riesgos'}
+      description="Visualización y gestión integral de riesgos."
+      action={
+        (puedeVerTodosLosRiesgos || procesoSeleccionado) && !isReadOnly && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleNuevo}
+            disabled={modo === 'nuevo'}
+            sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)' }}
+          >
+            Nuevo Riesgo
+          </Button>
+        )
+      }
+    >
       {/* Indicador de Proceso Activo y Acción Actual */}
       {(procesoSeleccionado || puedeVerTodosLosRiesgos) && (
         <Card sx={{ mb: 3, background: 'rgba(25, 118, 210, 0.05)', border: '2px solid #1976d2' }}>
@@ -384,31 +402,7 @@ export default function RiesgosProcesosPage() {
       {/* Tabla de Riesgos */}
       {puedeVerTodosLosRiesgos || procesoSeleccionado ? (
         <>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Box>
-              <Typography variant="h5" gutterBottom fontWeight={600}>
-                {puedeVerTodosLosRiesgos
-                  ? 'Riesgos de la Compañía'
-                  : `Riesgos del Proceso: ${procesoSeleccionado?.nombre}`}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {puedeVerTodosLosRiesgos
-                  ? 'Vista completa de todos los riesgos a nivel compañía'
-                  : 'Seleccione un riesgo para ver o editar'}
-              </Typography>
-            </Box>
-            {!isReadOnly && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleNuevo}
-                disabled={modo === 'nuevo'}
-                sx={{ background: '#1976d2' }}
-              >
-                Nuevo Riesgo
-              </Button>
-            )}
-          </Box>
+
 
           <AppDataGrid
             rows={riesgos}
@@ -429,7 +423,7 @@ export default function RiesgosProcesosPage() {
           </CardContent>
         </Card>
       )}
-    </Box>
+    </AppPageLayout>
   );
 }
 

@@ -35,9 +35,10 @@ import {
     Close as CloseIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import AppPageLayout from '../../components/layout/AppPageLayout';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Proceso } from '../../types';
-import { getMockProcesos, updateMockProcesos, getMockTiposProceso } from '../../api/services/mockData';
+import { getMockProcesos, updateMockProcesos, getMockTiposProceso, getMockGerencias, getMockVicepresidencias } from '../../api/services/mockData';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import Grid2 from '../../utils/Grid2';
@@ -74,12 +75,18 @@ export default function ProcesosDefinicionPage() {
     const [currentTab, setCurrentTab] = useState(0);
     const [procesos, setProcesos] = useState<Proceso[]>([]);
     const [tiposProceso, setTiposProceso] = useState<any[]>([]);
+    const [gerencias, setGerencias] = useState<any[]>([]);
+    const [vicepresidencias, setVicepresidencias] = useState<any[]>([]);
     const [searchProcesos, setSearchProcesos] = useState('');
     const [searchTipos, setSearchTipos] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingProceso, setEditingProceso] = useState<Proceso | null>(null);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedProcessDetail, setSelectedProcessDetail] = useState<Proceso | null>(null);
     const [tipoDialogOpen, setTipoDialogOpen] = useState(false);
     const [editingTipo, setEditingTipo] = useState<any | null>(null);
+    const [tipoDetailDialogOpen, setTipoDetailDialogOpen] = useState(false);
+    const [selectedTipoDetail, setSelectedTipoDetail] = useState<any | null>(null);
     const [formData, setFormData] = useState<Partial<Proceso>>({
         nombre: '',
         descripcion: '',
@@ -101,6 +108,8 @@ export default function ProcesosDefinicionPage() {
     const loadData = () => {
         setProcesos(getMockProcesos());
         setTiposProceso(getMockTiposProceso());
+        setGerencias(getMockGerencias());
+        setVicepresidencias(getMockVicepresidencias());
     };
 
     // Filtered data
@@ -160,6 +169,16 @@ export default function ProcesosDefinicionPage() {
         setEditingProceso(null);
     };
 
+    const handleOpenDetailDialog = (proceso: Proceso) => {
+        setSelectedProcessDetail(proceso);
+        setDetailDialogOpen(true);
+    };
+
+    const handleCloseDetailDialog = () => {
+        setDetailDialogOpen(false);
+        setSelectedProcessDetail(null);
+    };
+
     const handleOpenTipoDialog = (tipo?: any) => {
         if (tipo) {
             setEditingTipo(tipo);
@@ -180,6 +199,16 @@ export default function ProcesosDefinicionPage() {
     const handleCloseTipoDialog = () => {
         setTipoDialogOpen(false);
         setEditingTipo(null);
+    };
+
+    const handleOpenTipoDetailDialog = (tipo: any) => {
+        setSelectedTipoDetail(tipo);
+        setTipoDetailDialogOpen(true);
+    };
+
+    const handleCloseTipoDetailDialog = () => {
+        setTipoDetailDialogOpen(false);
+        setSelectedTipoDetail(null);
     };
 
     const handleSaveTipo = () => {
@@ -268,16 +297,24 @@ export default function ProcesosDefinicionPage() {
         { field: 'id', headerName: 'ID', width: 100 },
         { field: 'nombre', headerName: 'Nombre', flex: 1 },
         { field: 'descripcion', headerName: 'Descripción', flex: 1.5 },
-        { 
-            field: 'tipoProceso', 
-            headerName: 'Tipo', 
+        {
+            field: 'tipoProceso',
+            headerName: 'Tipo',
             width: 150,
             renderCell: (params) => {
                 const tipo = tiposProceso.find(tp => tp.id === parseInt(params.value) || tp.id === params.value);
                 return tipo?.nombre || params.value || '-';
             }
         },
-        { field: 'vicepresidencia', headerName: 'Vicepresidencia', width: 150 },
+        {
+            field: 'vicepresidencia',
+            headerName: 'Subdivisión',
+            width: 150,
+            renderCell: (params) => {
+                const vp = vicepresidencias.find(v => v.id === params.value);
+                return vp?.nombre || '-';
+            }
+        },
         {
             field: 'activo',
             headerName: 'Activo',
@@ -311,24 +348,16 @@ export default function ProcesosDefinicionPage() {
     ];
 
     return (
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                    <Typography variant="h4" gutterBottom fontWeight={700}>
-                        Gestión de Procesos
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Administre procesos y sus tipos.
-                    </Typography>
-                </Box>
-            </Box>
-
-            <Paper sx={{ bgcolor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
-                <Tabs 
-                    value={currentTab} 
+        <AppPageLayout
+            title="Gestión de Procesos"
+            description="Administre procesos y sus tipos."
+        >
+            <Box sx={{ mt: -2 }}>
+                <Tabs
+                    value={currentTab}
                     onChange={(e, newValue) => setCurrentTab(newValue)}
-                    sx={{ 
-                        borderBottom: 1, 
+                    sx={{
+                        borderBottom: 1,
                         borderColor: 'divider',
                         bgcolor: '#f9f9f9',
                         '& .MuiTab-root': {
@@ -345,19 +374,19 @@ export default function ProcesosDefinicionPage() {
                         }
                     }}
                 >
-                    <Tab 
+                    <Tab
                         icon={<ProcessIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Procesos" 
-                        id="proceso-tab-0" 
-                        aria-controls="proceso-tabpanel-0" 
+                        label="Procesos"
+                        id="proceso-tab-0"
+                        aria-controls="proceso-tabpanel-0"
                     />
-                    <Tab 
+                    <Tab
                         icon={<TypeIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Tipo de Procesos" 
-                        id="proceso-tab-1" 
-                        aria-controls="proceso-tabpanel-1" 
+                        label="Tipo de Procesos"
+                        id="proceso-tab-1"
+                        aria-controls="proceso-tabpanel-1"
                     />
                 </Tabs>
 
@@ -387,6 +416,7 @@ export default function ProcesosDefinicionPage() {
                             rows={filteredProcesos}
                             columns={columns}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenDetailDialog(params.row)}
                         />
                     </Box>
                 </TabPanel>
@@ -439,10 +469,11 @@ export default function ProcesosDefinicionPage() {
                                 },
                             ]}
                             getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenTipoDetailDialog(params.row)}
                         />
                     </Box>
                 </TabPanel>
-            </Paper>
+            </Box>
 
             <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
                 <DialogTitle>{editingProceso ? 'Editar Proceso' : 'Nuevo Proceso'}</DialogTitle>
@@ -488,19 +519,23 @@ export default function ProcesosDefinicionPage() {
                             />
                         </Grid2>
                         <Grid2 xs={12} md={6}>
-                            <TextField
-                                label="Nombre de la Subdivisión"
+                            <Autocomplete
+                                options={vicepresidencias}
+                                getOptionLabel={(option) => option.nombre || ''}
+                                value={vicepresidencias.find(v => v.id === formData.vicepresidencia) || null}
+                                onChange={(_e, newValue) => setFormData({ ...formData, vicepresidencia: newValue?.id || '' })}
+                                renderInput={(params) => <TextField {...params} label="Subdivisión (Vicepresidencia)" />}
                                 fullWidth
-                                value={formData.vicepresidencia}
-                                onChange={(e) => setFormData({ ...formData, vicepresidencia: e.target.value })}
                             />
                         </Grid2>
                         <Grid2 xs={12} md={6}>
-                            <TextField
-                                label="Gerencia"
+                            <Autocomplete
+                                options={gerencias}
+                                getOptionLabel={(option) => option.nombre || ''}
+                                value={gerencias.find(g => g.id === formData.gerencia) || null}
+                                onChange={(_e, newValue) => setFormData({ ...formData, gerencia: newValue?.id || '' })}
+                                renderInput={(params) => <TextField {...params} label="Gerencia" />}
                                 fullWidth
-                                value={formData.gerencia}
-                                onChange={(e) => setFormData({ ...formData, gerencia: e.target.value })}
                             />
                         </Grid2>
                         <Grid2 xs={12}>
@@ -548,6 +583,96 @@ export default function ProcesosDefinicionPage() {
                     <Button onClick={handleSaveTipo} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+
+            {/* MODAL DE DETALLE DEL PROCESO */}
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Proceso</DialogTitle>
+                <DialogContent>
+                    {selectedProcessDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedProcessDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedProcessDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripción</Typography>
+                                <Typography variant="body1">{selectedProcessDetail.descripcion || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Tipo de Proceso</Typography>
+                                <Typography variant="body1">
+                                    {tiposProceso.find(t => t.id === parseInt(selectedProcessDetail.tipoProceso) || t.id === selectedProcessDetail.tipoProceso)?.nombre || '-'}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Subdivisión</Typography>
+                                <Typography variant="body1">
+                                    {vicepresidencias.find(v => v.id === selectedProcessDetail.vicepresidencia)?.nombre || '-'}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Gerencia</Typography>
+                                <Typography variant="body1">
+                                    {gerencias.find(g => g.id === selectedProcessDetail.gerencia)?.nombre || '-'}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Objetivo del Proceso</Typography>
+                                <Typography variant="body1">{selectedProcessDetail.objetivoProceso || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Estado</Typography>
+                                <Typography variant="body1">{selectedProcessDetail.activo ? 'Activo' : 'Inactivo'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => handleCloseDetailDialog()}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenDialog(selectedProcessDetail!);
+                        handleCloseDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE DEL TIPO DE PROCESO */}
+            <Dialog open={tipoDetailDialogOpen} onClose={handleCloseTipoDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Tipo de Proceso</DialogTitle>
+                <DialogContent>
+                    {selectedTipoDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedTipoDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedTipoDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripción</Typography>
+                                <Typography variant="body1">{selectedTipoDetail.descripcion || '-'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseTipoDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenTipoDialog(selectedTipoDetail!);
+                        handleCloseTipoDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </AppPageLayout>
     );
 }

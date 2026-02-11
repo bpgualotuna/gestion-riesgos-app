@@ -7,44 +7,53 @@
 
 :root {
   /* Primary Brand Colors (from COMWARE logo - arc gradient) */
-  --color-primary-orange: #FFA500; /* Amarillo-Naranja inicio del arco */
-  --color-primary-lime: #C8D900; /* Verde Lima brillante medio del arco */
-  --color-primary-blue: #00BFFF; /* Azul brillante del arco */
-  --color-primary-blue-dark: #0066CC; /* Azul oscuro final del arco */
-  
+  --color-primary-orange: #FFA500;
+  /* Amarillo-Naranja inicio del arco */
+  --color-primary-lime: #C8D900;
+  /* Verde Lima brillante medio del arco */
+  --color-primary-blue: #00BFFF;
+  /* Azul brillante del arco */
+  --color-primary-blue-dark: #0066CC;
+  /* Azul oscuro final del arco */
+
   /* Colores sólidos profesionales */
   --color-primary-solid: #1976d2;
   --color-primary-dark: #1565c0;
-  
+
   /* Text Colors (del logo: COM gris oscuro, WARE gris claro) */
-  --color-text-com: #585858; /* Gris oscuro (COM) */
-  --color-text-ware: #707070; /* Gris claro (WARE) */
-  
+  --color-text-com: #585858;
+  /* Gris oscuro (COM) */
+  --color-text-ware: #707070;
+  /* Gris claro (WARE) */
+
   /* Risk Level Colors */
   --color-risk-critical: #D32F2F;
   --color-risk-high: #F57C00;
   --color-risk-medium: #FBC02D;
   --color-risk-low: #388E3C;
   --color-risk-minimal: #1976D2;
-  
+
   /* Neutral Colors (Fondo gris claro del logo) */
-  --color-background-default: #E8E8E8; /* Gris claro del fondo del logo */
-  --color-background-paper: #F5F5F5;
+  --color-background-default: #F0F2F5;
+  /* Gris claro exterior */
+  --color-background-paper: #FFFFFF;
+  /* Blanco contenido */
   --color-background-elevated: #FFFFFF;
   --color-background-card: #FFFFFF;
-  --color-background-sidebar: #F0F0F0;
+  --color-background-sidebar: #FFFFFF;
+  --color-background-container: #FFFFFF;
   --color-text-primary: rgba(0, 0, 0, 0.87);
   --color-text-secondary: rgba(0, 0, 0, 0.60);
   --color-text-muted: rgba(0, 0, 0, 0.38);
   --color-divider: rgba(0, 0, 0, 0.12);
-  
+
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
-  
+
   /* Border Radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -59,11 +68,30 @@ body {
 }
 
 /* Utility classes for quick color application */
-.bg-primary-orange { background-color: var(--color-primary-orange); }
-.bg-primary-yellow-green { background-color: var(--color-primary-yellow-green); }
-.bg-primary-blue { background-color: var(--color-primary-blue); }
-.bg-primary-solid { background: var(--color-primary-solid); }
+.bg-primary-orange {
+  background-color: var(--color-primary-orange);
+}
 
-.text-primary-orange { color: var(--color-primary-orange); }
-.text-primary-yellow-green { color: var(--color-primary-yellow-green); }
-.text-primary-blue { color: var(--color-primary-blue); }
+.bg-primary-yellow-green {
+  background-color: var(--color-primary-yellow-green);
+}
+
+.bg-primary-blue {
+  background-color: var(--color-primary-blue);
+}
+
+.bg-primary-solid {
+  background: var(--color-primary-solid);
+}
+
+.text-primary-orange {
+  color: var(--color-primary-orange);
+}
+
+.text-primary-yellow-green {
+  color: var(--color-primary-yellow-green);
+}
+
+.text-primary-blue {
+  color: var(--color-primary-blue);
+}

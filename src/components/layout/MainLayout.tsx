@@ -32,10 +32,11 @@ import {
   DialogActions,
   Button,
   Alert,
-
+  Collapse,
 } from '@mui/material';
 import ListItemText from '@mui/material/ListItemText';
 import Chip from '@mui/material/Chip';
+import Avatar from '@mui/material/Avatar';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -188,7 +189,7 @@ export default function MainLayout() {
     esGerenteGeneralProceso,
   } = useAuth();
   const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
-  
+
   // Obtener asignaciones del supervisor/dueño de procesos
   const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
   const tieneAsignaciones = areasAsignadas.length > 0 || procesosAsignados.length > 0;
@@ -309,7 +310,7 @@ export default function MainLayout() {
         }
       }
     });
-  }, [location.pathname, openMenus]);
+  }, [location.pathname]);
 
   const renderMenuItem = (item: MenuItemType, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -332,36 +333,38 @@ export default function MainLayout() {
     }
 
     if (hasChildren) {
-      const shouldShowText = !sidebarCollapsed;
-      
+      const shouldShowText = !sidebarCollapsed || isMobile;
+
       const isDisabledParent = false;
 
       return (
         <Box key={item.text}>
-          <Tooltip title={sidebarCollapsed ? item.text : ''} placement="right" arrow>
+          <Tooltip title={(!shouldShowText) ? item.text : ''} placement="right" arrow>
             <ListItem disablePadding sx={{ mb: 0.25 }}>
               <ListItemButton
                 disabled={isDisabledParent}
                 onClick={(e) => {
                   if (isDisabledParent) return;
+                  // If collapsed on desktop, expand first
+                  if (sidebarCollapsed && !isMobile) {
+                    setSidebarCollapsed(false);
+                    localStorage.setItem('sidebarCollapsed', 'false');
+                    // Continue to toggle menu
+                  }
+
                   // Si tiene path, navegar primero
                   if (item.path) {
                     handleMenuClick(item.path);
-                  } else if (item.children && item.children.length > 0) {
-                    // Si no tiene path pero tiene hijos, navegar al primer hijo que tenga path
-                    const firstChildWithPath = item.children.find(child => child.path);
-                    if (firstChildWithPath && firstChildWithPath.path) {
-                      handleMenuClick(firstChildWithPath.path);
-                    }
                   }
+
                   // Luego abrir/cerrar el submenú
                   handleToggleMenu(item.text);
                 }}
                 sx={{
                   borderRadius: 1.5,
                   py: 1,
-                  px: sidebarCollapsed ? 1.5 : 2,
-                  pl: sidebarCollapsed ? 1.5 : (2 + level * 1.5),
+                  px: sidebarCollapsed && !isMobile ? 1.5 : 2,
+                  pl: sidebarCollapsed && !isMobile ? 1.5 : (2 + level * 1.5),
                   justifyContent: shouldShowText ? 'flex-start' : 'center',
                   backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? 'rgba(25, 118, 210, 0.12)' : 'transparent'),
                   borderLeft: isSelected ? '3px solid #1976d2' : '3px solid transparent',
@@ -378,10 +381,10 @@ export default function MainLayout() {
               >
                 <ListItemIcon
                   sx={{
-                    minWidth: sidebarCollapsed ? 24 : 36,
+                    minWidth: sidebarCollapsed && !isMobile ? 24 : 36,
                     color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.7)'),
                     justifyContent: 'center',
-                    fontSize: sidebarCollapsed ? '1.2rem' : '1.25rem',
+                    fontSize: sidebarCollapsed && !isMobile ? '1.2rem' : '1.25rem',
                   }}
                 >
                   {item.icon}
@@ -404,10 +407,10 @@ export default function MainLayout() {
               </ListItemButton>
             </ListItem>
           </Tooltip>
-          {isOpen && (
+          <Collapse in={isOpen} timeout="auto" unmountOnExit>
             <Box
               sx={{
-                pl: sidebarCollapsed ? 1.5 : 2,
+                pl: sidebarCollapsed && !isMobile ? 1.5 : 2,
                 pr: 1,
                 position: 'relative',
                 ...(sidebarCollapsed && {
@@ -427,92 +430,92 @@ export default function MainLayout() {
               <List component="div" disablePadding>
                 {item.children?.map((child) => {
                   const isChildActive = child.path ? (location.pathname === child.path || location.pathname === child.path.split('?')[0]) : false;
-                  
+
                   const isChildDisabled = false;
-                  
+
                   return (
                     <React.Fragment key={child.text}>
                       <Tooltip title={sidebarCollapsed ? child.text : ''} placement="right" arrow>
                         <ListItem disablePadding sx={{ mb: 0.25 }}>
-                        <ListItemButton
-                          selected={isChildActive}
-                          disabled={isChildDisabled}
-                          onClick={() => {
-                            if (child.path && !isChildDisabled) {
-                              handleMenuClick(child.path);
-                              if (sidebarCollapsed) {
-                                setOpenMenus({}); // Cerrar el submenú al hacer clic en un elemento hijo
+                          <ListItemButton
+                            selected={isChildActive}
+                            disabled={isChildDisabled}
+                            onClick={() => {
+                              if (child.path && !isChildDisabled) {
+                                handleMenuClick(child.path);
+                                if (sidebarCollapsed) {
+                                  setOpenMenus({}); // Cerrar el submenú al hacer clic en un elemento hijo
+                                }
                               }
-                            }
-                          }}
-                          sx={(theme) => ({
-                            borderRadius: 1,
-                            py: 0.75,
-                            px: sidebarCollapsed ? 1.5 : 2,
-                            pl: sidebarCollapsed ? 2.5 : (2 + (level + 1) * 1.5),
-                            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                            minHeight: 36,
-                            position: 'relative',
-                            opacity: isChildDisabled ? 0.3 : 1,
-                            pointerEvents: isChildDisabled ? 'none' : 'auto',
-                            backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '1F' : 'transparent'),
-                            '&.Mui-selected': {
-                              backgroundColor: theme.palette.warning.main + '1F',
-                              borderLeft: sidebarCollapsed ? 'none' : `3px solid ${theme.palette.warning.main}`,
-                              '&:hover': {
-                                backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : theme.palette.warning.main + '29',
-                              },
-                              '& .MuiListItemIcon-root': {
-                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : theme.palette.warning.main,
-                              },
-                            },
-                            '&:hover': {
-                              backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '29' : theme.palette.action.hover),
-                            },
-                          })}
-                        >
-                          <ListItemIcon
+                            }}
                             sx={(theme) => ({
-                              minWidth: sidebarCollapsed ? 36 : 40,
-                              color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.secondary),
-                              justifyContent: 'center',
-                              fontSize: '1.1rem',
+                              borderRadius: 1,
+                              py: 0.75,
+                              px: sidebarCollapsed && !isMobile ? 1.5 : 2,
+                              pl: sidebarCollapsed && !isMobile ? 2.5 : (2 + (level + 1) * 1.5),
+                              justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start',
+                              minHeight: 36,
+                              position: 'relative',
+                              opacity: isChildDisabled ? 0.3 : 1,
+                              pointerEvents: isChildDisabled ? 'none' : 'auto',
+                              backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '1F' : 'transparent'),
+                              '&.Mui-selected': {
+                                backgroundColor: theme.palette.warning.main + '1F',
+                                borderLeft: sidebarCollapsed ? 'none' : `3px solid ${theme.palette.warning.main}`,
+                                '&:hover': {
+                                  backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : theme.palette.warning.main + '29',
+                                },
+                                '& .MuiListItemIcon-root': {
+                                  color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : theme.palette.warning.main,
+                                },
+                              },
+                              '&:hover': {
+                                backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '29' : theme.palette.action.hover),
+                              },
                             })}
                           >
-                            {child.icon}
-                          </ListItemIcon>
-                          {!sidebarCollapsed && (
-                            <ListItemText
-                              primary={child.text}
-                              primaryTypographyProps={{
-                                fontSize: '0.8125rem',
-                                fontWeight: isChildActive ? 600 : 400,
-                              }}
+                            <ListItemIcon
                               sx={(theme) => ({
-                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.primary),
+                                minWidth: sidebarCollapsed && !isMobile ? 36 : 40,
+                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.secondary),
+                                justifyContent: 'center',
+                                fontSize: '1.1rem',
                               })}
-                            />
-                          )}
-                        </ListItemButton>
-                      </ListItem>
-                    </Tooltip>
+                            >
+                              {child.icon}
+                            </ListItemIcon>
+                            {(!sidebarCollapsed || isMobile) && (
+                              <ListItemText
+                                primary={child.text}
+                                primaryTypographyProps={{
+                                  fontSize: '0.8125rem',
+                                  fontWeight: isChildActive ? 600 : 400,
+                                }}
+                                sx={(theme) => ({
+                                  color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.primary),
+                                })}
+                              />
+                            )}
+                          </ListItemButton>
+                        </ListItem>
+                      </Tooltip>
                     </React.Fragment>
                   );
                 })}
               </List>
             </Box>
-          )}
+          </Collapse>
         </Box>
       );
     }
 
     const isDisabled = !item.path ? true : false;
 
-    // Si es un item hijo, solo mostrar texto si el sidebar no está colapsado
-    const shouldShowText = !sidebarCollapsed;
+    // Si es un item hijo, solo mostrar texto si el sidebar no está colapsado o es móvil
+    const shouldShowText = !sidebarCollapsed || isMobile;
 
     return (
-      <Tooltip key={item.text} title={sidebarCollapsed ? item.text : ''} placement="right" arrow>
+      <Tooltip key={item.text} title={(!shouldShowText) ? item.text : ''} placement="right" arrow>
         <ListItem disablePadding sx={{ mb: 0.25 }}>
           <ListItemButton
             selected={isActive}
@@ -521,8 +524,8 @@ export default function MainLayout() {
             sx={{
               borderRadius: 1.5,
               py: 0.875,
-              px: sidebarCollapsed ? 1.5 : 2,
-              pl: sidebarCollapsed ? 1.5 : (2 + level * 1.5),
+              px: sidebarCollapsed && !isMobile ? 1.5 : 2,
+              pl: sidebarCollapsed && !isMobile ? 1.5 : (2 + level * 1.5),
               justifyContent: shouldShowText ? 'flex-start' : 'center',
               opacity: isDisabled ? 0.5 : 1,
               minHeight: 36,
@@ -606,9 +609,11 @@ export default function MainLayout() {
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {/* Botón para colapsar/expandir sidebar */}
+      {/* Botón para colapsar/expandir sidebar - Solo desktop */}
       <IconButton
         onClick={handleSidebarCollapse}
         sx={{
+          display: { xs: 'none', md: 'flex' }, // Ocultar en móvil
           position: 'absolute',
           top: 8,
           right: 8,
@@ -826,9 +831,8 @@ export default function MainLayout() {
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1.5,
+                gap: 2,
                 mr: 2,
-                flexWrap: 'wrap',
               }}
             >
               {/* Selector de Proceso */}
@@ -837,7 +841,6 @@ export default function MainLayout() {
                 onChange={(_, newValue) => {
                   if (newValue) {
                     setProcesoSeleccionado(newValue);
-                    // Si el proceso está aprobado, forzar modo visualización
                     if (newValue.estado === 'aprobado') {
                       setModoProceso('visualizar');
                     } else {
@@ -845,189 +848,107 @@ export default function MainLayout() {
                     }
                     showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
                   } else {
-                    // Limpiar selección cuando se borra el campo
                     setProcesoSeleccionado(null);
-                    setModoProceso('sin_modo');
+                    setModoProceso(null);
                   }
                 }}
                 options={procesosDisponibles}
+                getOptionDisabled={(option) => !option.activo}
                 getOptionLabel={(option) => option.nombre}
-                filterOptions={(options, { inputValue }) => {
-                  return options.filter((option) =>
-                    option.nombre.toLowerCase().includes(inputValue.toLowerCase()) ||
-                    (option.areaNombre && option.areaNombre.toLowerCase().includes(inputValue.toLowerCase())) ||
-                    (option.descripcion && option.descripcion.toLowerCase().includes(inputValue.toLowerCase()))
-                  );
-                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     size="small"
-                    placeholder="Buscar proceso..."
+                    placeholder="Seleccionar Proceso..."
                     sx={{
-                      minWidth: 250,
+                      width: 320,
                       '& .MuiOutlinedInput-root': {
-                        backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#1976d2',
-                        color: '#fff',
-                        '& fieldset': {
-                          borderColor: 'transparent',
+                        height: 40,
+                        backgroundColor: '#fff',
+                        borderRadius: '20px',
+                        pl: '12px !important',
+                        pr: '40px !important',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        border: '1.5px solid',
+                        borderColor: '#e0e0e0',
+                        transition: 'all 0.2s',
+                        '& fieldset': { border: 'none' },
+                        '&:hover': {
+                          borderColor: '#1976d2',
+                          boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
                         },
-                        '&:hover fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.5)',
+                        '&.Mui-focused': {
+                          borderColor: '#1976d2',
+                          boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
                         },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#fff',
-                        },
-                        '& input': {
-                          color: '#fff',
-                          '&::placeholder': {
-                            color: 'rgba(255, 255, 255, 0.7)',
-                          },
-                        },
-                      },
-                      '& .MuiInputLabel-root': {
-                        color: 'rgba(255, 255, 255, 0.7)',
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: '#fff',
-                      },
-                      '& .MuiAutocomplete-endAdornment': {
-                        '& .MuiIconButton-root': {
-                          color: '#fff',
-                        },
-                      },
+                      }
                     }}
                   />
                 )}
-                renderOption={(props, option) => {
-                  const getEstadoColor = (estado?: string) => {
-                    switch (estado) {
-                      case 'aprobado': return '#4caf50';
-                      case 'en_revision': return '#ff9800';
-                      case 'con_observaciones': return '#f44336';
-                      default: return '#9e9e9e';
-                    }
-                  };
-                  const getEstadoLabel = (estado?: string) => {
-                    switch (estado) {
-                      case 'aprobado': return 'Aprobado';
-                      case 'en_revision': return 'En Revisión';
-                      case 'con_observaciones': return 'Con Observaciones';
-                      default: return 'Borrador';
-                    }
-                  };
-                  return (
-                    <Box component="li" {...props} sx={{ py: 1.5 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, width: '100%' }}>
-                        <BusinessCenterIcon sx={{ fontSize: 24, color: '#1976d2', mt: 0.5 }} />
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-                            {option.nombre}
-                          </Typography>
-                          {option.areaNombre && (
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                              Área: {option.areaNombre}
-                            </Typography>
-                          )}
-                          {option.descripcion && (
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              mb: 0.5
-                            }}>
-                              {option.descripcion}
-                            </Typography>
-                          )}
-                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
-                            <Chip
-                              label={getEstadoLabel(option.estado)}
-                              size="small"
-                              sx={{
-                                height: 20,
-                                fontSize: '0.65rem',
-                                backgroundColor: getEstadoColor(option.estado),
-                                color: '#fff',
-                                fontWeight: 600,
-                              }}
-                            />
-                            {option.responsableNombre && (
-                              <Typography variant="caption" color="text.secondary">
-                                Responsable: {option.responsableNombre}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
+                renderOption={(props, option) => (
+                  <Box component="li" {...props} sx={{ py: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                      <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
+                        <Typography variant="caption" color="text.secondary">{option.areaNombre || 'Sin área'}</Typography>
                       </Box>
+                      <Chip
+                        label={option.activo ? 'Activo' : 'Inactivo'}
+                        size="small"
+                        color={option.activo ? 'success' : 'error'}
+                        sx={{
+                          height: 18,
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          opacity: option.activo ? 1 : 0.7
+                        }}
+                      />
                     </Box>
-                  );
-                }}
-                sx={{ minWidth: 250 }}
-                noOptionsText="No se encontraron procesos"
-                loadingText="Cargando procesos..."
+                  </Box>
+                )}
+                noOptionsText="No hay procesos"
               />
 
               {/* Selector de Modo */}
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <Select
-                  value={modoProceso || ''}
-                  onChange={(e) => {
-                    const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
-                    // Si el proceso está aprobado, solo permitir visualizar
-                    if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar') {
-                      showError('Los procesos aprobados no se pueden editar');
-                      return;
-                    }
-                    if (nuevoModo === '') {
-                      setModoProceso(null);
-                    } else {
-                      setModoProceso(nuevoModo);
-                      showSuccess(`Modo cambiado a ${nuevoModo === 'editar' ? 'Edición' : 'Visualización'}`);
-                    }
-                  }}
-                  displayEmpty
-                  disabled={!procesoSeleccionado || procesoSeleccionado?.estado === 'aprobado'}
-                  sx={{
-                    backgroundColor: procesoSeleccionado?.estado === 'aprobado'
-                      ? '#4caf50'
-                      : modoProceso === 'editar'
-                        ? '#ff9800'
-                        : modoProceso === 'visualizar'
-                          ? '#2196f3'
-                          : '#1976d2',
-                    color: '#fff',
-                    fontWeight: 600,
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'transparent',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.5)',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#fff',
-                    },
-                    '& .MuiSelect-icon': {
-                      color: '#fff',
-                    },
-                    '&.Mui-disabled': {
-                      opacity: 0.8,
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Sin modo</em>
-                  </MenuItem>
-                  <MenuItem value="visualizar">Visualización</MenuItem>
-                  {procesoSeleccionado?.estado !== 'aprobado' && (
-                    <MenuItem value="editar">Edición</MenuItem>
-                  )}
-                </Select>
-                {procesoSeleccionado?.estado === 'aprobado' && (
-                  <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: '#fff', fontSize: '0.65rem', textAlign: 'center' }}>
-                    Solo lectura
-                  </Typography>
-                )}
-              </FormControl>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FormControl size="small">
+                  <Select
+                    value={modoProceso || ''}
+                    onChange={(e) => {
+                      const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
+                      if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar') {
+                        showError('Los procesos aprobados no se pueden editar');
+                        return;
+                      }
+                      setModoProceso(nuevoModo === '' ? null : nuevoModo);
+                    }}
+                    displayEmpty
+                    disabled={!procesoSeleccionado}
+                    sx={{
+                      height: 40,
+                      minWidth: 140,
+                      borderRadius: '20px',
+                      fontWeight: 700,
+                      fontSize: '0.875rem',
+                      backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#f5f5f5',
+                      color: !modoProceso ? '#666' : '#fff',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                      '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                      '& .MuiSelect-icon': { color: !modoProceso ? '#666' : '#fff' },
+                      '&:hover': {
+                        filter: 'brightness(1.05)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                      },
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <MenuItem value=""><em>Modo</em></MenuItem>
+                    <MenuItem value="visualizar">Visualizar</MenuItem>
+                    {procesoSeleccionado?.estado !== 'aprobado' && <MenuItem value="editar">Editar</MenuItem>}
+                  </Select>
+                </FormControl>
+              </Box>
             </Box>
           )}
 
@@ -1039,7 +960,6 @@ export default function MainLayout() {
           {/* Notificaciones */}
           <NotificacionesMenu />
 
-          {/* User Info - Desktop - Siempre visible */}
           {user && (
             <Box
               sx={{
@@ -1047,48 +967,36 @@ export default function MainLayout() {
                 alignItems: 'center',
                 gap: 1.5,
                 mr: 2,
+                cursor: 'pointer',
+                p: 0.5,
+                px: 1,
+                borderRadius: '30px',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  backgroundColor: 'rgba(0,0,0,0.03)',
+                }
               }}
+              onClick={handleUserMenuOpen}
             >
               <Box sx={{ textAlign: 'right' }}>
-                <Typography
-                  variant="body2"
-                  fontWeight={600}
-                  sx={{
-                    color: 'rgba(0, 0, 0, 0.87)',
-                    lineHeight: 1.2,
-                  }}
-                >
+                <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.1 }}>
                   {user.fullName}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'rgba(0, 0, 0, 0.60)',
-                    display: 'block',
-                    lineHeight: 1.2,
-                  }}
-                >
+                <Typography variant="caption" color="text.secondary" fontWeight={500}>
                   {getNombreRol()}
                 </Typography>
               </Box>
-              <Tooltip title={`${user.fullName} - ${getNombreRol()}`}>
-                <IconButton
-                  onClick={handleUserMenuOpen}
-                  sx={{
-                    background: '#F0F0F0',
-                    border: '2px solid #1976d2',
-                    width: 44,
-                    height: 44,
-                    boxShadow: '0 0 10px rgba(25, 118, 210, 0.2)',
-                    '&:hover': {
-                      background: '#E8E8E8',
-                      boxShadow: '0 0 15px rgba(25, 118, 210, 0.4)',
-                    },
-                  }}
-                >
-                  <AccountCircleIcon sx={{ color: '#1976d2', fontSize: 26 }} />
-                </IconButton>
-              </Tooltip>
+              <Avatar
+                sx={{
+                  width: 38,
+                  height: 38,
+                  bgcolor: '#1976d2',
+                  border: '2px solid #fff',
+                  boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)',
+                }}
+              >
+                {user.fullName.charAt(0)}
+              </Avatar>
             </Box>
           )}
 
@@ -1178,6 +1086,21 @@ export default function MainLayout() {
               </Typography>
             </Box>
             <Divider />
+            {esAdmin && (
+              <>
+                <MenuItem
+                  onClick={() => {
+                    handleUserMenuClose();
+                    navigate('/admin-panel');
+                  }}
+                  sx={{ py: 1.5, color: '#1976d2' }}
+                >
+                  <SettingsIcon sx={{ mr: 1.5, fontSize: 20 }} />
+                  Panel Administrativo
+                </MenuItem>
+                <Divider />
+              </>
+            )}
             <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
               <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
               Cerrar Sesión
@@ -1276,7 +1199,7 @@ export default function MainLayout() {
               sx={{
                 flexGrow: 1,
                 p: { xs: 2, md: 3 },
-                background: '#E8E8E8',
+                background: (theme) => theme.palette.background.default,
               }}
             >
               {esDueñoProcesos && tieneAsignaciones && !procesoSeleccionado?.id && (

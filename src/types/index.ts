@@ -1,4 +1,17 @@
 ﻿
+export interface Impactos {
+  personas: number;
+  legal: number;
+  ambiental: number;
+  procesos: number;
+  reputacion: number;
+  economico: number;
+  tecnologico: number;
+  confidencialidadSGSI?: number;
+  disponibilidadSGSI?: number;
+  integridadSGSI?: number;
+}
+
 export interface Riesgo {
   id: string;
   procesoId: string;
@@ -184,11 +197,13 @@ export interface UpdateNotificacionDto extends Partial<CreateNotificacionDto> {
   leida?: boolean;
 }
 
-export enum EstadoProceso {
-  BORRADOR = 'borrador',
-  EN_REVISION = 'en_revision',
-  APROBADO = 'aprobado'
-}
+export const EstadoProceso = {
+  BORRADOR: 'borrador',
+  EN_REVISION: 'en_revision',
+  APROBADO: 'aprobado'
+} as const;
+
+export type EstadoProceso = typeof EstadoProceso[keyof typeof EstadoProceso];
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -202,6 +217,7 @@ export interface FiltrosRiesgo {
   procesoId?: string;
   busqueda?: string;
   clasificacion?: string;
+  nivelRiesgo?: string;
   proceso?: string;
   zona?: string;
   page?: number;
@@ -288,7 +304,7 @@ export interface Tarea {
   titulo: string;
   descripcion: string;
   estado: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
-  prioridad: 'alta' | 'media' | 'baja';
+  prioridad: 'critica' | 'alta' | 'media' | 'baja';
   completada: boolean;
   fechaCompletada?: string;
   createdAt: string;
@@ -308,6 +324,8 @@ export interface CausaRiesgo {
   riesgoId?: string;
   descripcion: string;
   fuenteCausa?: string;
+  fuenteCausaHSEQ?: string;
+  fuenteCausaLAFT?: string;
   frecuencia?: number;
   calificacionGlobalImpacto?: number;
   calificacionInherentePorCausa?: number;
@@ -335,6 +353,10 @@ export interface CausaRiesgo {
   impactoResidual?: number;
   calificacionResidual?: number;
   porcentajeMitigacion?: number;
+  controlDescripcion?: string;
+  controlResponsable?: string;
+  controlDesviaciones?: string;
+  tieneControl?: boolean;
 }
 
 export interface SubtipoRiesgo {
@@ -397,6 +419,7 @@ export interface RiesgoFormData {
     integridadSGSI: number;
     ambiental: number;
   };
+  riesgoResidual?: number;
 }
 export interface Vicepresidencia {
   id: string;
@@ -410,3 +433,88 @@ export interface Gerencia {
   sigla: string;
   subdivision?: string;
 }
+
+export interface ObservacionProceso {
+  id: string;
+  procesoId: string;
+  texto: string;
+  fecha: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  resuelta: boolean;
+}
+
+export interface Observacion {
+  id: string;
+  procesoId: string;
+  autorId: string;
+  autorNombre: string;
+  texto: string;
+  tipo: string;
+  estado: string;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+}
+
+export interface CreateObservacionDto {
+  procesoId?: string;
+  texto: string;
+  tipo: string;
+}
+
+export interface HistorialCambioProceso {
+  id: string;
+  procesoId: string;
+  tipo: 'envio_revision' | 'aprobacion' | 'rechazo' | 'resolucion' | 'modificacion' | 'creacion';
+  mensaje: string;
+  fecha: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  accion?: 'creado' | 'modificado' | 'enviado_revision' | 'aprobado' | 'rechazado' | 'observaciones_agregadas' | 'observaciones_resueltas';
+  descripcion?: string;
+  cambios?: Record<string, { anterior: any; nuevo: any }>;
+}
+
+/**
+ * Historial de cambios para datos de procesos
+ * Registra modificaciones en: ficha, análisis, normatividad, contexto, DOFA, benchmarking
+ */
+export interface HistorialCambio {
+  id: string;
+  procesoId: string;
+  procesoNombre: string;
+  seccion: 'ficha' | 'analisis' | 'normatividad' | 'contextoInterno' | 'contextoExterno' | 'dofa' | 'benchmarking';
+  accion: 'crear' | 'editar' | 'eliminar';
+  camposModificados: string[]; // Lista de campos que se modificaron
+  valoresAnteriores?: Record<string, any>; // Valores antes del cambio
+  valoresNuevos?: Record<string, any>; // Valores después del cambio
+  razonCambio?: string; // Razón o decisión del cambio
+  usuarioId: string;
+  usuarioNombre: string;
+  fecha: string; // ISO string
+  createdAt: string;
+}
+export interface ControlRiesgo {
+  id: string;
+  causaRiesgoId: string;
+  descripcion: string;
+  tipoControl: TipoControlHSEQ;
+  disminuyeFrecuenciaImpactoAmbas: TipoEfectoControl;
+  responsable?: string;
+  aplicabilidad?: number;
+  cobertura?: number;
+  facilidadUso?: number;
+  segregacion?: number;
+  naturaleza?: number;
+  desviaciones?: number;
+  puntajeControl: number;
+  evaluacionPreliminar: string;
+  evaluacionDefinitiva: string;
+  estandarizacionPorcentajeMitigacion: number;
+}
+
+export type TipoControlHSEQ = 'EVITAR_ELIMINAR' | 'SUSTITUIR' | 'CONTROL_INGENIERIA' | 'SENALIZACION_INFORMACION' | 'EPP' | 'RECOMENDACIONES_OTROS' | 'ADMINISTRATIVOS' | 'AUDITORIAS_INSPECCIONES_OBSERVACIONES' | 'AST_PERMISO' | 'MANTENIMIENTO' | 'MEDICIONES' | 'PROCEDIMIENTOS_OPERATIVOS_EMERGENCIA' | 'CHARLA_HSEQ_ENTRENAMIENTO' | 'TRANSFERIR_RIESGO' | 'COMPARTIR_RIESGO' | 'PROGRAMA_ASOCIADO';
+
+export type TipoEfectoControl = 'FRECUENCIA' | 'IMPACTO' | 'AMBAS';
+
+export type NaturalezaControl = 'Manual' | 'Semiautomático' | 'Automático';

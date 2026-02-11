@@ -42,6 +42,7 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   ExpandMore as ExpandMoreIcon,
+  FactCheck as FactCheckIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
@@ -49,7 +50,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useGetProcesosQuery } from '../../api/services/riesgosApi';
 import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
 import { Alert, Chip } from '@mui/material';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
+import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import AppPageLayout from '../../components/layout/AppPageLayout';
+
 
 interface DofaItem {
   id: string;
@@ -306,7 +309,6 @@ export default function DofaPage() {
         <Alert severity="info" sx={{ mb: 3 }}>
           Seleccione un proceso para ver su matriz DOFA. Usted supervisa {procesosVisibles.length} proceso(s).
         </Alert>
-        <ProcesoFiltros />
       </Box>
     );
   }
@@ -344,9 +346,9 @@ export default function DofaPage() {
     tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades' | 'estrategiasFO' | 'estrategiasFA' | 'estrategiasDO' | 'estrategiasDA'
   ) => (
     <Box>
-
-    <ProcesoFiltros />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <FiltroProcesoSupervisor />
+      <Box sx={{ mt: 3 }} />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h6" fontWeight={600}>
           {title}
         </Typography>
@@ -399,13 +401,11 @@ export default function DofaPage() {
   );
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="body2" color="text.secondary">
-            Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas
-          </Typography>
-        </Box>
+    <AppPageLayout
+      title="Matriz DOFA"
+      description="Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas del proceso."
+      topContent={<FiltroProcesoSupervisor />}
+      action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isReadOnly && (
             <Chip
@@ -426,18 +426,30 @@ export default function DofaPage() {
           {!isReadOnly && (
             <Button
               variant="contained"
+              size="large"
               startIcon={<SaveIcon />}
               onClick={handleSave}
               sx={{
                 background: '#1976d2',
                 color: '#fff',
+                borderRadius: 2,
+                px: 3,
+                fontWeight: 700,
               }}
             >
               Guardar DOFA
             </Button>
           )}
         </Box>
-      </Box>
+      }
+      alert={
+        isReadOnly && (
+          <Alert severity="info" sx={{ mb: 0, borderRadius: 2 }}>
+            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
+          </Alert>
+        )
+      }
+    >
       {isReadOnly && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Está en modo visualización. Solo puede ver la información.
@@ -457,7 +469,7 @@ export default function DofaPage() {
               borderBottom: '1px solid #e0e0e0',
             }}
           >
-            <Typography variant="h4" gutterBottom fontWeight={700} sx={{ mb: 2 }}>
+            <Typography variant="h4" gutterBottom fontWeight={700} sx={{ mb: 2, color: '#1976d2' }}>
               Matriz DOFA
             </Typography>
             <Box
@@ -485,15 +497,15 @@ export default function DofaPage() {
                     '& .MuiTab-root': {
                       minHeight: '48px',
                       padding: '12px 16px',
-                      textTransform: 'none',
-                      fontWeight: tabValue === 0 ? 600 : 400,
+                      textTransform: 'uppercase',
+                      fontWeight: 600,
                     },
                     '& .Mui-selected': {
                       color: '#1976d2',
                     },
                   }}
                 >
-                  <Tab label="Matriz DOFA" />
+                  <Tab icon={<FactCheckIcon />} iconPosition="start" label="MATRIZ DOFA" />
                 </Tabs>
               </Box>
               <Box
@@ -532,21 +544,22 @@ export default function DofaPage() {
                     '& .MuiTab-root': {
                       minHeight: '48px',
                       padding: '12px 16px',
-                      textTransform: 'none',
+                      textTransform: 'uppercase',
+                      fontWeight: 600,
                     },
                     '& .Mui-selected': {
                       color: '#1976d2',
                     },
                   }}
                 >
-                  <Tab label="Oportunidades" value={1} />
-                  <Tab label="Amenazas" value={2} />
-                  <Tab label="Fortalezas" value={3} />
-                  <Tab label="Debilidades" value={4} />
-                  <Tab label="Estrategias FO" value={5} />
-                  <Tab label="Estrategias FA" value={6} />
-                  <Tab label="Estrategias DO" value={7} />
-                  <Tab label="Estrategias DA" value={8} />
+                  <Tab icon={<TrendingUpIcon />} iconPosition="start" label="Oportunidades" value={1} />
+                  <Tab icon={<WarningIcon />} iconPosition="start" label="Amenazas" value={2} />
+                  <Tab icon={<CheckCircleIcon />} iconPosition="start" label="Fortalezas" value={3} />
+                  <Tab icon={<CancelIcon />} iconPosition="start" label="Debilidades" value={4} />
+                  <Tab icon={<TrendingUpIcon />} iconPosition="start" label="Estrategias FO" value={5} />
+                  <Tab icon={<WarningIcon />} iconPosition="start" label="Estrategias FA" value={6} />
+                  <Tab icon={<TrendingUpIcon />} iconPosition="start" label="Estrategias DO" value={7} />
+                  <Tab icon={<WarningIcon />} iconPosition="start" label="Estrategias DA" value={8} />
                 </Tabs>
               </Box>
             </Box>
@@ -1817,7 +1830,7 @@ export default function DofaPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </AppPageLayout>
   );
 }
 

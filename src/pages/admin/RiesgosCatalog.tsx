@@ -42,6 +42,8 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         descripcion: '',
         subtipos: []
     });
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedDetail, setSelectedDetail] = useState<TipoRiesgo | null>(null);
 
     const [newSubtipo, setNewSubtipo] = useState({ codigo: '', descripcion: '' });
 
@@ -64,6 +66,16 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     const handleClose = () => {
         setOpen(false);
         setEditingItem(null);
+    };
+
+    const handleOpenDetailDialog = (item: TipoRiesgo) => {
+        setSelectedDetail(item);
+        setDetailDialogOpen(true);
+    };
+
+    const handleCloseDetailDialog = () => {
+        setDetailDialogOpen(false);
+        setSelectedDetail(null);
     };
 
     const handleSave = () => {
@@ -118,11 +130,11 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
             width: 120,
             renderCell: (params) => (
                 <Box>
-                    <IconButton size="small" onClick={() => handleOpen(params.row)} color="primary">
-                        <EditIcon fontSize="small" />
+                    <IconButton size="small" onClick={() => handleOpen(params.row)}>
+                        <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />
                     </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(params.row.codigo)} color="error">
-                        <DeleteIcon fontSize="small" />
+                    <IconButton size="small" onClick={() => handleDelete(params.row.codigo)}>
+                        <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
                     </IconButton>
                 </Box>
             ),
@@ -144,6 +156,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
             <AppDataGrid
                 rows={rowsWithId}
                 columns={columns}
+                onRowClick={(params) => handleOpenDetailDialog(params.row)}
             />
 
             <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -225,6 +238,52 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                 <DialogActions>
                     <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
                     <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE */}
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Tipo de Riesgo</DialogTitle>
+                <DialogContent>
+                    {selectedDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Código</Typography>
+                                <Typography variant="body1">{selectedDetail.codigo}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripción</Typography>
+                                <Typography variant="body1">{selectedDetail.descripcion || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Subtipos</Typography>
+                                {selectedDetail.subtipos && selectedDetail.subtipos.length > 0 ? (
+                                    <List dense>
+                                        {selectedDetail.subtipos.map((sub, index) => (
+                                            <ListItem key={index}>
+                                                <ListItemText primary={sub.codigo} secondary={sub.descripcion} />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                ) : (
+                                    <Typography variant="body1">-</Typography>
+                                )}
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpen(selectedDetail!);
+                        handleCloseDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>

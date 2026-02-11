@@ -74,10 +74,11 @@ export const colors = {
 
   // Fondos y Superficies (Fondo gris claro del logo)
   background: {
-    default: "#E8E8E8", // Gris claro del fondo del logo
-    paper: "#F5F5F5",
+    default: "#F0F2F5", // Gris claro "chévere" para el fondo exterior
+    paper: "#FFFFFF",   // Blanco para el contenido interior
     card: "#FFFFFF",
-    sidebar: "#F0F0F0",
+    sidebar: "#FFFFFF",
+    container: "#FFFFFF",
   },
 
   // Colores Branding (adicionales)

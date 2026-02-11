@@ -44,6 +44,8 @@ export default function SimpleCatalog({
     const [open, setOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
     const [formData, setFormData] = useState<any>(defaultItem);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedDetail, setSelectedDetail] = useState<any | null>(null);
 
     const handleOpen = (item?: any) => {
         if (item) {
@@ -61,6 +63,16 @@ export default function SimpleCatalog({
         setEditingItem(null);
     };
 
+    const handleOpenDetailDialog = (item: any) => {
+        setSelectedDetail(item);
+        setDetailDialogOpen(true);
+    };
+
+    const handleCloseDetailDialog = () => {
+        setDetailDialogOpen(false);
+        setSelectedDetail(null);
+    };
+
     const handleSave = () => {
         onSave(formData);
         handleClose();
@@ -72,11 +84,11 @@ export default function SimpleCatalog({
         width: 120,
         renderCell: (params) => (
             <Box>
-                <IconButton size="small" onClick={() => handleOpen(params.row)} color="primary">
-                    <EditIcon fontSize="small" />
+                <IconButton size="small" onClick={() => handleOpen(params.row)}>
+                    <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />
                 </IconButton>
-                <IconButton size="small" onClick={() => onDelete(params.row.id)} color="error">
-                    <DeleteIcon fontSize="small" />
+                <IconButton size="small" onClick={() => onDelete(params.row.id)}>
+                    <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
                 </IconButton>
             </Box>
         ),
@@ -95,6 +107,7 @@ export default function SimpleCatalog({
                 rows={data}
                 columns={[...columns, actionColumn]}
                 getRowId={(row) => row.id}
+                onRowClick={(params) => handleOpenDetailDialog(params.row)}
             />
 
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -117,6 +130,34 @@ export default function SimpleCatalog({
                 <DialogActions>
                     <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
                     <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE */}
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del {itemLabel}</DialogTitle>
+                <DialogContent>
+                    {selectedDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            {Object.keys(defaultItem).map((key) => (
+                                <Box key={key}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {key.charAt(0).toUpperCase() + key.slice(1)}
+                                    </Typography>
+                                    <Typography variant="body1">{selectedDetail[key] || '-'}</Typography>
+                                </Box>
+                            ))}
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpen(selectedDetail!);
+                        handleCloseDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>

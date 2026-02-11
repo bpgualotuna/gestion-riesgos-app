@@ -20,30 +20,32 @@ export const CLASIFICACION_RIESGO = {
 
 export type ClasificacionRiesgo = typeof CLASIFICACION_RIESGO[keyof typeof CLASIFICACION_RIESGO];
 
-// Pesos de Impacto (según Excel)
+// Pesos de Impacto (según documento de diseño actualizado)
 export const PESOS_IMPACTO = {
-  '1': 0.22,      // Ambiental - 22%
-  '2': 0.00,      // Confidencialidad - 0% (no tiene peso en el cálculo global)
-  '3': 0.00,      // Disponibilidad SGSI - 0%
-  '4': 0.22,      // Económico - 22%
-  '5': 0.00,      // Integridad SGSI - 0%
-  '6': 0.22,      // Legal - 22%
-  '7': 0.14,      // Personas - 14%
-  '8': 0.10,      // Procesos - 10%
-  '9': 0.10,      // Reputación - 10%
+  economico: 0.22,           // Económico - 22%
+  legal: 0.22,               // Legal/Normativo - 22%
+  reputacion: 0.22,          // Reputacional - 22%
+  procesos: 0.14,            // Procesos - 14%
+  ambiental: 0.10,           // Ambiental - 10%
+  personas: 0.10,            // Personas - 10%
+  confidencialidadSGSI: 0.0, // Confidencialidad SGSI - 0% (v7 update)
+  disponibilidadSGSI: 0.0,   // Disponibilidad SGSI - 0% (v7 update)
+  integridadSGSI: 0.0,       // Integridad SGSI - 0% (v7 update)
+  tecnologico: 0.0,          // Tecnológico - 0% (Alias/v7 update)
 } as const;
 
 // Dimensiones de Impacto
 export const DIMENSIONES_IMPACTO = [
-  { key: '1', label: 'Ambiental', peso: PESOS_IMPACTO['1'] },
-  { key: '2', label: 'Confidencialidad', peso: PESOS_IMPACTO['2'] },
-  { key: '3', label: 'Disponibilidad SGSI', peso: PESOS_IMPACTO['3'] },
-  { key: '4', label: 'Económico', peso: PESOS_IMPACTO['4'] },
-  { key: '5', label: 'Integridad SGSI', peso: PESOS_IMPACTO['5'] },
-  { key: '6', label: 'Legal/Normativo', peso: PESOS_IMPACTO['6'] },
-  { key: '7', label: 'Personas', peso: PESOS_IMPACTO['7'] },
-  { key: '8', label: 'Procesos', peso: PESOS_IMPACTO['8'] },
-  { key: '9', label: 'Reputacional', peso: PESOS_IMPACTO['9'] },
+  { key: 'economico', label: 'Impacto económico', peso: PESOS_IMPACTO.economico },
+  { key: 'procesos', label: 'Procesos', peso: PESOS_IMPACTO.procesos },
+  { key: 'legal', label: 'Legal/Normativo', peso: PESOS_IMPACTO.legal },
+  { key: 'confidencialidadSGSI', label: 'Confidencialidad SGSI', peso: PESOS_IMPACTO.confidencialidadSGSI },
+  { key: 'reputacion', label: 'Reputacional', peso: PESOS_IMPACTO.reputacion },
+  { key: 'disponibilidadSGSI', label: 'Disponibilidad SGSI', peso: PESOS_IMPACTO.disponibilidadSGSI },
+  { key: 'personas', label: 'Personas', peso: PESOS_IMPACTO.personas },
+  { key: 'integridadSGSI', label: 'Integridad SGSI', peso: PESOS_IMPACTO.integridadSGSI },
+  { key: 'ambiental', label: 'Ambiental', peso: PESOS_IMPACTO.ambiental },
+  { key: 'tecnologico', label: 'Tecnológico', peso: PESOS_IMPACTO.tecnologico },
 ] as const;
 
 // Escalas de Calificación

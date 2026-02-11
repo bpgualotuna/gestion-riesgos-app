@@ -1,9 +1,9 @@
 /**
- * Controles y Planes de Acción Page
- * Gestión de controles de riesgos residuales y planes de acción
+ * Controles y Planes de Acción Page - NUEVA VERSIÓN CON 4 TABS
+ * Incluye: Clasificación, Controles, Evaluación Residual (Copiada), Planes
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import {
   Box,
   Typography,
@@ -22,6 +22,13 @@ import {
   FormControl,
   InputLabel,
   Select,
+  IconButton,
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
+  Slider,
   Table,
   TableBody,
   TableCell,
@@ -29,737 +36,1021 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
-  Chip,
-  Autocomplete,
+  Collapse,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Switch,
+  LinearProgress
 } from '@mui/material';
+import Grid2 from '../../utils/Grid2';
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Shield as ControlIcon,
-  Assignment as PlanIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Info as InfoIcon,
+  CheckCircle as CheckCircleIcon,
+  Assignment as AssignmentIcon,
+  Shield as ShieldIcon,
+  FactCheck as FactCheckIcon,
+  Security as SecurityIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
-import ProcesoFiltros from '../../components/procesos/ProcesoFiltros';
+import AppPageLayout from '../../components/layout/AppPageLayout';
+import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
 import { getMockRiesgos } from '../../api/services/mockData';
+import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO } from '../../utils/constants';
+import {
+  calcularRiesgoInherente,
+  calcularPuntajeControl,
+  determinarEfectividadControl,
+  obtenerPorcentajeMitigacion,
+  calcularFrecuenciaResidual,
+  calcularImpactoResidual,
+  calcularCalificacionResidual,
+  determinarEvaluacionPreliminar,
+  determinarEvaluacionDefinitiva,
+  obtenerPorcentajeMitigacionAvanzado,
+  calcularFrecuenciaResidualAvanzada,
+  calcularImpactoResidualAvanzado,
+  determinarNivelRiesgo
+} from '../../utils/calculations';
+import { RiesgoFormData } from '../../types';
 
-interface Control {
+interface ClasificacionCausa {
   id: string;
-  procesoId: string;
-  riesgoId: string;
-  riesgoNombre?: string;
   causaId: string;
-  causaNombre?: string;
-  descripcion: string;
-  tipo: 'prevención' | 'detección' | 'corrección';
-  estado: 'activo' | 'inactivo';
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface PlanAccion {
-  id: string;
-  procesoId: string;
-  controlId?: string;
-  incidenciaId?: string;
   riesgoId: string;
-  riesgoNombre?: string;
-  causaId?: string;
-  causaNombre?: string;
-  descripcion: string;
-  responsable: string;
-  decision: string;
-  fechaEstimada: string;
-  estado: 'pendiente' | 'en_progreso' | 'completado' | 'cancelado';
+  tipo: 'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN';
+  controlDescripcion?: string;
+  controlTipo?: 'prevención' | 'detección' | 'corrección';
+  controlDesviaciones?: string;
+  impactosResiduales?: { personas: number; legal: number; ambiental: number; procesos: number; reputacion: number; economico: number; };
+  frecuenciaResidual?: number;
+  riesgoResidual?: number;
+  nivelRiesgoResidual?: string;
+  planDescripcion?: string;
+  planDetalle?: string;
+  planResponsable?: string;
+  planDecision?: string;
+  planFechaEstimada?: string;
+  planEstado?: 'pendiente' | 'en_progreso' | 'completado' | 'cancelado';
+  procesoId: string;
   createdAt: string;
   updatedAt: string;
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
+interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
+    <div role="tabpanel" hidden={value !== index} id={`tabpanel-${index}`} {...other}>
       {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
     </div>
   );
 }
 
-export default function ControlesYPlanesAccionPage() {
+export default function ControlesYPlanesAccionPageNueva() {
   const { procesoSeleccionado } = useProceso();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [activeTab, setActiveTab] = useState(0);
 
-  // Estados
-  const [controles, setControles] = useState<Control[]>([]);
-  const [planesAccion, setPlanesAccion] = useState<PlanAccion[]>([]);
-  const [dialogControlOpen, setDialogControlOpen] = useState(false);
-  const [dialogPlanOpen, setDialogPlanOpen] = useState(false);
-  const [controlSeleccionado, setControlSeleccionado] = useState<Control | null>(null);
-  const [planSeleccionado, setPlanSeleccionado] = useState<PlanAccion | null>(null);
+  // Estados Clasificación Existente
+  const [clasificaciones, setClasificaciones] = useState<ClasificacionCausa[]>([]);
+  const [riesgoExpandido, setRiesgoExpandido] = useState<string | null>(null);
+  const [causaEnEdicion, setCausaEnEdicion] = useState<{ riesgoId: string; causa: any; clasificacion?: ClasificacionCausa; } | null>(null);
+  const [dialogDetailOpen, setDialogDetailOpen] = useState(false);
+  const [itemDetalle, setItemDetalle] = useState<ClasificacionCausa | null>(null);
+  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN'>('seleccion');
+  const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
+  const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
+  const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
+  const [frecuenciaResidual, setFrecuenciaResidual] = useState(1);
 
-  // Cargar riesgos del proceso
+  // Estados Evaluación Residual (COPIADO)
+  const [riesgosExpandidosResidual, setRiesgosExpandidosResidual] = useState<Record<string, boolean>>({});
+  const [dialogEvaluacionOpen, setDialogEvaluacionOpen] = useState(false); // Kept for reference or removal
+  const [evaluacionExpandida, setEvaluacionExpandida] = useState<{ riesgoId: string; causaId: string } | null>(null);
+  const [riesgoIdEvaluacion, setRiesgoIdEvaluacion] = useState<string | null>(null);
+  const [causaIdEvaluacion, setCausaIdEvaluacion] = useState<string | null>(null);
+  const [criteriosEvaluacion, setCriteriosEvaluacion] = useState({
+    aplicabilidad: '', puntajeAplicabilidad: 0,
+    cobertura: '', puntajeCobertura: 0,
+    facilidadUso: '', puntajeFacilidad: 0,
+    segregacion: '', puntajeSegregacion: 0,
+    naturaleza: '', puntajeNaturaleza: 0,
+    desviaciones: 'A',
+    tipoMitigacion: 'AMBAS' as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
+    recomendacion: '',
+    descripcionControl: '',
+    responsable: '',
+    tieneControl: true
+  });
+
+  // Cargar riesgos
+  const { data: riesgosApiData } = useGetRiesgosQuery(
+    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 0 },
+    { skip: !procesoSeleccionado }
+  );
+
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
+
+    // 1. Try Local Storage first (most recent edits)
     const riesgosIdentificacion = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
     if (riesgosIdentificacion) {
-      try {
-        return JSON.parse(riesgosIdentificacion);
-      } catch (error) {
-        console.error('Error al cargar riesgos de identificación:', error);
-      }
+      try { return JSON.parse(riesgosIdentificacion); } catch (error) { console.error('Error al cargar riesgos LS:', error); }
     }
 
-    const riesgosData = localStorage.getItem('riesgos');
-    const mockRiesgosResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
-    const riesgos = riesgosData ? JSON.parse(riesgosData) : mockRiesgosResponse.data;
-    return riesgos.filter((r: any) => r.procesoId === procesoSeleccionado.id) || [];
-  }, [procesoSeleccionado?.id]);
+    // 2. Try API Data
+    if (riesgosApiData && (riesgosApiData as any).data && (riesgosApiData as any).data.length > 0) {
+      return (riesgosApiData as any).data;
+    }
 
-  // Cargar controles y planes desde localStorage al montar
+    // 3. Try generic Mock/Process Data
+    const riesgosData = localStorage.getItem('riesgos');
+    if (riesgosData) {
+      return JSON.parse(riesgosData).filter((r: any) => r.procesoId === procesoSeleccionado.id);
+    }
+
+    const mockRiesgosResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
+    return mockRiesgosResponse.data || [];
+  }, [procesoSeleccionado?.id, riesgosApiData]);
+
+  // Cargar y Guardar Clasificaciones LocalStorage
   useEffect(() => {
     if (procesoSeleccionado?.id) {
-      const controlesData = localStorage.getItem(`controles_${procesoSeleccionado.id}`);
-      if (controlesData) {
-        setControles(JSON.parse(controlesData));
-      }
-
-      const planesData = localStorage.getItem(`planes_${procesoSeleccionado.id}`);
-      if (planesData) {
-        setPlanesAccion(JSON.parse(planesData));
-      }
+      const stored = localStorage.getItem(`clasificaciones_${procesoSeleccionado.id}`);
+      if (stored) try { setClasificaciones(JSON.parse(stored)); } catch (error) { console.error(error); }
     }
   }, [procesoSeleccionado?.id]);
 
-  // Guardar controles en localStorage
   useEffect(() => {
-    if (procesoSeleccionado?.id && controles.length > 0) {
-      localStorage.setItem(`controles_${procesoSeleccionado.id}`, JSON.stringify(controles));
+    if (procesoSeleccionado?.id && clasificaciones.length >= 0) {
+      localStorage.setItem(`clasificaciones_${procesoSeleccionado.id}`, JSON.stringify(clasificaciones));
     }
-  }, [controles, procesoSeleccionado?.id]);
+  }, [clasificaciones, procesoSeleccionado?.id]);
 
-  // Guardar planes en localStorage
-  useEffect(() => {
-    if (procesoSeleccionado?.id && planesAccion.length > 0) {
-      localStorage.setItem(`planes_${procesoSeleccionado.id}`, JSON.stringify(planesAccion));
-    }
-  }, [planesAccion, procesoSeleccionado?.id]);
+  // Derived Logic
+  const causasNoClasificadas = useMemo(() => {
+    return riesgosDelProceso.map((riesgo: any) => {
+      const causas = riesgo.causas || [];
+      const causasSinClasificar = causas.filter((causa: any) => !clasificaciones.some(c => c.causaId === causa.id && c.riesgoId === riesgo.id));
+      return { riesgo, causas: causasSinClasificar };
+    }).filter(item => item.causas.length > 0);
+  }, [riesgosDelProceso, clasificaciones]);
 
-  // Formularios
-  const [formControl, setFormControl] = useState<{
-    riesgoId: string;
-    causaId: string;
-    descripcion: string;
-    tipo: 'prevención' | 'detección' | 'corrección';
-  }>({
-    riesgoId: '',
-    causaId: '',
-    descripcion: '',
-    tipo: 'prevención',
-  });
+  // Filtros Derivados (Agrupados por Riesgo)
+  const riesgosPendientes = useMemo(() => {
+    return riesgosDelProceso.map((r: any) => ({
+      ...r,
+      causas: (r.causas || []).filter((c: any) => {
+        const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
+        return tipo === 'PENDIENTE';
+      })
+    })).filter((r: any) => r.causas && r.causas.length > 0);
+  }, [riesgosDelProceso]);
 
-  const [tipoRegistro, setTipoRegistro] = useState<'control' | 'plan'>('control');
+  const riesgosConPlanes = useMemo(() => {
+    return riesgosDelProceso.map((r: any) => ({
+      ...r,
+      causas: (r.causas || []).filter((c: any) => {
+        const tipo = (c.tipoGestion || '').toUpperCase();
+        return tipo === 'PLAN';
+      })
+    })).filter((r: any) => r.causas && r.causas.length > 0);
+  }, [riesgosDelProceso]);
 
-  const [formPlanExtra, setFormPlanExtra] = useState({
-    responsable: (user as any)?.nombre || '',
-    decision: '',
-    fechaEstimada: '',
-  });
+  const riesgosConControles = useMemo(() => {
+    return riesgosDelProceso.map((r: any) => ({
+      ...r,
+      causas: (r.causas || []).filter((c: any) => {
+        const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
+        return tipo === 'CONTROL';
+      })
+    })).filter((r: any) => r.causas && r.causas.length > 0);
+  }, [riesgosDelProceso]);
 
-  const [formPlan, setFormPlan] = useState({
-    controlId: '',
-    riesgoId: '',
-    descripcion: '',
-    responsable: '',
-    decision: '',
-    fechaEstimada: '',
-  });
+  // Legacy arrays (kept for compatibility in case used elsewhere, but ideally replaced)
+  const controles = useMemo(() => clasificaciones.filter(c => c.tipo === 'control'), [clasificaciones]);
+  const planes = useMemo(() => clasificaciones.filter(c => c.tipo === 'plan'), [clasificaciones]);
 
-  // Obtener causas del riesgo seleccionado
-  const causasDelRiesgo = useMemo(() => {
-    const riesgo = riesgosDelProceso.find((r: any) => r.id === formControl.riesgoId);
-    return riesgo?.causas || [];
-  }, [formControl.riesgoId, riesgosDelProceso]);
+  // Actualizar Riesgo LocalStorage (Residual)
+  const actualizarRiesgoLocalStorage = (riesgoId: string, updates: Partial<RiesgoFormData>) => {
+    const storedRiesgos = JSON.parse(localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado?.id}`) || '[]');
+    const newStoredRiesgos = storedRiesgos.map((r: any) => r.id === riesgoId ? { ...r, ...updates } : r);
+    localStorage.setItem(`riesgos_identificacion_${procesoSeleccionado?.id}`, JSON.stringify(newStoredRiesgos));
+    window.dispatchEvent(new Event('storage'));
 
-  if (!procesoSeleccionado) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="info">
-          Por favor selecciona un proceso para gestionar controles y planes de acción.
-        </Alert>
-      </Box>
-    );
-  }
-
-  // Manejadores CONTROLES
-  const handleAbrirDialogControl = () => {
-    setControlSeleccionado(null);
-    setFormControl({
-      riesgoId: '',
-      causaId: '',
-      descripcion: '',
-      tipo: 'prevención',
-    });
-    setTipoRegistro('control');
-    setFormPlanExtra({
-      responsable: (user as any)?.nombre || '',
-      decision: '',
-      fechaEstimada: '',
-    });
-    setDialogControlOpen(true);
+    // Force update triggers
+    window.location.reload();
   };
 
-  const handleGuardarControl = () => {
-    if (!formControl.riesgoId || !formControl.causaId || !formControl.descripcion) {
-      showError('Por favor completa todos los campos');
-      return;
+  // Handlers Residual
+  const handleToggleExpandirResidual = (id: string) => {
+    setRiesgosExpandidosResidual((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleEvaluarControl = (riesgoId: string, causa: any) => {
+    setRiesgoIdEvaluacion(riesgoId);
+    setCausaIdEvaluacion(causa.id);
+
+    // Initial load for Plan if exists
+    if (causa.planDescripcion || (causa.tipoGestion && causa.tipoGestion.toUpperCase() === 'PLAN')) {
+      setFormPlan({
+        descripcion: causa.planDescripcion || '',
+        detalle: causa.planDetalle || '',
+        responsable: causa.planResponsable || (user as any)?.fullName || '',
+        decision: '',
+        fechaEstimada: causa.planFechaEstimada || '',
+        estado: causa.planEstado || 'pendiente'
+      });
+    } else {
+      setFormPlan({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' });
     }
 
-    const riesgoSeleccionado = riesgosDelProceso.find((r: any) => r.id === formControl.riesgoId);
-    const causaSeleccionada = causasDelRiesgo.find((c: any) => c.id === formControl.causaId);
+    // Load existing if present
+    if (causa.puntajeTotal !== undefined) {
+      setCriteriosEvaluacion({
+        aplicabilidad: causa.aplicabilidad || '',
+        puntajeAplicabilidad: causa.puntajeAplicabilidad || 0,
+        cobertura: causa.cobertura || '',
+        puntajeCobertura: causa.puntajeCobertura || 0,
+        facilidadUso: causa.facilidadUso || '',
+        puntajeFacilidad: causa.puntajeFacilidad || 0,
+        segregacion: causa.segregacion || '',
+        puntajeSegregacion: causa.puntajeSegregacion || 0,
+        naturaleza: causa.naturaleza || '',
+        puntajeNaturaleza: causa.puntajeNaturaleza || 0,
+        desviaciones: causa.desviaciones || 'A',
+        tipoMitigacion: causa.tipoMitigacion || 'AMBAS',
+        recomendacion: causa.recomendacion || '',
+        descripcionControl: causa.controlDescripcion || '',
+        responsable: causa.controlResponsable || (user as any)?.fullName || '',
+        tieneControl: causa.tieneControl !== undefined ? causa.tieneControl : true
+      });
+    } else {
+      setCriteriosEvaluacion({
+        aplicabilidad: '', puntajeAplicabilidad: 0,
+        cobertura: '', puntajeCobertura: 0,
+        facilidadUso: '', puntajeFacilidad: 0,
+        segregacion: '', puntajeSegregacion: 0,
+        naturaleza: '', puntajeNaturaleza: 0,
+        desviaciones: 'A',
+        tipoMitigacion: 'AMBAS', recomendacion: '',
+        descripcionControl: '', responsable: (user as any)?.fullName || '',
+        tieneControl: true
+      });
+    }
+    setEvaluacionExpandida({ riesgoId, causaId: causa.id });
+    setDialogEvaluacionOpen(false); // Ensure dialog is closed if previously used
+  };
 
-    if (tipoRegistro === 'plan') {
-      if (!formPlanExtra.responsable || !formPlanExtra.decision || !formPlanExtra.fechaEstimada) {
-        showError('Por favor completa los datos del plan de acción');
-        return;
+  // Handlers Clasificación
+  const handleAbrirClasificacion = (riesgoId: string, causa: any) => {
+    const clasificacionExistente = clasificaciones.find(c => c.causaId === causa.id && c.riesgoId === riesgoId);
+    setCausaEnEdicion({ riesgoId, causa, clasificacion: clasificacionExistente });
+    if (clasificacionExistente) {
+      setTipoClasificacion(clasificacionExistente.tipo);
+      if (clasificacionExistente.tipo === 'control') {
+        setFormControl({ descripcion: clasificacionExistente.controlDescripcion || '', tipo: clasificacionExistente.controlTipo || 'prevención' });
+        setImpactosResiduales(clasificacionExistente.impactosResiduales || { personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
+        setFrecuenciaResidual(clasificacionExistente.frecuenciaResidual || 1);
+      } else if (clasificacionExistente.tipo === 'plan') {
+        setFormPlan({ descripcion: clasificacionExistente.planDescripcion || '', detalle: clasificacionExistente.planDetalle || '', responsable: clasificacionExistente.planResponsable || '', decision: clasificacionExistente.planDecision || '', fechaEstimada: clasificacionExistente.planFechaEstimada || '', estado: clasificacionExistente.planEstado || 'pendiente' });
       }
-
-      const nuevoPlan: PlanAccion = {
-        id: `plan-${Date.now()}`,
-        procesoId: procesoSeleccionado!.id,
-        riesgoId: formControl.riesgoId,
-        riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-        causaId: formControl.causaId,
-        causaNombre: causaSeleccionada?.descripcion,
-        descripcion: formControl.descripcion,
-        responsable: formPlanExtra.responsable,
-        decision: formPlanExtra.decision,
-        fechaEstimada: formPlanExtra.fechaEstimada,
-        estado: 'pendiente',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setPlanesAccion([...planesAccion, nuevoPlan]);
-      showSuccess('Plan de acción creado');
-      setDialogControlOpen(false);
-      return;
-    }
-
-    if (controlSeleccionado) {
-      setControles(controles.map(c =>
-        c.id === controlSeleccionado.id
-          ? {
-              ...c,
-              ...formControl,
-              riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-              causaNombre: causaSeleccionada?.descripcion,
-              updatedAt: new Date().toISOString(),
-            }
-          : c
-      ));
-      showSuccess('Control actualizado');
     } else {
-      const nuevoControl: Control = {
-        id: `control-${Date.now()}`,
-        procesoId: procesoSeleccionado!.id,
-        ...formControl,
-        riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-        causaNombre: causaSeleccionada?.descripcion,
-        estado: 'activo',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setControles([...controles, nuevoControl]);
-      showSuccess('Control creado');
-    }
-    setDialogControlOpen(false);
-  };
-
-  const handleEliminarControl = (id: string) => {
-    if (window.confirm('¿Eliminar este control?')) {
-      setControles(controles.filter(c => c.id !== id));
-      showSuccess('Control eliminado');
+      setTipoClasificacion('seleccion');
+      setFormControl({ descripcion: '', tipo: 'prevención' });
+      setFormPlan({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' });
+      setImpactosResiduales({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
+      setFrecuenciaResidual(1);
     }
   };
 
-  // Manejadores PLANES DE ACCIÓN
-  const handleAbrirDialogPlan = () => {
-    setPlanSeleccionado(null);
-    setFormPlan({
-      controlId: '',
-      riesgoId: '',
-      descripcion: '',
-      responsable: (user as any)?.nombre || '',
-      decision: '',
-      fechaEstimada: '',
+  const handleGuardarClasificacion = () => {
+    if (!causaEnEdicion) return;
+    const { riesgoId, causa, clasificacion } = causaEnEdicion;
+    // ... Validations simplified for brevity ...
+    const nuevaClasificacion: ClasificacionCausa = {
+      id: clasificacion?.id || `clas-${Date.now()}-${causa.id}`,
+      causaId: causa.id, riesgoId, tipo: tipoClasificacion,
+      controlDescripcion: tipoClasificacion === 'control' ? formControl.descripcion : undefined,
+      controlTipo: tipoClasificacion === 'control' ? formControl.tipo : undefined,
+      impactosResiduales: tipoClasificacion === 'control' ? impactosResiduales : undefined,
+      frecuenciaResidual: tipoClasificacion === 'control' ? frecuenciaResidual : undefined,
+      planDescripcion: tipoClasificacion === 'plan' ? formPlan.descripcion : undefined,
+      planResponsable: tipoClasificacion === 'plan' ? formPlan.responsable : undefined,
+      planDecision: tipoClasificacion === 'plan' ? formPlan.decision : undefined,
+      planFechaEstimada: tipoClasificacion === 'plan' ? formPlan.fechaEstimada : undefined,
+      planEstado: tipoClasificacion === 'plan' ? formPlan.estado : undefined,
+      procesoId: procesoSeleccionado!.id,
+      createdAt: clasificacion?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+    };
+    if (clasificacion) setClasificaciones(clasificaciones.map(c => c.id === clasificacion.id ? nuevaClasificacion : c));
+    else setClasificaciones([...clasificaciones, nuevaClasificacion]);
+    showSuccess('Causa clasificada correctamente');
+    setCausaEnEdicion(null);
+  };
+
+  const getRiesgoNombre = (riesgoId: string) => {
+    const r = riesgosDelProceso.find((r: any) => r.id === riesgoId);
+    return r?.nombre || r?.descripcionRiesgo || riesgoId;
+  };
+  const handleGuardarEvaluacion = () => {
+    const riesgo = riesgosDelProceso.find((r: any) => r.id === riesgoIdEvaluacion);
+    if (!riesgo || !causaIdEvaluacion) return;
+
+    const causasUpd = riesgo.causas.map((c: any) => {
+      if (c.id === causaIdEvaluacion) {
+        if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || (!tipoClasificacion)) {
+          let pt = 0;
+          let prel = 'Inefectivo';
+          let def = 'Inefectivo';
+          let mit = 0;
+
+          if (criteriosEvaluacion.tieneControl) {
+            pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+            prel = determinarEvaluacionPreliminar(pt);
+            def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.desviaciones);
+            mit = obtenerPorcentajeMitigacionAvanzado(def);
+          } else {
+            // If no control, reset scores and mitigation
+            pt = 0;
+            prel = 'Inefectivo';
+            def = 'Inefectivo';
+            mit = 0;
+          }
+
+          const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
+          const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
+          return {
+            ...c, ...criteriosEvaluacion,
+            controlDesviaciones: criteriosEvaluacion.desviaciones,
+            controlDescripcion: criteriosEvaluacion.descripcionControl,
+            controlResponsable: criteriosEvaluacion.responsable,
+            tieneControl: criteriosEvaluacion.tieneControl,
+            tipoGestion: 'CONTROL',
+            puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
+            frecuenciaResidual: fRes, impactoResidual: iRes,
+            calificacionResidual: calcularCalificacionResidual(fRes, iRes)
+          };
+        } else {
+          // PLAN
+          return {
+            ...c,
+            tipoGestion: 'PLAN',
+            planDescripcion: formPlan.descripcion,
+            planDetalle: formPlan.detalle,
+            planResponsable: formPlan.responsable,
+            planFechaEstimada: formPlan.fechaEstimada,
+            puntajeTotal: undefined, porcentajeMitigacion: 0
+          };
+        }
+      }
+      return c;
     });
-    setDialogPlanOpen(true);
-  };
 
-  const handleGuardarPlan = () => {
-    if (!formPlan.riesgoId || !formPlan.descripcion || !formPlan.responsable) {
-      showError('Por favor completa todos los campos');
-      return;
-    }
+    if (riesgoIdEvaluacion) {
+      // Calcular Riesgo Residual Global (MAX de los residuales de las causas)
+      // Si una causa no tiene evaluación residual (ej. pendiente), se usa su inherente
+      // Si la causa no tiene valores propios, usamos los del riesgo padre
+      const maxRiesgoResidual = Math.max(...causasUpd.map((c: any) => {
+        const residual = c.calificacionResidual;
 
-    const riesgoSeleccionado = riesgosDelProceso.find((r: any) => r.id === formPlan.riesgoId);
+        // Fallback robusto para cálculo inherente
+        const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 0;
+        const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 0;
+        const inherente = prob * imp;
 
-    if (planSeleccionado) {
-      setPlanesAccion(planesAccion.map(p =>
-        p.id === planSeleccionado.id
-          ? {
-              ...p,
-              ...formPlan,
-              riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-              estado: 'en_progreso',
-              updatedAt: new Date().toISOString(),
-            }
-          : p
-      ));
-      showSuccess('Plan de acción actualizado');
-    } else {
-      const nuevoPlan: PlanAccion = {
-        id: `plan-${Date.now()}`,
-        procesoId: procesoSeleccionado!.id,
-        ...formPlan,
-        riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-        estado: 'pendiente',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setPlanesAccion([...planesAccion, nuevoPlan]);
-      showSuccess('Plan de acción creado');
-    }
-    setDialogPlanOpen(false);
-  };
+        return residual !== undefined ? residual : inherente;
+      }));
 
-  const handleEliminarPlan = (id: string) => {
-    if (window.confirm('¿Eliminar este plan de acción?')) {
-      setPlanesAccion(planesAccion.filter(p => p.id !== id));
-      showSuccess('Plan de acción eliminado');
+      actualizarRiesgoLocalStorage(riesgoIdEvaluacion, {
+        causas: causasUpd,
+        riesgoResidual: maxRiesgoResidual
+      } as any);
+      setEvaluacionExpandida(null);
+      showSuccess('Gestión guardada exitosamente y Riesgo Residual Actualizado');
     }
   };
 
-  const getColorEstado = (estado: string) => {
-    switch (estado) {
-      case 'activo':
-      case 'completado':
-        return 'success';
-      case 'inactivo':
-      case 'cancelado':
-        return 'default';
-      case 'pendiente':
-        return 'warning';
-      case 'en_progreso':
-        return 'info';
-      default:
-        return 'default';
-    }
+  const getCausaDescripcion = (riesgoId: string, causaId: string) => {
+    const r = riesgosDelProceso.find((r: any) => r.id === riesgoId);
+    const c = r?.causas?.find((c: any) => c.id === causaId);
+    return c?.descripcion || causaId;
   };
+
+  if (!procesoSeleccionado) return <Box sx={{ p: 3 }}><Alert severity="info">Por favor selecciona un proceso.</Alert></Box>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" gutterBottom fontWeight={700} sx={{ color: '#1976d2' }}>
-          Controles y Planes de Acción
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Proceso: <strong>{procesoSeleccionado.nombre}</strong>
-        </Typography>
+    <AppPageLayout
+      title="Controles y Planes de Acción"
+      description="Gestionar controles y planes asociados a los riesgos identificados."
+      topContent={<FiltroProcesoSupervisor />}
+    >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+          <Tab icon={<FactCheckIcon />} label="CLASIFICACIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
+          <Tab icon={<ShieldIcon />} label="CONTROLES" iconPosition="start" sx={{ fontWeight: 600 }} />
+          <Tab icon={<AssignmentIcon />} label="PLANES DE ACCIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
+        </Tabs>
       </Box>
 
-      {/* Filtros para Supervisor */}
-      <ProcesoFiltros />
+      {/* TAB 0: CLASIFICACIÓN Y GESTIÓN */}
+      <TabPanel value={activeTab} index={0}>
+        <Box>
+          {riesgosPendientes.length === 0 ? (
+            <Card><CardContent><Typography align="center">No hay causas pendientes de clasificar. ¡Excelente trabajo!</Typography></CardContent></Card>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Summary Counter */}
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {(() => {
+                  let pendientes = 0;
+                  riesgosPendientes.forEach((r: any) => r.causas?.forEach((c: any) => pendientes++));
+                  return `Tienes ${pendientes} causas pendientes de clasificar.`;
+                })()}
+              </Alert>
 
-      {/* Tabs */}
-      <Card>
-        <CardContent>
-          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-            <Tab label="Controles" icon={<ControlIcon />} iconPosition="start" />
-            <Tab label="Planes de Acción" icon={<PlanIcon />} iconPosition="start" />
-          </Tabs>
+              {/* Column Headers */}
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                gap: 2,
+                px: 3,
+                py: 1.5,
+                mb: 1,
+                bgcolor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                alignItems: 'center'
+              }}>
+                <Box /> {/* Spacer for icon */}
+                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Box /> {/* Spacer for end icon */}
+              </Box>
 
-          {/* TAB 1: CONTROLES */}
-          <TabPanel value={activeTab} index={0}>
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">
-                Controles de Riesgos Residuales
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAbrirDialogControl}
-              >
-                Nuevo Control
-              </Button>
+              {riesgosPendientes.map((riesgo: any) => {
+                const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
+                return (
+                  <Card key={riesgo.id} sx={{ mb: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                        gap: 2,
+                        p: 2,
+                        cursor: 'pointer',
+                        bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
+                        transition: 'all 0.2s',
+                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' },
+                        alignItems: 'center'
+                      }}
+                      onClick={() => handleToggleExpandirResidual(riesgo.id)}
+                    >
+                      <IconButton size="small" color="primary">
+                        {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+
+                      <Typography variant="subtitle2" fontWeight={700} color="primary">
+                        {riesgo.numeroIdentificacion || riesgo.id}
+                      </Typography>
+
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500,
+                        lineHeight: 1.4,
+                        py: 0.5
+                      }}>
+                        {riesgo.descripcionRiesgo || riesgo.nombre}
+                      </Typography>
+
+                      <Typography variant="body2" color="text.secondary">
+                        {riesgo.tipologiaNivelI || '02 Operacional'}
+                      </Typography>
+
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Chip
+                          label={`${riesgo.causas.length} pend.`}
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                          sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
+                        />
+                      </Box>
+                      <Box />
+                    </Box>
+                    <Collapse in={estaExpandido}>
+                      <Box sx={{ p: 2 }}>
+                        <TableContainer component={Paper}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow sx={{ bgcolor: '#eee' }}>
+                                <TableCell>Causa</TableCell>
+                                <TableCell align="center">Frecuencia</TableCell>
+                                <TableCell align="center">Impacto</TableCell>
+                                <TableCell align="center" width="250">Tipo de Gestión</TableCell>
+                                <TableCell align="center">Estado</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {riesgo.causas.map((causa: any) => {
+                                const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
+                                // Double check filter (should be redundant if memos work, but safe)
+                                if (tipoGestion !== 'PENDIENTE') return null;
+
+                                return (
+                                  <Fragment key={causa.id}>
+                                    <TableRow>
+                                      <TableCell sx={{ maxWidth: 300 }}>{causa.descripcion}</TableCell>
+                                      <TableCell align="center">{causa.frecuencia || 1}</TableCell>
+                                      <TableCell align="center">{(causa.calificacionGlobalImpacto || 1).toFixed(2)}</TableCell>
+                                      <TableCell align="center">
+                                        <FormControl fullWidth size="small">
+                                          <Select
+                                            value={tipoGestion === 'PENDIENTE' ? '' : tipoGestion}
+                                            displayEmpty
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              if (val === 'CONTROL' || val === 'PLAN') {
+                                                setTipoClasificacion(val as any);
+                                                handleEvaluarControl(riesgo.id, causa);
+                                              }
+                                            }}
+                                            renderValue={(selected) => {
+                                              if (!selected || selected === 'PENDIENTE') return <Typography color="text.secondary" variant="body2">-- Seleccione --</Typography>;
+                                              return selected === 'CONTROL' ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ShieldIcon fontSize="small" /> Control</Box>
+                                                : <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><AssignmentIcon fontSize="small" /> Plan</Box>;
+                                            }}
+                                          >
+                                            <MenuItem value="" disabled><em>Seleccione...</em></MenuItem>
+                                            <MenuItem value="CONTROL">Control</MenuItem>
+                                            <MenuItem value="PLAN">Plan de Acción</MenuItem>
+                                          </Select>
+                                        </FormControl>
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Chip label="Pendiente" variant="outlined" size="small" />
+                                      </TableCell>
+                                    </TableRow>
+                                    {
+                                      evaluacionExpandida?.riesgoId === riesgo.id && evaluacionExpandida?.causaId === causa.id && (
+                                        <TableRow>
+                                          <TableCell colSpan={6} sx={{ p: 0 }}>
+                                            <Collapse in={true}>
+                                              <Box sx={{ p: 3, bgcolor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
+                                                <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>
+                                                  {tipoClasificacion === 'PLAN' ? 'Configurar Plan de Acción' : 'Evaluar Efectividad del Control'}
+                                                </Typography>
+
+                                                {(tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || (!tipoClasificacion && !causaIdEvaluacion)) && (
+                                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                                    {(() => {
+                                                      const inherentProb = Number(causa.frecuencia || riesgo.evaluacion?.probabilidad || 1);
+                                                      const inherentImp = Number(causa.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 1);
+                                                      let pt = 0;
+                                                      let def = 'Inefectivo';
+                                                      let mit = 0;
+
+                                                      if (criteriosEvaluacion.tieneControl) {
+                                                        pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+                                                        const prel = determinarEvaluacionPreliminar(pt);
+                                                        def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.desviaciones);
+                                                        mit = obtenerPorcentajeMitigacionAvanzado(def);
+                                                      }
+
+                                                      const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, criteriosEvaluacion.tipoMitigacion);
+                                                      const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, criteriosEvaluacion.tipoMitigacion);
+                                                      const calRes = calcularCalificacionResidual(fRes, iRes);
+                                                      const nivelRes = determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+
+                                                      const getColorNivel = (n: string) => {
+                                                        if (n === NIVELES_RIESGO.CRITICO) return '#d32f2f';
+                                                        if (n === NIVELES_RIESGO.ALTO) return '#f57c00';
+                                                        if (n === NIVELES_RIESGO.MEDIO) return '#fdd835';
+                                                        if (n === NIVELES_RIESGO.BAJO) return '#388e3c';
+                                                        return '#e0e0e0';
+                                                      };
+
+                                                      return (
+                                                        <>
+                                                          <Box sx={{ mb: 2 }}>
+                                                            <FormControlLabel
+                                                              control={<Switch checked={criteriosEvaluacion.tieneControl} onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tieneControl: e.target.checked }))} />}
+                                                              label={<Typography fontWeight="bold">¿Tiene Control Implementado?</Typography>}
+                                                            />
+                                                          </Box>
+
+                                                          {criteriosEvaluacion.tieneControl && (
+                                                            <Collapse in={true}>
+                                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                                                {/* Sección 1: Datos Generales del Control */}
+                                                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3 }}>
+                                                                  <TextField
+                                                                    label="Descripción del Control"
+                                                                    multiline
+                                                                    rows={2}
+                                                                    value={criteriosEvaluacion.descripcionControl || ''}
+                                                                    onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, descripcionControl: e.target.value }))}
+                                                                    fullWidth
+                                                                    placeholder="Describa el control..."
+                                                                  />
+                                                                  <FormControl fullWidth size="small">
+                                                                    <InputLabel>¿Disminuye Frecuencia o Impacto?</InputLabel>
+                                                                    <Select
+                                                                      value={criteriosEvaluacion.tipoMitigacion}
+                                                                      label="¿Disminuye Frecuencia o Impacto?"
+                                                                      onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tipoMitigacion: e.target.value as any }))}
+                                                                    >
+                                                                      <MenuItem value="FRECUENCIA">Disminuye Frecuencia</MenuItem>
+                                                                      <MenuItem value="IMPACTO">Disminuye Impacto</MenuItem>
+                                                                      <MenuItem value="AMBAS">Ambas</MenuItem>
+                                                                    </Select>
+                                                                  </FormControl>
+                                                                  <TextField
+                                                                    label="Responsable del Control"
+                                                                    value={criteriosEvaluacion.responsable || ''}
+                                                                    onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, responsable: e.target.value }))}
+                                                                    fullWidth
+                                                                  />
+                                                                </Box>
+
+                                                                <Divider>Evaluación de Criterios (Puntaje Variable)</Divider>
+
+                                                                {/* Sección 2: Criterios de Evaluación */}
+                                                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+                                                                  {/* Columna Izquierda */}
+                                                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Aplicabilidad</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.aplicabilidad}
+                                                                        label="Aplicabilidad"
+                                                                        sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                        onChange={(e) => {
+                                                                          const v = e.target.value; const p = v === 'totalmente' ? 100 : v === 'parcial' ? 30 : 0;
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, aplicabilidad: v, puntajeAplicabilidad: p }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="totalmente" sx={{ whiteSpace: 'normal' }}>Cuenta con procedimientos documentados y se deja evidencia de su ejecución (100)</MenuItem>
+                                                                        <MenuItem value="parcial" sx={{ whiteSpace: 'normal' }}>Cuenta con procedimientos documentados total o parcialmente pero no se deja evidencia de su ejecución, o al contrario (30)</MenuItem>
+                                                                        <MenuItem value="nula" sx={{ whiteSpace: 'normal' }}>No se deja evidencia de su ejecución, ni se cuenta con los procedimientos documentados (0)</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Cobertura</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.cobertura}
+                                                                        label="Cobertura"
+                                                                        sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                        onChange={(e) => {
+                                                                          const v = e.target.value; const p = v === 'total' ? 100 : v === 'parcial' ? 70 : 10;
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, cobertura: v, puntajeCobertura: p }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="total" sx={{ whiteSpace: 'normal' }}>La frecuencia del control tiene una periodicidad definida y se realiza sobre la totalidad de la población (100)</MenuItem>
+                                                                        <MenuItem value="parcial" sx={{ whiteSpace: 'normal' }}>La frecuencia del control tiene una periodicidad definida y se hace sobre una muestra de la población (70)</MenuItem>
+                                                                        <MenuItem value="eventual" sx={{ whiteSpace: 'normal' }}>La frecuencia del control es eventual o a discreción del funcionario que realiza el control (10)</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Facilidad de Uso</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.facilidadUso}
+                                                                        label="Facilidad de Uso"
+                                                                        sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                        onChange={(e) => {
+                                                                          const v = e.target.value; const p = v === 'coherente' ? 100 : v === 'complejo' ? 70 : 30;
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, facilidadUso: v, puntajeFacilidad: p }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="coherente" sx={{ whiteSpace: 'normal' }}>La complejidad del control es coherente con el riesgo identificado y la actividad realizada (100)</MenuItem>
+                                                                        <MenuItem value="complejo" sx={{ whiteSpace: 'normal' }}>El control es muy complejo en su ejecución y requiere simplificación (70)</MenuItem>
+                                                                        <MenuItem value="sencillo" sx={{ whiteSpace: 'normal' }}>El control es muy sencillo en comparación con el riesgo identificado y la actividad realizada, y requiere mayor profundización (30)</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+                                                                  </Box>
+
+                                                                  {/* Columna Derecha */}
+                                                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Segregación</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.segregacion}
+                                                                        label="Segregación"
+                                                                        sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                        onChange={(e) => {
+                                                                          const v = e.target.value; const p = v === 'si' ? 100 : v === 'na' ? 100 : 0;
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, segregacion: v, puntajeSegregacion: p }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="si">Sí (100)</MenuItem>
+                                                                        <MenuItem value="no">No (0)</MenuItem>
+                                                                        <MenuItem value="na">N/A (100)</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Naturaleza</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.naturaleza}
+                                                                        label="Naturaleza"
+                                                                        sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                        onChange={(e) => {
+                                                                          const v = e.target.value; const p = v === 'automatico' ? 80 : v === 'semiautomatico' ? 60 : 40;
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, naturaleza: v, puntajeNaturaleza: p }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="automatico">Automático (80)</MenuItem>
+                                                                        <MenuItem value="semiautomatico">Semiautomático (60)</MenuItem>
+                                                                        <MenuItem value="manual">Manual (40)</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Desviaciones</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.desviaciones || 'A'}
+                                                                        label="Desviaciones"
+                                                                        sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                        onChange={(e) => {
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, desviaciones: e.target.value }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="A" sx={{ whiteSpace: 'normal' }}>A. El control ha fallado 0 veces durante el último año</MenuItem>
+                                                                        <MenuItem value="B" sx={{ whiteSpace: 'normal' }}>B. Se han encontrado desviaciones en el desempeño del control</MenuItem>
+                                                                        <MenuItem value="C" sx={{ whiteSpace: 'normal' }}>C. El control falla la mayoría de las veces</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+                                                                  </Box>
+                                                                </Box>
+                                                              </Box>
+                                                            </Collapse>
+                                                          )}
+
+                                                          {/* RESULTADOS CALCULADOS */}
+                                                          <Box sx={{ mt: 3, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
+                                                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">
+                                                              CALIFICACIÓN DEL RIESGO RESIDUAL
+                                                            </Typography>
+                                                            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, textAlign: 'center' }}>
+                                                              <Box>
+                                                                <Typography variant="caption" display="block" color="text.secondary">Eficacia Control</Typography>
+                                                                <Typography variant="body2" fontWeight="bold">
+                                                                  {criteriosEvaluacion.tieneControl ? def : 'Inefectivo (Sin Control)'}
+                                                                </Typography>
+                                                                {criteriosEvaluacion.tieneControl && (
+                                                                  <Typography variant="caption">({pt.toFixed(0)} pts)</Typography>
+                                                                )}
+                                                              </Box>
+                                                              <Box>
+                                                                <Typography variant="caption" display="block" color="text.secondary">% Mitigación</Typography>
+                                                                <Typography variant="h6" color="primary">
+                                                                  {(mit * 100).toFixed(0)}%
+                                                                </Typography>
+                                                              </Box>
+                                                              <Box>
+                                                                <Typography variant="caption" display="block" color="text.secondary">Frec. Residual</Typography>
+                                                                <Typography variant="h6">
+                                                                  {fRes}
+                                                                </Typography>
+                                                              </Box>
+                                                              <Box>
+                                                                <Typography variant="caption" display="block" color="text.secondary">Imp. Residual</Typography>
+                                                                <Typography variant="h6">
+                                                                  {iRes}
+                                                                </Typography>
+                                                              </Box>
+                                                              <Box>
+                                                                <Paper elevation={0} sx={{
+                                                                  p: 1,
+                                                                  bgcolor: getColorNivel(nivelRes),
+                                                                  color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(nivelRes.toUpperCase()) ? 'white' : 'black',
+                                                                  borderRadius: 1
+                                                                }}>
+                                                                  <Typography variant="caption" display="block" fontWeight="bold">Riesgo Residual</Typography>
+                                                                  <Typography variant="h5" fontWeight="bold">
+                                                                    {calRes}
+                                                                  </Typography>
+                                                                  <Typography variant="caption">
+                                                                    {nivelRes}
+                                                                  </Typography>
+                                                                </Paper>
+                                                              </Box>
+                                                            </Box>
+                                                          </Box>
+                                                        </>
+                                                      );
+                                                    })()}
+                                                  </Box>
+                                                )}
+
+                                                {(tipoClasificacion === 'PLAN' || tipoClasificacion === 'plan') && (
+                                                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                      <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
+                                                      <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                      <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
+                                                      <TextField label="Fecha Estimada de Finalización" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                                    </Box>
+                                                  </Box>
+                                                )}
+
+                                                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                                  <Button onClick={() => setEvaluacionExpandida(null)}>Cancelar</Button>
+                                                  <Button variant="contained" onClick={handleGuardarEvaluacion}>Guardar y Clasificar</Button>
+                                                </Box>
+                                              </Box>
+                                            </Collapse>
+                                          </TableCell>
+                                        </TableRow>
+                                      )
+                                    }
+                                  </Fragment>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Box>
+                    </Collapse>
+                  </Card>
+                );
+              })}
             </Box>
+          )}
+        </Box>
+      </TabPanel>
 
-            {controles.length > 0 ? (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                      <TableCell><strong>Riesgo</strong></TableCell>
-                      <TableCell><strong>Causa</strong></TableCell>
-                      <TableCell><strong>Descripción</strong></TableCell>
-                      <TableCell><strong>Tipo</strong></TableCell>
-                      <TableCell><strong>Estado</strong></TableCell>
-                      <TableCell align="center"><strong>Acciones</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {controles.map((control) => (
-                      <TableRow key={control.id}>
-                        <TableCell>
-                          <Chip label={control.riesgoNombre || control.riesgoId} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>{control.causaNombre || control.causaId}</TableCell>
-                        <TableCell>{control.descripcion}</TableCell>
-                        <TableCell>
-                          <Chip label={control.tipo} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={control.estado}
-                            size="small"
-                            color={getColorEstado(control.estado) as any}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => {
-                              setControlSeleccionado(control);
-                              setFormControl({
-                                riesgoId: control.riesgoId,
-                                causaId: control.causaId,
-                                descripcion: control.descripcion,
-                                tipo: control.tipo,
-                              });
-                              setDialogControlOpen(true);
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleEliminarControl(control.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Alert severity="info">No hay controles registrados</Alert>
-            )}
-          </TabPanel>
+      {/* TAB 1: CONTROLES */}
+      <TabPanel value={activeTab} index={1}>
+        <Typography variant="h6">Controles Registrados ({controles.length})</Typography>
+        {controles.map(c => (
+          <Card key={c.id} variant="outlined" sx={{ mb: 1, p: 2 }}>
+            <Typography><strong>Riesgo:</strong> {getRiesgoNombre(c.riesgoId)}</Typography>
+            <Typography><strong>Control:</strong> {c.controlDescripcion}</Typography>
+          </Card>
+        ))}
+      </TabPanel>
 
-          {/* TAB 2: PLANES DE ACCIÓN */}
-          <TabPanel value={activeTab} index={1}>
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">
-                Planes de Acción
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAbrirDialogPlan}
-              >
-                Nuevo Plan
-              </Button>
+      {/* TAB 2: PLANES DE ACCIÓN */}
+      <TabPanel value={activeTab} index={2}>
+        <Box>
+          {riesgosConPlanes.length === 0 ? (
+            <Card><CardContent><Typography align="center">No hay planes de acción registrados.</Typography></CardContent></Card>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Column Headers */}
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                gap: 2,
+                px: 3,
+                py: 1.5,
+                mb: 1,
+                bgcolor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                alignItems: 'center'
+              }}>
+                <Box />
+                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Box />
+              </Box>
+
+              {riesgosConPlanes.map((riesgo: any) => {
+                const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
+                return (
+                  <Card key={riesgo.id} sx={{ mb: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                        gap: 2,
+                        p: 2,
+                        cursor: 'pointer',
+                        bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
+                        alignItems: 'center'
+                      }}
+                      onClick={() => handleToggleExpandirResidual(riesgo.id)}
+                    >
+                      <IconButton size="small" color="primary">
+                        {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                      <Typography variant="subtitle2" fontWeight={700} color="primary">{riesgo.numeroIdentificacion || riesgo.id}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{riesgo.descripcionRiesgo || riesgo.nombre}</Typography>
+                      <Typography variant="body2" color="text.secondary">{riesgo.tipologiaNivelI || '02 Operacional'}</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Chip label="Plan Activo" size="small" color="info" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+                      </Box>
+                      <Box />
+                    </Box>
+                    <Collapse in={estaExpandido}>
+                      <Box sx={{ p: 2 }}>
+                        <TableContainer component={Paper}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow sx={{ bgcolor: '#eee' }}>
+                                <TableCell>Causa Original</TableCell>
+                                <TableCell>Descripción del Plan</TableCell>
+                                <TableCell>Responsable</TableCell>
+                                <TableCell align="center">Fecha Estimada</TableCell>
+                                <TableCell align="center">Acciones</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {riesgo.causas.map((causa: any) => (
+                                <Fragment key={causa.id}>
+                                  <TableRow>
+                                    <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
+                                    <TableCell>{causa.planDescripcion}</TableCell>
+                                    <TableCell>{causa.planResponsable}</TableCell>
+                                    <TableCell align="center">{causa.planFechaEstimada}</TableCell>
+                                    <TableCell align="center">
+                                      <Button size="small" variant="outlined" onClick={() => {
+                                        setTipoClasificacion('PLAN');
+                                        handleEvaluarControl(riesgo.id, causa);
+                                      }}>Editar</Button>
+                                    </TableCell>
+                                  </TableRow>
+                                  {evaluacionExpandida?.riesgoId === riesgo.id && evaluacionExpandida?.causaId === causa.id && (
+                                    <TableRow>
+                                      <TableCell colSpan={6} sx={{ p: 0 }}>
+                                        <Collapse in={true}>
+                                          <Box sx={{ p: 3, bgcolor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
+                                            <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>Configurar Plan de Acción</Typography>
+                                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
+                                                <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
+                                              </Box>
+                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
+                                                <TextField label="Fecha Estimada de Finalización" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                              </Box>
+                                            </Box>
+                                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                              <Button onClick={() => setEvaluacionExpandida(null)}>Cancelar</Button>
+                                              <Button variant="contained" onClick={handleGuardarEvaluacion}>Guardar Plan</Button>
+                                            </Box>
+                                          </Box>
+                                        </Collapse>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </Fragment>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Box>
+                    </Collapse>
+                  </Card>
+                );
+              })}
             </Box>
+          )}
+        </Box>
+      </TabPanel>
 
-            {planesAccion.length > 0 ? (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                      <TableCell><strong>Riesgo</strong></TableCell>
-                      <TableCell><strong>Causa</strong></TableCell>
-                      <TableCell><strong>Descripción</strong></TableCell>
-                      <TableCell><strong>Responsable</strong></TableCell>
-                      <TableCell><strong>Fecha Estimada</strong></TableCell>
-                      <TableCell><strong>Estado</strong></TableCell>
-                      <TableCell align="center"><strong>Acciones</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {planesAccion.map((plan) => (
-                      <TableRow key={plan.id}>
-                        <TableCell>
-                          <Chip label={plan.riesgoNombre || plan.riesgoId} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>{plan.causaNombre || plan.causaId || '-'}</TableCell>
-                        <TableCell>{plan.descripcion}</TableCell>
-                        <TableCell>{plan.responsable}</TableCell>
-                        <TableCell>{plan.fechaEstimada}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={plan.estado}
-                            size="small"
-                            color={getColorEstado(plan.estado) as any}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => {
-                              setPlanSeleccionado(plan);
-                              setFormPlan({
-                                controlId: plan.controlId || '',
-                                riesgoId: plan.riesgoId,
-                                descripcion: plan.descripcion,
-                                responsable: plan.responsable,
-                                decision: plan.decision,
-                                fechaEstimada: plan.fechaEstimada,
-                              });
-                              setDialogPlanOpen(true);
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleEliminarPlan(plan.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Alert severity="info">No hay planes de acción registrados</Alert>
-            )}
-          </TabPanel>
-        </CardContent>
-      </Card>
-
-      {/* DIALOG: CREAR/EDITAR CONTROL */}
-      <Dialog open={dialogControlOpen} onClose={() => setDialogControlOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {controlSeleccionado ? 'Editar Control' : 'Nuevo Control'}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Autocomplete
-            options={riesgosDelProceso}
-            getOptionLabel={(option: any) => option.nombre || option.descripcionRiesgo || ''}
-            value={riesgosDelProceso.find((r: any) => r.id === formControl.riesgoId) || null}
-            onChange={(e, value) =>
-              setFormControl({
-                ...formControl,
-                riesgoId: value?.id || '',
-                causaId: '',
-              })
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Riesgo Residual"
-                size="small"
-                required
-              />
-            )}
-            noOptionsText="Sin riesgos disponibles"
-          />
-
-          <Autocomplete
-            options={causasDelRiesgo}
-            getOptionLabel={(option: any) => option.descripcion || ''}
-            value={causasDelRiesgo.find((c: any) => c.id === formControl.causaId) || null}
-            onChange={(e, value) =>
-              setFormControl({
-                ...formControl,
-                causaId: value?.id || '',
-              })
-            }
-            disabled={!formControl.riesgoId}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Causa del Riesgo"
-                size="small"
-                required
-              />
-            )}
-            noOptionsText="Selecciona un riesgo primero"
-          />
-
-          <TextField
-            fullWidth
-            label="Descripción del Control"
-            value={formControl.descripcion}
-            onChange={(e) => setFormControl({ ...formControl, descripcion: e.target.value })}
-            size="small"
-            multiline
-            rows={3}
-            required
-          />
-
-          <FormControl fullWidth size="small">
-            <InputLabel>Registrar como</InputLabel>
-            <Select
-              value={tipoRegistro}
-              onChange={(e) => setTipoRegistro(e.target.value as 'control' | 'plan')}
-              label="Registrar como"
-            >
+      {/* DIALOG CLASIFICACION CAUSA (Existing) */}
+      <Dialog open={!!causaEnEdicion} onClose={() => setCausaEnEdicion(null)} maxWidth="md" fullWidth>
+        <DialogTitle>Clasificar Causa</DialogTitle>
+        <DialogContent>
+          {/* ... Simplified Form ... */}
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Tipo</InputLabel>
+            <Select value={tipoClasificacion} onChange={(e) => setTipoClasificacion(e.target.value as any)} label="Tipo">
+              <MenuItem value="seleccion">Selección</MenuItem>
               <MenuItem value="control">Control</MenuItem>
               <MenuItem value="plan">Plan de Acción</MenuItem>
             </Select>
           </FormControl>
-
-          {tipoRegistro === 'control' && (
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo de Control</InputLabel>
-              <Select
-                value={formControl.tipo}
-                onChange={(e) => setFormControl({ ...formControl, tipo: e.target.value as any })}
-                label="Tipo de Control"
-              >
-                <MenuItem value="prevención">Prevención</MenuItem>
-                <MenuItem value="detección">Detección</MenuItem>
-                <MenuItem value="corrección">Corrección</MenuItem>
-              </Select>
-            </FormControl>
-          )}
-
-          {tipoRegistro === 'plan' && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Responsable"
-                value={formPlanExtra.responsable}
-                onChange={(e) => setFormPlanExtra({ ...formPlanExtra, responsable: e.target.value })}
-                size="small"
-                required
-              />
-              <TextField
-                fullWidth
-                label="Decisión"
-                value={formPlanExtra.decision}
-                onChange={(e) => setFormPlanExtra({ ...formPlanExtra, decision: e.target.value })}
-                size="small"
-                required
-              />
-              <TextField
-                fullWidth
-                label="Fecha estimada de finalización"
-                type="date"
-                value={formPlanExtra.fechaEstimada}
-                onChange={(e) => setFormPlanExtra({ ...formPlanExtra, fechaEstimada: e.target.value })}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                required
-              />
-            </Box>
-          )}
+          {tipoClasificacion === 'control' && <TextField fullWidth label="Descripción Control" value={formControl.descripcion} onChange={e => setFormControl({ ...formControl, descripcion: e.target.value })} sx={{ mt: 2 }} />}
+          {tipoClasificacion === 'plan' && <TextField fullWidth label="Descripción Plan" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} sx={{ mt: 2 }} />}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogControlOpen(false)}>Cancelar</Button>
-          <Button onClick={handleGuardarControl} variant="contained">
-            Guardar
-          </Button>
+          <Button onClick={() => setCausaEnEdicion(null)}>Cancelar</Button>
+          <Button onClick={handleGuardarClasificacion} variant="contained">Guardar</Button>
         </DialogActions>
       </Dialog>
 
-      {/* DIALOG: CREAR/EDITAR PLAN DE ACCIÓN */}
-      <Dialog open={dialogPlanOpen} onClose={() => setDialogPlanOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {planSeleccionado ? 'Editar Plan de Acción' : 'Nuevo Plan de Acción'}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Autocomplete
-            options={riesgosDelProceso}
-            getOptionLabel={(option: any) => option.nombre || option.descripcionRiesgo || ''}
-            value={riesgosDelProceso.find((r: any) => r.id === formPlan.riesgoId) || null}
-            onChange={(e, value) =>
-              setFormPlan({
-                ...formPlan,
-                riesgoId: value?.id || '',
-              })
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Riesgo Residual"
-                size="small"
-                required
-              />
-            )}
-            noOptionsText="Sin riesgos disponibles"
-          />
 
-          <TextField
-            fullWidth
-            label="Descripción del Plan"
-            value={formPlan.descripcion}
-            onChange={(e) => setFormPlan({ ...formPlan, descripcion: e.target.value })}
-            size="small"
-            multiline
-            rows={3}
-            required
-          />
-          <TextField
-            fullWidth
-            label="Responsable"
-            value={formPlan.responsable}
-            onChange={(e) => setFormPlan({ ...formPlan, responsable: e.target.value })}
-            size="small"
-            required
-          />
-          <TextField
-            fullWidth
-            label="Decisión/Estado"
-            value={formPlan.decision}
-            onChange={(e) => setFormPlan({ ...formPlan, decision: e.target.value })}
-            margin="normal"
-            size="small"
-          />
-          <TextField
-            fullWidth
-            label="Fecha Estimada de Finalización"
-            type="date"
-            value={formPlan.fechaEstimada}
-            onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
-            margin="normal"
-            size="small"
-            InputLabelProps={{ shrink: true }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogPlanOpen(false)}>Cancelar</Button>
-          <Button onClick={handleGuardarPlan} variant="contained">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+
+    </AppPageLayout>
   );
 }

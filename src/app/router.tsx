@@ -34,6 +34,7 @@ import BenchmarkingPage from '../pages/procesos/BenchmarkingPage';
 import AyudaPage from '../pages/otros/AyudaPage';
 import ProcesosPage from '../pages/procesos/ProcesosPage';
 import RiesgosProcesosPage from '../pages/riesgos/RiesgosProcesosPage';
+import AdminModule from '../admin/AdminModule';
 
 import SupervisionPage from '../pages/supervision/SupervisionPage';
 import ResumenDirectorPage from '../pages/dashboard/ResumenDirectorPage';
@@ -56,6 +57,8 @@ import AreasPage from '../pages/admin/AreasPage';
 import ConfiguracionPage from '../pages/admin/ConfiguracionPage';
 import ParametrosCalificacionPage from '../pages/admin/ParametrosCalificacionPage';
 import MapasConfigPage from '../pages/admin/MapasConfigPage';
+import AdminPanelPage from '../pages/admin/AdminPanelPage';
+import MaterializarRiesgosPage from '../pages/riesgos/MaterializarRiesgosPage';
 
 export const router = createBrowserRouter([
   {
@@ -225,7 +228,7 @@ export const router = createBrowserRouter([
       },
       {
         path: ROUTES.INCIDENCIAS,
-        element: <IncidenciasPage />,
+        element: <MaterializarRiesgosPage />,
       },
       {
         path: ROUTES.PROCESOS_GERENTE_GENERAL,
@@ -245,6 +248,15 @@ export const router = createBrowserRouter([
         ),
       },
     ],
+  },
+  {
+    path: '/admin-panel',
+    element: (
+      <ProtectedRoute>
+        <AdminPanelPage />
+      </ProtectedRoute>
+    ),
+    errorElement: <RouteErrorElement />,
   },
   {
     path: '*',
