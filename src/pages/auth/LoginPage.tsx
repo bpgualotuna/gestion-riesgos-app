@@ -18,7 +18,6 @@ import {
     IconButton,
     CircularProgress,
     Divider,
-    Chip,
 } from '@mui/material';
 import {
     Visibility,
@@ -28,7 +27,6 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
-import { getMockUsuarios } from '../../api/services/mockData';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -77,43 +75,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleDemoLogin = async (demoUsername: string, demoPassword: string) => {
-        setUsername(demoUsername);
-        setPassword(demoPassword);
-        setError('');
-        setIsLoading(true);
 
-        const result = await login(demoUsername, demoPassword);
-
-        setIsLoading(false);
-
-        if (result.success) {
-            // Redirigir según el rol del usuario
-            const storedUser = localStorage.getItem('currentUser');
-            if (storedUser) {
-                try {
-                    const userData = JSON.parse(storedUser);
-                    if (userData.role === 'admin') {
-                        navigate(ROUTES.ADMINISTRACION);
-                        return;
-                    }
-                    if (userData.role === 'supervisor_riesgos') {
-                        navigate(ROUTES.DASHBOARD_SUPERVISOR);
-                        return;
-                    }
-                    if (userData.role === 'gerente_general') {
-                        navigate(ROUTES.MODO_GERENTE_GENERAL);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error parsing user data:', error);
-                }
-            }
-            navigate(ROUTES.DASHBOARD);
-        } else {
-            setError(result.error || 'Error al iniciar sesión');
-        }
-    };
 
     return (
         <Box
@@ -250,64 +212,7 @@ export default function LoginPage() {
                         </Button>
                     </form>
 
-                    {/* Demo User Section */}
-                    <Divider sx={{ my: 3 }}>
-                        <Chip label="Usuario de Prueba" size="small" />
-                    </Divider>
 
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {getMockUsuarios()
-                            .filter(u => u.password) // Solo mostrar usuarios con contraseña configurada (demo)
-                            .filter((u, idx, arr) => {
-                                // Mostrar solo un usuario por cada rol principal
-                                const roles = ['admin', 'supervisor', 'gerente_general', 'dueño_procesos'];
-                                return roles.includes(u.role) && arr.findIndex(user => user.role === u.role) === idx;
-                            })
-                            .map((usuario) => (
-                                <Button
-                                    key={usuario.id}
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={() => handleDemoLogin(usuario.email?.split('@')[0] || usuario.role || '', usuario.password || '')}
-                                    disabled={isLoading}
-                                    sx={{
-                                        justifyContent: 'flex-start',
-                                        textTransform: 'none',
-                                        borderColor:
-                                            usuario.role === 'admin' ? '#d32f2f' :
-                                                usuario.role === 'supervisor' ? '#1976d2' :
-                                                    usuario.role === 'gerente_general' ? '#9c27b0' :
-                                                        '#c8d900', // Default / dueño_procesos
-                                        color:
-                                            usuario.role === 'admin' ? '#d32f2f' :
-                                                usuario.role === 'supervisor' ? '#1976d2' :
-                                                    usuario.role === 'gerente_general' ? '#9c27b0' :
-                                                        '#c8d900',
-                                        '&:hover': {
-                                            borderColor:
-                                                usuario.role === 'admin' ? '#c62828' :
-                                                    usuario.role === 'supervisor' ? '#1565c0' :
-                                                        usuario.role === 'gerente_general' ? '#7b1fa2' :
-                                                            '#b8c900',
-                                            backgroundColor:
-                                                usuario.role === 'admin' ? 'rgba(211, 47, 47, 0.08)' :
-                                                    usuario.role === 'supervisor' ? 'rgba(25, 118, 210, 0.08)' :
-                                                        usuario.role === 'gerente_general' ? 'rgba(156, 39, 176, 0.08)' :
-                                                            'rgba(200, 217, 0, 0.08)',
-                                        },
-                                    }}
-                                >
-                                    <Box sx={{ textAlign: 'left', width: '100%' }}>
-                                        <Typography variant="body2" fontWeight={600}>
-                                            {usuario.nombre} - {usuario.role} / {usuario.password}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {usuario.cargoNombre || usuario.role}
-                                        </Typography>
-                                    </Box>
-                                </Button>
-                            ))}
-                    </Box>
 
                     {/* Footer */}
                     <Typography

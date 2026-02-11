@@ -20,7 +20,8 @@ import {
     Tabs,
     Tab,
     Paper,
-    InputAdornment
+    InputAdornment,
+    IconButton,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -34,6 +35,8 @@ import {
     Search as SearchIcon,
     CheckCircle as CheckCircleIcon,
     Close as CloseIcon,
+    Visibility,
+    VisibilityOff,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
@@ -94,7 +97,7 @@ export default function UsuariosPage() {
     const [formData, setFormData] = useState<Partial<Usuario>>({
         nombre: '',
         email: '',
-        role: 'analyst',
+        role: 'supervisor',
         activo: true,
         cargoId: '',
     });
@@ -107,6 +110,16 @@ export default function UsuariosPage() {
         sigla: '',
         subdivision: '',
     });
+    const [showPassword, setShowPassword] = useState(false);
+
+    const generateRandomPassword = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    };
 
     useEffect(() => {
         loadData();
@@ -161,15 +174,17 @@ export default function UsuariosPage() {
                 role: usuario.role,
                 activo: usuario.activo,
                 cargoId: usuario.cargoId || '',
+                password: usuario.password || '',
             });
         } else {
             setEditingUsuario(null);
             setFormData({
                 nombre: '',
                 email: '',
-                role: 'analyst',
+                role: 'supervisor',
                 activo: true,
                 cargoId: '',
+                password: '',
             });
         }
         setDialogOpen(true);
@@ -178,6 +193,7 @@ export default function UsuariosPage() {
     const handleCloseDialog = () => {
         setDialogOpen(false);
         setEditingUsuario(null);
+        setShowPassword(false);
     };
 
     const handleOpenUserDetailDialog = (usuario: Usuario) => {
@@ -188,6 +204,7 @@ export default function UsuariosPage() {
     const handleCloseUserDetailDialog = () => {
         setDetailDialogOpen(false);
         setSelectedUserDetail(null);
+        setShowPassword(false);
     };
 
     const handleOpenCargoDialog = (cargo?: Cargo) => {
@@ -635,6 +652,43 @@ export default function UsuariosPage() {
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         />
+                        <Box>
+                            <TextField
+                                label="Contraseña"
+                                fullWidth
+                                type={showPassword ? 'text' : 'password'}
+                                value={formData.password || ''}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                edge="end"
+                                            >
+                                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                            <Box sx={{ display: 'flex', gap: 1, mt: 1, justifyContent: 'flex-end' }}>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => setFormData({ ...formData, password: 'comware123' })}
+                                >
+                                    Contraseña por defecto
+                                </Button>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => setFormData({ ...formData, password: generateRandomPassword() })}
+                                >
+                                    Aleatoria
+                                </Button>
+                            </Box>
+                        </Box>
                         <Autocomplete
                             options={cargos}
                             getOptionLabel={(option) => option.nombre}
@@ -752,6 +806,17 @@ export default function UsuariosPage() {
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Email</Typography>
                                 <Typography variant="body1">{selectedUserDetail.email || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Contraseña</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body1">
+                                        {showPassword ? (selectedUserDetail.password || '********') : '********'}
+                                    </Typography>
+                                    <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
+                                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                    </IconButton>
+                                </Box>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Cargo</Typography>
