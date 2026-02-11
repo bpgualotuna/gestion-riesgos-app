@@ -11,7 +11,7 @@ export type GerenteGeneralModo = 'director' | 'proceso';
 
 // User interface
 export interface User {
-  id: string;
+  id: number | string;
   username: string;
   email: string;
   fullName: string;

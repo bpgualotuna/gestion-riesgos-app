@@ -46,10 +46,14 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { Area, CreateAreaDto, Usuario, Proceso } from '../../types';
 import {
-    getMockAreas, updateMockAreas,
-    getMockUsuarios, getMockProcesos
-} from '../../api/services/mockData';
-import { useBulkUpdateProcesosMutation } from '../../api/services/riesgosApi';
+    useGetAreasQuery,
+    useCreateAreaMutation,
+    useUpdateAreaMutation,
+    useDeleteAreaMutation,
+    useGetUsuariosQuery,
+    useGetProcesosQuery,
+    useBulkUpdateProcesosMutation
+} from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
@@ -66,12 +70,17 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
 export default function AreasPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
-    const [tabValue, setTabValue] = useState(0);
-
-    // Data States
-    const [areas, setAreas] = useState<Area[]>([]);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+    const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
+    const { data: usuarios = [] } = useGetUsuariosQuery();
+    const { data: procesosData = [] } = useGetProcesosQuery();
     const [procesos, setProcesos] = useState<Proceso[]>([]);
+
+    useEffect(() => {
+        if (procesosData.length > 0) {
+            setProcesos(procesosData);
+        }
+    }, [procesosData]);
+
     const [searchAreas, setSearchAreas] = useState('');
     const [searchAssignments, setSearchAssignments] = useState('');
 
@@ -106,15 +115,11 @@ export default function AreasPage() {
         return usuarios.filter(u => u.role === filtroRol);
     }, [usuarios, filtroRol]);
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = () => {
-        setAreas(getMockAreas());
-        setUsuarios(getMockUsuarios());
-        setProcesos(getMockProcesos());
-    };
+    // Mutations
+    const [createArea] = useCreateAreaMutation();
+    const [updateArea] = useUpdateAreaMutation();
+    const [deleteArea] = useDeleteAreaMutation();
+    const [bulkUpdateProcesos] = useBulkUpdateProcesosMutation();
 
     // Filtered data
     const filteredAreas = useMemo(() => {
@@ -171,49 +176,39 @@ export default function AreasPage() {
         setSelectedAreaDetail(null);
     };
 
-    const handleSaveArea = () => {
+    const handleSaveArea = async () => {
         if (!areaFormData.nombre.trim()) {
             showError('El nombre del área es requerido');
             return;
         }
 
-        if (editingArea) {
-            const updatedList = areas.map((a) =>
-                a.id === editingArea.id
-                    ? {
-                        ...a,
-                        ...areaFormData,
-                        directorNombre: usuarios.find((u) => u.id === areaFormData.directorId)?.nombre,
-                        updatedAt: new Date().toISOString(),
-                    }
-                    : a
-            );
-            setAreas(updatedList);
-            updateMockAreas(updatedList);
-            showSuccess('Área actualizada correctamente');
-        } else {
-            const newArea: Area = {
-                id: `area-${Date.now()}`,
-                ...areaFormData,
-                directorNombre: usuarios.find((u) => u.id === areaFormData.directorId)?.nombre,
-                activo: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-            const updatedList = [...areas, newArea];
-            setAreas(updatedList);
-            updateMockAreas(updatedList);
-            showSuccess('Área creada correctamente');
+        try {
+            if (editingArea) {
+                await updateArea({
+                    id: editingArea.id,
+                    ...areaFormData
+                } as any).unwrap();
+                showSuccess('Área actualizada correctamente');
+            } else {
+                await createArea(areaFormData as any).unwrap();
+                showSuccess('Área creada correctamente');
+            }
+            handleCloseAreaDialog();
+        } catch (error) {
+            console.error('Error saving area:', error);
+            showError('Error al guardar el área');
         }
-        handleCloseAreaDialog();
     };
 
-    const handleDeleteArea = (areaId: string) => {
+    const handleDeleteArea = async (areaId: string | number) => {
         if (window.confirm('¿Está seguro de eliminar esta área?')) {
-            const updatedAreas = areas.filter((a) => a.id !== areaId);
-            setAreas(updatedAreas);
-            updateMockAreas(updatedAreas);
-            showSuccess('Área eliminada correctamente');
+            try {
+                await deleteArea(areaId).unwrap();
+                showSuccess('Área eliminada correctamente');
+            } catch (error) {
+                console.error('Error deleting area:', error);
+                showError('Error al eliminar el área');
+            }
         }
     };
 
@@ -256,7 +251,7 @@ export default function AreasPage() {
     // ==========================================
     // ASSIGNMENT LOGIC
     // ==========================================
-    const handleProcessToggle = (procesoId: string, isChecked: boolean) => {
+    const handleProcessToggle = (procesoId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
         // Para Gerente General, guardar asignaciones separadas según el modo
@@ -266,11 +261,11 @@ export default function AreasPage() {
             const currentAssignments = currentData.procesos || [];
 
             if (isChecked) {
-                if (!currentAssignments.includes(procesoId)) {
-                    currentAssignments.push(procesoId);
+                if (!currentAssignments.includes(String(procesoId))) {
+                    currentAssignments.push(String(procesoId));
                 }
             } else {
-                const index = currentAssignments.indexOf(procesoId);
+                const index = currentAssignments.indexOf(String(procesoId));
                 if (index > -1) {
                     currentAssignments.splice(index, 1);
                 }
@@ -283,7 +278,7 @@ export default function AreasPage() {
         } else {
             // Usuario normal - actualizar responsableId
             const updatedProcesos = procesos.map(p => {
-                if (p.id === procesoId) {
+                if (String(p.id) === String(procesoId)) {
                     return {
                         ...p,
                         responsableId: isChecked ? selectedUserForAssignment.id : '',
@@ -296,7 +291,7 @@ export default function AreasPage() {
         }
     };
 
-    const handleAreaToggle = (areaId: string, isChecked: boolean) => {
+    const handleAreaToggle = (areaId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
         // Para Gerente General, guardar el área directamente
@@ -306,11 +301,11 @@ export default function AreasPage() {
             const currentAreas = currentData.areas || [];
 
             if (isChecked) {
-                if (!currentAreas.includes(areaId)) {
-                    currentAreas.push(areaId);
+                if (!currentAreas.includes(String(areaId))) {
+                    currentAreas.push(String(areaId));
                 }
             } else {
-                const index = currentAreas.indexOf(areaId);
+                const index = currentAreas.indexOf(String(areaId));
                 if (index > -1) {
                     currentAreas.splice(index, 1);
                 }
@@ -323,7 +318,7 @@ export default function AreasPage() {
         } else {
             // Usuario normal - actualizar responsableId
             const updatedProcesos = procesos.map(p => {
-                if (p.areaId === areaId) {
+                if (String(p.areaId) === String(areaId)) {
                     return {
                         ...p,
                         responsableId: isChecked ? selectedUserForAssignment.id : '',
@@ -335,8 +330,6 @@ export default function AreasPage() {
             setProcesos(updatedProcesos);
         }
     };
-
-    const [bulkUpdateProcesos] = useBulkUpdateProcesosMutation();
 
     const saveAssignments = async () => {
         try {
@@ -351,9 +344,9 @@ export default function AreasPage() {
     };
 
     // Calculate derived states for checkboxes
-    const getAreaState = (areaId: string) => {
+    const getAreaState = (areaId: string | number) => {
         if (!selectedUserForAssignment) return { checked: false, indeterminate: false };
-        const areaProcesos = procesos.filter(p => p.areaId === areaId);
+        const areaProcesos = procesos.filter(p => String(p.areaId) === String(areaId));
         if (areaProcesos.length === 0) return { checked: false, indeterminate: false };
 
         if (esGerenteGeneral) {
@@ -363,21 +356,21 @@ export default function AreasPage() {
             const procesosAsignados = currentData.procesos || [];
 
             // Si el área está asignada directamente, todos los procesos están checked
-            if (areasAsignadas.includes(areaId)) {
+            if (areasAsignadas.includes(String(areaId))) {
                 return { checked: true, indeterminate: false };
             }
 
             // Si no, verificar procesos individuales
-            const allOwned = areaProcesos.every(p => procesosAsignados.includes(p.id));
-            const someOwned = areaProcesos.some(p => procesosAsignados.includes(p.id));
+            const allOwned = areaProcesos.every(p => procesosAsignados.includes(String(p.id)));
+            const someOwned = areaProcesos.some(p => procesosAsignados.includes(String(p.id)));
             return {
                 checked: allOwned,
                 indeterminate: someOwned && !allOwned
             };
         }
 
-        const allOwned = areaProcesos.every(p => p.responsableId === selectedUserForAssignment.id);
-        const someOwned = areaProcesos.some(p => p.responsableId === selectedUserForAssignment.id);
+        const allOwned = areaProcesos.every(p => String(p.responsableId) === String(selectedUserForAssignment.id));
+        const someOwned = areaProcesos.some(p => String(p.responsableId) === String(selectedUserForAssignment.id));
 
         return {
             checked: allOwned,
@@ -644,8 +637,8 @@ export default function AreasPage() {
                         <Autocomplete
                             options={usuarios}
                             getOptionLabel={(option) => `${option.nombre} - ${option.role}`}
-                            value={usuarios.find(u => u.id === areaFormData.directorId) || null}
-                            onChange={(_e, newValue) => setAreaFormData({ ...areaFormData, directorId: newValue?.id || undefined })}
+                            value={usuarios.find(u => String(u.id) === String(areaFormData.directorId)) || null}
+                            onChange={(_e, newValue) => setAreaFormData({ ...areaFormData, directorId: newValue?.id || undefined } as any)}
                             renderInput={(params) => <TextField {...params} label="Director del Área" />}
                             fullWidth
                         />

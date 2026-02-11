@@ -13,8 +13,8 @@ export interface Impactos {
 }
 
 export interface Riesgo {
-  id: string;
-  procesoId: string;
+  id: number | string;
+  procesoId: number | string;
   numero: number;
   descripcion: string;
   clasificacion: string;
@@ -47,8 +47,8 @@ export interface Evaluacion {
 }
 
 export interface EvaluacionRiesgo {
-  id: string;
-  riesgoId: string;
+  id: number | string;
+  riesgoId: number | string;
   impactoPersonas: number;
   impactoLegal: number;
   impactoAmbiental: number;
@@ -66,8 +66,8 @@ export interface EvaluacionRiesgo {
 }
 
 export interface PriorizacionRiesgo {
-  id: string;
-  riesgoId: string;
+  id: number | string;
+  riesgoId: number | string;
   calificacionFinal: number;
   respuesta: string;
   responsable?: string;
@@ -78,17 +78,17 @@ export interface PriorizacionRiesgo {
 }
 
 export interface Proceso {
-  id: string;
+  id: number | string;
   nombre: string;
   descripcion: string;
   vicepresidencia: string;
   gerencia: string;
   responsable: string;
-  responsableId: string;
+  responsableId: number | string;
   responsableNombre: string;
-  areaId: string;
+  areaId: number | string;
   areaNombre: string;
-  directorId: string;
+  directorId: number | string;
   directorNombre: string;
   gerenteId?: string;
   gerenteNombre?: string;
@@ -146,19 +146,20 @@ export type NivelRiesgo = typeof NivelRiesgo[keyof typeof NivelRiesgo];
 
 // ... existing interfaces
 export interface Cargo {
-  id: string;
+  id: number | string;
   nombre: string;
+  descripcion?: string;
 }
 
 export interface Usuario {
-  id: string;
+  id: number | string;
   nombre: string;
-  role: 'admin' | 'dueño_procesos' | 'supervisor' | 'gerente_general';
+  role: 'admin' | 'dueño_procesos' | 'supervisor' | 'gerente_general' | 'manager' | 'analyst' | 'director_procesos';
   email?: string;
   password?: string;
   activo: boolean;
   createdAt?: string;
-  cargoId?: string;
+  cargoId?: number | string;
   cargoNombre?: string;
 }
 
@@ -278,7 +279,7 @@ export interface RiesgoMapa {
 }
 
 export interface CreateRiesgoDto {
-  procesoId: string;
+  procesoId: number | string;
   descripcion: string;
   clasificacion: string;
   zona: string;
@@ -447,7 +448,7 @@ export interface Vicepresidencia {
 }
 
 export interface Gerencia {
-  id: string;
+  id: number | string;
   nombre: string;
   sigla: string;
   subdivision?: string;

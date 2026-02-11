@@ -40,7 +40,9 @@ import {
     useCreateProcesoMutation,
     useUpdateProcesoMutation,
     useDeleteProcesoMutation,
-    useGetTiposProcesoQuery
+    useGetTiposProcesoQuery,
+    useGetGerenciasQuery,
+    useGetAreasQuery
 } from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
@@ -80,16 +82,19 @@ export default function ProcesosDefinicionPage() {
     // RTK Query Hooks
     const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
     const { data: tiposProceso = [], isLoading: loadingTipos } = useGetTiposProcesoQuery();
+    const { data: gerencias = [], isLoading: loadingGerencias } = useGetGerenciasQuery();
+    const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
 
     // Mutations
     const [createProceso] = useCreateProcesoMutation();
     const [updateProceso] = useUpdateProcesoMutation();
     const [deleteProceso] = useDeleteProcesoMutation();
 
-    // Mock data for catalogs not yet in API
-    const gerencias = getMockGerencias();
-    const vicepresidencias = getMockVicepresidencias();
-    const areas = getMockAreas();
+    // Vicepresidencias (derived from gerencias unique subdivisions or fixed list)
+    const vicepresidencias = useMemo(() => {
+        const uniqueSub = Array.from(new Set(gerencias.map(g => g.subdivision).filter(Boolean)));
+        return uniqueSub.map((sub, index) => ({ id: sub as string, nombre: sub as string }));
+    }, [gerencias]);
 
     const [searchProcesos, setSearchProcesos] = useState('');
     const [searchTipos, setSearchTipos] = useState('');
@@ -251,7 +256,7 @@ export default function ProcesosDefinicionPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: string | number) => {
         if (window.confirm('¿Está seguro de eliminar este proceso?')) {
             try {
                 await deleteProceso(id).unwrap();
@@ -495,7 +500,7 @@ export default function ProcesosDefinicionPage() {
                             <Autocomplete
                                 options={tiposProceso}
                                 getOptionLabel={(option) => option.nombre}
-                                value={tiposProceso.find(tp => tp.id === parseInt(formData.tipoProceso || '0')) || null}
+                                value={tiposProceso.find(tp => String(tp.id) === String(formData.tipoProceso)) || null}
                                 onChange={(_e, newValue) => setFormData({ ...formData, tipoProceso: newValue?.id.toString() || '' })}
                                 renderInput={(params) => <TextField {...params} label="Tipo de Proceso" />}
                                 fullWidth
@@ -535,8 +540,8 @@ export default function ProcesosDefinicionPage() {
                             <Autocomplete
                                 options={gerencias}
                                 getOptionLabel={(option) => option.nombre || ''}
-                                value={gerencias.find(g => g.id === formData.gerencia) || null}
-                                onChange={(_e, newValue) => setFormData({ ...formData, gerencia: newValue?.id || '' })}
+                                value={gerencias.find(g => String(g.id) === String(formData.gerencia)) || null}
+                                onChange={(_e, newValue) => setFormData({ ...formData, gerencia: newValue?.id.toString() || '' })}
                                 renderInput={(params) => <TextField {...params} label="Gerencia" />}
                                 fullWidth
                             />

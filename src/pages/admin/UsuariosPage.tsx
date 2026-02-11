@@ -41,10 +41,15 @@ import {
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Usuario, Cargo, Gerencia } from '../../types';
-import { getMockUsuarios, updateMockUsuarios, getMockCargos, getMockGerencias } from '../../api/services/mockData';
+import {
+    useGetUsuariosQuery, useCreateUsuarioMutation, useUpdateUsuarioMutation, useDeleteUsuarioMutation,
+    useGetCargosQuery, useCreateCargoMutation, useUpdateCargoMutation, useDeleteCargoMutation,
+    useGetGerenciasQuery, useCreateGerenciaMutation, useUpdateGerenciaMutation, useDeleteGerenciaMutation
+} from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { CircularProgress, Typography as MuiTypography } from '@mui/material';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -76,9 +81,23 @@ export default function UsuariosPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
     const [currentTab, setCurrentTab] = useState(0);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-    const [cargos, setCargos] = useState<Cargo[]>([]);
-    const [gerencias, setGerencias] = useState<Gerencia[]>([]);
+
+    // Queries
+    const { data: usuariosData = [], isLoading: loadingUsuarios, refetch: refetchUsuarios } = useGetUsuariosQuery();
+    const { data: cargosData = [], isLoading: loadingCargos, refetch: refetchCargos } = useGetCargosQuery();
+    const { data: gerenciasData = [], isLoading: loadingGerencias, refetch: refetchGerencias } = useGetGerenciasQuery();
+
+    // Mutations
+    const [createUsuario] = useCreateUsuarioMutation();
+    const [updateUsuario] = useUpdateUsuarioMutation();
+    const [deleteUsuario] = useDeleteUsuarioMutation();
+    const [createCargo] = useCreateCargoMutation();
+    const [updateCargo] = useUpdateCargoMutation();
+    const [deleteCargo] = useDeleteCargoMutation();
+    const [createGerencia] = useCreateGerenciaMutation();
+    const [updateGerencia] = useUpdateGerenciaMutation();
+    const [deleteGerencia] = useDeleteGerenciaMutation();
+
     const [searchUsuarios, setSearchUsuarios] = useState('');
     const [searchCargos, setSearchCargos] = useState('');
     const [searchGerencias, setSearchGerencias] = useState('');
@@ -121,39 +140,29 @@ export default function UsuariosPage() {
         return result;
     };
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = () => {
-        setUsuarios(getMockUsuarios());
-        setCargos(getMockCargos());
-        setGerencias(getMockGerencias());
-    };
-
     // Filtered data
     const filteredUsuarios = useMemo(() => {
-        return usuarios.filter(u =>
+        return (usuariosData as Usuario[]).filter(u =>
             u.nombre.toLowerCase().includes(searchUsuarios.toLowerCase()) ||
             (u.email && u.email.toLowerCase().includes(searchUsuarios.toLowerCase())) ||
             (u.cargoNombre && u.cargoNombre.toLowerCase().includes(searchUsuarios.toLowerCase()))
         );
-    }, [usuarios, searchUsuarios]);
+    }, [usuariosData, searchUsuarios]);
 
     const filteredCargos = useMemo(() => {
-        return cargos.filter(c =>
+        return (cargosData as Cargo[]).filter(c =>
             c.nombre.toLowerCase().includes(searchCargos.toLowerCase()) ||
-            c.descripcion.toLowerCase().includes(searchCargos.toLowerCase())
+            (c.descripcion && c.descripcion.toLowerCase().includes(searchCargos.toLowerCase()))
         );
-    }, [cargos, searchCargos]);
+    }, [cargosData, searchCargos]);
 
     const filteredGerencias = useMemo(() => {
-        return gerencias.filter(g =>
+        return (gerenciasData as Gerencia[]).filter(g =>
             g.nombre.toLowerCase().includes(searchGerencias.toLowerCase()) ||
-            g.sigla.toLowerCase().includes(searchGerencias.toLowerCase()) ||
-            g.subdivision.toLowerCase().includes(searchGerencias.toLowerCase())
+            (g.sigla && g.sigla.toLowerCase().includes(searchGerencias.toLowerCase())) ||
+            (g.subdivision && g.subdivision.toLowerCase().includes(searchGerencias.toLowerCase()))
         );
-    }, [gerencias, searchGerencias]);
+    }, [gerenciasData, searchGerencias]);
 
     if (!esAdmin) {
         return (
@@ -273,121 +282,97 @@ export default function UsuariosPage() {
         setSelectedGerenciaDetail(null);
     };
 
-    const handleSaveGerencia = () => {
+    const handleSaveGerencia = async () => {
         if (!gerenciaFormData.nombre) {
             showError('El nombre es requerido');
             return;
         }
 
-        let updatedGerencias = [...gerencias];
-
-        if (editingGerencia) {
-            updatedGerencias = updatedGerencias.map(g =>
-                g.id === editingGerencia.id ? { ...g, ...gerenciaFormData } : g
-            );
-            showSuccess('Gerencia actualizada correctamente');
-        } else {
-            const newGerencia: Gerencia = {
-                id: `gerencia-${Date.now()}`,
-                ...gerenciaFormData,
-            };
-            updatedGerencias.push(newGerencia);
-            showSuccess('Gerencia creada correctamente');
+        try {
+            if (editingGerencia) {
+                await updateGerencia({ id: editingGerencia.id, ...gerenciaFormData }).unwrap();
+                showSuccess('Gerencia actualizada correctamente');
+            } else {
+                await createGerencia(gerenciaFormData).unwrap();
+                showSuccess('Gerencia creada correctamente');
+            }
+            handleCloseGerenciaDialog();
+        } catch (error) {
+            console.error('Error saving gerencia:', error);
+            showError('Error al guardar la gerencia');
         }
-
-        localStorage.setItem('catalog_gerencias_v2', JSON.stringify(updatedGerencias));
-        setGerencias(updatedGerencias);
-        handleCloseGerenciaDialog();
     };
 
-    const handleDeleteGerencia = (id: string) => {
+    const handleDeleteGerencia = async (id: string | number) => {
         if (window.confirm('¿Está seguro de eliminar esta gerencia?')) {
-            const updatedGerencias = gerencias.filter(g => g.id !== id);
-            localStorage.setItem('catalog_gerencias_v2', JSON.stringify(updatedGerencias));
-            setGerencias(updatedGerencias);
-            showSuccess('Gerencia eliminada correctamente');
+            try {
+                await deleteGerencia(id as any).unwrap();
+                showSuccess('Gerencia eliminada correctamente');
+            } catch (error) {
+                showError('Error al eliminar la gerencia');
+            }
         }
     };
 
-    const handleSaveCargo = () => {
+    const handleSaveCargo = async () => {
         if (!cargoFormData.nombre) {
             showError('El nombre es requerido');
             return;
         }
 
-        let updatedCargos = [...cargos];
-
-        if (editingCargo) {
-            updatedCargos = updatedCargos.map(c =>
-                c.id === editingCargo.id ? { ...c, ...cargoFormData } : c
-            );
-            showSuccess('Cargo actualizado correctamente');
-        } else {
-            const newCargo: Cargo = {
-                id: `cargo-${Date.now()}`,
-                ...cargoFormData,
-            };
-            updatedCargos.push(newCargo);
-            showSuccess('Cargo creado correctamente');
+        try {
+            if (editingCargo) {
+                await updateCargo({ id: editingCargo.id, ...cargoFormData }).unwrap();
+                showSuccess('Cargo actualizado correctamente');
+            } else {
+                await createCargo(cargoFormData).unwrap();
+                showSuccess('Cargo creado correctamente');
+            }
+            handleCloseCargoDialog();
+        } catch (error) {
+            showError('Error al guardar el cargo');
         }
-
-        localStorage.setItem('catalog_cargos', JSON.stringify(updatedCargos));
-        setCargos(updatedCargos);
-        handleCloseCargoDialog();
     };
 
-    const handleDeleteCargo = (id: string) => {
+    const handleDeleteCargo = async (id: string | number) => {
         if (window.confirm('¿Está seguro de eliminar este cargo?')) {
-            const updatedCargos = cargos.filter(c => c.id !== id);
-            localStorage.setItem('catalog_cargos', JSON.stringify(updatedCargos));
-            setCargos(updatedCargos);
-            showSuccess('Cargo eliminado correctamente');
+            try {
+                await deleteCargo(id as any).unwrap();
+                showSuccess('Cargo eliminado correctamente');
+            } catch (error) {
+                showError('Error al eliminar el cargo');
+            }
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.nombre) {
             showError('El nombre es requerido');
             return;
         }
 
-        let updatedUsuarios = [...usuarios];
-
-        // Find cargo name
-        const selectedCargo = cargos.find(c => c.id === formData.cargoId);
-        const cargoNombre = selectedCargo ? selectedCargo.nombre : undefined;
-
-        if (editingUsuario) {
-            updatedUsuarios = updatedUsuarios.map(u =>
-                u.id === editingUsuario.id ? {
-                    ...u,
-                    ...formData,
-                    cargoNombre
-                } as Usuario : u
-            );
-            showSuccess('Usuario actualizado correctamente');
-        } else {
-            const newUsuario: Usuario = {
-                id: `user-${Date.now()}`,
-                ...(formData as Usuario),
-                cargoNombre,
-                createdAt: new Date().toISOString(),
-            };
-            updatedUsuarios.push(newUsuario);
-            showSuccess('Usuario creado correctamente');
+        try {
+            if (editingUsuario) {
+                await updateUsuario({ id: editingUsuario.id as any, ...formData }).unwrap();
+                showSuccess('Usuario actualizado correctamente');
+            } else {
+                await createUsuario(formData).unwrap();
+                showSuccess('Usuario creado correctamente');
+            }
+            handleCloseDialog();
+        } catch (error) {
+            showError('Error al guardar el usuario');
         }
-
-        updateMockUsuarios(updatedUsuarios);
-        setUsuarios(updatedUsuarios);
-        handleCloseDialog();
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string | number) => {
         if (window.confirm('¿Está seguro de eliminar este usuario?')) {
-            const updatedUsuarios = usuarios.filter(u => u.id !== id);
-            updateMockUsuarios(updatedUsuarios);
-            setUsuarios(updatedUsuarios);
-            showSuccess('Usuario eliminado correctamente');
+            try {
+                await deleteUsuario(id as any).unwrap();
+                showSuccess('Usuario eliminado correctamente');
+            } catch (error) {
+                showError('Error al eliminar el usuario');
+            }
         }
     };
 
@@ -411,7 +396,7 @@ export default function UsuariosPage() {
                     'dueño_procesos': 'Dueño del Proceso',
                     'director_procesos': 'Director de Procesos'
                 };
-                return roles[params.value as string] || params.value as string;
+                return roles[(params as any).value as string] || (params as any).value as string;
             }
         },
         {
@@ -690,10 +675,10 @@ export default function UsuariosPage() {
                             </Box>
                         </Box>
                         <Autocomplete
-                            options={cargos}
+                            options={cargosData}
                             getOptionLabel={(option) => option.nombre}
-                            value={cargos.find(c => c.id === formData.cargoId) || null}
-                            onChange={(_e, newValue) => setFormData({ ...formData, cargoId: newValue?.id || '' })}
+                            value={cargosData.find(c => String(c.id) === String(formData.cargoId)) || null}
+                            onChange={(_e, newValue) => setFormData({ ...formData, cargoId: newValue?.id.toString() || '' })}
                             renderInput={(params) => <TextField {...params} label="Cargo" variant="outlined" />}
                             fullWidth
                         />

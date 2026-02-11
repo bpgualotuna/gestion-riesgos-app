@@ -26,86 +26,8 @@ import type {
   Causa,
   ImpactoDescripcion,
 } from '../../types';
-import {
-  getMockRiesgos,
-  getAllRiesgos,
-  saveRiesgos,
-  getMockEvaluacionesByRiesgo,
-  getMockEstadisticas,
-  getMockRiesgosRecientes,
-  getMockPuntosMapa,
-  getMockPriorizaciones,
-  createMockEvaluacion,
-  createMockPriorizacion,
-  getMockProcesos,
-  getMockProcesoById,
-  createMockProceso,
-  updateMockProceso,
-  deleteMockProceso,
-  duplicateMockProceso,
-} from './mockData';
-import {
-  getMockPasosProceso,
-  createMockPasoProceso,
-  updateMockPasoProceso,
-  deleteMockPasoProceso,
-  getMockEncuestas,
-  getMockEncuestaById,
-  createMockEncuesta,
-  updateMockEncuesta,
-  deleteMockEncuesta,
-  getMockPreguntasEncuesta,
-  createMockPreguntaEncuesta,
-  updateMockPreguntaEncuesta,
-  deleteMockPreguntaEncuesta,
-  getMockListasValores,
-  getMockListaValoresById,
-  updateMockListaValores,
-  getMockParametrosValoracion,
-  getMockParametroValoracionById,
-  updateMockParametroValoracion,
-  getMockTipologias,
-  getMockTipologiaById,
-  createMockTipologia,
-  updateMockTipologia,
-  deleteMockTipologia,
-  getMockFormulas,
-  getMockFormulaById,
-  createMockFormula,
-  updateMockFormula,
-  deleteMockFormula,
-  getMockConfiguraciones,
-  updateMockConfiguracion,
-  getMockTiposRiesgos,
-  updateMockTiposRiesgos,
-  getMockObjetivos,
-  updateMockObjetivos,
-  getMockFrecuencias,
-  getMockEjesMapa,
-  updateMockFrecuencias,
-  getMockFuentes,
-  updateMockFuentes,
-  getMockImpactos,
-  updateMockImpactos,
-  getMockObservaciones,
-  createMockObservacion,
-  updateMockObservacion,
-  getMockHistorial,
-  createMockHistorial,
-  getMockTareas,
-  createMockTarea,
-  updateMockTarea,
-  getMockNotificaciones,
-  createMockNotificacion,
-  updateMockNotificacion,
-  getMockOrigenes,
-  getMockTiposProceso,
-  getMockConsecuencias,
-  getMockCausas,
-  getMockMapaConfig,
-  updateMockMapaConfig,
-  getMockNivelesRiesgo,
-} from './mockData';
+// Mock data completely removed as per user request.
+// All endpoints must now connect to the backend.
 
 // Check if we should use mock data (when JSON Server is not available)
 // Usar solo datos mock, no JSON Server
@@ -113,7 +35,7 @@ import {
 // Si es true, usa mock. Si es false, usa API real.
 const USE_MOCK_DATA = false;
 
-const mockBaseQuery = fetchBaseQuery({
+const baseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
   prepareHeaders: (headers) => {
     // Add auth token if needed
@@ -121,10 +43,21 @@ const mockBaseQuery = fetchBaseQuery({
   },
 });
 
+const baseQueryWithLogging = async (args: any, api: any, extraOptions: any) => {
+  console.log('[FRONTEND] Request:', args);
+  const result = await baseQuery(args, api, extraOptions);
+  if (result.error) {
+    console.error('[FRONTEND] Error Response:', result.error);
+  } else {
+    console.log('[FRONTEND] Success Response:', result.data);
+  }
+  return result;
+};
+
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
-  baseQuery: mockBaseQuery,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig'],
+  baseQuery: baseQueryWithLogging,
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Cargo', 'Gerencia', 'Area'],
   endpoints: (builder) => ({
     // ============================================
     // PROCESOS
@@ -414,40 +347,33 @@ export const riesgosApi = createApi({
     // PASOS DEL PROCESO
     // ============================================
     getPasosProceso: builder.query<any[], void>({
-      queryFn: async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return { data: getMockPasosProceso() };
-      },
+      query: () => 'procesos/pasos',
       providesTags: ['PasoProceso'],
     }),
 
     createPasoProceso: builder.mutation<any, any>({
-      queryFn: async (body) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const nuevoPaso = createMockPasoProceso(body);
-        return { data: nuevoPaso };
-      },
+      query: (body) => ({
+        url: 'procesos/pasos',
+        method: 'POST',
+        body,
+      }),
       invalidatesTags: ['PasoProceso'],
     }),
 
     updatePasoProceso: builder.mutation<any, { id: string;[key: string]: any }>({
-      queryFn: async ({ id, ...body }) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const actualizado = updateMockPasoProceso(id, body);
-        if (!actualizado) {
-          return { error: { status: 404, data: 'Paso no encontrado' } };
-        }
-        return { data: actualizado };
-      },
+      query: ({ id, ...body }) => ({
+        url: `procesos/pasos/${id}`,
+        method: 'PUT',
+        body,
+      }),
       invalidatesTags: ['PasoProceso'],
     }),
 
     deletePasoProceso: builder.mutation<void, string>({
-      queryFn: async (id) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        deleteMockPasoProceso(id);
-        return { data: undefined };
-      },
+      query: (id) => ({
+        url: `procesos/pasos/${id}`,
+        method: 'DELETE',
+      }),
       invalidatesTags: ['PasoProceso'],
     }),
 
@@ -455,52 +381,38 @@ export const riesgosApi = createApi({
     // ENCUESTAS
     // ============================================
     getEncuestas: builder.query<any[], void>({
-      queryFn: async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return { data: getMockEncuestas() };
-      },
+      query: () => 'procesos/encuestas',
       providesTags: ['Encuesta'],
     }),
 
     getEncuestaById: builder.query<any, string>({
-      queryFn: async (id) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const encuesta = getMockEncuestaById(id);
-        if (!encuesta) {
-          return { error: { status: 404, data: 'Encuesta no encontrada' } };
-        }
-        return { data: encuesta };
-      },
+      query: (id) => `procesos/encuestas/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'Encuesta', id }],
     }),
 
     createEncuesta: builder.mutation<any, any>({
-      queryFn: async (body) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const nuevaEncuesta = createMockEncuesta(body);
-        return { data: nuevaEncuesta };
-      },
+      query: (body) => ({
+        url: 'procesos/encuestas',
+        method: 'POST',
+        body,
+      }),
       invalidatesTags: ['Encuesta'],
     }),
 
     updateEncuesta: builder.mutation<any, { id: string;[key: string]: any }>({
-      queryFn: async ({ id, ...body }) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const actualizada = updateMockEncuesta(id, body);
-        if (!actualizada) {
-          return { error: { status: 404, data: 'Encuesta no encontrada' } };
-        }
-        return { data: actualizada };
-      },
+      query: ({ id, ...body }) => ({
+        url: `procesos/encuestas/${id}`,
+        method: 'PUT',
+        body,
+      }),
       invalidatesTags: ['Encuesta'],
     }),
 
     deleteEncuesta: builder.mutation<void, string>({
-      queryFn: async (id) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        deleteMockEncuesta(id);
-        return { data: undefined };
-      },
+      query: (id) => ({
+        url: `procesos/encuestas/${id}`,
+        method: 'DELETE',
+      }),
       invalidatesTags: ['Encuesta'],
     }),
 
@@ -508,40 +420,33 @@ export const riesgosApi = createApi({
     // PREGUNTAS DE ENCUESTA
     // ============================================
     getPreguntasEncuesta: builder.query<any[], string>({
-      queryFn: async (encuestaId) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return { data: getMockPreguntasEncuesta(encuestaId) };
-      },
+      query: (encuestaId) => `procesos/encuestas/${encuestaId}/preguntas`,
       providesTags: ['PreguntaEncuesta'],
     }),
 
     createPreguntaEncuesta: builder.mutation<any, any>({
-      queryFn: async (body) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const nuevaPregunta = createMockPreguntaEncuesta(body);
-        return { data: nuevaPregunta };
-      },
+      query: (body) => ({
+        url: 'procesos/encuestas/preguntas',
+        method: 'POST',
+        body,
+      }),
       invalidatesTags: ['PreguntaEncuesta', 'Encuesta'],
     }),
 
     updatePreguntaEncuesta: builder.mutation<any, { id: string;[key: string]: any }>({
-      queryFn: async ({ id, ...body }) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const actualizada = updateMockPreguntaEncuesta(id, body);
-        if (!actualizada) {
-          return { error: { status: 404, data: 'Pregunta no encontrada' } };
-        }
-        return { data: actualizada };
-      },
+      query: ({ id, ...body }) => ({
+        url: `procesos/encuestas/preguntas/${id}`,
+        method: 'PUT',
+        body,
+      }),
       invalidatesTags: ['PreguntaEncuesta'],
     }),
 
     deletePreguntaEncuesta: builder.mutation<void, string>({
-      queryFn: async (id) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        deleteMockPreguntaEncuesta(id);
-        return { data: undefined };
-      },
+      query: (id) => ({
+        url: `procesos/encuestas/preguntas/${id}`,
+        method: 'DELETE',
+      }),
       invalidatesTags: ['PreguntaEncuesta', 'Encuesta'],
     }),
 
@@ -848,6 +753,139 @@ export const riesgosApi = createApi({
       },
       invalidatesTags: ['MapaConfig'],
     }),
+    // ============================================
+    // USUARIOS
+    // ============================================
+    getUsuarios: builder.query<any[], void>({
+      query: () => 'usuarios',
+      providesTags: ['Usuario'],
+    }),
+
+    createUsuario: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'usuarios',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Usuario'],
+    }),
+
+    updateUsuario: builder.mutation<any, { id: string;[key: string]: any }>({
+      query: ({ id, ...body }) => ({
+        url: `usuarios/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Usuario'],
+    }),
+
+    deleteUsuario: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `usuarios/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Usuario'],
+    }),
+
+    // ============================================
+    // CARGOS
+    // ============================================
+    getCargos: builder.query<any[], void>({
+      query: () => 'cargos',
+      providesTags: ['Cargo'],
+    }),
+
+    createCargo: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'cargos',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Cargo'],
+    }),
+
+    updateCargo: builder.mutation<any, { id: string;[key: string]: any }>({
+      query: ({ id, ...body }) => ({
+        url: `cargos/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Cargo'],
+    }),
+
+    deleteCargo: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `cargos/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Cargo'],
+    }),
+
+    // ============================================
+    // GERENCIAS
+    // ============================================
+    getGerencias: builder.query<any[], void>({
+      query: () => 'gerencias',
+      providesTags: ['Gerencia'],
+    }),
+
+    createGerencia: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'gerencias',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Gerencia'],
+    }),
+
+    updateGerencia: builder.mutation<any, { id: string;[key: string]: any }>({
+      query: ({ id, ...body }) => ({
+        url: `gerencias/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Gerencia'],
+    }),
+
+    deleteGerencia: builder.mutation<void, string | number>({
+      query: (id) => ({
+        url: `gerencias/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Gerencia'],
+    }),
+
+    // Áreas
+    getAreas: builder.query<any[], void>({
+      query: () => 'areas',
+      providesTags: ['Area'],
+    }),
+
+    createArea: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'areas',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Area'],
+    }),
+
+    updateArea: builder.mutation<any, { id: string | number;[key: string]: any }>({
+      query: ({ id, ...body }) => ({
+        url: `areas/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Area'],
+    }),
+
+    deleteArea: builder.mutation<void, string | number>({
+      query: (id) => ({
+        url: `areas/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Area'],
+    }),
   }),
 });
 
@@ -951,4 +989,24 @@ export const {
   useGetNivelesRiesgoQuery,
   useGetClasificacionesRiesgoQuery,
   useGetEjesMapaQuery,
+  // Usuarios
+  useGetUsuariosQuery,
+  useCreateUsuarioMutation,
+  useUpdateUsuarioMutation,
+  useDeleteUsuarioMutation,
+  // Cargos
+  useGetCargosQuery,
+  useCreateCargoMutation,
+  useUpdateCargoMutation,
+  useDeleteCargoMutation,
+  // Gerencias
+  useGetGerenciasQuery,
+  useCreateGerenciaMutation,
+  useUpdateGerenciaMutation,
+  useDeleteGerenciaMutation,
+  // Areas
+  useGetAreasQuery,
+  useCreateAreaMutation,
+  useUpdateAreaMutation,
+  useDeleteAreaMutation,
 } = riesgosApi;
