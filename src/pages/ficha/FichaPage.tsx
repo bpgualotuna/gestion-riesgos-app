@@ -181,11 +181,12 @@ export default function FichaPage() {
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
         gerenciaSigla: gerenciaSigla,
-        area: procesoActual.areaNombre || procesoActual.area?.nombre || '',
+        area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
         fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        objetivoProceso: procesoActual.objetivoProceso || '',
+        // En backend el campo se llama "objetivo"
+        objetivoProceso: (procesoActual as any).objetivo || '',
       };
     }
     return {
@@ -215,7 +216,8 @@ export default function FichaPage() {
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
         fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        objetivoProceso: procesoActual.objetivoProceso || '',
+        // En backend el campo se llama "objetivo"
+        objetivoProceso: (procesoActual as any).objetivo || '',
       });
     }
   }, [procesoActual, gerencias]);
@@ -243,12 +245,15 @@ export default function FichaPage() {
 
       // Actualizar solo los campos editables
       await updateProceso({
+        // Es obligatorio enviar el ID del proceso; si no, el endpoint se llama como /procesos/undefined
+        id: String(procesoActual.id),
+        // En el DTO del front el campo se llama objetivoProceso (lo mapeamos en backend a "objetivo")
         objetivoProceso: formData.objetivoProceso,
         // Solo admin puede actualizar información organizacional
         ...(puedeEditarInfoOrganizacional && {
           vicepresidencia: formData.vicepresidencia,
           gerencia: formData.gerencia,
-          responsableId: formData.responsable,
+          // Omitimos responsableId por ahora para no enviar nombres donde se espera un ID numérico
         }),
       }).unwrap();
 

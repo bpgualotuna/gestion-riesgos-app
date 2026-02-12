@@ -11,7 +11,13 @@
  * api.procesos.getById(1)
  */
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || (typeof process !== 'undefined' && process.env && (process.env.REACT_APP_API_URL as string)) || 'http://localhost:8080/api'
+// ⚠️ Importante: en producción usamos VITE_API_BASE_URL (mismo valor que API_BASE_URL en utils/constants)
+// VITE_API_URL se mantiene solo por compatibilidad hacia atrás.
+const API_BASE_URL =
+    (import.meta.env.VITE_API_BASE_URL as string) ||
+    (import.meta.env.VITE_API_URL as string) ||
+    (typeof process !== 'undefined' && process.env && (process.env.REACT_APP_API_URL as string)) ||
+    'http://localhost:8080/api'
 
 // ============================================
 // Configuración Headers
