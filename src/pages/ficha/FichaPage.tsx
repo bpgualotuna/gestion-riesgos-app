@@ -3,7 +3,7 @@
  * Configuración inicial del proceso según análisis Excel
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import {
   Box,
@@ -59,20 +59,25 @@ export default function FichaPage() {
   const { procesoId } = useParams<{ procesoId?: string }>();
   const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
 
+  // Memoizar gerencia map para evitar recalcular constantemente
+  const gerenciaMap = useMemo(() => {
+    return new Map(gerencias.map(g => [g.id, g.nombre]));
+  }, [gerencias]);
+
   // Helper function para obtener el nombre de gerencia desde ID o nombre
-  const getGerenciaNombre = (gerenciaValue: string | number | null | undefined): string => {
+  const getGerenciaNombre = useCallback((gerenciaValue: string | number | null | undefined): string => {
     if (!gerenciaValue) return '';
     
     // Si es un número, buscar en la lista de gerencias
     if (typeof gerenciaValue === 'number' || !isNaN(Number(gerenciaValue))) {
       const numValue = Number(gerenciaValue);
-      const gerencia = gerencias.find(g => g.id === numValue);
-      return gerencia?.nombre || String(gerenciaValue);
+      const gerenciaNombre = gerenciaMap.get(numValue);
+      return gerenciaNombre || String(gerenciaValue);
     }
     
     // Si es un string, devolverlo directamente
     return String(gerenciaValue);
-  };
+  }, [gerenciaMap]);
 
   // Obtener proceso del parámetro de ruta o del contexto
   const procesoActual = procesoId
