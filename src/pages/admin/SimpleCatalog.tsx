@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -78,7 +78,7 @@ export default function SimpleCatalog({
         handleClose();
     };
 
-    const actionColumn: GridColDef = {
+    const actionColumn: GridColDef = useMemo(() => ({
         field: 'actions',
         headerName: 'Acciones',
         width: 120,
@@ -92,7 +92,9 @@ export default function SimpleCatalog({
                 </IconButton>
             </Box>
         ),
-    };
+    }), []);
+
+    const allColumns = useMemo(() => [...columns, actionColumn], [columns, actionColumn]);
 
     return (
         <Box>
@@ -105,7 +107,7 @@ export default function SimpleCatalog({
 
             <AppDataGrid
                 rows={data}
-                columns={[...columns, actionColumn]}
+                columns={allColumns}
                 getRowId={(row) => row.id}
                 onRowClick={(params) => handleOpenDetailDialog(params.row)}
             />
