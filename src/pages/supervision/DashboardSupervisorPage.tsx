@@ -270,7 +270,12 @@ export default function DashboardSupervisorPage() {
   const kpis = useMemo(() => {
     const totalRiesgos = riesgosFiltrados.length;
     const totalProcesos = procesos.length;
-    const riesgosCriticos = puntos.filter((p: any) => (p.probabilidad * p.impacto) >= UMBRALES_RIESGO.CRITICO).length;
+    
+    // Filtrar puntos que corresponden a riesgos filtrados
+    const riesgosIds = riesgosFiltrados.map((r: any) => r.id);
+    const puntosFiltrados = puntos.filter((p: any) => riesgosIds.includes(p.riesgoId));
+    const riesgosCriticos = puntosFiltrados.filter((p: any) => (p.probabilidad * p.impacto) >= UMBRALES_RIESGO.CRITICO).length;
+    
     return {
       totalRiesgos,
       totalProcesos,
