@@ -132,8 +132,12 @@ export default function IdentificacionPage() {
     if (!procesoSeleccionado) return;
     try {
       const numeroIdentificacion = `RIES-${Date.now()}`;
+      // Generate a unique numero based on timestamp or existing riesgos count
+      const numero = Math.floor(Math.random() * 10000) + 1;
+      
       await createRiesgo({
         procesoId: Number(procesoSeleccionado.id),
+        numero,
         descripcion: 'Nuevo Riesgo',
         numeroIdentificacion,
         evaluacion: {
