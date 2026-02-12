@@ -651,6 +651,10 @@ export default function IdentificacionPage() {
   const handleAgregarRiesgo = async () => {
     const nuevoRiesgo = crearNuevoRiesgo();
     try {
+      if (!procesoSeleccionado || !procesoSeleccionado.id) {
+        showError('Seleccione un proceso antes de crear un riesgo');
+        return;
+      }
       // Obtener datos de gerencia del proceso seleccionado
       let gerenciaNombre = '';
       let gerenciaSigla = '';

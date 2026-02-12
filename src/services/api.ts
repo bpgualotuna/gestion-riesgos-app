@@ -118,6 +118,10 @@ export const api = {
             return handleResponse(res)
         },
         getById: async (id: number) => {
+            if (id === undefined || id === null || id === '') {
+                console.warn('[api.procesos.getById] llamada con id inválido:', id)
+                throw new Error('Invalid proceso id')
+            }
             const res = await fetch(`${API_BASE_URL}/procesos/${id}`, { headers: getHeaders() })
             return handleResponse(res)
         },

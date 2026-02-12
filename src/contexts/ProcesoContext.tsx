@@ -48,8 +48,9 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     const storedModoProceso = localStorage.getItem('modoProceso') as ModoProceso;
 
     if (storedProcesoId && procesos.length > 0) {
-      // Buscar el proceso en la lista actual
-      const procesoEncontrado = procesos.find((p) => p.id === storedProcesoId);
+      // Buscar el proceso en la lista actual (localStorage guarda strings)
+      const storedProcesoIdNum = Number(storedProcesoId);
+      const procesoEncontrado = procesos.find((p) => p.id === storedProcesoIdNum);
       if (procesoEncontrado) {
         setProcesoSeleccionadoState(procesoEncontrado);
         localStorage.setItem(`proceso_${procesoEncontrado.id}`, JSON.stringify(procesoEncontrado));
