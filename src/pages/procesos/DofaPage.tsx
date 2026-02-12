@@ -47,7 +47,8 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useGetProcesosQuery, useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useGetProcesosQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -112,9 +113,7 @@ export default function DofaPage() {
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
 
   // Fetch process details directly
-  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
-    skip: !procesoSeleccionado?.id
-  });
+  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
   useEffect(() => {

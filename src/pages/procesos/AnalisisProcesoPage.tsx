@@ -39,16 +39,15 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
-import { useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 
 export default function AnalisisProcesoPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
-  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
-    skip: !procesoSeleccionado?.id
-  });
+  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
   const [descripcion, setDescripcion] = useState('');

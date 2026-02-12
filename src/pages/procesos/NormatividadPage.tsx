@@ -25,7 +25,8 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import { useNotification } from '../../hooks/useNotification';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useProceso } from '../../contexts/ProcesoContext';
-import { useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
+import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO } from "../../utils/constants";
 import { formatDate } from '../../utils/formatters';
 
@@ -53,9 +54,7 @@ export default function NormatividadPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
-  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
-    skip: !procesoSeleccionado?.id
-  });
+  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
   const [normatividades, setNormatividades] = useState<Normatividad[]>([]);

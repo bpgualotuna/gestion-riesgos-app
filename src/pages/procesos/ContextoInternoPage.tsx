@@ -17,7 +17,8 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
-import { useGetProcesoByIdQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
 interface ContextoInterno {
@@ -38,9 +39,7 @@ export default function ContextoInternoPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
-  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
-    skip: !procesoSeleccionado?.id
-  });
+  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
   const [formData, setFormData] = useState<ContextoInterno>({

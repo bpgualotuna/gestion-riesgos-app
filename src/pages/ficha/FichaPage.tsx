@@ -32,7 +32,7 @@ import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as Vis
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdateProcesoMutation, useGetProcesosQuery } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation, useGetProcesosQuery, useGetGerenciasQuery } from '../../api/services/riesgosApi';
 import { useEffect } from 'react';
 import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -55,8 +55,24 @@ export default function FichaPage() {
   const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, user } = useAuth();
   const [updateProceso] = useUpdateProcesoMutation();
   const { data: procesos = [] } = useGetProcesosQuery();
+  const { data: gerencias = [] } = useGetGerenciasQuery();
   const { procesoId } = useParams<{ procesoId?: string }>();
   const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
+
+  // Helper function para obtener el nombre de gerencia desde ID o nombre
+  const getGerenciaNombre = (gerenciaValue: string | number | null | undefined): string => {
+    if (!gerenciaValue) return '';
+    
+    // Si es un número, buscar en la lista de gerencias
+    if (typeof gerenciaValue === 'number' || !isNaN(Number(gerenciaValue))) {
+      const numValue = Number(gerenciaValue);
+      const gerencia = gerencias.find(g => g.id === numValue);
+      return gerencia?.nombre || String(gerenciaValue);
+    }
+    
+    // Si es un string, devolverlo directamente
+    return String(gerenciaValue);
+  };
 
   // Obtener proceso del parámetro de ruta o del contexto
   const procesoActual = procesoId
@@ -153,7 +169,7 @@ export default function FichaPage() {
     if (procesoActual) {
       return {
         vicepresidencia: procesoActual.vicepresidencia || '',
-        gerencia: procesoActual.gerencia || '',
+        gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
         area: procesoActual.areaNombre || procesoActual.area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
@@ -177,7 +193,7 @@ export default function FichaPage() {
     if (procesoActual) {
       setFormData({
         vicepresidencia: procesoActual.vicepresidencia || '',
-        gerencia: procesoActual.gerencia || '',
+        gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
@@ -185,7 +201,7 @@ export default function FichaPage() {
         objetivoProceso: procesoActual.objetivoProceso || '',
       });
     }
-  }, [procesoActual]);
+  }, [procesoActual, gerencias]);
 
   const handleChange = (field: keyof FichaData) => (
     e: React.ChangeEvent<HTMLInputElement>
