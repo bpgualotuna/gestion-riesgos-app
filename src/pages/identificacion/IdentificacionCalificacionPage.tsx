@@ -861,6 +861,9 @@ export default function IdentificacionPage() {
   const [causaDetalleOpen, setCausaDetalleOpen] = useState(false);
   const [causaSeleccionadaDetalle, setCausaSeleccionadaDetalle] = useState<CausaRiesgo | null>(null);
   const [causaEliminando, setCausaEliminando] = useState<string | null>(null); // ID de la causa que se está eliminando
+  // Estado para confirmación de eliminación (modal bonito)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [causaPendienteEliminar, setCausaPendienteEliminar] = useState<{ riesgoId: string; causaId: string } | null>(null);
 
   // Si el catálogo de fuentes cambia, elegir un valor por defecto válido
   useEffect(() => {
@@ -1122,22 +1125,13 @@ export default function IdentificacionPage() {
                           setNuevaCausaFrecuencia(frecuenciaNum);
                           setDialogCausaOpen(true);
                         }}
-                        onEliminarCausa={async (riesgoId, causaId) => {
-                          // Evitar múltiples clics
-                          if (causaEliminando) return;
-                          
-                          setCausaEliminando(String(causaId));
-                          try {
-                            console.log('[FRONTEND] Eliminando causa:', causaId);
-                            await api.riesgos.causas.delete(Number(causaId));
-                            await cargarRiesgos();
-                            showSuccess('Causa eliminada correctamente');
-                          } catch (error) {
-                            console.error('Error al eliminar causa:', error);
-                            showError('Error al eliminar causa');
-                          } finally {
-                            setCausaEliminando(null);
-                          }
+                        onEliminarCausa={(riesgoId, causaId) => {
+                          // Abrir modal de confirmación en lugar de eliminar directamente
+                          setCausaPendienteEliminar({
+                            riesgoId: String(riesgoId),
+                            causaId: String(causaId),
+                          });
+                          setConfirmDeleteOpen(true);
                         }}
                         causaEliminando={causaEliminando}
                         tiposRiesgos={tiposRiesgos}
@@ -1877,6 +1871,65 @@ export default function IdentificacionPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCausaDetalleOpen(false)} variant="contained" color="secondary">Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de confirmación para eliminar causa */}
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={() => {
+          if (causaEliminando) return; // mientras está eliminando, no cerrar manual
+          setConfirmDeleteOpen(false);
+          setCausaPendienteEliminar(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Eliminar causa</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            ¿Seguro que desea eliminar esta causa? Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => {
+              if (causaEliminando) return;
+              setConfirmDeleteOpen(false);
+              setCausaPendienteEliminar(null);
+            }}
+            disabled={!!causaEliminando}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={async () => {
+              if (!causaPendienteEliminar || causaEliminando) return;
+              const { causaId } = causaPendienteEliminar;
+              setCausaEliminando(causaId);
+              try {
+                console.log('[FRONTEND] Eliminando causa (confirmada):', causaId);
+                await api.riesgos.causas.delete(Number(causaId));
+                await cargarRiesgos();
+                showSuccess('Causa eliminada correctamente');
+              } catch (error) {
+                console.error('Error al eliminar causa:', error);
+                showError('Error al eliminar causa');
+              } finally {
+                setCausaEliminando(null);
+                setConfirmDeleteOpen(false);
+                setCausaPendienteEliminar(null);
+              }
+            }}
+          >
+            {causaEliminando ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              'Eliminar'
+            )}
+          </Button>
         </DialogActions>
       </Dialog>
     </AppPageLayout>
