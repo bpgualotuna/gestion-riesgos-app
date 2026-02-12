@@ -187,6 +187,15 @@ export default function ParametrosCalificacionPage() {
 
     const totalPeso = impactoPesos.reduce((acc: number, item: any) => acc + (Number(item.porcentaje) || 0), 0);
 
+    // Queries - MUST be declared before useMemo that uses them
+    const { data: origenesApi = [] } = useGetOrigenesQuery();
+    const { data: consecuenciasApi = [] } = useGetConsecuenciasQuery();
+    const { data: tiposRiesgoApi = [] } = useGetTiposRiesgosQuery();
+    const { data: objetivosApi = [] } = useGetObjetivosQuery();
+    const { data: fuentesApi = [] } = useGetFuentesQuery();
+    const { data: frecuenciasApi = [] } = useGetFrecuenciasQuery();
+    const { data: impactosApi = [] } = useGetImpactosQuery();
+
     const nivelesByTipo = useMemo(() => {
         const map: Record<number, Record<number, string>> = {};
         (impactosApi || []).forEach((tipo: any) => {
@@ -197,15 +206,6 @@ export default function ParametrosCalificacionPage() {
         });
         return map;
     }, [impactosApi]);
-
-    // Queries
-    const { data: origenesApi = [] } = useGetOrigenesQuery();
-    const { data: consecuenciasApi = [] } = useGetConsecuenciasQuery();
-    const { data: tiposRiesgoApi = [] } = useGetTiposRiesgosQuery();
-    const { data: objetivosApi = [] } = useGetObjetivosQuery();
-    const { data: fuentesApi = [] } = useGetFuentesQuery();
-    const { data: frecuenciasApi = [] } = useGetFrecuenciasQuery();
-    const { data: impactosApi = [] } = useGetImpactosQuery();
 
     // Mutations
     const [createTipologia] = useCreateTipologiaMutation();

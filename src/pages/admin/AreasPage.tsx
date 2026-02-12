@@ -283,7 +283,7 @@ export default function AreasPage() {
                 if (String(p.id) === String(procesoId)) {
                     return {
                         ...p,
-                        responsableId: isChecked ? selectedUserForAssignment.id : '',
+                        responsableId: isChecked ? selectedUserForAssignment.id : null,
                         responsableNombre: isChecked ? selectedUserForAssignment.nombre : ''
                     };
                 }
