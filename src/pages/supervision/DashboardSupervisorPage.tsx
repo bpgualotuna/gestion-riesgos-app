@@ -293,22 +293,6 @@ export default function DashboardSupervisorPage() {
     return counts.sort((a: any, b: any) => b.total - a.total).slice(0, 5);
   }, [procesos, riesgosFiltrados]);
 
-  const topRiesgos = useMemo(() => {
-    const rows = puntos.map((p: any) => {
-      const riesgo = riesgosFiltrados.find((r: any) => r.id === p.riesgoId);
-      const proceso = procesos.find((proc: any) => proc.id === riesgo?.procesoId);
-      return {
-        id: p.riesgoId,
-        codigo: riesgo?.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `R${p.riesgoId}`,
-        descripcion: riesgo?.descripcion || p.descripcion || 'Sin descripcion',
-        proceso: proceso?.nombre || 'Sin proceso',
-        valor: p.probabilidad * p.impacto,
-      };
-    }).filter((r: any) => r.valor > 0);
-
-    return rows.sort((a: any, b: any) => b.valor - a.valor).slice(0, 5);
-  }, [puntos, riesgosFiltrados, procesos]);
-
   const riesgosPorTipoProceso = useMemo(() => {
     return Object.entries(estadisticas.porTipoProceso || {}).map(([name, value]) => ({
       name: name.split(' ')[1] || name,
@@ -875,38 +859,6 @@ export default function DashboardSupervisorPage() {
                       <TableRow key={row.id}>
                         <TableCell>{row.nombre}</TableCell>
                         <TableCell align="right">{row.total}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} md={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                  Top Riesgos por Impacto
-                </Typography>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Codigo</TableCell>
-                      <TableCell>Proceso</TableCell>
-                      <TableCell align="right">Valor</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {topRiesgos.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} align="center">Sin datos</TableCell>
-                      </TableRow>
-                    )}
-                    {topRiesgos.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>{row.codigo}</TableCell>
-                        <TableCell>{row.proceso}</TableCell>
-                        <TableCell align="right">{row.valor}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
