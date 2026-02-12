@@ -1,6 +1,6 @@
 ﻿/**
  * RTK Query API for Risk Management
- * Uses mock data when backend is not available
+ * All endpoints connect directly to the backend API
  */
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
@@ -27,14 +27,6 @@ import type {
   ImpactoDescripcion,
   ImpactoTipo,
 } from '../../types';
-// Mock data completely removed as per user request.
-// All endpoints must now connect to the backend.
-
-// Check if we should use mock data (when JSON Server is not available)
-// Usar solo datos mock, no JSON Server
-// Check if we should use mock data (when JSON Server is not available)
-// Si es true, usa mock. Si es false, usa API real.
-const USE_MOCK_DATA = false;
 
 const baseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
@@ -624,9 +616,6 @@ export const riesgosApi = createApi({
     // PARÁMETROS DE VALORACIÓN
     // ============================================
     getParametrosValoracion: builder.query<any[], void>({
-      // Not implemented in backend yet, keeping mock queryFn would be safer if mixed mode supported, 
-      // but we switched USE_MOCK_DATA=false. 
-      // I'll point to an endpoint that might return 404 or empty.
       query: () => 'catalogos/parametros-valoracion',
       providesTags: ['ParametroValoracion'],
     }),

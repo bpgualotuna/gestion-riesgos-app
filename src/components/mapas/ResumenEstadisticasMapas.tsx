@@ -75,65 +75,58 @@ export default function ResumenEstadisticasMapas({
 }: ResumenEstadisticasProps) {
   const estadisticas = useMemo(() => {
     // Mapear riesgos con sus valores inherentes y residuales
+    // Usar puntosFiltrados directamente para obtener valores consistentes
     const riesgosComparativa: ComparativaRiesgo[] = [];
     const riesgosProcessados = new Set<string>();
 
-    // Procesar todos los puntos inherentes
-    Object.values(matrizInherente).forEach((puntos) => {
-      puntos.forEach((puntoInherente: any) => {
-        if (riesgosProcessados.has(puntoInherente.riesgoId)) return;
-        riesgosProcessados.add(puntoInherente.riesgoId);
+    // Procesar todos los puntos filtrados (tienen tanto inherente como residual)
+    puntosFiltrados.forEach((punto: any) => {
+      if (riesgosProcessados.has(String(punto.riesgoId))) return;
+      riesgosProcessados.add(String(punto.riesgoId));
 
-        const valorInherente = puntoInherente.probabilidad * puntoInherente.impacto;
+      // Calcular valor inherente desde probabilidad e impacto
+      const probInh = Number(punto.probabilidad) || 1;
+      const impInh = Number(punto.impacto) || 1;
+      const valorInherente = probInh === 2 && impInh === 2 ? 3.99 : probInh * impInh;
 
-        // Buscar el punto residual correspondiente
-        let valorResidual = 0;
-        Object.values(matrizResidual).forEach((puntosRes) => {
-          puntosRes.forEach((puntoResidual: any) => {
-            if (puntoResidual.riesgoId === puntoInherente.riesgoId) {
-              valorResidual = puntoResidual.probabilidad * puntoResidual.impacto;
-            }
-          });
-        });
+      // Calcular valor residual desde probabilidadResidual e impactoResidual
+      // Si no hay valores residuales, usar los inherentes (riesgo sin controles)
+      const probRes = Number(punto.probabilidadResidual) || probInh;
+      const impRes = Number(punto.impactoResidual) || impInh;
+      const valorResidual = probRes === 2 && impRes === 2 ? 3.99 : probRes * impRes;
 
-        // Determinar cambio
-        let cambio: 'bajo' | 'subio' | 'se-mantuvo' = 'se-mantuvo';
-        if (valorResidual < valorInherente) {
-          cambio = 'bajo';
-        } else if (valorResidual > valorInherente) {
-          cambio = 'subio';
-        }
+      // Determinar cambio
+      let cambio: 'bajo' | 'subio' | 'se-mantuvo' = 'se-mantuvo';
+      if (valorResidual < valorInherente) {
+        cambio = 'bajo';
+      } else if (valorResidual > valorInherente) {
+        cambio = 'subio';
+      }
 
-        const diferencia = valorInherente - valorResidual;
-        const porcentajeReduccion = valorInherente > 0 ? Math.round((diferencia / valorInherente) * 100) : 0;
+      const diferencia = valorInherente - valorResidual;
+      const porcentajeReduccion = valorInherente > 0 ? Math.round((diferencia / valorInherente) * 100) : 0;
 
-        // Obtener nombre del proceso desde el punto filtrado
-        let procesoNombre = 'Proceso desconocido';
-        const puntoFiltrado = puntosFiltrados.find((pf) => pf.riesgoId === puntoInherente.riesgoId);
-        if (puntoFiltrado) {
-          const proceso = procesos.find((p) => p.id === puntoFiltrado.procesoId || p.id === puntoInherente.procesoId);
-          procesoNombre = proceso?.nombre || puntoFiltrado.procesoNombre || 'Proceso desconocido';
-        }
+      // Obtener nombre del proceso
+      let procesoNombre = 'Proceso desconocido';
+      const proceso = procesos.find((p) => String(p.id) === String(punto.procesoId));
+      procesoNombre = proceso?.nombre || punto.procesoNombre || 'Proceso desconocido';
 
-        riesgosComparativa.push({
-          riesgoId: puntoInherente.riesgoId,
-          numero: puntoInherente.numero,
-          sigla: puntoInherente.siglaGerencia,
-          descripcion: puntoInherente.descripcion || 'Sin descripción',
-          procesoNombre,
-          valorInherente,
-          valorResidual,
-          cambio,
-          diferencia,
-          porcentajeReduccion,
-        });
+      riesgosComparativa.push({
+        riesgoId: String(punto.riesgoId),
+        numero: punto.numero,
+        sigla: punto.siglaGerencia,
+        descripcion: punto.descripcion || 'Sin descripción',
+        procesoNombre,
+        valorInherente,
+        valorResidual,
+        cambio,
+        diferencia,
+        porcentajeReduccion,
       });
     });
 
-    // Filtrar solo los que están en puntosFiltrados
-    const riesgosFiltridos = riesgosComparativa.filter((r) =>
-      puntosFiltrados.some((pf) => pf.riesgoId === r.riesgoId)
-    );
+    // Ya no necesitamos filtrar porque procesamos directamente desde puntosFiltrados
+    const riesgosFiltridos = riesgosComparativa;
 
     // Contar cambios
     const conteos = {
@@ -156,7 +149,7 @@ export default function ResumenEstadisticasMapas({
       totalReducido,
       porcentajeReduccionTotal,
     };
-  }, [matrizInherente, matrizResidual, puntosFiltrados, procesos, filtroArea, filtroProceso]);
+  }, [puntosFiltrados, procesos]);
 
 
   if (estadisticas.riesgosComparativa.length === 0) {

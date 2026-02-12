@@ -286,6 +286,8 @@ export interface PuntoMapa {
   impactoResidual?: number;
   procesoId?: number | string;
   procesoNombre?: string;
+  zona?: string | null;
+  tipologiaNivelI?: string | null;
 }
 
 export interface RiesgoMapa {

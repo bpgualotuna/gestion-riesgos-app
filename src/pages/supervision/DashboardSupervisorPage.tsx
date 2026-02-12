@@ -60,7 +60,7 @@ import DashboardFiltros from '../../components/dashboard/DashboardFiltros';
 import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos';
 import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
 import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor } from '../../hooks/useAsignaciones';
 
@@ -183,7 +183,8 @@ export default function DashboardSupervisorPage() {
     }
 
     if (filtroProceso !== 'all') {
-      filtrados = filtrados.filter((r: any) => r.procesoId === filtroProceso);
+      // Asegurar comparación correcta (puede ser string o number)
+      filtrados = filtrados.filter((r: any) => String(r.procesoId) === String(filtroProceso));
     }
 
     if (filtroOrigen !== 'all') {
@@ -285,13 +286,19 @@ export default function DashboardSupervisorPage() {
   }, [riesgosFiltrados, procesosFiltradosPorArea, puntos, estadisticas.fueraApetito]);
 
   const topProcesos = useMemo(() => {
-    const counts = procesos.map((p: any) => {
-      const total = riesgosFiltrados.filter((r: any) => r.procesoId === p.id).length;
+    // Usar procesos filtrados por área si hay filtro de área
+    const procesosParaContar = filtroArea !== 'all' 
+      ? procesos.filter((p: any) => p.areaNombre === filtroArea)
+      : procesos;
+    
+    const counts = procesosParaContar.map((p: any) => {
+      const total = riesgosFiltrados.filter((r: any) => String(r.procesoId) === String(p.id)).length;
       return { id: p.id, nombre: p.nombre || 'Sin nombre', total };
     }).filter((p: any) => p.total > 0);
 
-    return counts.sort((a: any, b: any) => b.total - a.total).slice(0, 5);
-  }, [procesos, riesgosFiltrados]);
+    // Mostrar todos los procesos con riesgos, no solo top 5
+    return counts.sort((a: any, b: any) => b.total - a.total);
+  }, [procesos, riesgosFiltrados, filtroArea]);
 
   const riesgosPorTipoProceso = useMemo(() => {
     return Object.entries(estadisticas.porTipoProceso || {}).map(([name, value]) => ({
@@ -852,6 +859,68 @@ export default function DashboardSupervisorPage() {
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Calificaciones por Nivel de Riesgo
+                </Typography>
+                {riesgosFiltrados.length === 0 ? (
+                  <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography color="text.secondary">No hay datos disponibles</Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ width: '100%', height: 300 }}>
+                    {(() => {
+                      console.log('[Dashboard] 📊 Estadísticas por nivel:', estadisticas.porNivelRiesgo);
+                      console.log('[Dashboard] 📊 Riesgos filtrados:', riesgosFiltrados.length);
+                      console.log('[Dashboard] 📊 Puntos del mapa:', puntos.length);
+                      
+                      const dataNiveles = Object.entries(estadisticas.porNivelRiesgo || {})
+                        .filter(([_, value]) => value > 0)
+                        .map(([name, value]) => ({
+                          name,
+                          value,
+                          color: name === 'Crítico' ? '#d32f2f' : 
+                                 name === 'Alto' ? '#f57c00' : 
+                                 name === 'Medio' ? '#fbc02d' : 
+                                 name === 'Bajo' ? '#388e3c' : '#666'
+                        }));
+                      
+                      console.log('[Dashboard] 📊 Datos para gráfico:', dataNiveles);
+                      
+                      const COLORS = dataNiveles.map(d => d.color);
+                      
+                      return dataNiveles.length === 0 ? (
+                        <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography color="text.secondary">No hay riesgos calificados</Typography>
+                        </Box>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dataNiveles} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="value" name="Cantidad">
+                              {dataNiveles.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid2>
+        </Grid2>
+
+        {/* Tercera fila de gráficas */}
+        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%', minHeight: 350 }}>
+              <CardContent sx={{ height: '100%' }}>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
                   Riesgos Materializados por Proceso
                 </Typography>
                 {riesgosFiltrados.length === 0 ? (
@@ -953,7 +1022,7 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                   Controles por Proceso
                 </Typography>
-                {riesgos.length === 0 ? (
+                {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
@@ -961,7 +1030,7 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
-                      riesgos.forEach((r: any) => {
+                      riesgosFiltrados.forEach((r: any) => {
                         const procesoNombre = procesos.find((p: any) => p.id === r.procesoId)?.nombre || 'Sin proceso';
                         if (!dataPorProceso[procesoNombre]) {
                           dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };

@@ -58,7 +58,8 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
-import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation } from '../../api/services/riesgosApi';
+import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, riesgosApi } from '../../api/services/riesgosApi';
+import { useAppDispatch } from '../../app/hooks';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO } from '../../utils/constants';
 import {
   calcularRiesgoInherente,
@@ -114,6 +115,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { procesoSeleccionado } = useProceso();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
+  const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState(0);
 
   // Estados Clasificación Existente
@@ -433,16 +435,78 @@ export default function ControlesYPlanesAccionPageNueva() {
       // Calcular Riesgo Residual Global (MAX de los residuales de las causas)
       // Si una causa no tiene evaluación residual (ej. pendiente), se usa su inherente
       // Si la causa no tiene valores propios, usamos los del riesgo padre
-      const maxRiesgoResidual = Math.max(...causasUpd.map((c: any) => {
-        const residual = c.calificacionResidual;
+      const causasConControles = causasUpd.filter((c: any) => {
+        const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+        return tipo === 'CONTROL';
+      });
+      
+      const calificacionesResiduales = causasConControles.length > 0
+        ? causasConControles.map((c: any) => {
+            const residual = c.calificacionResidual;
+            // Fallback robusto para cálculo inherente
+            const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 0;
+            const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 0;
+            const inherente = prob * imp;
+            return residual !== undefined ? residual : inherente;
+          })
+        : causasUpd.map((c: any) => {
+            const residual = c.calificacionResidual;
+            const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 0;
+            const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 0;
+            const inherente = prob * imp;
+            return residual !== undefined ? residual : inherente;
+          });
+      
+      const maxRiesgoResidual = calificacionesResiduales.length > 0 
+        ? Math.max(...calificacionesResiduales)
+        : riesgo.evaluacion?.riesgoInherente || 0;
+      
+      // Calcular probabilidadResidual e impactoResidual desde maxRiesgoResidual
+      let mejorProbRes = 1;
+      let mejorImpRes = 1;
+      let menorDiferenciaRes = Math.abs(maxRiesgoResidual - (mejorProbRes * mejorImpRes));
+      
+      for (let prob = 1; prob <= 5; prob++) {
+        for (let imp = 1; imp <= 5; imp++) {
+          const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
+          
+          if (valor >= maxRiesgoResidual) {
+            const diferencia = valor - maxRiesgoResidual;
+            if (diferencia < menorDiferenciaRes || (menorDiferenciaRes > 0 && valor < (mejorProbRes * mejorImpRes))) {
+              menorDiferenciaRes = diferencia;
+              mejorProbRes = prob;
+              mejorImpRes = imp;
+            }
+          } else {
+            const diferencia = Math.abs(maxRiesgoResidual - valor);
+            if (diferencia < menorDiferenciaRes) {
+              menorDiferenciaRes = diferencia;
+              mejorProbRes = prob;
+              mejorImpRes = imp;
+            }
+          }
+        }
+      }
+      
+      // Calcular nivelRiesgoResidual
+      let nivelRiesgoResidual = 'Sin Calificar';
+      if (maxRiesgoResidual >= 15 && maxRiesgoResidual <= 25) {
+        nivelRiesgoResidual = 'Crítico';
+      } else if (maxRiesgoResidual >= 10 && maxRiesgoResidual <= 14) {
+        nivelRiesgoResidual = 'Alto';
+      } else if (maxRiesgoResidual >= 4 && maxRiesgoResidual <= 9) {
+        nivelRiesgoResidual = 'Medio';
+      } else if (maxRiesgoResidual >= 1 && maxRiesgoResidual <= 3) {
+        nivelRiesgoResidual = 'Bajo';
+      }
 
-        // Fallback robusto para cálculo inherente
-        const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 0;
-        const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 0;
-        const inherente = prob * imp;
-
-        return residual !== undefined ? residual : inherente;
-      }));
+      console.log('[Controles] 💾 Guardando valores residuales:', {
+        riesgoId: riesgoIdEvaluacion,
+        maxRiesgoResidual,
+        probabilidadResidual: mejorProbRes,
+        impactoResidual: mejorImpRes,
+        nivelRiesgoResidual
+      });
 
       if (causaActualizada) {
         try {
@@ -457,10 +521,20 @@ export default function ControlesYPlanesAccionPageNueva() {
       }
 
       try {
+        // Guardar todos los valores residuales en la evaluación
         await actualizarRiesgoApi(riesgoIdEvaluacion, {
           causas: causasUpd,
-          riesgoResidual: maxRiesgoResidual
+          evaluacion: {
+            riesgoResidual: maxRiesgoResidual,
+            probabilidadResidual: mejorProbRes,
+            impactoResidual: mejorImpRes,
+            nivelRiesgoResidual: nivelRiesgoResidual
+          }
         } as any);
+        
+        // Invalidar caché de RTK Query para actualizar el mapa
+        dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
+        
         setEvaluacionExpandida(null);
         showSuccess('Gestión guardada exitosamente y Riesgo Residual Actualizado');
       } catch (err) {
@@ -532,7 +606,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box sx={{
                 display: 'grid',
-                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
                 gap: 2,
                 px: 3,
                 py: 1.5,
@@ -546,6 +620,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                 <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box /> {/* Spacer for end icon */}
               </Box>
@@ -557,7 +632,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
                         gap: 2,
                         p: 2,
                         cursor: 'pointer',
@@ -587,6 +662,72 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Typography variant="body2" color="text.secondary">
                         {riesgo.tipologiaNivelI || '02 Operacional'}
                       </Typography>
+
+                      {/* Columna de Clasificación/Nivel de Riesgo */}
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        {(() => {
+                          // Obtener nivel desde evaluación o calcular desde causas
+                          let nivelRiesgo = riesgo.evaluacion?.nivelRiesgo || riesgo.nivelRiesgo;
+                          
+                          // Si no hay nivel, calcular desde causas (calificación inherente global)
+                          if (!nivelRiesgo && riesgo.causas && riesgo.causas.length > 0) {
+                            const calificaciones = riesgo.causas
+                              .map((c: any) => {
+                                const impacto = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoGlobal || 1;
+                                const frecuencia = typeof c.frecuencia === 'string' 
+                                  ? (c.frecuencia === '1' ? 1 : c.frecuencia === '2' ? 2 : c.frecuencia === '3' ? 3 : c.frecuencia === '4' ? 4 : c.frecuencia === '5' ? 5 : 3)
+                                  : (c.frecuencia || 3);
+                                const cal = frecuencia === 2 && impacto === 2 ? 3.99 : frecuencia * impacto;
+                                return cal;
+                              })
+                              .filter((cal: number) => !isNaN(cal));
+                            
+                            if (calificaciones.length > 0) {
+                              const calificacionMax = Math.max(...calificaciones);
+                              if (calificacionMax >= 15 && calificacionMax <= 25) nivelRiesgo = 'Crítico';
+                              else if (calificacionMax >= 10 && calificacionMax <= 14) nivelRiesgo = 'Alto';
+                              else if (calificacionMax >= 4 && calificacionMax <= 9) nivelRiesgo = 'Medio';
+                              else if (calificacionMax >= 1 && calificacionMax <= 3) nivelRiesgo = 'Bajo';
+                              else nivelRiesgo = 'Sin Calificar';
+                            }
+                          }
+                          
+                          if (!nivelRiesgo) nivelRiesgo = 'Sin Calificar';
+                          
+                          const nivelNormalizado = nivelRiesgo.toLowerCase();
+                          let color = '#666';
+                          let bgColor = '#f5f5f5';
+                          
+                          if (nivelNormalizado.includes('crítico') || nivelNormalizado.includes('critico')) {
+                            color = '#fff';
+                            bgColor = '#d32f2f';
+                          } else if (nivelNormalizado.includes('alto')) {
+                            color = '#fff';
+                            bgColor = '#f57c00';
+                          } else if (nivelNormalizado.includes('medio')) {
+                            color = '#fff';
+                            bgColor = '#fbc02d';
+                          } else if (nivelNormalizado.includes('bajo')) {
+                            color = '#fff';
+                            bgColor = '#388e3c';
+                          }
+                          
+                          return (
+                            <Chip
+                              label={nivelRiesgo.toUpperCase()}
+                              size="small"
+                              sx={{
+                                backgroundColor: bgColor,
+                                color: color,
+                                fontWeight: 700,
+                                fontSize: '0.65rem',
+                                height: 24,
+                                minWidth: 80
+                              }}
+                            />
+                          );
+                        })()}
+                      </Box>
 
                       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Chip
@@ -955,7 +1096,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box sx={{
                 display: 'grid',
-                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
                 gap: 2,
                 px: 3,
                 py: 1.5,
@@ -969,6 +1110,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                 <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
               </Box>
@@ -980,7 +1122,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
                         gap: 2,
                         p: 2,
                         cursor: 'pointer',
@@ -995,10 +1137,96 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Typography variant="subtitle2" fontWeight={700} color="primary">
                         {riesgo.numeroIdentificacion || riesgo.numero || 'Sin ID'}
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{riesgo.descripcionRiesgo || riesgo.nombre}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {riesgo.tipologiaNivelI || '02 Operacional'}
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
                       </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {riesgo.tipologiaNivelI || riesgo.tipologia || '02 Operacional'}
+                      </Typography>
+                      
+                      {/* Columna de Clasificación/Nivel de Riesgo RESIDUAL (en CONTROLES) */}
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        {(() => {
+                          // En CONTROLES, calcular la clasificación RESIDUAL del riesgo
+                          // Es el MÁXIMO de las clasificaciones residuales de todas sus causas que tengan controles
+                          let nivelRiesgo = riesgo.evaluacion?.nivelRiesgoResidual || riesgo.nivelRiesgoResidual || riesgo.riesgoResidual;
+                          
+                          // Si no hay nivel residual, calcular desde las causas con controles
+                          if (!nivelRiesgo && riesgo.causas && riesgo.causas.length > 0) {
+                            // Filtrar solo causas que tengan controles (tipoGestion === 'CONTROL')
+                            const causasConControles = riesgo.causas.filter((c: any) => {
+                              const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+                              return tipo === 'CONTROL';
+                            });
+                            
+                            if (causasConControles.length > 0) {
+                              // Obtener las calificaciones residuales de cada causa
+                              const calificacionesResiduales = causasConControles
+                                .map((c: any) => {
+                                  // Priorizar calificacionResidual, luego riesgoResidual, luego calcular desde frecuenciaResidual e impactoResidual
+                                  if (c.calificacionResidual !== undefined && c.calificacionResidual !== null) {
+                                    return Number(c.calificacionResidual);
+                                  }
+                                  if (c.riesgoResidual !== undefined && c.riesgoResidual !== null) {
+                                    return Number(c.riesgoResidual);
+                                  }
+                                  // Calcular desde frecuenciaResidual e impactoResidual
+                                  const frecuenciaResidual = Number(c.frecuenciaResidual || c.frecuencia || 3);
+                                  const impactoResidual = Number(c.impactoResidual || c.calificacionGlobalImpacto || 1);
+                                  const cal = frecuenciaResidual === 2 && impactoResidual === 2 ? 3.99 : frecuenciaResidual * impactoResidual;
+                                  return cal;
+                                })
+                                .filter((cal: number) => !isNaN(cal) && cal > 0);
+                              
+                              if (calificacionesResiduales.length > 0) {
+                                // Tomar el MÁXIMO (igual que en inherente)
+                                const calificacionMaxResidual = Math.max(...calificacionesResiduales);
+                                if (calificacionMaxResidual >= 15 && calificacionMaxResidual <= 25) nivelRiesgo = 'Crítico';
+                                else if (calificacionMaxResidual >= 10 && calificacionMaxResidual <= 14) nivelRiesgo = 'Alto';
+                                else if (calificacionMaxResidual >= 4 && calificacionMaxResidual <= 9) nivelRiesgo = 'Medio';
+                                else if (calificacionMaxResidual >= 1 && calificacionMaxResidual <= 3) nivelRiesgo = 'Bajo';
+                                else nivelRiesgo = 'Sin Calificar';
+                              }
+                            }
+                          }
+                          
+                          if (!nivelRiesgo) nivelRiesgo = 'Sin Calificar';
+                          
+                          const nivelNormalizado = nivelRiesgo.toLowerCase();
+                          let color = '#666';
+                          let bgColor = '#f5f5f5';
+                          
+                          if (nivelNormalizado.includes('crítico') || nivelNormalizado.includes('critico')) {
+                            color = '#fff';
+                            bgColor = '#d32f2f';
+                          } else if (nivelNormalizado.includes('alto')) {
+                            color = '#fff';
+                            bgColor = '#f57c00';
+                          } else if (nivelNormalizado.includes('medio')) {
+                            color = '#fff';
+                            bgColor = '#fbc02d';
+                          } else if (nivelNormalizado.includes('bajo')) {
+                            color = '#fff';
+                            bgColor = '#388e3c';
+                          }
+                          
+                          return (
+                            <Chip
+                              label={nivelRiesgo.toUpperCase()}
+                              size="small"
+                              sx={{
+                                backgroundColor: bgColor,
+                                color: color,
+                                fontWeight: 700,
+                                fontSize: '0.65rem',
+                                height: 24,
+                                minWidth: 80
+                              }}
+                            />
+                          );
+                        })()}
+                      </Box>
+                      
                       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Chip
                           label="Control Activo"
@@ -1024,12 +1252,33 @@ export default function ControlesYPlanesAccionPageNueva() {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {riesgo.causas.map((causa: any) => (
+                              {riesgo.causas.map((causa: any) => {
+                                // Crear objeto detalle con toda la información del control
+                                const detalleControl: any = {
+                                  ...causa,
+                                  descripcion: causa.descripcion,
+                                  fuenteCausa: causa.fuenteCausa,
+                                  frecuencia: causa.frecuencia,
+                                  calificacionGlobalImpacto: causa.calificacionGlobalImpacto,
+                                  controlDescripcion: causa.controlDescripcion || causa.gestion?.controlDescripcion,
+                                  controlTipo: causa.controlTipo || causa.gestion?.controlTipo,
+                                  evaluacionDefinitiva: causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva,
+                                  puntajeTotal: causa.puntajeTotal || causa.gestion?.puntajeTotal,
+                                  porcentajeMitigacion: causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
+                                  frecuenciaResidual: causa.frecuenciaResidual || causa.gestion?.frecuenciaResidual,
+                                  impactoResidual: causa.impactoResidual || causa.gestion?.impactoResidual,
+                                  riesgoResidual: causa.riesgoResidual || causa.calificacionResidual || causa.gestion?.riesgoResidual || causa.gestion?.calificacionResidual,
+                                  nivelRiesgoResidual: causa.nivelRiesgoResidual || causa.gestion?.nivelRiesgoResidual,
+                                  impactosResiduales: causa.impactosResiduales || causa.gestion?.impactosResiduales,
+                                  tipo: causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')
+                                };
+                                
+                                return (
                                 <TableRow
                                   key={causa.id}
                                   sx={{ cursor: 'pointer' }}
                                   onClick={() => {
-                                    setItemDetalle(causa);
+                                    setItemDetalle(detalleControl);
                                     setDialogDetailOpen(true);
                                     setCausaEnEdicion({ riesgoId: riesgo.id, causa });
                                   }}
@@ -1067,7 +1316,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     </Box>
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </TableContainer>
@@ -1226,51 +1476,221 @@ export default function ControlesYPlanesAccionPageNueva() {
         </Box>
       </TabPanel>
 
-      {/* DIALOG DETALLE CAUSA (New) */}
-      <Dialog open={dialogDetailOpen} onClose={() => setDialogDetailOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Detalle de la Causa</DialogTitle>
+      {/* DIALOG DETALLE CAUSA/CONTROL (Mejorado) */}
+      <Dialog open={dialogDetailOpen} onClose={() => setDialogDetailOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              Detalle del Control
+            </Typography>
+            {itemDetalle && (
+              <Chip
+                label={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'Control' : 'Plan de Acción'}
+                color={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'primary' : 'info'}
+                size="small"
+              />
+            )}
+          </Box>
+        </DialogTitle>
         <DialogContent dividers>
           {itemDetalle ? (
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <Box>
-                <Typography variant="subtitle2">Descripción</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.descripcion}</Typography>
-
-                <Typography variant="subtitle2">Fuente</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.fuenteCausa || itemDetalle.fuente || 'N/A'}</Typography>
-
-                <Typography variant="subtitle2">Frecuencia</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.frecuencia || 'N/A'}</Typography>
-
-                <Typography variant="subtitle2">Impacto Global</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{(itemDetalle.calificacionGlobalImpacto || itemDetalle.impactoMaximo || 'N/A')}</Typography>
-
-                <Typography variant="subtitle2">Evaluación Definitiva</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.evaluacionDefinitiva || itemDetalle.gestion?.evaluacionDefinitiva || 'Sin evaluar'}</Typography>
+            <Box>
+              {/* Información de la Causa Original */}
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                  Causa Original
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  {itemDetalle.descripcion || causaEnEdicion?.causa?.descripcion || 'Sin descripción'}
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Fuente</Typography>
+                    <Typography variant="body2">{itemDetalle.fuenteCausa || causaEnEdicion?.causa?.fuenteCausa || 'N/A'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Frecuencia</Typography>
+                    <Typography variant="body2">{itemDetalle.frecuencia || causaEnEdicion?.causa?.frecuencia || 'N/A'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Impacto Global</Typography>
+                    <Typography variant="body2">
+                      {(itemDetalle.calificacionGlobalImpacto || causaEnEdicion?.causa?.calificacionGlobalImpacto || 'N/A')}
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
 
-              <Box>
-                <Typography variant="subtitle2">Control - Descripción</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.controlDescripcion || itemDetalle.gestion?.controlDescripcion || 'Sin descripción'}</Typography>
+              {/* Información del Control */}
+              {(itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' || itemDetalle.controlDescripcion) && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                    Información del Control
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Descripción del Control</Typography>
+                      <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                        {itemDetalle.controlDescripcion || itemDetalle.gestion?.controlDescripcion || causaEnEdicion?.causa?.controlDescripcion || 'Sin descripción'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Tipo de Control</Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {itemDetalle.controlTipo || itemDetalle.gestion?.controlTipo || causaEnEdicion?.causa?.controlTipo || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box sx={{ mt: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                      Evaluación del Control
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Efectividad</Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {itemDetalle.evaluacionDefinitiva || itemDetalle.gestion?.evaluacionDefinitiva || causaEnEdicion?.causa?.evaluacionDefinitiva || 'Sin evaluar'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Puntaje Total</Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {itemDetalle.puntajeTotal || itemDetalle.gestion?.puntajeTotal || causaEnEdicion?.causa?.puntajeTotal || 'N/A'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">% Mitigación</Typography>
+                        <Typography variant="body2" fontWeight={600} color="primary">
+                          {itemDetalle.porcentajeMitigacion !== undefined 
+                            ? `${(itemDetalle.porcentajeMitigacion * 100).toFixed(0)}%`
+                            : itemDetalle.gestion?.porcentajeMitigacion !== undefined
+                            ? `${(itemDetalle.gestion.porcentajeMitigacion * 100).toFixed(0)}%`
+                            : causaEnEdicion?.causa?.porcentajeMitigacion !== undefined
+                            ? `${(causaEnEdicion.causa.porcentajeMitigacion * 100).toFixed(0)}%`
+                            : 'N/A'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
 
-                <Typography variant="subtitle2">Control - Tipo</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.controlTipo || itemDetalle.gestion?.controlTipo || 'N/A'}</Typography>
+                  {/* Riesgo Residual */}
+                  {(itemDetalle.frecuenciaResidual || itemDetalle.riesgoResidual) && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 1, border: '1px solid #ffb74d' }}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                        Riesgo Residual
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Frecuencia Residual</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {itemDetalle.frecuenciaResidual || causaEnEdicion?.causa?.frecuenciaResidual || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Impacto Residual</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {itemDetalle.impactoResidual || causaEnEdicion?.causa?.impactoResidual || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Calificación Residual</Typography>
+                          <Typography variant="body2" fontWeight={600} color="error">
+                            {itemDetalle.riesgoResidual || itemDetalle.calificacionResidual || causaEnEdicion?.causa?.riesgoResidual || causaEnEdicion?.causa?.calificacionResidual || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Nivel Residual</Typography>
+                          <Chip
+                            label={itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || 'N/A'}
+                            size="small"
+                            color={
+                              (itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('crítico') || 
+                              (itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('critico')
+                                ? 'error'
+                                : (itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('alto')
+                                ? 'warning'
+                                : 'default'
+                            }
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              )}
 
-                <Typography variant="subtitle2">Plan - Descripción</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.planDescripcion || itemDetalle.gestion?.planDescripcion || 'N/A'}</Typography>
+              {/* Información del Plan */}
+              {(itemDetalle.tipo === 'plan' || itemDetalle.tipo === 'PLAN' || itemDetalle.planDescripcion) && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                    Información del Plan de Acción
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Descripción</Typography>
+                      <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                        {itemDetalle.planDescripcion || itemDetalle.gestion?.planDescripcion || causaEnEdicion?.causa?.planDescripcion || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Detalle</Typography>
+                      <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                        {itemDetalle.planDetalle || itemDetalle.gestion?.planDetalle || causaEnEdicion?.causa?.planDetalle || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Responsable</Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || causaEnEdicion?.causa?.planResponsable || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Fecha Estimada</Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || causaEnEdicion?.causa?.planFechaEstimada || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Decisión</Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {itemDetalle.planDecision || itemDetalle.gestion?.planDecision || causaEnEdicion?.causa?.planDecision || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Estado</Typography>
+                      <Chip
+                        label={itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaEnEdicion?.causa?.planEstado || 'N/A'}
+                        size="small"
+                        color={
+                          (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaEnEdicion?.causa?.planEstado || '').toLowerCase() === 'completado'
+                            ? 'success'
+                            : (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaEnEdicion?.causa?.planEstado || '').toLowerCase() === 'en_progreso'
+                            ? 'warning'
+                            : 'default'
+                        }
+                      />
+                    </Box>
+                  </Box>
+                </Box>
+              )}
 
-                <Typography variant="subtitle2">Plan - Responsable / Fecha</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{(itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || 'N/A')} / {(itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || 'N/A')}</Typography>
-
-                <Typography variant="subtitle2">Plan - Decisión</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.planDecision || itemDetalle.gestion?.planDecision || 'N/A'}</Typography>
-
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2">Impactos Residuales</Typography>
-                {itemDetalle.impactosResiduales ? Object.entries(itemDetalle.impactosResiduales).map(([k, v]) => (
-                  <Typography key={k} variant="body2">{k}: {String(v)}</Typography>
-                )) : <Typography variant="body2">N/A</Typography>}
-              </Box>
+              {/* Impactos Residuales */}
+              {itemDetalle.impactosResiduales && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                    Impactos Residuales
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                    {Object.entries(itemDetalle.impactosResiduales).map(([k, v]) => (
+                      <Box key={k} sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">{k}</Typography>
+                        <Typography variant="body2" fontWeight={600}>{String(v)}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
             </Box>
           ) : (
             <Typography>Sin detalle seleccionado.</Typography>
@@ -1282,25 +1702,25 @@ export default function ControlesYPlanesAccionPageNueva() {
             onClick={() => {
               if (!causaEnEdicion) return;
               const { riesgoId, causa } = causaEnEdicion as any;
-              // Ensure the risk card is expanded and open evaluation flow
-              setRiesgosExpandidosResidual(pr => ({ ...pr, [riesgoId]: true }));
+              // Cerrar el diálogo de detalle
               setDialogDetailOpen(false);
-              setTipoClasificacion((causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toLowerCase() as any);
-              handleEvaluarControl(riesgoId, causa);
+              // IMPORTANTE: NO establecer causaEnEdicion aquí para evitar que se abra el diálogo de "Clasificar Causa"
+              // setCausaEnEdicion(null); // Comentado para evitar que se abra el diálogo de clasificación
+              // Expandir el riesgo en la tabla
+              setRiesgosExpandidosResidual(pr => ({ ...pr, [riesgoId]: true }));
+              // Determinar el tipo (CONTROL o PLAN)
+              const tipo = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
+              setTipoClasificacion(tipo as any);
+              // Abrir el formulario de evaluación/edición del control directamente (NO el diálogo de clasificación)
+              // Usar un pequeño delay para asegurar que el diálogo se cierre primero
+              setTimeout(() => {
+                handleEvaluarControl(riesgoId, causa);
+              }, 100);
             }}
             variant="contained"
+            color="primary"
           >
-            Editar
-          </Button>
-          <Button
-            onClick={() => {
-              if (!causaEnEdicion) return;
-              const { riesgoId, causa } = causaEnEdicion as any;
-              setDialogDetailOpen(false);
-              handleAbrirClasificacion(riesgoId, causa);
-            }}
-          >
-            Clasificar
+            Editar Control
           </Button>
           <Button
             color="error"
@@ -1315,8 +1735,13 @@ export default function ControlesYPlanesAccionPageNueva() {
         </DialogActions>
       </Dialog>
 
-      {/* DIALOG CLASIFICACION CAUSA (Existing) */}
-      <Dialog open={!!causaEnEdicion} onClose={() => setCausaEnEdicion(null)} maxWidth="md" fullWidth>
+      {/* DIALOG CLASIFICACION CAUSA (Existing) - Solo se abre cuando se hace clic en "Clasificar" o desde el tab CLASIFICACIÓN */}
+      <Dialog 
+        open={!!causaEnEdicion && !evaluacionExpandida} 
+        onClose={() => setCausaEnEdicion(null)} 
+        maxWidth="md" 
+        fullWidth
+      >
         <DialogTitle>Clasificar Causa</DialogTitle>
         <DialogContent>
           {/* ... Simplified Form ... */}

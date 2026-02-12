@@ -57,7 +57,8 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import api from '../../services/api';
 
-import { useCreateEvaluacionMutation, useUpdateRiesgoMutation } from '../../api/services/riesgosApi';
+import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, riesgosApi } from '../../api/services/riesgosApi';
+import { useAppDispatch } from '../../app/hooks';
 // fuentes de causa: default vacío (backend/seed debe proveer en futuro)
 
 // NOTE: `mockData` module was removed from the project. Replace missing helpers
@@ -240,6 +241,7 @@ export default function IdentificacionPage() {
   const { riesgos: riesgosApiData, cargarRiesgos, crearRiesgo, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess, showError } = useNotification();
+  const dispatch = useAppDispatch();
 
   // Helper para normalizar riesgos cargados - asegurar que causas tengan calificaciones
   // Función para calcular calificación global impacto (movida antes de normalizarRiesgos)
@@ -308,6 +310,139 @@ export default function IdentificacionPage() {
     return calificacionGlobalImpacto * frecuencia;
   };
 
+  // Función para recalcular y guardar la calificación inherente global
+  const recalcularYGuardarCalificacionInherenteGlobal = async (riesgoId: number) => {
+    try {
+      // Obtener el riesgo completo con todas sus causas
+      const riesgo = await api.riesgos.getById(riesgoId);
+      
+      if (!riesgo || !riesgo.causas || riesgo.causas.length === 0) {
+        // Si no hay causas, establecer calificación inherente global a 0
+        const evaluacionUpdate: any = {
+          riesgoInherente: 0,
+          nivelRiesgo: 'Sin Calificar'
+        };
+        await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
+        return;
+      }
+
+      // Calcular calificación global impacto del riesgo
+      const calificacionGlobalImpacto = calcularCalificacionGlobalImpacto(riesgo.impactos || {
+        personas: 1, legal: 1, ambiental: 1, procesos: 1,
+        reputacion: 1, economico: 1
+      });
+
+      // Calcular calificación inherente por cada causa
+      const calificacionesInherentes = riesgo.causas
+        .map(causa => {
+          const impacto = causa.calificacionGlobalImpacto || calificacionGlobalImpacto;
+          const frecuencia = causa.frecuencia || 3;
+          return calcularCalificacionInherentePorCausa(impacto, frecuencia);
+        })
+        .filter(cal => cal !== undefined && cal !== null && !isNaN(cal)) as number[];
+
+      // Calcular calificación inherente global (máximo de todas las causas)
+      const calificacionInherenteGlobal = calificacionesInherentes.length > 0
+        ? Math.max(...calificacionesInherentes)
+        : 0;
+
+      // Determinar nivel de riesgo
+      let nivelRiesgo = 'Sin Calificar';
+      if (calificacionInherenteGlobal >= 15 && calificacionInherenteGlobal <= 25) {
+        nivelRiesgo = 'Crítico';
+      } else if (calificacionInherenteGlobal >= 10 && calificacionInherenteGlobal <= 14) {
+        nivelRiesgo = 'Alto';
+      } else if (calificacionInherenteGlobal >= 4 && calificacionInherenteGlobal <= 9) {
+        nivelRiesgo = 'Medio';
+      } else if (calificacionInherenteGlobal >= 1 && calificacionInherenteGlobal <= 3) {
+        nivelRiesgo = 'Bajo';
+      }
+
+      // Convertir calificación inherente global a probabilidad e impacto para el mapa
+      // Buscar la mejor combinación de probabilidad e impacto que dé el valor más cercano
+      // Priorizar combinaciones que den exactamente el valor o el más cercano por encima
+      let mejorProb = 1;
+      let mejorImp = 1;
+      let menorDiferencia = Math.abs(calificacionInherenteGlobal - (mejorProb * mejorImp));
+      let encontradoExacto = false;
+      
+      // Primero buscar coincidencia exacta
+      for (let prob = 1; prob <= 5; prob++) {
+        for (let imp = 1; imp <= 5; imp++) {
+          const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
+          if (Math.abs(valor - calificacionInherenteGlobal) < 0.01) {
+            mejorProb = prob;
+            mejorImp = imp;
+            encontradoExacto = true;
+            break;
+          }
+        }
+        if (encontradoExacto) break;
+      }
+      
+      // Si no hay coincidencia exacta, buscar el más cercano >= calificacionInherenteGlobal
+      if (!encontradoExacto) {
+        menorDiferencia = Infinity;
+        for (let prob = 1; prob <= 5; prob++) {
+          for (let imp = 1; imp <= 5; imp++) {
+            const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
+            
+            // Priorizar valores que sean >= calificacionInherenteGlobal (no menores)
+            if (valor >= calificacionInherenteGlobal) {
+              const diferencia = valor - calificacionInherenteGlobal;
+              if (diferencia < menorDiferencia) {
+                menorDiferencia = diferencia;
+                mejorProb = prob;
+                mejorImp = imp;
+              }
+            }
+          }
+        }
+        
+        // Si aún no hay valor >=, usar el más cercano (menor)
+        if (menorDiferencia === Infinity) {
+          menorDiferencia = Infinity;
+          for (let prob = 1; prob <= 5; prob++) {
+            for (let imp = 1; imp <= 5; imp++) {
+              const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
+              const diferencia = Math.abs(calificacionInherenteGlobal - valor);
+              if (diferencia < menorDiferencia) {
+                menorDiferencia = diferencia;
+                mejorProb = prob;
+                mejorImp = imp;
+              }
+            }
+          }
+        }
+      }
+
+      // Actualizar la evaluación con la calificación inherente global y los valores para el mapa
+      const evaluacionUpdate: any = {
+        riesgoInherente: Math.round(calificacionInherenteGlobal),
+        nivelRiesgo: nivelRiesgo,
+        probabilidad: mejorProb,
+        impactoGlobal: mejorImp
+      };
+
+      console.log('[FRONTEND] Recalculando calificación inherente global:', {
+        riesgoId,
+        calificacionInherenteGlobal,
+        nivelRiesgo,
+        probabilidad: mejorProb,
+        impactoGlobal: mejorImp
+      });
+
+      await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
+      
+      // Invalidar caché del mapa para que se actualice automáticamente
+      dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
+      console.log('[FRONTEND] ✅ Calificación inherente global guardada, caché del mapa invalidado');
+    } catch (error) {
+      console.error('[FRONTEND] Error al recalcular calificación inherente global:', error);
+      // No mostrar error al usuario, solo loguear
+    }
+  };
+
   const normalizarRiesgos = (riesgosData: RiesgoFormData[]) => {
     return riesgosData.map(riesgo => {
       // Calcular calificación global impacto
@@ -359,10 +494,20 @@ export default function IdentificacionPage() {
 
   // Cargar riesgos desde API cuando cambia el proceso
   useEffect(() => {
+    console.log('[IdentificacionPage] 🔄 Efecto de carga de riesgos:', {
+      procesoSeleccionadoId: procesoSeleccionado?.id,
+      procesoSeleccionadoNombre: procesoSeleccionado?.nombre
+    });
+    
     if (procesoSeleccionado?.id) {
+      console.log('[IdentificacionPage] 📥 Cargando riesgos para proceso:', procesoSeleccionado.id);
       cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
+    } else {
+      // Si no hay proceso seleccionado, cargar todos los riesgos
+      console.log('[IdentificacionPage] 📥 Cargando todos los riesgos (sin filtro de proceso)');
+      cargarRiesgos({ includeCausas: true });
     }
-  }, [procesoSeleccionado?.id]);
+  }, [procesoSeleccionado?.id, cargarRiesgos]);
 
   // Actualizar estado local cuando llegan datos de API
   useEffect(() => {
@@ -415,8 +560,32 @@ export default function IdentificacionPage() {
           proceso: r.proceso // Preservar objeto proceso completo
         };
       });
-      console.log('[FRONTEND] Riesgos mapeados:', mapeados);
-      setRiesgos(normalizarRiesgos(mapeados));
+      console.log('[FRONTEND] Riesgos mapeados:', {
+        total: mapeados.length,
+        muestra: mapeados.slice(0, 3).map((r: any) => ({
+          id: r.id,
+          numeroIdentificacion: r.numeroIdentificacion,
+          descripcionRiesgo: r.descripcionRiesgo?.substring(0, 50),
+          procesoId: r.procesoId
+        }))
+      });
+      
+      const riesgosNormalizados = normalizarRiesgos(mapeados);
+      console.log('[FRONTEND] Riesgos normalizados:', {
+        total: riesgosNormalizados.length,
+        muestra: riesgosNormalizados.slice(0, 3).map((r: any) => ({
+          id: r.id,
+          numeroIdentificacion: r.numeroIdentificacion
+        }))
+      });
+      
+      setRiesgos(riesgosNormalizados);
+    } else if (riesgosApiData === null || riesgosApiData === undefined) {
+      console.log('[FRONTEND] ⚠️ riesgosApiData es null/undefined, limpiando riesgos');
+      setRiesgos([]);
+    } else {
+      console.warn('[FRONTEND] ⚠️ riesgosApiData no es un array:', typeof riesgosApiData, riesgosApiData);
+      setRiesgos([]);
     }
   }, [riesgosApiData, objetivos, procesoSeleccionado]);
 
@@ -942,6 +1111,21 @@ export default function IdentificacionPage() {
       {/* Contenido del Tab INHERENTE */}
 
       <>
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card sx={{ mb: 2, bgcolor: '#f0f0f0' }}>
+            <CardContent>
+              <Typography variant="caption" component="div">
+                <strong>🔍 Debug:</strong><br/>
+                - riesgos.length: {riesgos.length}<br/>
+                - riesgosApiData?.length: {riesgosApiData?.length || 0}<br/>
+                - procesoSeleccionado?.id: {procesoSeleccionado?.id || 'null'}<br/>
+                - procesoSeleccionado?.nombre: {procesoSeleccionado?.nombre || 'null'}
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Lista de riesgos */}
         {riesgos.length === 0 ? (
           <Card>
@@ -949,6 +1133,11 @@ export default function IdentificacionPage() {
               <Typography variant="body1" color="text.secondary" align="center" sx={{ py: 4 }}>
                 No hay riesgos registrados. Haga clic en "Añadir Riesgo" para comenzar.
               </Typography>
+              {riesgosApiData && riesgosApiData.length > 0 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  ⚠️ Hay {riesgosApiData.length} riesgos en la API pero no se están mostrando. Revisa la consola para más detalles.
+                </Alert>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -956,7 +1145,7 @@ export default function IdentificacionPage() {
             {/* Column Headers */}
             <Box sx={{
               display: 'grid',
-              gridTemplateColumns: '48px 100px 1.5fr 150px 150px 100px 48px',
+              gridTemplateColumns: '48px 100px 1.5fr 150px 150px 120px 100px 48px',
               gap: 2,
               px: 3,
               py: 1.5,
@@ -971,6 +1160,7 @@ export default function IdentificacionPage() {
               <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
               <Typography variant="caption" fontWeight={700} color="text.secondary">TIPO RIESGO</Typography>
               <Typography variant="caption" fontWeight={700} color="text.secondary">SUBTIPO</Typography>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
               <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
               <Box />
             </Box>
@@ -993,7 +1183,7 @@ export default function IdentificacionPage() {
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '48px 100px 1.5fr 150px 150px 100px 48px',
+                      gridTemplateColumns: '48px 100px 1.5fr 150px 150px 120px 100px 48px',
                       gap: 2,
                       p: 2,
                       cursor: 'pointer',
@@ -1030,6 +1220,62 @@ export default function IdentificacionPage() {
                     <Typography variant="body2" color="text.secondary">
                       {subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin subtipo')}
                     </Typography>
+
+                    {/* Columna de Clasificación/Nivel de Riesgo */}
+                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      {(() => {
+                        // Calcular calificación inherente global
+                        const causasOrdenadas = [...(riesgo.causas || [])].sort((a, b) => {
+                          const idA = Number(a.id) || 0;
+                          const idB = Number(b.id) || 0;
+                          return idA - idB;
+                        });
+                        const calificacionesInherentes = causasOrdenadas
+                          .map(causa => causa.calificacionInherentePorCausa)
+                          .filter(cal => cal !== undefined && cal !== null) as number[];
+                        const calificacionInherenteGlobal = calificacionesInherentes.length > 0
+                          ? Math.max(...calificacionesInherentes)
+                          : 0;
+                        
+                        // Determinar nivel y color
+                        let nivel = 'Sin Calificar';
+                        let color = '#666';
+                        let bgColor = '#f5f5f5';
+                        
+                        if (calificacionInherenteGlobal >= 15 && calificacionInherenteGlobal <= 25) {
+                          nivel = 'CRÍTICO';
+                          color = '#fff';
+                          bgColor = '#d32f2f'; // Rojo
+                        } else if (calificacionInherenteGlobal >= 10 && calificacionInherenteGlobal <= 14) {
+                          nivel = 'ALTO';
+                          color = '#fff';
+                          bgColor = '#f57c00'; // Naranja
+                        } else if (calificacionInherenteGlobal >= 4 && calificacionInherenteGlobal <= 9) {
+                          nivel = 'MEDIO';
+                          color = '#fff';
+                          bgColor = '#fbc02d'; // Amarillo
+                        } else if (calificacionInherenteGlobal >= 1 && calificacionInherenteGlobal <= 3) {
+                          nivel = 'BAJO';
+                          color = '#fff';
+                          bgColor = '#388e3c'; // Verde
+                        }
+                        
+                        return (
+                          <Chip
+                            label={nivel}
+                            size="small"
+                            sx={{
+                              backgroundColor: bgColor,
+                              color: color,
+                              fontWeight: 700,
+                              fontSize: '0.65rem',
+                              height: 24,
+                              minWidth: 80
+                            }}
+                          />
+                        );
+                      })()}
+                    </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                       <Chip
@@ -1400,9 +1646,17 @@ export default function IdentificacionPage() {
                   };
 
                   console.log('[FRONTEND] Actualizando causa:', causaEditando.id, causaData);
+                  const riesgoIdNumUpdate = Number(riesgoIdParaCausa);
                   await api.riesgos.causas.update(Number(causaEditando.id), causaData);
                   
+                  // Recalcular y guardar calificación inherente global después de actualizar causa
+                  if (riesgoIdNumUpdate && !isNaN(riesgoIdNumUpdate)) {
+                    await recalcularYGuardarCalificacionInherenteGlobal(riesgoIdNumUpdate);
+                  }
+                  
                   await cargarRiesgos();
+                  // Invalidar caché del mapa
+                  dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
                   showSuccess('Causa actualizada correctamente');
                 } else {
                   // CREAR nueva causa
@@ -1428,7 +1682,12 @@ export default function IdentificacionPage() {
                   console.log('[FRONTEND] Creando causa:', causaData);
                   await api.riesgos.causas.create(causaData);
 
+                  // Recalcular y guardar calificación inherente global después de crear causa
+                  await recalcularYGuardarCalificacionInherenteGlobal(riesgoIdNum);
+
                   await cargarRiesgos();
+                  // Invalidar caché del mapa
+                  dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
                   showSuccess('Causa agregada correctamente');
                 }
                 
@@ -1911,8 +2170,17 @@ export default function IdentificacionPage() {
               setCausaEliminando(causaId);
               try {
                 console.log('[FRONTEND] Eliminando causa (confirmada):', causaId);
+                const riesgoIdNum = causaPendienteEliminar ? Number(causaPendienteEliminar.riesgoId) : null;
                 await api.riesgos.causas.delete(Number(causaId));
+                
+                // Recalcular y guardar calificación inherente global después de eliminar causa
+                if (riesgoIdNum) {
+                  await recalcularYGuardarCalificacionInherenteGlobal(riesgoIdNum);
+                }
+                
                 await cargarRiesgos();
+                // Invalidar caché del mapa
+                dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
                 showSuccess('Causa eliminada correctamente');
               } catch (error) {
                 console.error('Error al eliminar causa:', error);

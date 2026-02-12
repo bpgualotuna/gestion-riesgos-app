@@ -44,9 +44,13 @@ export const useDashboardEstadisticas = ({
         const porProceso: Record<string, number> = {};
 
         riesgosFiltrados.forEach((r: any) => {
-            const proceso = procesos.find((p: any) => p.id === r.procesoId);
+            const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
             if (proceso) {
                 const nombre = proceso.nombre || 'Sin nombre';
+                porProceso[nombre] = (porProceso[nombre] || 0) + 1;
+            } else {
+                // Si no encuentra el proceso, usar un nombre genérico
+                const nombre = 'Proceso desconocido';
                 porProceso[nombre] = (porProceso[nombre] || 0) + 1;
             }
         });
@@ -103,14 +107,81 @@ export const useDashboardEstadisticas = ({
             }
         });
 
-        return {
+        // 6. Calificaciones por Nivel de Riesgo
+        const porNivelRiesgo: Record<string, number> = {
+            'Crítico': 0,
+            'Alto': 0,
+            'Medio': 0,
+            'Bajo': 0,
+            'Sin Calificar': 0,
+        };
+
+        riesgosFiltrados.forEach((r: any) => {
+            // Priorizar nivel desde puntos del mapa (más confiable)
+            const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
+            let nivelRiesgo: string | null = null;
+            
+            if (punto && punto.nivelRiesgo) {
+                // Usar nivel del punto del mapa directamente
+                nivelRiesgo = punto.nivelRiesgo;
+            } else if (r.evaluacion?.nivelRiesgo) {
+                // Si no hay punto, usar evaluación del riesgo
+                nivelRiesgo = r.evaluacion.nivelRiesgo;
+            } else if (r.nivelRiesgo) {
+                // Último recurso: nivel directo del riesgo
+                nivelRiesgo = r.nivelRiesgo;
+            } else if (punto) {
+                // Si hay punto pero sin nivel, calcular desde probabilidad e impacto
+                const valor = punto.probabilidad * punto.impacto;
+                // Aplicar umbrales: 15-25 CRÍTICO, 10-14 ALTO, 4-9 MEDIO, 1-3 BAJO
+                if (valor >= 15 && valor <= 25) {
+                    nivelRiesgo = 'Crítico';
+                } else if (valor >= 10 && valor <= 14) {
+                    nivelRiesgo = 'Alto';
+                } else if (valor >= 4 && valor <= 9) {
+                    nivelRiesgo = 'Medio';
+                } else if (valor >= 1 && valor <= 3) {
+                    nivelRiesgo = 'Bajo';
+                } else {
+                    nivelRiesgo = 'Sin Calificar';
+                }
+            } else {
+                nivelRiesgo = 'Sin Calificar';
+            }
+            
+            // Normalizar nombre del nivel (manejar variaciones)
+            const nivelNormalizado = nivelRiesgo?.toLowerCase() || 'sin calificar';
+            if (nivelNormalizado.includes('crítico') || nivelNormalizado.includes('critico')) {
+                porNivelRiesgo['Crítico']++;
+            } else if (nivelNormalizado.includes('alto')) {
+                porNivelRiesgo['Alto']++;
+            } else if (nivelNormalizado.includes('medio')) {
+                porNivelRiesgo['Medio']++;
+            } else if (nivelNormalizado.includes('bajo')) {
+                porNivelRiesgo['Bajo']++;
+            } else {
+                porNivelRiesgo['Sin Calificar']++;
+            }
+        });
+
+        const resultado = {
             total,
             porTipoProceso,
             porProceso,
             porTipologia,
             origen,
-            fueraApetito // Add to return
+            fueraApetito,
+            porNivelRiesgo // Añadir calificaciones por nivel
         };
+        
+        console.log('[useDashboardEstadisticas] 📊 Estadísticas calculadas:', {
+            totalRiesgos: total,
+            porNivelRiesgo: resultado.porNivelRiesgo,
+            riesgosFiltradosCount: riesgosFiltrados.length,
+            puntosCount: puntos.length
+        });
+        
+        return resultado;
     }, [riesgosFiltrados, procesos, puntos]);
 
     return estadisticas;

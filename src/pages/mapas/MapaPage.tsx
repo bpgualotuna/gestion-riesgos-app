@@ -3,7 +3,7 @@
  * Interactive 5x5 risk matrix visualization
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 import {
   Box,
@@ -41,7 +41,8 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
-import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery } from '../../api/services/riesgosApi';
+import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery, riesgosApi } from '../../api/services/riesgosApi';
+import { useAppDispatch } from '../../app/hooks';
 import { colors } from '../../app/theme/colors';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, ROUTES, NIVELES_RIESGO } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
@@ -55,7 +56,13 @@ import ResumenEstadisticasMapas from '../../components/mapas/ResumenEstadisticas
 
 
 // Función para generar ID del riesgo (número + sigla)
+// Prioriza numeroIdentificacion del backend si existe, sino genera desde siglaGerencia
 const generarIdRiesgo = (punto: PuntoMapa): string => {
+  // Si el backend ya tiene numeroIdentificacion, usarlo directamente
+  if (punto.numeroIdentificacion && punto.numeroIdentificacion.trim()) {
+    return punto.numeroIdentificacion;
+  }
+  // Fallback: generar desde número y sigla
   const numero = punto.numero || 0;
   const sigla = punto.siglaGerencia || '';
   return `${numero}${sigla}`;
@@ -79,6 +86,7 @@ export default function MapaPage() {
   const [dialogoDetalleRiesgoAbierto, setDialogoDetalleRiesgoAbierto] = useState(false);
   const [riesgoSeleccionadoDetalle, setRiesgoSeleccionadoDetalle] = useState<Riesgo | null>(null);
   const [puntoSeleccionadoDetalle, setPuntoSeleccionadoDetalle] = useState<PuntoMapa | null>(null);
+  const [tipoMapaDetalle, setTipoMapaDetalle] = useState<'inherente' | 'residual'>('inherente');
   const [dialogoRiesgosFueraApetitoAbierto, setDialogoRiesgosFueraApetitoAbierto] = useState(false);
 
   // Obtener evaluación del riesgo seleccionado para el diálogo de detalles
@@ -132,73 +140,218 @@ export default function MapaPage() {
     return [];
   }, [procesos, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, areasAsignadas, procesosAsignados, user]);
 
-  // Aplicar filtros de área y proceso si están seleccionados (para supervisor y dueño)
+  // Aplicar filtros de área y proceso si están seleccionados
+  // IMPORTANTE: Esta página tiene sus propios filtros, NO usa el filtro del header (procesoSeleccionado)
   const procesoIdFiltrado = useMemo(() => {
-    if (esSupervisorRiesgos || esDueñoProcesos) {
-      if (filtroProceso && filtroProceso !== 'all') {
-        return filtroProceso;
-      }
-      // Si hay filtro de área pero no de proceso, mostrar todos los procesos de esa área
-      if (filtroArea && filtroArea !== 'all') {
-        // Devolver undefined para que se filtren después por área
-        return undefined;
-      }
-      return undefined; // Mostrar todos los procesos disponibles
+    // Si hay filtro de proceso local, usarlo
+    if (filtroProceso && filtroProceso !== 'all') {
+      return String(filtroProceso);
     }
-    return procesoSeleccionado?.id;
-  }, [esSupervisorRiesgos, esDueñoProcesos, filtroProceso, filtroArea, procesoSeleccionado]);
+    // Si hay filtro de área pero no de proceso, no filtrar por procesoId aquí
+    // (se filtrará después en puntosFiltrados por área)
+    if (filtroArea && filtroArea !== 'all') {
+      return undefined; // Devolver undefined para filtrar después por área
+    }
+    // Si no hay filtros locales, mostrar todos los procesos disponibles del usuario
+    // (NO usar procesoSeleccionado del header)
+    return undefined;
+  }, [filtroProceso, filtroArea]);
 
   const filtros: FiltrosRiesgo = {
     procesoId: procesoIdFiltrado,
     clasificacion: clasificacion === 'all' ? undefined : (clasificacion as ClasificacionRiesgo),
   };
 
-  const { data: puntos, isLoading: isLoadingPuntos, error: errorPuntos } = useGetPuntosMapaQuery(filtros);
-  const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos } = useGetRiesgosQuery({
+  const dispatch = useAppDispatch();
+  
+  const { data: puntos, isLoading: isLoadingPuntos, error: errorPuntos, refetch: refetchPuntos } = useGetPuntosMapaQuery(filtros, {
+    // Forzar refetch cuando cambien los filtros
+    refetchOnMountOrArgChange: true,
+  });
+  const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery({
     ...filtros,
     includeCausas: true
+  }, {
+    // Forzar refetch cuando cambien los filtros
+    refetchOnMountOrArgChange: true,
   });
+
+  // Forzar invalidación de caché cuando cambien los filtros
+  useEffect(() => {
+    console.log('[MapaPage] 🔄 Filtros cambiados, invalidando caché:', {
+      filtros,
+      filtroArea,
+      filtroProceso,
+      clasificacion
+    });
+    dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
+    // Refetch manual para asegurar datos actualizados
+    refetchPuntos();
+    refetchRiesgos();
+  }, [filtros.procesoId, filtros.clasificacion, filtroArea, filtroProceso, clasificacion, dispatch, refetchPuntos, refetchRiesgos]);
+  
+  // Escuchar cambios en los datos para forzar actualización del mapa
+  useEffect(() => {
+    if (puntos && puntos.length > 0) {
+      console.log('[MapaPage] 📊 Puntos actualizados:', {
+        total: puntos.length,
+        muestra: puntos.slice(0, 3).map(p => ({
+          riesgoId: p.riesgoId,
+          id: generarIdRiesgo(p),
+          inherente: `${p.probabilidad}-${p.impacto}`,
+          residual: `${p.probabilidadResidual || p.probabilidad}-${p.impactoResidual || p.impacto}`
+        }))
+      });
+    }
+  }, [puntos]);
 
   // Obtener riesgos completos para el diálogo
   const riesgosCompletos = riesgosData?.data || [];
+  
+  // Logs de depuración
+  useEffect(() => {
+    console.log('[MapaPage] 📊 Datos recibidos:', {
+      puntosCount: puntos?.length || 0,
+      riesgosCount: riesgosCompletos.length,
+      filtros,
+      procesosPropiosCount: procesosPropios.length,
+      esSupervisor: esSupervisorRiesgos,
+      esDueño: esDueñoProcesos,
+      puntosSample: puntos?.slice(0, 3).map(p => ({
+        riesgoId: p.riesgoId,
+        id: generarIdRiesgo(p),
+        numeroIdentificacion: p.numeroIdentificacion,
+        siglaGerencia: p.siglaGerencia,
+        zona: p.zona,
+        procesoId: p.procesoId
+      }))
+    });
+  }, [puntos, riesgosCompletos, filtros, procesosPropios, esSupervisorRiesgos, esDueñoProcesos]);
 
   // Filtrar puntos y riesgos para mostrar solo los de sus procesos (aplicando filtros de área)
   const puntosFiltrados = useMemo(() => {
-    if ((esSupervisorRiesgos || esDueñoProcesos) && procesosPropios.length > 0) {
-      let procesosIds = procesosPropios.map((p) => p.id);
+    console.log('[MapaPage] 🔍 Filtrando puntos:', {
+      puntosCount: puntos?.length || 0,
+      riesgosCompletosCount: riesgosCompletos.length,
+      esSupervisor: esSupervisorRiesgos,
+      esDueño: esDueñoProcesos,
+      esGerenteDirector: esGerenteGeneralDirector,
+      esGerenteProceso: esGerenteGeneralProceso,
+      procesosPropiosCount: procesosPropios.length,
+      filtroArea,
+      filtroProceso,
+      procesoSeleccionadoId: procesoSeleccionado?.id
+    });
+
+    // Si es supervisor, dueño o gerente general, aplicar filtros por procesos asignados
+    if ((esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector || esGerenteGeneralProceso) && procesosPropios.length > 0) {
+      let procesosIds = procesosPropios.map((p) => String(p.id));
 
       // Aplicar filtro de área si está seleccionado
       if (filtroArea && filtroArea !== 'all') {
         procesosIds = procesosPropios
-          .filter(p => p.areaId === filtroArea)
-          .map(p => p.id);
+          .filter(p => String(p.areaId) === String(filtroArea))
+          .map(p => String(p.id));
+        console.log('[MapaPage] 🔍 Filtrado por área:', { filtroArea, procesosIds });
       }
 
-      // Aplicar filtro de proceso si está seleccionado
+      // Aplicar filtro de proceso si está seleccionado (sobrescribe el filtro de área)
       if (filtroProceso && filtroProceso !== 'all') {
-        procesosIds = [filtroProceso];
+        procesosIds = [String(filtroProceso)];
+        console.log('[MapaPage] 🔍 Filtrado por proceso:', { filtroProceso, procesosIds });
       }
 
-      return puntos?.filter((p) => {
-        const riesgo = riesgosCompletos.find((r) => r.id === p.riesgoId);
-        return riesgo && procesosIds.includes(riesgo.procesoId);
+      // Filtrar puntos por procesos permitidos
+      const filtrados = puntos?.filter((p) => {
+        const riesgo = riesgosCompletos.find((r) => String(r.id) === String(p.riesgoId));
+        if (!riesgo) {
+          console.warn('[MapaPage] ⚠️ Riesgo no encontrado para punto:', p.riesgoId);
+          return false;
+        }
+        
+        const procesoIdRiesgo = String(riesgo.procesoId);
+        const pertenece = procesosIds.includes(procesoIdRiesgo);
+        
+        if (!pertenece) {
+          console.log('[MapaPage] ⚠️ Riesgo excluido por proceso:', {
+            riesgoId: riesgo.id,
+            procesoIdRiesgo,
+            procesosIdsPermitidos: procesosIds
+          });
+          return false;
+        }
+        
+        // Aplicar filtro de clasificación si está seleccionado
+        if (clasificacion !== 'all') {
+          const clasificacionRiesgo = riesgo.clasificacion || 'Negativa';
+          if (clasificacionRiesgo !== clasificacion) {
+            return false;
+          }
+        }
+        
+        return true;
       }) || [];
+      
+      console.log('[MapaPage] ✅ Puntos filtrados:', {
+        total: filtrados.length,
+        procesosIds,
+        clasificacion,
+        riesgosEncontrados: filtrados.map(p => {
+          const riesgo = riesgosCompletos.find(r => String(r.id) === String(p.riesgoId));
+          return {
+            riesgoId: p.riesgoId,
+            procesoId: riesgo?.procesoId,
+            id: generarIdRiesgo(p)
+          };
+        })
+      });
+      
+      console.log('[MapaPage] ✅ Puntos filtrados para supervisor/dueño/gerente:', {
+        total: filtrados.length,
+        procesosIds,
+        clasificacion,
+        sample: filtrados.slice(0, 3).map(p => {
+          const riesgo = riesgosCompletos.find(r => String(r.id) === String(p.riesgoId));
+          return {
+            riesgoId: p.riesgoId,
+            id: generarIdRiesgo(p),
+            numeroIdentificacion: p.numeroIdentificacion,
+            siglaGerencia: p.siglaGerencia,
+            procesoId: riesgo?.procesoId,
+            clasificacion: riesgo?.clasificacion,
+            zona: p.zona
+          };
+        })
+      });
+      
+      return filtrados;
     }
-    // Si es un usuario normal con proceso seleccionado, filtrar solo ese proceso si no lo hace la API
-    // (La API ya debería hacerlo con procesoIdFiltrado, pero por seguridad)
-    if (procesoSeleccionado) {
-      return puntos?.filter((p) => {
-        const riesgo = riesgosCompletos.find((r) => r.id === p.riesgoId);
-        return riesgo && riesgo.procesoId === procesoSeleccionado.id;
-      }) || [];
-    }
+    
+    // NOTA: Ya no usamos procesoSeleccionado del header aquí
+    // Esta página tiene sus propios filtros (filtroArea, filtroProceso)
 
-    return puntos || [];
-  }, [puntos, esSupervisorRiesgos, esDueñoProcesos, procesosPropios, riesgosCompletos, filtroArea, filtroProceso, procesoSeleccionado]);
+    // Si no hay proceso seleccionado ni filtros, mostrar todos los puntos (aplicando solo clasificación)
+    const todosFiltrados = puntos?.filter((p) => {
+      if (clasificacion === 'all') return true;
+      const riesgo = riesgosCompletos.find((r) => String(r.id) === String(p.riesgoId));
+      if (!riesgo) return false;
+      const clasificacionRiesgo = riesgo.clasificacion || 'Negativa';
+      return clasificacionRiesgo === clasificacion;
+    }) || [];
+    
+    console.log('[MapaPage] ✅ Mostrando todos los puntos (solo filtro clasificación):', {
+      total: todosFiltrados.length,
+      clasificacion,
+      puntosTotales: puntos?.length || 0
+    });
+    return todosFiltrados;
+  }, [puntos, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, procesosPropios, riesgosCompletos, filtroArea, filtroProceso, clasificacion]);
 
   // Crear matriz 5x5 para riesgo inherente usando puntos filtrados
   const matrizInherente = useMemo(() => {
     const matriz: { [key: string]: PuntoMapa[] } = {};
+    
+    console.log('[MapaPage] 🔄 Construyendo matriz inherente con', puntosFiltrados.length, 'puntos');
     
     // Filtrar solo puntos válidos
     const puntosValidos = puntosFiltrados.filter(p => {
@@ -228,6 +381,17 @@ export default function MapaPage() {
       if (!matriz[clave]) {
         matriz[clave] = [];
       }
+      
+      // Log para verificar ubicación
+      console.log('[MapaPage] 📍 Riesgo inherente ubicado:', {
+        riesgoId: punto.riesgoId,
+        id: generarIdRiesgo(punto),
+        celda: clave,
+        probabilidad,
+        impacto,
+        nivelRiesgo: punto.nivelRiesgo
+      });
+      
       // Guardar el punto con valores validados
       matriz[clave].push({
         ...punto,
@@ -236,25 +400,154 @@ export default function MapaPage() {
       });
     });
     
+    console.log('[MapaPage] ✅ Matriz Inherente construida:', {
+      totalCeldas: Object.keys(matriz).length,
+      totalPuntos: Object.values(matriz).reduce((sum, puntos) => sum + puntos.length, 0),
+      muestra: Object.entries(matriz).slice(0, 5).map(([clave, puntos]) => ({
+        celda: clave,
+        cantidad: puntos.length,
+        riesgos: puntos.map(p => generarIdRiesgo(p))
+      }))
+    });
+    
     return matriz;
   }, [puntosFiltrados]);
 
   // Crear matriz 5x5 para riesgo residual
-  // Calcular riesgo residual basado en evaluaciones (aproximación: reducir probabilidad/impacto según efectividad de controles)
+  // Calcular riesgo residual basado en evaluaciones y causas con controles
   const matrizResidual = useMemo(() => {
     const matriz: { [key: string]: PuntoMapa[] } = {};
+    
+    console.log('[MapaPage] 🔄 Construyendo matriz residual con', puntosFiltrados.length, 'puntos');
+    
     puntosFiltrados.forEach((punto) => {
       const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
-      if (!riesgo) return;
+      if (!riesgo) {
+        console.warn('[MapaPage] ⚠️ Riesgo no encontrado para punto:', punto.riesgoId);
+        return;
+      }
 
-      // Usar valores residuales del backend
-      const probabilidadResidual = punto.probabilidadResidual ?? Math.max(1, Math.round(punto.probabilidad * 0.8));
-      const impactoResidual = punto.impactoResidual ?? Math.max(1, Math.round(punto.impacto * 0.8));
+      // Usar valores residuales del backend (calculados desde causas con controles)
+      let probabilidadResidual = punto.probabilidadResidual;
+      let impactoResidual = punto.impactoResidual;
+      
+      // Si no hay valores residuales en el punto, calcular desde las causas con controles
+      if (!probabilidadResidual || !impactoResidual) {
+        if (riesgo.causas && riesgo.causas.length > 0) {
+          const causasConControles = riesgo.causas.filter((c: any) => {
+            const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+            return tipo === 'CONTROL';
+          });
+          
+          if (causasConControles.length > 0) {
+            // Obtener el máximo de las calificaciones residuales
+            const calificacionesResiduales = causasConControles
+              .map((c: any) => {
+                // Leer desde el JSON gestion si existe
+                let gestionJson: any = null;
+                try {
+                  if (c.gestion && typeof c.gestion === 'string') {
+                    gestionJson = JSON.parse(c.gestion);
+                  } else if (c.gestion && typeof c.gestion === 'object') {
+                    gestionJson = c.gestion;
+                  }
+                } catch (e) {
+                  console.warn(`[MapaPage] Error parsing gestion JSON para causa ${c.id}:`, e);
+                }
+                
+                // Priorizar calificacionResidual del JSON, luego riesgoResidual, luego calcular
+                if (gestionJson) {
+                  if (gestionJson.calificacionResidual !== undefined && gestionJson.calificacionResidual !== null && gestionJson.calificacionResidual > 0) {
+                    return Number(gestionJson.calificacionResidual);
+                  }
+                  if (gestionJson.riesgoResidual !== undefined && gestionJson.riesgoResidual !== null && gestionJson.riesgoResidual > 0) {
+                    return Number(gestionJson.riesgoResidual);
+                  }
+                  if (gestionJson.frecuenciaResidual !== undefined && gestionJson.impactoResidual !== undefined) {
+                    const freqRes = Number(gestionJson.frecuenciaResidual);
+                    const impRes = Number(gestionJson.impactoResidual);
+                    const cal = freqRes === 2 && impRes === 2 ? 3.99 : freqRes * impRes;
+                    return cal;
+                  }
+                }
+                
+                // Fallback: intentar leer directamente de la causa
+                if (c.calificacionResidual !== undefined && c.calificacionResidual !== null && c.calificacionResidual > 0) {
+                  return Number(c.calificacionResidual);
+                }
+                if (c.riesgoResidual !== undefined && c.riesgoResidual !== null && c.riesgoResidual > 0) {
+                  return Number(c.riesgoResidual);
+                }
+                
+                // Fallback final: calcular desde valores inherentes
+                const freqInh = Number(c.frecuencia || punto.probabilidad);
+                const impInh = Number(punto.impacto);
+                const cal = freqInh === 2 && impInh === 2 ? 3.99 : freqInh * impInh;
+                return cal;
+              })
+              .filter((cal: number) => !isNaN(cal) && cal > 0);
+            
+            if (calificacionesResiduales.length > 0) {
+              const calificacionMaxResidual = Math.max(...calificacionesResiduales);
+              
+              // Convertir calificación residual a probabilidad e impacto
+              let mejorProbRes = 1;
+              let mejorImpRes = 1;
+              let menorDiferenciaRes = Math.abs(calificacionMaxResidual - (mejorProbRes * mejorImpRes));
+              
+              for (let prob = 1; prob <= 5; prob++) {
+                for (let imp = 1; imp <= 5; imp++) {
+                  const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
+                  
+                  if (valor >= calificacionMaxResidual) {
+                    const diferencia = valor - calificacionMaxResidual;
+                    if (diferencia < menorDiferenciaRes || (menorDiferenciaRes > 0 && valor < (mejorProbRes * mejorImpRes))) {
+                      menorDiferenciaRes = diferencia;
+                      mejorProbRes = prob;
+                      mejorImpRes = imp;
+                    }
+                  } else {
+                    const diferencia = Math.abs(calificacionMaxResidual - valor);
+                    if (diferencia < menorDiferenciaRes) {
+                      menorDiferenciaRes = diferencia;
+                      mejorProbRes = prob;
+                      mejorImpRes = imp;
+                    }
+                  }
+                }
+              }
+              
+              probabilidadResidual = mejorProbRes;
+              impactoResidual = mejorImpRes;
+              
+              console.log('[MapaPage] 📊 Riesgo residual calculado:', {
+                riesgoId: punto.riesgoId,
+                id: generarIdRiesgo(punto),
+                calificacionMaxResidual,
+                probabilidadResidual,
+                impactoResidual,
+                inherente: `${punto.probabilidad}-${punto.impacto}`
+              });
+            }
+          }
+        }
+      }
+      
+      // Fallback: usar valores inherentes si no hay residuales
+      if (!probabilidadResidual || !impactoResidual) {
+        probabilidadResidual = punto.probabilidad;
+        impactoResidual = punto.impacto;
+      }
+      
+      // Validar y redondear
+      probabilidadResidual = Math.max(1, Math.min(5, Math.round(Number(probabilidadResidual))));
+      impactoResidual = Math.max(1, Math.min(5, Math.round(Number(impactoResidual))));
 
       const clave = `${probabilidadResidual}-${impactoResidual}`;
       if (!matriz[clave]) {
         matriz[clave] = [];
       }
+      
       // Crear un punto residual basado en el inherente
       matriz[clave].push({
         ...punto,
@@ -262,6 +555,17 @@ export default function MapaPage() {
         impacto: impactoResidual,
       });
     });
+    
+    console.log('[MapaPage] ✅ Matriz Residual construida:', {
+      totalCeldas: Object.keys(matriz).length,
+      totalPuntos: Object.values(matriz).reduce((sum, puntos) => sum + puntos.length, 0),
+      muestra: Object.entries(matriz).slice(0, 5).map(([clave, puntos]) => ({
+        celda: clave,
+        cantidad: puntos.length,
+        riesgos: puntos.map(p => generarIdRiesgo(p))
+      }))
+    });
+    
     return matriz;
   }, [puntosFiltrados, riesgosCompletos]);
 
@@ -475,16 +779,8 @@ export default function MapaPage() {
     );
   }
 
-  // Si es supervisor/dueño y tiene proceso seleccionado, verificar que sea uno de sus procesos
-  if ((esSupervisorRiesgos || esDueñoProcesos) && !esGerenteGeneralDirector && procesoSeleccionado && !procesosPropios.find(p => p.id === procesoSeleccionado.id)) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="warning">
-          El proceso seleccionado no está asignado a su usuario. Por favor seleccione uno de sus procesos.
-        </Alert>
-      </Box>
-    );
-  }
+  // NOTA: Esta página NO usa procesoSeleccionado del header
+  // Tiene sus propios filtros (filtroArea, filtroProceso) que son independientes
 
 
   /* Hook moved to top */
@@ -753,6 +1049,7 @@ export default function MapaPage() {
                               <Typography
                                 key={punto.riesgoId}
                                 variant="caption"
+                                onClick={(e) => handleIdRiesgoClick(e, punto, tipo)}
                                 sx={{
                                   fontSize: '0.55rem',
                                   lineHeight: 1.1,
@@ -761,7 +1058,12 @@ export default function MapaPage() {
                                   borderRadius: '2px',
                                   px: 0.25,
                                   boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                                  color: '#000'
+                                  color: '#000',
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(25, 118, 210, 0.2)',
+                                    transform: 'scale(1.1)'
+                                  }
                                 }}
                               >
                                 {generarIdRiesgo(punto)}
@@ -857,16 +1159,21 @@ export default function MapaPage() {
   });
 
   // Manejar clic en ID del riesgo individual
-  const handleIdRiesgoClick = (e: React.MouseEvent, punto: PuntoMapa) => {
+  const handleIdRiesgoClick = (e: React.MouseEvent, punto: PuntoMapa, tipoMapa: 'inherente' | 'residual' = 'inherente') => {
     e.stopPropagation(); // Evitar que se active el click de la celda
     // Buscar el riesgo completo con causas
     const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
     if (riesgo) {
       setRiesgoSeleccionadoDetalle(riesgo);
       setPuntoSeleccionadoDetalle(punto);
+      setTipoMapaDetalle(tipoMapa);
       setDialogoDetalleRiesgoAbierto(true);
-      // Resetear secciones expandidas
-      setSeccionesExpandidas({ causas: false, residual: false, controles: false });
+      // Si es residual, expandir automáticamente la sección de controles
+      setSeccionesExpandidas({ 
+        causas: tipoMapa === 'residual', 
+        residual: tipoMapa === 'residual', 
+        controles: tipoMapa === 'residual' 
+      });
     }
   };
 
@@ -984,7 +1291,7 @@ export default function MapaPage() {
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  {(esSupervisorRiesgos || esDueñoProcesos) && procesosPropios.length > 0 && (
+                  {(esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector || esGerenteGeneralProceso) && procesosPropios.length > 0 && (
                     <>
                       <FormControl sx={{ minWidth: 200 }}>
                         <InputLabel>Filtrar por Área</InputLabel>
@@ -992,7 +1299,7 @@ export default function MapaPage() {
                           value={filtroArea || 'all'}
                           onChange={(e) => {
                             setFiltroArea(e.target.value);
-                            setFiltroProceso('all');
+                            setFiltroProceso('all'); // Reset proceso cuando cambia área
                           }}
                           label="Filtrar por Área"
                         >
@@ -1000,7 +1307,7 @@ export default function MapaPage() {
                           {Array.from(new Set(procesosPropios.map(p => p.areaId).filter(Boolean))).map(areaId => {
                             const proceso = procesosPropios.find(p => p.areaId === areaId);
                             return (
-                              <MenuItem key={areaId} value={areaId}>
+                              <MenuItem key={areaId} value={String(areaId)}>
                                 {proceso?.areaNombre || `Área ${areaId}`}
                               </MenuItem>
                             );
@@ -1016,9 +1323,9 @@ export default function MapaPage() {
                         >
                           <MenuItem value="all">Todos los procesos</MenuItem>
                           {procesosPropios
-                            .filter(p => !filtroArea || filtroArea === 'all' || p.areaId === filtroArea)
+                            .filter(p => !filtroArea || filtroArea === 'all' || String(p.areaId) === String(filtroArea))
                             .map((proceso) => (
-                              <MenuItem key={proceso.id} value={proceso.id}>
+                              <MenuItem key={proceso.id} value={String(proceso.id)}>
                                 {proceso.nombre}
                               </MenuItem>
                             ))}
@@ -1214,18 +1521,27 @@ export default function MapaPage() {
                 {riesgosCeldaSeleccionada.map((punto) => {
                   const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
                   
-                  // Usar información del riesgo completo si está disponible, sino del punto
-                  const descripcion = riesgo?.descripcion || punto.descripcion || 'Sin descripción';
-                  const zona = riesgo?.zona || 'N/A';
-                  const tipologia = riesgo?.tipologiaNivelI || null;
+                  // Usar información del punto (que viene del backend) o del riesgo completo como fallback
+                  const descripcion = punto.descripcion || riesgo?.descripcion || 'Sin descripción';
+                  // Solo usar zona y tipologia si realmente existen y no son valores incorrectos conocidos
+                  const zonaRaw = punto.zona || riesgo?.zona || null;
+                  const zona = zonaRaw && zonaRaw.trim() && !zonaRaw.toLowerCase().includes('rural') ? zonaRaw : null;
+                  const tipologia = punto.tipologiaNivelI || riesgo?.tipologiaNivelI || null;
                   
                   console.log('[MapaPage] 📄 Mostrando riesgo en diálogo:', {
                     puntoId: punto.riesgoId,
                     id: generarIdRiesgo(punto),
+                    numeroIdentificacion: punto.numeroIdentificacion,
+                    siglaGerencia: punto.siglaGerencia,
+                    numero: punto.numero,
                     prob: punto.probabilidad,
                     imp: punto.impacto,
                     tieneRiesgoCompleto: !!riesgo,
-                    descripcion
+                    descripcion,
+                    zona: punto.zona,
+                    zonaRiesgo: riesgo?.zona,
+                    tipologia: punto.tipologiaNivelI,
+                    tipologiaRiesgo: riesgo?.tipologiaNivelI
                   });
                   
                   return (
@@ -1263,9 +1579,11 @@ export default function MapaPage() {
                           <Typography variant="body2">
                             <strong>Impacto:</strong> {punto.impacto}
                           </Typography>
-                          <Typography variant="body2">
-                            <strong>Zona:</strong> {zona}
-                          </Typography>
+                          {zona && (
+                            <Typography variant="body2">
+                              <strong>Zona:</strong> {zona}
+                            </Typography>
+                          )}
                           {tipologia && (
                             <Typography variant="body2">
                               <strong>Tipología:</strong> {tipologia}
@@ -1334,16 +1652,25 @@ export default function MapaPage() {
                     <Typography variant="body2" color="text.secondary" paragraph>
                       <strong>Descripción:</strong> {riesgoSeleccionadoDetalle.descripcion}
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
+                    <Box sx={{ display: 'flex', gap: 3, mt: 2, flexWrap: 'wrap' }}>
                       <Typography variant="body2">
                         <strong>Probabilidad:</strong> {puntoSeleccionadoDetalle.probabilidad}
                       </Typography>
                       <Typography variant="body2">
                         <strong>Impacto:</strong> {puntoSeleccionadoDetalle.impacto}
                       </Typography>
-                      {riesgoSeleccionadoDetalle.tipologiaNivelI && (
+                      {(() => {
+                        const zonaRaw = puntoSeleccionadoDetalle?.zona || riesgoSeleccionadoDetalle.zona;
+                        const zona = zonaRaw && zonaRaw.trim() && !zonaRaw.toLowerCase().includes('rural') ? zonaRaw : null;
+                        return zona ? (
+                          <Typography variant="body2">
+                            <strong>Zona:</strong> {zona}
+                          </Typography>
+                        ) : null;
+                      })()}
+                      {(puntoSeleccionadoDetalle?.tipologiaNivelI || riesgoSeleccionadoDetalle.tipologiaNivelI) && (
                         <Typography variant="body2">
-                          <strong>Tipología:</strong> {riesgoSeleccionadoDetalle.tipologiaNivelI}
+                          <strong>Tipología:</strong> {puntoSeleccionadoDetalle?.tipologiaNivelI || riesgoSeleccionadoDetalle.tipologiaNivelI}
                         </Typography>
                       )}
                     </Box>
@@ -1542,13 +1869,13 @@ export default function MapaPage() {
                         <Box>
                           <Typography variant="caption" color="text.secondary">Probabilidad Residual</Typography>
                           <Typography variant="h6" fontWeight={600}>
-                            {(evaluacionRiesgo as any).probabilidadResidual || 'N/A'}
+                            {(evaluacionRiesgo as any).probabilidadResidual || puntoSeleccionadoDetalle?.probabilidadResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Impacto Residual</Typography>
                           <Typography variant="h6" fontWeight={600}>
-                            {(evaluacionRiesgo as any).impactoResidual || 'N/A'}
+                            {(evaluacionRiesgo as any).impactoResidual || puntoSeleccionadoDetalle?.impactoResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
@@ -1571,6 +1898,99 @@ export default function MapaPage() {
                           />
                         </Box>
                       </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
+                {/* Controles Aplicados - Solo mostrar si es mapa residual */}
+                {tipoMapaDetalle === 'residual' && riesgoSeleccionadoDetalle && (riesgoSeleccionadoDetalle.causas as any) && (riesgoSeleccionadoDetalle.causas as any).length > 0 && (
+                  <Accordion 
+                    expanded={seccionesExpandidas.controles}
+                    onChange={() => setSeccionesExpandidas(prev => ({ ...prev, controles: !prev.controles }))}
+                    sx={{ mt: 2 }}
+                  >
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="h6" fontWeight={600}>
+                        Controles Aplicados ({(riesgoSeleccionadoDetalle.causas as any).filter((c: any) => {
+                          const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+                          return tipo === 'CONTROL';
+                        }).length})
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                              <TableCell><strong>Causa Original</strong></TableCell>
+                              <TableCell><strong>Control</strong></TableCell>
+                              <TableCell align="center"><strong>Efectividad</strong></TableCell>
+                              <TableCell align="center"><strong>% Mitigación</strong></TableCell>
+                              <TableCell align="center"><strong>Frec. Residual</strong></TableCell>
+                              <TableCell align="center"><strong>Imp. Residual</strong></TableCell>
+                              <TableCell align="center"><strong>Calif. Residual</strong></TableCell>
+                              <TableCell align="center"><strong>Nivel Residual</strong></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {((riesgoSeleccionadoDetalle.causas as any) || [])
+                              .filter((c: any) => {
+                                const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+                                return tipo === 'CONTROL';
+                              })
+                              .map((causa: any, idx: number) => {
+                                // Leer datos del control desde gestion JSON o directamente
+                                let gestionJson: any = null;
+                                try {
+                                  if (causa.gestion && typeof causa.gestion === 'string') {
+                                    gestionJson = JSON.parse(causa.gestion);
+                                  } else if (causa.gestion && typeof causa.gestion === 'object') {
+                                    gestionJson = causa.gestion;
+                                  }
+                                } catch (e) {
+                                  console.warn(`Error parsing gestion JSON para causa ${causa.id}:`, e);
+                                }
+
+                                const controlDescripcion = gestionJson?.controlDescripcion || causa.controlDescripcion || 'Sin descripción';
+                                const efectividad = gestionJson?.evaluacionDefinitiva || causa.evaluacionDefinitiva || 'Sin evaluar';
+                                const porcentajeMitigacion = gestionJson?.porcentajeMitigacion || causa.porcentajeMitigacion || 0;
+                                const frecuenciaResidual = gestionJson?.frecuenciaResidual || causa.frecuenciaResidual || 'N/A';
+                                const impactoResidual = gestionJson?.impactoResidual || causa.impactoResidual || 'N/A';
+                                const calificacionResidual = gestionJson?.calificacionResidual || gestionJson?.riesgoResidual || causa.calificacionResidual || causa.riesgoResidual || 'N/A';
+                                const nivelRiesgoResidual = gestionJson?.nivelRiesgoResidual || causa.nivelRiesgoResidual || 'N/A';
+
+                                return (
+                                  <TableRow key={causa.id || idx}>
+                                    <TableCell sx={{ maxWidth: 200 }}>{causa.descripcion || 'Sin descripción'}</TableCell>
+                                    <TableCell sx={{ maxWidth: 200 }}>{controlDescripcion}</TableCell>
+                                    <TableCell align="center">{efectividad}</TableCell>
+                                    <TableCell align="center">
+                                      {porcentajeMitigacion > 0 ? `${(porcentajeMitigacion * 100).toFixed(0)}%` : 'N/A'}
+                                    </TableCell>
+                                    <TableCell align="center">{frecuenciaResidual}</TableCell>
+                                    <TableCell align="center">{impactoResidual}</TableCell>
+                                    <TableCell align="center">
+                                      {typeof calificacionResidual === 'number' ? calificacionResidual.toFixed(2) : calificacionResidual}
+                                    </TableCell>
+                                    <TableCell align="center">
+                                      <Chip
+                                        label={nivelRiesgoResidual}
+                                        size="small"
+                                        sx={{
+                                          backgroundColor: getColorByNivelRiesgo(nivelRiesgoResidual),
+                                          color: '#fff',
+                                          fontWeight: 600,
+                                          fontSize: '0.65rem',
+                                          height: 20,
+                                        }}
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
                     </AccordionDetails>
                   </Accordion>
                 )}
@@ -1665,16 +2085,25 @@ export default function MapaPage() {
                       <Typography variant="body2" color="text.secondary" paragraph>
                         <strong>Descripción:</strong> {punto.descripcion || riesgo?.descripcion || 'Sin descripción'}
                       </Typography>
-                      <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
+                      <Box sx={{ display: 'flex', gap: 3, mt: 2, flexWrap: 'wrap' }}>
                         <Typography variant="body2">
                           <strong>Probabilidad:</strong> {punto.probabilidad}
                         </Typography>
                         <Typography variant="body2">
                           <strong>Impacto:</strong> {punto.impacto}
                         </Typography>
-                        {riesgo?.zona && (
+                        {(() => {
+                          const zonaRaw = punto.zona || riesgo?.zona;
+                          const zona = zonaRaw && zonaRaw.trim() && !zonaRaw.toLowerCase().includes('rural') ? zonaRaw : null;
+                          return zona ? (
+                            <Typography variant="body2">
+                              <strong>Zona:</strong> {zona}
+                            </Typography>
+                          ) : null;
+                        })()}
+                        {(punto.tipologiaNivelI || riesgo?.tipologiaNivelI) && (
                           <Typography variant="body2">
-                            <strong>Zona:</strong> {riesgo.zona}
+                            <strong>Tipología:</strong> {punto.tipologiaNivelI || riesgo?.tipologiaNivelI}
                           </Typography>
                         )}
                       </Box>
