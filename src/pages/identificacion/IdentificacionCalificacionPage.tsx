@@ -344,6 +344,18 @@ export default function IdentificacionPage() {
   const [riesgos, setRiesgos] = useState<RiesgoFormData[]>([]);
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
 
+  // Catalog States (declare before effects that reference them)
+  const [tiposRiesgos, setTiposRiesgos] = useState(normalizarTiposRiesgos(DEFAULT_TIPOS_RIESGO));
+  const [objetivos, setObjetivos] = useState(DEFAULT_OBJETIVOS);
+  const [labelsFrecuencia, setLabelsFrecuencia] = useState(DEFAULT_LABELS_FRECUENCIA);
+  const [fuentesCausa, setFuentesCausa] = useState<any[]>([]);
+  const [origenes, setOrigenes] = useState(DEFAULT_ORIGENES);
+  const [tiposProceso, setTiposProceso] = useState(DEFAULT_TIPOS_PROCESO);
+  const [consecuencias, setConsecuencias] = useState(DEFAULT_CONSECUENCIAS);
+  const [descripcionesImpacto, setDescripcionesImpacto] = useState(normalizarDescripcionesImpacto(DEFAULT_IMPACTOS));
+  const [nivelesRiesgo, setNivelesRiesgo] = useState(DEFAULT_NIVELES_RIESGO);
+  const [clasificacionesRiesgo, setClasificacionesRiesgo] = useState(DEFAULT_CLASIFICACIONES_RIESGO);
+
   // Cargar riesgos desde API cuando cambia el proceso
   useEffect(() => {
     if (procesoSeleccionado?.id) {
@@ -409,17 +421,7 @@ export default function IdentificacionPage() {
 
 
 
-  // Catalog States
-  const [tiposRiesgos, setTiposRiesgos] = useState(normalizarTiposRiesgos(DEFAULT_TIPOS_RIESGO));
-  const [objetivos, setObjetivos] = useState(DEFAULT_OBJETIVOS);
-  const [labelsFrecuencia, setLabelsFrecuencia] = useState(DEFAULT_LABELS_FRECUENCIA);
-  const [fuentesCausa, setFuentesCausa] = useState<any[]>([]);
-  const [origenes, setOrigenes] = useState(DEFAULT_ORIGENES);
-  const [tiposProceso, setTiposProceso] = useState(DEFAULT_TIPOS_PROCESO);
-  const [consecuencias, setConsecuencias] = useState(DEFAULT_CONSECUENCIAS);
-  const [descripcionesImpacto, setDescripcionesImpacto] = useState(normalizarDescripcionesImpacto(DEFAULT_IMPACTOS));
-  const [nivelesRiesgo, setNivelesRiesgo] = useState(DEFAULT_NIVELES_RIESGO);
-  const [clasificacionesRiesgo, setClasificacionesRiesgo] = useState(DEFAULT_CLASIFICACIONES_RIESGO);
+  
 
   // Backend catalog hooks
   const { data: tiposRiesgosApi } = useGetTiposRiesgosQuery();
