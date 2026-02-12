@@ -201,7 +201,7 @@ export default function MaterializarRiesgosPage() {
     },
   });
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     if (!formData.titulo || !formData.descripcion) {
       showError('Por favor complete todos los campos requeridos');
       return;
@@ -242,7 +242,7 @@ export default function MaterializarRiesgosPage() {
     showSuccess('Incidencia creada exitosamente');
   };
 
-  const handleEliminar = (id: string) => {
+  const handleEliminar = async (id: string) => {
     if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
