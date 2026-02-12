@@ -266,7 +266,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         descripcion: causa.planDescripcion || '',
         detalle: causa.planDetalle || '',
         responsable: causa.planResponsable || (user as any)?.fullName || '',
-        decision: '',
+        decision: causa.planDecision || causa.gestion?.planDecision || '',
         fechaEstimada: causa.planFechaEstimada || '',
         estado: causa.planEstado || 'pendiente'
       });
@@ -418,7 +418,9 @@ export default function ControlesYPlanesAccionPageNueva() {
             planDescripcion: formPlan.descripcion,
             planDetalle: formPlan.detalle,
             planResponsable: formPlan.responsable,
+            planDecision: formPlan.decision,
             planFechaEstimada: formPlan.fechaEstimada,
+            planEstado: formPlan.estado,
             puntajeTotal: undefined, porcentajeMitigacion: 0
           };
           return causaActualizada;
@@ -1143,6 +1145,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 <TableCell>Causa Original</TableCell>
                                 <TableCell>Descripción del Plan</TableCell>
                                 <TableCell>Responsable</TableCell>
+                                <TableCell>Decisión</TableCell>
                                 <TableCell align="center">Fecha Estimada</TableCell>
                                 <TableCell align="center">Acciones</TableCell>
                               </TableRow>
@@ -1154,6 +1157,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
                                     <TableCell>{causa.planDescripcion}</TableCell>
                                     <TableCell>{causa.planResponsable}</TableCell>
+                                    <TableCell>{causa.planDecision || causa.gestion?.planDecision || 'N/A'}</TableCell>
                                     <TableCell align="center">{causa.planFechaEstimada}</TableCell>
                                     <TableCell align="center">
                                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
@@ -1258,6 +1262,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                 <Typography variant="subtitle2">Plan - Responsable / Fecha</Typography>
                 <Typography variant="body2" sx={{ mb: 1 }}>{(itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || 'N/A')} / {(itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || 'N/A')}</Typography>
 
+                <Typography variant="subtitle2">Plan - Decisión</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.planDecision || itemDetalle.gestion?.planDecision || 'N/A'}</Typography>
+
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="subtitle2">Impactos Residuales</Typography>
                 {itemDetalle.impactosResiduales ? Object.entries(itemDetalle.impactosResiduales).map(([k, v]) => (
@@ -1322,7 +1329,12 @@ export default function ControlesYPlanesAccionPageNueva() {
             </Select>
           </FormControl>
           {tipoClasificacion === 'control' && <TextField fullWidth label="Descripción Control" value={formControl.descripcion} onChange={e => setFormControl({ ...formControl, descripcion: e.target.value })} sx={{ mt: 2 }} />}
-          {tipoClasificacion === 'plan' && <TextField fullWidth label="Descripción Plan" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} sx={{ mt: 2 }} />}
+          {tipoClasificacion === 'plan' && (
+            <>
+              <TextField fullWidth label="Descripción Plan" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} sx={{ mt: 2 }} />
+              <TextField fullWidth label="Decisión" value={formPlan.decision} onChange={e => setFormPlan({ ...formPlan, decision: e.target.value })} sx={{ mt: 2 }} />
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCausaEnEdicion(null)}>Cancelar</Button>
