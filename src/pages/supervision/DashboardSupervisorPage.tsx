@@ -43,8 +43,9 @@ import {
   ReportProblem as ReportProblemIcon,
   Business as BusinessIcon,
   AccountTree as AccountTreeIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetEjesMapaQuery, useGetPlanesQuery, useGetIncidenciasEstadisticasQuery } from '../../api/services/riesgosApi';
+import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetEjesMapaQuery, useGetPlanesQuery, useGetIncidenciasEstadisticasQuery, useGetIncidenciasQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors } from '../../app/theme/colors';
 import { UMBRALES_RIESGO } from '../../utils/constants';
@@ -56,8 +57,6 @@ import TotalRiesgosCard from '../../components/dashboard/TotalRiesgosCard';
 import RiesgosPorProcesoCard from '../../components/dashboard/RiesgosPorProcesoCard';
 import MetricCard from '../../components/dashboard/MetricCard';
 import DashboardFiltros from '../../components/dashboard/DashboardFiltros';
-import RiesgosPorTipologiaCard from '../../components/dashboard/RiesgosPorTipologiaCard';
-import OrigenRiesgosCard from '../../components/dashboard/OrigenRiesgosCard';
 import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos';
 import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
@@ -79,11 +78,14 @@ export default function DashboardSupervisorPage() {
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
 
   // Obtener datos
-  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000 });
+  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, includeCausas: true });
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery({});
   const { data: planesApi = [] } = useGetPlanesQuery();
   const { data: incidenciasStats } = useGetIncidenciasEstadisticasQuery({
+    procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
+  });
+  const { data: incidenciasData = [] } = useGetIncidenciasQuery({
     procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
   });
 
@@ -871,7 +873,7 @@ export default function DashboardSupervisorPage() {
         {/* Primera Fila: Estadísticas */}
         <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
           {/* Card 1: Total de Riesgos - Usando componente */}
-          <Grid2 xs={12} sm={6} md={4}>
+          <Grid2 xs={12} sm={6} md={3}>
             <TotalRiesgosCard
               total={estadisticas.total}
               criticos={estadisticas.porTipologia['01 Estratégico'] || 0}
@@ -879,49 +881,204 @@ export default function DashboardSupervisorPage() {
             />
           </Grid2>
 
-          {/* Card 2: Treemap - Riesgos por tipo - Usando componente */}
-          <Grid2 xs={12} sm={6} md={4}>
-            <RiesgosPorTipologiaCard datos={estadisticas.porTipologia} />
+          {/* Card 2: Riesgos por Proceso */}
+          <Grid2 xs={12} sm={6} md={3}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <BusinessCenterIcon color="primary" />
+                  <Typography variant="subtitle2" fontWeight={600}>Procesos con Riesgos</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700}>{Object.keys(estadisticas.porProceso || {}).length}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  En seguimiento
+                </Typography>
+              </CardContent>
+            </Card>
           </Grid2>
 
-          {/* Card 3: Donut - Origen - Usando componente */}
-          <Grid2 xs={12} sm={12} md={4}>
-            <OrigenRiesgosCard datos={estadisticas.origen} total={estadisticas.total} />
+          {/* Card 3: Planes de Acción */}
+          <Grid2 xs={12} sm={6} md={3}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <AssignmentIcon color="success" />
+                  <Typography variant="subtitle2" fontWeight={600}>Planes de Acción</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700}>{planesApi?.length || 0}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Total activos
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid2>
+
+          {/* Card 4: Controles */}
+          <Grid2 xs={12} sm={6} md={3}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <CheckCircleIcon color="warning" />
+                  <Typography variant="subtitle2" fontWeight={600}>Controles Activos</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700}>{kpis.fueraApetito}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  En monitoreo
+                </Typography>
+              </CardContent>
+            </Card>
           </Grid2>
         </Grid2>
 
         {/* Graficas adicionales */}
         <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-          <Grid2 xs={12} md={7}>
+          <Grid2 xs={12} md={6}>
             <RiesgosPorProcesoCard datosReales={estadisticas.porProceso} />
           </Grid2>
-          <Grid2 xs={12} md={5}>
+          <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Riesgos por Tipo de Proceso
+                  Riesgos Materializados por Proceso
                 </Typography>
-                {riesgosPorTipoProceso.length === 0 ? (
+                {riesgos.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
                   <Box sx={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={riesgosPorTipoProceso} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip labelFormatter={(label, payload) => {
-                          if (payload && payload.length > 0) {
-                            return payload[0].payload.fullName;
+                    {(() => {
+                      const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
+                      incidenciasData.forEach((inc: any) => {
+                        const riesgo = riesgos.find((r: any) => r.id === inc.riesgoId);
+                        if (riesgo) {
+                          const procesoNombre = procesos.find((p: any) => p.id === riesgo.procesoId)?.nombre || 'Sin proceso';
+                          if (!dataPorProceso[procesoNombre]) {
+                            dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
                           }
-                          return label;
-                        }} />
-                        <Legend />
-                        <Bar dataKey="value" name="Cantidad" fill="#4caf50" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                          dataPorProceso[procesoNombre].cantidad++;
+                        }
+                      });
+                      const chartData = Object.values(dataPorProceso);
+                      return chartData.length === 0 ? (
+                        <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography color="text.secondary">No hay riesgos materializados</Typography>
+                        </Box>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="nombre" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="cantidad" name="Cantidad" fill="#ff9800" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid2>
+        </Grid2>
+
+        {/* Segunda fila de gráficas */}
+        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%', minHeight: 350 }}>
+              <CardContent sx={{ height: '100%' }}>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Planes de Acción por Proceso
+                </Typography>
+                {riesgos.length === 0 || planesApi.length === 0 ? (
+                  <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography color="text.secondary">No hay datos disponibles</Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ width: '100%', height: 300 }}>
+                    {(() => {
+                      const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
+                      const riesgosIds = riesgos.map((r: any) => r.id);
+                      planesApi.forEach((p: any) => {
+                        if (riesgosIds.includes(p.riesgoId)) {
+                          const riesgo = riesgos.find((r: any) => r.id === p.riesgoId);
+                          const procesoNombre = procesos.find((proc: any) => proc.id === riesgo?.procesoId)?.nombre || 'Sin proceso';
+                          if (!dataPorProceso[procesoNombre]) {
+                            dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
+                          }
+                          dataPorProceso[procesoNombre].cantidad++;
+                        }
+                      });
+                      const chartData = Object.values(dataPorProceso);
+                      return chartData.length === 0 ? (
+                        <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography color="text.secondary">No hay planes de acción</Typography>
+                        </Box>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="nombre" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="cantidad" name="Cantidad" fill="#2196f3" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid2>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%', minHeight: 350 }}>
+              <CardContent sx={{ height: '100%' }}>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Controles por Proceso
+                </Typography>
+                {riesgos.length === 0 ? (
+                  <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography color="text.secondary">No hay datos disponibles</Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ width: '100%', height: 300 }}>
+                    {(() => {
+                      const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
+                      riesgos.forEach((r: any) => {
+                        const procesoNombre = procesos.find((p: any) => p.id === r.procesoId)?.nombre || 'Sin proceso';
+                        if (!dataPorProceso[procesoNombre]) {
+                          dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
+                        }
+                        if (r.causas && Array.isArray(r.causas)) {
+                          r.causas.forEach((causa: any) => {
+                            if (causa.controles && Array.isArray(causa.controles)) {
+                              dataPorProceso[procesoNombre].cantidad += causa.controles.length;
+                            }
+                          });
+                        }
+                      });
+                      const chartData = Object.values(dataPorProceso);
+                      return chartData.length === 0 ? (
+                        <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography color="text.secondary">No hay controles</Typography>
+                        </Box>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="nombre" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="cantidad" name="Cantidad" fill="#4caf50" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
                   </Box>
                 )}
               </CardContent>
