@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
+import { useGetRiesgosQuery, useUpdateCausaMutation } from '../../api/services/riesgosApi';
 import {
   calcularPuntajeControl,
   determinarEfectividadControl
@@ -117,7 +118,6 @@ export default function EvaluacionControlPage() {
   const { procesoSeleccionado } = useProceso();
   const { showSuccess, showError } = useNotification();
 
-  const [riesgos, setRiesgos] = useState<any[]>([]);
   const [evaluaciones, setEvaluaciones] = useState<EvaluacionControl[]>([]);
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
 
@@ -145,34 +145,68 @@ export default function EvaluacionControlPage() {
     puntajeTotal: 0,
   });
 
-  // Cargar riesgos y evaluaciones
+  const { data: riesgosApiData } = useGetRiesgosQuery(
+    procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 1000, includeCausas: true } : { pageSize: 0 },
+    { skip: !procesoSeleccionado }
+  );
+
+  const [updateCausa] = useUpdateCausaMutation();
+
+  const riesgosDelProceso = useMemo(() => {
+    if (!procesoSeleccionado?.id) return [];
+    const data = ((riesgosApiData as any)?.data || []) as any[];
+    return data.map((riesgo) => ({
+      ...riesgo,
+      causas: (riesgo.causas || []).map((causa: any) => ({
+        ...causa,
+        ...(causa.gestion || {})
+      }))
+    }));
+  }, [procesoSeleccionado?.id, riesgosApiData]);
+
+  const causasById = useMemo(() => {
+    const map = new Map<string, any>();
+    riesgosDelProceso.forEach((riesgo: any) => {
+      (riesgo.causas || []).forEach((causa: any) => {
+        map.set(String(causa.id), causa);
+      });
+    });
+    return map;
+  }, [riesgosDelProceso]);
+
   useEffect(() => {
-    if (!procesoSeleccionado?.id) return;
-
-    // Cargar Riesgos Identificados
-    try {
-      const riesgosStored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-      if (riesgosStored) {
-        setRiesgos(JSON.parse(riesgosStored));
-      } else {
-        setRiesgos([]);
-      }
-    } catch (error) {
-      console.error('Error cargando riesgos:', error);
-    }
-
-    // Cargar Evaluaciones de Controles
-    try {
-      const controlesStored = localStorage.getItem(`evaluaciones_controles_${procesoSeleccionado.id}`);
-      if (controlesStored) {
-        setEvaluaciones(JSON.parse(controlesStored));
-      } else {
-        setEvaluaciones([]);
-      }
-    } catch (error) {
-      console.error('Error cargando evaluaciones:', error);
-    }
-  }, [procesoSeleccionado?.id]);
+    const nuevas: EvaluacionControl[] = [];
+    riesgosDelProceso.forEach((riesgo: any) => {
+      (riesgo.causas || []).forEach((causa: any) => {
+        const tipo = (causa.tipoGestion || '').toUpperCase();
+        const tieneControl = tipo === 'CONTROL' || causa.puntajeTotal !== undefined || causa.descripcionControl;
+        if (tieneControl) {
+          nuevas.push({
+            id: String(causa.id),
+            riesgoId: String(riesgo.id),
+            causaId: String(causa.id),
+            descripcionControl: causa.descripcionControl || '',
+            disminuye: causa.disminuye || 'Frecuencia',
+            responsable: causa.responsable || '',
+            aplicabilidad: causa.aplicabilidad || '',
+            puntajeAplicabilidad: Number(causa.puntajeAplicabilidad || 0),
+            cobertura: causa.cobertura || '',
+            puntajeCobertura: Number(causa.puntajeCobertura || 0),
+            facilidadUso: causa.facilidadUso || '',
+            puntajeFacilidad: Number(causa.puntajeFacilidad || 0),
+            segregacion: causa.segregacion || '',
+            puntajeSegregacion: Number(causa.puntajeSegregacion || 0),
+            naturaleza: causa.naturaleza || '',
+            puntajeNaturaleza: Number(causa.puntajeNaturaleza || 0),
+            desvaciones: causa.desvaciones || '',
+            puntajeTotal: Number(causa.puntajeTotal || 0),
+            efectividad: causa.efectividad || '',
+          });
+        }
+      });
+    });
+    setEvaluaciones(nuevas);
+  }, [riesgosDelProceso]);
 
   const handleToggleExpandirRiesgo = (id: string) => {
     setRiesgosExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
@@ -275,37 +309,61 @@ export default function EvaluacionControlPage() {
     }
     if (!contextoFormulario) return;
 
-    let nuevasEvaluaciones: EvaluacionControl[];
+    const controlData = {
+      tipoGestion: 'CONTROL',
+      gestion: {
+        descripcionControl: formData.descripcionControl,
+        disminuye: formData.disminuye,
+        responsable: formData.responsable,
+        aplicabilidad: formData.aplicabilidad,
+        puntajeAplicabilidad: formData.puntajeAplicabilidad,
+        cobertura: formData.cobertura,
+        puntajeCobertura: formData.puntajeCobertura,
+        facilidadUso: formData.facilidadUso,
+        puntajeFacilidad: formData.puntajeFacilidad,
+        segregacion: formData.segregacion,
+        puntajeSegregacion: formData.puntajeSegregacion,
+        naturaleza: formData.naturaleza,
+        puntajeNaturaleza: formData.puntajeNaturaleza,
+        desvaciones: formData.desvaciones,
+        puntajeTotal: formData.puntajeTotal,
+        efectividad: formData.efectividad,
+      }
+    };
 
-    if (editingId) {
-      nuevasEvaluaciones = evaluaciones.map((e) =>
-        e.id === editingId ? ({ ...formData, id: editingId, riesgoId: contextoFormulario.riesgoId, causaId: contextoFormulario.causaId } as EvaluacionControl) : e
-      );
-    } else {
-      const nuevoId = `control-${Date.now()}`;
-      nuevasEvaluaciones = [
-        ...evaluaciones,
-        {
-          ...formData,
-          id: nuevoId,
-          riesgoId: contextoFormulario.riesgoId,
-          causaId: contextoFormulario.causaId
-        } as EvaluacionControl,
-      ];
-    }
-
-    localStorage.setItem(`evaluaciones_controles_${procesoSeleccionado?.id}`, JSON.stringify(nuevasEvaluaciones));
-    setEvaluaciones(nuevasEvaluaciones);
-    showSuccess('Control guardado correctamente');
-    setDialogOpen(false);
+    updateCausa({
+      id: contextoFormulario.causaId,
+      ...controlData
+    })
+      .then(() => {
+        showSuccess('Control guardado correctamente');
+        setDialogOpen(false);
+      })
+      .catch((error) => {
+        console.error('Error saving control:', error);
+        showError('Error al guardar el control');
+      });
   };
 
   const handleEliminar = (id: string) => {
     if (window.confirm('¿Está seguro de eliminar este control?')) {
-      const nuevasEvaluaciones = evaluaciones.filter(e => e.id !== id);
-      localStorage.setItem(`evaluaciones_controles_${procesoSeleccionado?.id}`, JSON.stringify(nuevasEvaluaciones));
-      setEvaluaciones(nuevasEvaluaciones);
-      showSuccess('Control eliminado');
+      const causaToDelete = causasById.get(id);
+      if (causaToDelete) {
+        updateCausa({
+          id: id,
+          tipoGestion: null,
+          gestion: null
+        })
+          .then(() => {
+            const nuevasEvaluaciones = evaluaciones.filter(e => e.id !== id);
+            setEvaluaciones(nuevasEvaluaciones);
+            showSuccess('Control eliminado');
+          })
+          .catch((error) => {
+            console.error('Error deleting control:', error);
+            showError('Error al eliminar el control');
+          });
+      }
     }
   };
 
@@ -333,12 +391,12 @@ export default function EvaluacionControlPage() {
 
       {!procesoSeleccionado && <Alert severity="warning">Selecciona un proceso</Alert>}
 
-      {procesoSeleccionado && riesgos.length === 0 && (
+      {procesoSeleccionado && riesgosDelProceso.length === 0 && (
         <Alert severity="info">No hay riesgos identificados para este proceso.</Alert>
       )}
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {riesgos.map((riesgo) => {
+        {riesgosDelProceso.map((riesgo) => {
           const estaExpandido = riesgosExpandidos[riesgo.id] || false;
           // Filtrar causas de este riesgo
           const causas = riesgo.causas || [];

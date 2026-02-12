@@ -1087,21 +1087,20 @@ export default function MainLayout() {
             </Box>
             <Divider />
             {esAdmin && (
-              <>
-                <MenuItem
-                  onClick={() => {
-                    handleUserMenuClose();
-                    navigate('/admin-panel');
-                  }}
-                  sx={{ py: 1.5, color: '#1976d2' }}
-                >
-                  <SettingsIcon sx={{ mr: 1.5, fontSize: 20 }} />
-                  Panel Administrativo
-                </MenuItem>
-                <Divider />
-              </>
+              <MenuItem
+                key="admin-panel"
+                onClick={() => {
+                  handleUserMenuClose();
+                  navigate('/admin-panel');
+                }}
+                sx={{ py: 1.5, color: '#1976d2' }}
+              >
+                <SettingsIcon sx={{ mr: 1.5, fontSize: 20 }} />
+                Panel Administrativo
+              </MenuItem>
             )}
-            <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
+            {esAdmin && <Divider key="admin-divider" />}
+            <MenuItem key="logout" onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
               <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
               Cerrar Sesión
             </MenuItem>

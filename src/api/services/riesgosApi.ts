@@ -25,6 +25,7 @@ import type {
   UpdateNotificacionDto,
   Causa,
   ImpactoDescripcion,
+  ImpactoTipo,
 } from '../../types';
 // Mock data completely removed as per user request.
 // All endpoints must now connect to the backend.
@@ -57,7 +58,7 @@ const baseQueryWithLogging = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery: baseQueryWithLogging,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Cargo', 'Gerencia', 'Area'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa'],
   endpoints: (builder) => ({
     // ============================================
     // PROCESOS
@@ -127,6 +128,7 @@ export const riesgosApi = createApi({
           clasificacion: params.clasificacion && params.clasificacion !== 'all' ? params.clasificacion : undefined,
           busqueda: params.busqueda,
           zona: params.zona,
+          includeCausas: (params as any).includeCausas,
           page: params.page,
           pageSize: params.pageSize,
         }
@@ -212,6 +214,15 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Priorizacion'],
     }),
 
+    updateCausa: builder.mutation<any, { id: number | string; tipoGestion?: string; gestion?: any }>({
+      query: ({ id, ...body }) => ({
+        url: `riesgos/causas/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Causa', 'Riesgo'],
+    }),
+
     // ============================================
     // DASHBOARD & ESTADÍSTICAS
     // ============================================
@@ -240,6 +251,141 @@ export const riesgosApi = createApi({
         params
       }),
       providesTags: ['Riesgo', 'Evaluacion'],
+    }),
+
+    // ============================================
+    // INCIDENCIAS
+    // ============================================
+    getIncidencias: builder.query<any[], { procesoId?: string | number; riesgoId?: string | number }>({
+      query: (params) => ({
+        url: 'incidencias',
+        params: {
+          procesoId: params?.procesoId,
+          riesgoId: params?.riesgoId,
+        }
+      }),
+      providesTags: ['Incidencia'],
+    }),
+
+    createIncidencia: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'incidencias',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Incidencia'],
+    }),
+
+    updateIncidencia: builder.mutation<any, { id: number | string } & any>({
+      query: ({ id, ...body }) => ({
+        url: `incidencias/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Incidencia'],
+    }),
+
+    deleteIncidencia: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `incidencias/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Incidencia'],
+    }),
+
+    getIncidenciasEstadisticas: builder.query<any, { procesoId?: string | number; riesgoId?: string | number } | void>({
+      query: (params) => ({
+        url: 'incidencias/estadisticas',
+        params: {
+          procesoId: params ? (params as any).procesoId : undefined,
+          riesgoId: params ? (params as any).riesgoId : undefined,
+        }
+      }),
+      providesTags: ['Incidencia'],
+    }),
+
+    // ============================================
+    // PLANES DE ACCIÓN
+    // ============================================
+    getPlanes: builder.query<any[], void>({
+      query: () => 'planes-accion',
+      providesTags: ['PlanAccion'],
+    }),
+    getPlanesByRiesgo: builder.query<any[], number | string>({
+      query: (riesgoId) => `planes-accion/riesgo/${riesgoId}`,
+      providesTags: ['PlanAccion'],
+    }),
+
+    getPlanesByIncidencia: builder.query<any[], number | string>({
+      query: (incidenciaId) => `planes-accion/incidencia/${incidenciaId}`,
+      providesTags: ['PlanAccion'],
+    }),
+
+    getPlanesEstadisticas: builder.query<any, void>({
+      query: () => 'planes-accion/estadisticas',
+      providesTags: ['PlanAccion'],
+    }),
+
+    createPlanAccion: builder.mutation<any, any>({
+      query: (body) => ({
+        url: body?.riesgoId
+          ? `planes-accion/riesgo/${body.riesgoId}`
+          : `planes-accion/incidencia/${body.incidenciaId}`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['PlanAccion'],
+    }),
+
+    updatePlanAccion: builder.mutation<any, { id: number | string } & any>({
+      query: ({ id, ...body }) => ({
+        url: `planes-accion/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['PlanAccion'],
+    }),
+
+    deletePlanAccion: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `planes-accion/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['PlanAccion'],
+    }),
+
+    // ============================================
+    // CONTROLES
+    // ============================================
+    getControlesByRiesgo: builder.query<any[], number | string>({
+      query: (riesgoId) => `controles/riesgo/${riesgoId}`,
+      providesTags: ['Control'],
+    }),
+
+    createControl: builder.mutation<any, any>({
+      query: (body) => ({
+        url: `controles/riesgo/${body.riesgoId}`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Control'],
+    }),
+
+    updateControl: builder.mutation<any, { id: number | string } & any>({
+      query: ({ id, ...body }) => ({
+        url: `controles/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Control'],
+    }),
+
+    deleteControl: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `controles/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Control'],
     }),
 
     // ============================================
@@ -530,6 +676,32 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Tipologia'],
     }),
 
+    createSubtipo: builder.mutation<any, { tipoRiesgoId: number; nombre: string; descripcion?: string; codigo?: string }>({
+      query: (body) => ({
+        url: 'catalogos/subtipos',
+        method: 'POST',
+        body
+      }),
+      invalidatesTags: ['Tipologia'],
+    }),
+
+    updateSubtipo: builder.mutation<any, { id: number; nombre?: string; descripcion?: string; codigo?: string }>({
+      query: ({ id, ...body }) => ({
+        url: `catalogos/subtipos/${id}`,
+        method: 'PUT',
+        body
+      }),
+      invalidatesTags: ['Tipologia'],
+    }),
+
+    deleteSubtipo: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `catalogos/subtipos/${id}`,
+        method: 'DELETE'
+      }),
+      invalidatesTags: ['Tipologia'],
+    }),
+
     deleteTipologia: builder.mutation<void, string>({
       query: (id) => ({
         url: `catalogos/tipologias/${id}`,
@@ -591,6 +763,15 @@ export const riesgosApi = createApi({
       providesTags: ['Configuracion'],
     }),
 
+    createConfiguracion: builder.mutation<any, { clave: string; valor: string; tipo: string; descripcion?: string }>({
+      query: (body) => ({
+        url: 'catalogos/configuraciones',
+        method: 'POST',
+        body
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
     getMapaConfig: builder.query<any, void>({
       query: () => {
         console.log('🌐 API Call: GET catalogos/mapa-config');
@@ -613,32 +794,36 @@ export const riesgosApi = createApi({
     }),
 
     // ============================================
-    // CONFIGURACIÓN DE IDENTIFICACIÓN Y CALIFICACIÓN
+    // CONFIGURACIÓN DE IDENTIFICACIÓN Y CALIFICACIÓN (CONSOLIDADO)
     // ============================================
-    getTiposRiesgos: builder.query<any[], void>({
-      query: () => 'catalogos/tipologias',
-      providesTags: ['Configuracion'],
-    }),
-
-    updateTiposRiesgos: builder.mutation<any[], any[]>({
-      query: (data) => ({
-        url: 'catalogos/tipologias',
-        method: 'PUT',
-        body: data
-      }),
-      invalidatesTags: ['Configuracion'],
-    }),
 
     getObjetivos: builder.query<any[], void>({
       query: () => 'catalogos/objetivos',
       providesTags: ['Configuracion'],
     }),
 
-    updateObjetivos: builder.mutation<any[], any[]>({
-      query: (data) => ({
+    createObjetivo: builder.mutation<any, any>({
+      query: (body) => ({
         url: 'catalogos/objetivos',
+        method: 'POST',
+        body
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    updateObjetivo: builder.mutation<any, { id: number;[key: string]: any }>({
+      query: ({ id, ...body }) => ({
+        url: `catalogos/objetivos/${id}`,
         method: 'PUT',
-        body: data
+        body
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    deleteObjetivo: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `catalogos/objetivos/${id}`,
+        method: 'DELETE',
       }),
       invalidatesTags: ['Configuracion'],
     }),
@@ -671,16 +856,33 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Configuracion'],
     }),
 
-    getImpactos: builder.query<ImpactoDescripcion[], void>({
+    getImpactos: builder.query<ImpactoTipo[], void>({
       query: () => 'catalogos/impactos',
       providesTags: ['Configuracion'],
     }),
 
-    updateImpactos: builder.mutation<any[], any[]>({
-      query: (data) => ({
-        url: 'catalogos/impactos',
+    updateImpactos: builder.mutation<ImpactoTipo, { id: number; niveles: { nivel: number; descripcion: string }[] }>({
+      query: ({ id, niveles }) => ({
+        url: `catalogos/impactos/${id}`,
         method: 'PUT',
-        body: data
+        body: { niveles }
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    createImpactoTipo: builder.mutation<ImpactoTipo, { clave: string; nombre: string }>({
+      query: (body) => ({
+        url: 'catalogos/impactos',
+        method: 'POST',
+        body
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    deleteImpactoTipo: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `catalogos/impactos/${id}`,
+        method: 'DELETE'
       }),
       invalidatesTags: ['Configuracion'],
     }),
@@ -688,6 +890,15 @@ export const riesgosApi = createApi({
     getOrigenes: builder.query<any[], void>({
       query: () => 'catalogos/origenes',
       providesTags: ['Configuracion'],
+    }),
+
+    updateOrigenes: builder.mutation<any[], any[]>({
+      query: (data) => ({
+        url: 'catalogos/origenes',
+        method: 'PUT',
+        body: data
+      }),
+      invalidatesTags: ['Configuracion'],
     }),
 
     getTiposProceso: builder.query<any[], void>({
@@ -698,6 +909,15 @@ export const riesgosApi = createApi({
     getConsecuencias: builder.query<any[], void>({
       query: () => 'catalogos/consecuencias',
       providesTags: ['Configuracion'],
+    }),
+
+    updateConsecuencias: builder.mutation<any[], any[]>({
+      query: (data) => ({
+        url: 'catalogos/consecuencias',
+        method: 'PUT',
+        body: data
+      }),
+      invalidatesTags: ['Configuracion'],
     }),
 
     getCausas: builder.query<Causa[], void>({
@@ -720,6 +940,31 @@ export const riesgosApi = createApi({
         return response;
       },
       providesTags: ['Configuracion'],
+    }),
+
+    // ============================================
+    // BENCHMARKING
+    // ============================================
+    getBenchmarkingByProceso: builder.query<any[], number | string>({
+      query: (procesoId) => `benchmarking/proceso/${procesoId}`,
+      providesTags: ['Configuracion'],
+    }),
+
+    setBenchmarkingByProceso: builder.mutation<any[], { procesoId: number | string; items: any[] }>({
+      query: ({ procesoId, items }) => ({
+        url: `benchmarking/proceso/${procesoId}`,
+        method: 'PUT',
+        body: items,
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    deleteBenchmarkingItem: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `benchmarking/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Configuracion'],
     }),
 
     // ============================================
@@ -855,6 +1100,11 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Gerencia'],
     }),
 
+    getVicepresidencias: builder.query<any[], void>({
+      query: () => 'catalogos/vicepresidencias',
+      providesTags: ['Configuracion'],
+    }),
+
     // Áreas
     getAreas: builder.query<any[], void>({
       query: () => 'areas',
@@ -911,10 +1161,31 @@ export const {
   // Priorizaciones
   useGetPriorizacionesQuery,
   useCreatePriorizacionMutation,
+  // Causas
+  useUpdateCausaMutation,
   // Dashboard
   useGetEstadisticasQuery,
   useGetRiesgosRecientesQuery,
   useGetPuntosMapaQuery,
+  // Incidencias
+  useGetIncidenciasQuery,
+  useCreateIncidenciaMutation,
+  useUpdateIncidenciaMutation,
+  useDeleteIncidenciaMutation,
+  useGetIncidenciasEstadisticasQuery,
+  // Planes de accion
+  useGetPlanesByRiesgoQuery,
+  useGetPlanesByIncidenciaQuery,
+  useGetPlanesQuery,
+  useGetPlanesEstadisticasQuery,
+  useCreatePlanAccionMutation,
+  useUpdatePlanAccionMutation,
+  useDeletePlanAccionMutation,
+  // Controles
+  useGetControlesByRiesgoQuery,
+  useCreateControlMutation,
+  useUpdateControlMutation,
+  useDeleteControlMutation,
   // Tareas
   useGetTareasQuery,
   useCreateTareaMutation,
@@ -960,6 +1231,9 @@ export const {
   useCreateTipologiaMutation,
   useUpdateTipologiaMutation,
   useDeleteTipologiaMutation,
+  useCreateSubtipoMutation,
+  useUpdateSubtipoMutation,
+  useDeleteSubtipoMutation,
   // Fórmulas
   useGetFormulasQuery,
   useGetFormulaByIdQuery,
@@ -968,27 +1242,36 @@ export const {
   useDeleteFormulaMutation,
   // Configuraciones
   useGetConfiguracionesQuery,
+  useCreateConfiguracionMutation,
   useUpdateConfiguracionMutation,
   // Configuración de Identificación y Calificación
-  useGetTiposRiesgosQuery,
-  useUpdateTiposRiesgosMutation,
   useGetObjetivosQuery,
-  useUpdateObjetivosMutation,
+  useCreateObjetivoMutation,
+  useUpdateObjetivoMutation,
+  useDeleteObjetivoMutation,
   useGetFrecuenciasQuery,
   useUpdateFrecuenciasMutation,
   useGetFuentesQuery,
   useUpdateFuentesMutation,
   useGetImpactosQuery,
   useUpdateImpactosMutation,
+  useCreateImpactoTipoMutation,
+  useDeleteImpactoTipoMutation,
   useGetOrigenesQuery,
+  useUpdateOrigenesMutation,
   useGetTiposProcesoQuery,
   useGetConsecuenciasQuery,
+  useUpdateConsecuenciasMutation,
   useGetCausasQuery,
   useGetMapaConfigQuery,
   useUpdateMapaConfigMutation,
   useGetNivelesRiesgoQuery,
   useGetClasificacionesRiesgoQuery,
   useGetEjesMapaQuery,
+  // Benchmarking
+  useGetBenchmarkingByProcesoQuery,
+  useSetBenchmarkingByProcesoMutation,
+  useDeleteBenchmarkingItemMutation,
   // Usuarios
   useGetUsuariosQuery,
   useCreateUsuarioMutation,
@@ -1004,9 +1287,13 @@ export const {
   useCreateGerenciaMutation,
   useUpdateGerenciaMutation,
   useDeleteGerenciaMutation,
+  useGetVicepresidenciasQuery,
   // Areas
   useGetAreasQuery,
   useCreateAreaMutation,
   useUpdateAreaMutation,
   useDeleteAreaMutation,
 } = riesgosApi;
+
+// Alias para compatibilidad con código existente
+export const useGetTiposRiesgosQuery = useGetTipologiasQuery;

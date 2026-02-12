@@ -49,25 +49,18 @@ export default function LoginPage() {
 
         if (result.success) {
             // Redirigir según el rol del usuario
-            const storedUser = localStorage.getItem('currentUser');
-            if (storedUser) {
-                try {
-                    const userData = JSON.parse(storedUser);
-                    if (userData.role === 'admin') {
-                        navigate(ROUTES.ADMINISTRACION);
-                        return;
-                    }
-                    if (userData.role === 'supervisor_riesgos') {
-                        navigate(ROUTES.DASHBOARD_SUPERVISOR);
-                        return;
-                    }
-                    if (userData.role === 'gerente_general') {
-                        navigate(ROUTES.MODO_GERENTE_GENERAL);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error parsing user data:', error);
-                }
+            const userData = result.user || user;
+            if (userData?.role === 'admin') {
+                navigate(ROUTES.ADMINISTRACION);
+                return;
+            }
+            if (userData?.role === 'supervisor_riesgos') {
+                navigate(ROUTES.DASHBOARD_SUPERVISOR);
+                return;
+            }
+            if (userData?.role === 'gerente_general') {
+                navigate(ROUTES.MODO_GERENTE_GENERAL);
+                return;
             }
             navigate(ROUTES.DASHBOARD);
         } else {

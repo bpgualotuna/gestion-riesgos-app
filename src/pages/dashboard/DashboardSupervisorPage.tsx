@@ -42,7 +42,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
+import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetIncidenciasQuery, useGetPlanesQuery, useGetCausasQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors } from '../../app/theme/colors';
 import { UMBRALES_RIESGO } from '../../utils/constants';
@@ -78,6 +78,11 @@ export default function DashboardSupervisorPage() {
 
   // Obtener datos
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, procesoId: undefined });
+  const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
+    procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
+  });
+  const { data: planesApi = [] } = useGetPlanesQuery();
+  const { data: causasApi = [] } = useGetCausasQuery();
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery({ procesoId: undefined });
 
@@ -449,23 +454,16 @@ export default function DashboardSupervisorPage() {
     });
   }, [riesgosFiltrados, procesos, puntos]);
 
-  // Obtener datos de incidencias, controles y planes desde localStorage
   const metricsData = useMemo(() => {
-    // Obtener datos de localStorage
-    const incidenciasRaw = localStorage.getItem('incidencias');
-    const clasificacionesRaw = localStorage.getItem('clasificaciones_causas');
-
-    const todasIncidencias = incidenciasRaw ? JSON.parse(incidenciasRaw) : [];
-    const todasClasificaciones = clasificacionesRaw ? JSON.parse(clasificacionesRaw) : [];
-
-    // Separar controles y planes de las clasificaciones
-    const todosControles = todasClasificaciones.filter((c: any) => c.tipo === 'control');
-    const todosPlanes = todasClasificaciones.filter((c: any) => c.tipo === 'plan');
+    const todasIncidencias = incidenciasApi || [];
+    const todasCausas = causasApi || [];
+    const todosControles = todasCausas.filter((c: any) => String(c.tipoGestion || '').toUpperCase() === 'CONTROL');
+    const todosPlanes = todasCausas.filter((c: any) => String(c.tipoGestion || '').toUpperCase() === 'PLAN');
 
     // Filtrar según los filtros activos
     const incidenciasFiltradas = todasIncidencias.filter((inc: any) => {
       // Filtrar por proceso si aplica
-      if (filtroProceso !== 'all' && inc.procesoId !== filtroProceso) {
+      if (filtroProceso !== 'all' && String(inc.procesoId) !== String(filtroProceso)) {
         return false;
       }
 
@@ -486,7 +484,7 @@ export default function DashboardSupervisorPage() {
 
     const controlesFiltrados = todosControles.filter((control: any) => {
       // Filtrar por proceso si aplica
-      if (filtroProceso !== 'all' && control.procesoId !== filtroProceso) {
+      if (filtroProceso !== 'all' && String(control.procesoId) !== String(filtroProceso)) {
         return false;
       }
 
@@ -504,7 +502,7 @@ export default function DashboardSupervisorPage() {
 
     const planesFiltrados = todosPlanes.filter((plan: any) => {
       // Filtrar por proceso si aplica
-      if (filtroProceso !== 'all' && plan.procesoId !== filtroProceso) {
+      if (filtroProceso !== 'all' && String(plan.procesoId) !== String(filtroProceso)) {
         return false;
       }
 
@@ -543,10 +541,17 @@ export default function DashboardSupervisorPage() {
       cancelado: planesFiltrados.filter((p: any) => p.planEstado === 'cancelado').length,
     };
 
+    const planesAccionFiltrados = (planesApi || []).filter((p: any) => {
+      if (filtroProceso !== 'all' && String(p.procesoId) !== String(filtroProceso)) {
+        return false;
+      }
+      return true;
+    });
+
     return {
       totalIncidencias: incidenciasFiltradas.length,
       totalControles: controlesFiltrados.length,
-      totalPlanes: planesFiltrados.length,
+      totalPlanes: planesFiltrados.length + planesAccionFiltrados.length,
       incidenciasAbiertas: incidenciasFiltradas.filter((inc: any) => inc.estado === 'abierta' || inc.estado === 'en_investigacion').length,
       controlesPorTipo,
       controlesPorNivelResidual,
@@ -555,7 +560,7 @@ export default function DashboardSupervisorPage() {
       planesFiltrados,
       incidenciasFiltradas,
     };
-  }, [filtroProceso, busqueda]);
+  }, [filtroProceso, busqueda, incidenciasApi, causasApi, planesApi]);
 
   // Preparar datos para tabla de planes de acción
   const planesAccion = useMemo(() => {

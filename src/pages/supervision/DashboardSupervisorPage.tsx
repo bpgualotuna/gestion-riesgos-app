@@ -44,7 +44,7 @@ import {
   Business as BusinessIcon,
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
-import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetEjesMapaQuery } from '../../api/services/riesgosApi';
+import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetEjesMapaQuery, useGetPlanesQuery, useGetIncidenciasEstadisticasQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors } from '../../app/theme/colors';
 import { UMBRALES_RIESGO } from '../../utils/constants';
@@ -62,7 +62,6 @@ import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos'
 import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getMockPlanesAccion, getMockIncidencias, getMockEstadisticas } from '../../api/services/mockData';
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
 import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor } from '../../hooks/useAsignaciones';
 
@@ -83,6 +82,10 @@ export default function DashboardSupervisorPage() {
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000 });
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery({});
+  const { data: planesApi = [] } = useGetPlanesQuery();
+  const { data: incidenciasStats } = useGetIncidenciasEstadisticasQuery({
+    procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
+  });
 
   const todosLosRiesgos = riesgosData?.data || [];
   const todosLosProcesos = procesosData || [];
@@ -91,14 +94,14 @@ export default function DashboardSupervisorPage() {
   // Filtrar procesos y riesgos según asignaciones del supervisor
   const procesos = useMemo(() => {
     if ((!esSupervisorRiesgos && !esDueñoProcesos && !esGerenteGeneralDirector) || !user) return todosLosProcesos;
-    
+
     // Para Gerente General (Director), filtrar por asignaciones
     if (esGerenteGeneralDirector) {
       if (areasAsignadasIds.length === 0 && procesosAsignadosIds.length === 0) {
-            return []; 
+        return [];
       }
       return todosLosProcesos.filter((p: any) => {
-            if (procesosAsignadosIds.includes(String(p.id))) return true;
+        if (procesosAsignadosIds.includes(String(p.id))) return true;
         if (p.areaId && areasAsignadasIds.includes(p.areaId)) return true;
         return false;
       });
@@ -129,7 +132,7 @@ export default function DashboardSupervisorPage() {
 
     return todosLosProcesos.filter((p: any) => {
       // Si está asignado directamente al proceso
-          if (procesosAsignadosIds.includes(String(p.id))) {
+      if (procesosAsignadosIds.includes(String(p.id))) {
         return true;
       }
       // Si está asignado al área del proceso
@@ -153,7 +156,7 @@ export default function DashboardSupervisorPage() {
   }, [procesos]);
   const riesgos = useMemo(() => {
     if ((!esSupervisorRiesgos && !esDueñoProcesos && !esGerenteGeneralDirector) || !user) return todosLosRiesgos;
-    
+
     // Para Gerente General, también filtrar por procesos asignados
     if (esGerenteGeneralDirector) {
       const procesosIds = procesos.map((p: any) => p.id);
@@ -370,13 +373,18 @@ export default function DashboardSupervisorPage() {
 
   // Preparar datos para tabla de planes de acción - Usando servicio centralizado
   const planesAccion = useMemo(() => {
-    return getMockPlanesAccion();
-  }, []);
+    return (planesApi || []).map((plan: any) => ({
+      id: plan.id,
+      nombre: plan.descripcion || 'Plan de acción',
+      proceso: plan.procesoNombre || 'Sin proceso',
+      responsable: plan.responsable || 'Sin responsable',
+      fechaLimite: plan.fechaFin || plan.fechaProgramada || plan.fechaInicio || new Date().toISOString(),
+      estado: (plan.estado || 'pendiente').toString().toLowerCase().replace(' ', '_'),
+      porcentajeAvance: plan.estado === 'Completado' ? 100 : plan.estado === 'En ejecución' ? 50 : 0,
+    }));
+  }, [planesApi]);
 
-  // Preparar datos para incidencias - Usando servicio centralizado
-  const incidencias = useMemo(() => {
-    return getMockIncidencias();
-  }, []);
+  const totalIncidencias = incidenciasStats?.total || 0;
 
   // Solo supervisor de riesgos y dueño de procesos pueden acceder
   if (!esSupervisorRiesgos && !esDueñoProcesos) {
@@ -653,257 +661,257 @@ export default function DashboardSupervisorPage() {
           </Card>
         </Box>
       )}
-      
+
       {/* Contenido del dashboard - solo visible si tiene asignaciones */}
       {!sinAsignaciones && (<>
 
-      {/* Tarjetas de Asignaciones */}
-      {tieneAsignaciones && (
-        <Grid2 container spacing={2} sx={{ mb: 3 }}>
-          <Grid2 xs={12} sm={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6" fontWeight={600}>
-                    Áreas Asignadas ({areasAsignadas.length})
-                  </Typography>
-                </Box>
-                <Box sx={{ maxHeight: 150, overflowY: 'auto', pr: 1 }}>
-                  {areasAsignadas.length > 0 ? (
-                    <List dense>
-                      {areasAsignadas.map((area, idx) => (
-                        <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                          <Chip 
-                            label={area} 
-                            size="small" 
-                            variant="outlined" 
-                            color="primary"
-                            sx={{ fontSize: '0.75rem' }}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      No hay áreas asignadas
-                    </Typography>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} sm={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <AccountTreeIcon sx={{ mr: 1, color: 'secondary.main' }} />
-                  <Typography variant="h6" fontWeight={600}>
-                    Procesos Asignados ({procesosAsignados.length})
-                  </Typography>
-                </Box>
-                <Box sx={{ maxHeight: 150, overflowY: 'auto', pr: 1 }}>
-                  {procesosAsignados.length > 0 ? (
-                    <List dense>
-                      {procesosAsignados.map((proceso, idx) => (
-                        <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                          <Chip 
-                            label={proceso} 
-                            size="small" 
-                            variant="outlined" 
-                            color="secondary"
-                            sx={{ fontSize: '0.75rem' }}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      No hay procesos asignados
-                    </Typography>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-        </Grid2>
-      )}
-
-      {/* Filtros - Usando componente */}
-      <DashboardFiltros
-        filtroArea={filtroArea}
-        filtroProceso={filtroProceso}
-        filtroNumeroRiesgo={filtroNumeroRiesgo}
-        filtroOrigen={filtroOrigen}
-        onFiltroAreaChange={setFiltroArea}
-        onFiltroProcesoChange={setFiltroProceso}
-        onFiltroNumeroRiesgoChange={setFiltroNumeroRiesgo}
-        onFiltroOrigenChange={setFiltroOrigen}
-        procesos={procesos}
-        riesgos={riesgos}
-      />
-
-      {/* Bloques adicionales de Estadisticas */}
-      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid2 xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <AssessmentIcon color="primary" />
-                <Typography variant="subtitle2" fontWeight={600}>Total de Riesgos</Typography>
-              </Box>
-              <Typography variant="h4" fontWeight={700}>{kpis.totalRiesgos}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {kpis.totalProcesos} procesos en seguimiento
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ReportProblemIcon color="error" />
-                <Typography variant="subtitle2" fontWeight={600}>Riesgos Criticos</Typography>
-              </Box>
-              <Typography variant="h4" fontWeight={700} color="error.main">{kpis.riesgosCriticos}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Fuera de apetito: {kpis.fueraApetito}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <AccountTreeIcon color="secondary" />
-                <Typography variant="subtitle2" fontWeight={600}>Procesos Activos</Typography>
-              </Box>
-              <Typography variant="h4" fontWeight={700}>{kpis.totalProcesos}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Asignaciones vigentes
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-      </Grid2>
-
-      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid2 xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                Resumen Ejecutivo
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {kpis.riesgosCriticos > 0
-                  ? `Hay ${kpis.riesgosCriticos} riesgos criticos que requieren seguimiento inmediato.`
-                  : 'No hay riesgos criticos registrados en el periodo actual.'}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip label={`Fuera de apetito: ${kpis.fueraApetito}`} color={kpis.fueraApetito > 0 ? 'warning' : 'success'} size="small" />
-                <Chip label={`Procesos: ${kpis.totalProcesos}`} color="primary" size="small" />
-                <Chip label={`Riesgos: ${kpis.totalRiesgos}`} color="secondary" size="small" />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                Tendencia Mensual (Ultimos 6 meses)
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120, mt: 1 }}>
-                {tendenciaMensual.map((item) => (
-                  <Box key={item.key} sx={{ flex: 1, textAlign: 'center' }}>
-                    <Box
-                      sx={{
-                        height: `${Math.max(6, item.value * 12)}px`,
-                        backgroundColor: item.value > 0 ? 'primary.main' : 'grey.300',
-                        borderRadius: 1,
-                        transition: 'height 0.2s ease',
-                      }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {item.label}
+        {/* Tarjetas de Asignaciones */}
+        {tieneAsignaciones && (
+          <Grid2 container spacing={2} sx={{ mb: 3 }}>
+            <Grid2 xs={12} sm={6}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
+                    <Typography variant="h6" fontWeight={600}>
+                      Áreas Asignadas ({areasAsignadas.length})
                     </Typography>
                   </Box>
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid2>
-      </Grid2>
+                  <Box sx={{ maxHeight: 150, overflowY: 'auto', pr: 1 }}>
+                    {areasAsignadas.length > 0 ? (
+                      <List dense>
+                        {areasAsignadas.map((area, idx) => (
+                          <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
+                            <Chip
+                              label={area}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              sx={{ fontSize: '0.75rem' }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No hay áreas asignadas
+                      </Typography>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid2>
+            <Grid2 xs={12} sm={6}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <AccountTreeIcon sx={{ mr: 1, color: 'secondary.main' }} />
+                    <Typography variant="h6" fontWeight={600}>
+                      Procesos Asignados ({procesosAsignados.length})
+                    </Typography>
+                  </Box>
+                  <Box sx={{ maxHeight: 150, overflowY: 'auto', pr: 1 }}>
+                    {procesosAsignados.length > 0 ? (
+                      <List dense>
+                        {procesosAsignados.map((proceso, idx) => (
+                          <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
+                            <Chip
+                              label={proceso}
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              sx={{ fontSize: '0.75rem' }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No hay procesos asignados
+                      </Typography>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid2>
+          </Grid2>
+        )}
 
-      <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-        <Grid2 xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                Top Procesos por Riesgos
-              </Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Proceso</TableCell>
-                    <TableCell align="right">Riesgos</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {topProcesos.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} align="center">Sin datos</TableCell>
-                    </TableRow>
-                  )}
-                  {topProcesos.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>{row.nombre}</TableCell>
-                      <TableCell align="right">{row.total}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                Top Riesgos por Impacto
-              </Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Codigo</TableCell>
-                    <TableCell>Proceso</TableCell>
-                    <TableCell align="right">Valor</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {topRiesgos.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center">Sin datos</TableCell>
-                    </TableRow>
-                  )}
-                  {topRiesgos.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>{row.codigo}</TableCell>
-                      <TableCell>{row.proceso}</TableCell>
-                      <TableCell align="right">{row.valor}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </Grid2>
-      </Grid2>
+        {/* Filtros - Usando componente */}
+        <DashboardFiltros
+          filtroArea={filtroArea}
+          filtroProceso={filtroProceso}
+          filtroNumeroRiesgo={filtroNumeroRiesgo}
+          filtroOrigen={filtroOrigen}
+          onFiltroAreaChange={setFiltroArea}
+          onFiltroProcesoChange={setFiltroProceso}
+          onFiltroNumeroRiesgoChange={setFiltroNumeroRiesgo}
+          onFiltroOrigenChange={setFiltroOrigen}
+          procesos={procesos}
+          riesgos={riesgos}
+        />
 
-      {/* Primera Fila: Estadísticas */}
-      <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+        {/* Bloques adicionales de Estadisticas */}
+        <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
+          <Grid2 xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <AssessmentIcon color="primary" />
+                  <Typography variant="subtitle2" fontWeight={600}>Total de Riesgos</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700}>{kpis.totalRiesgos}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {kpis.totalProcesos} procesos en seguimiento
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid2>
+          <Grid2 xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <ReportProblemIcon color="error" />
+                  <Typography variant="subtitle2" fontWeight={600}>Riesgos Criticos</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700} color="error.main">{kpis.riesgosCriticos}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Fuera de apetito: {kpis.fueraApetito}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid2>
+          <Grid2 xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <AccountTreeIcon color="secondary" />
+                  <Typography variant="subtitle2" fontWeight={600}>Procesos Activos</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700}>{kpis.totalProcesos}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Asignaciones vigentes
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid2>
+        </Grid2>
+
+        <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Resumen Ejecutivo
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {kpis.riesgosCriticos > 0
+                    ? `Hay ${kpis.riesgosCriticos} riesgos criticos que requieren seguimiento inmediato.`
+                    : 'No hay riesgos criticos registrados en el periodo actual.'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip label={`Fuera de apetito: ${kpis.fueraApetito}`} color={kpis.fueraApetito > 0 ? 'warning' : 'success'} size="small" />
+                  <Chip label={`Procesos: ${kpis.totalProcesos}`} color="primary" size="small" />
+                  <Chip label={`Riesgos: ${kpis.totalRiesgos}`} color="secondary" size="small" />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid2>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Tendencia Mensual (Ultimos 6 meses)
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120, mt: 1 }}>
+                  {tendenciaMensual.map((item) => (
+                    <Box key={item.key} sx={{ flex: 1, textAlign: 'center' }}>
+                      <Box
+                        sx={{
+                          height: `${Math.max(6, item.value * 12)}px`,
+                          backgroundColor: item.value > 0 ? 'primary.main' : 'grey.300',
+                          borderRadius: 1,
+                          transition: 'height 0.2s ease',
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        {item.label}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid2>
+        </Grid2>
+
+        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Top Procesos por Riesgos
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Proceso</TableCell>
+                      <TableCell align="right">Riesgos</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {topProcesos.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={2} align="center">Sin datos</TableCell>
+                      </TableRow>
+                    )}
+                    {topProcesos.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.nombre}</TableCell>
+                        <TableCell align="right">{row.total}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </Grid2>
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Top Riesgos por Impacto
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Codigo</TableCell>
+                      <TableCell>Proceso</TableCell>
+                      <TableCell align="right">Valor</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {topRiesgos.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center">Sin datos</TableCell>
+                      </TableRow>
+                    )}
+                    {topRiesgos.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.codigo}</TableCell>
+                        <TableCell>{row.proceso}</TableCell>
+                        <TableCell align="right">{row.valor}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </Grid2>
+        </Grid2>
+
+        {/* Primera Fila: Estadísticas */}
+        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
           {/* Card 1: Total de Riesgos - Usando componente */}
           <Grid2 xs={12} sm={6} md={4}>
             <TotalRiesgosCard
@@ -924,160 +932,160 @@ export default function DashboardSupervisorPage() {
           </Grid2>
         </Grid2>
 
-      {/* Graficas adicionales */}
-      <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-        <Grid2 xs={12} md={7}>
-          <RiesgosPorProcesoCard datosReales={estadisticas.porProceso} />
+        {/* Graficas adicionales */}
+        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+          <Grid2 xs={12} md={7}>
+            <RiesgosPorProcesoCard datosReales={estadisticas.porProceso} />
+          </Grid2>
+          <Grid2 xs={12} md={5}>
+            <Card sx={{ height: '100%', minHeight: 350 }}>
+              <CardContent sx={{ height: '100%' }}>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Riesgos por Tipo de Proceso
+                </Typography>
+                {riesgosPorTipoProceso.length === 0 ? (
+                  <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography color="text.secondary">No hay datos disponibles</Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={riesgosPorTipoProceso} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip labelFormatter={(label, payload) => {
+                          if (payload && payload.length > 0) {
+                            return payload[0].payload.fullName;
+                          }
+                          return label;
+                        }} />
+                        <Legend />
+                        <Bar dataKey="value" name="Cantidad" fill="#4caf50" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid2>
         </Grid2>
-        <Grid2 xs={12} md={5}>
-          <Card sx={{ height: '100%', minHeight: 350 }}>
-            <CardContent sx={{ height: '100%' }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Riesgos por Tipo de Proceso
-              </Typography>
-              {riesgosPorTipoProceso.length === 0 ? (
-                <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Typography color="text.secondary">No hay datos disponibles</Typography>
-                </Box>
-              ) : (
-                <Box sx={{ width: '100%', height: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={riesgosPorTipoProceso} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip labelFormatter={(label, payload) => {
-                        if (payload && payload.length > 0) {
-                          return payload[0].payload.fullName;
-                        }
-                        return label;
-                      }} />
-                      <Legend />
-                      <Bar dataKey="value" name="Cantidad" fill="#4caf50" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid2>
-      </Grid2>
 
-      {/* Dialog para Riesgos Fuera del Apetito */}
-      <Dialog
-        open={riesgosFueraApetitoDialogOpen}
-        onClose={() => {
-          setRiesgosFueraApetitoDialogOpen(false);
-          setCeldaSeleccionada(null);
-        }}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} color={celdaSeleccionada ? "primary" : "error"}>
-              {celdaSeleccionada
-                ? `Riesgos en Celda (${celdaSeleccionada.probabilidad}, ${celdaSeleccionada.impacto}) - ${celdaSeleccionada.tipo === 'inherente' ? 'Inherente' : 'Residual'}`
-                : 'Riesgos Fuera del Apetito'}
-            </Typography>
-            <Chip
-              label={celdaSeleccionada
-                ? `${(() => {
-                  const key = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
-                  const matriz = celdaSeleccionada.tipo === 'inherente' ? matrizInherente : matrizResidual;
-                  return matriz[key]?.length || 0;
-                })()} riesgo${(() => {
-                  const key = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
-                  const matriz = celdaSeleccionada.tipo === 'inherente' ? matrizInherente : matrizResidual;
-                  return matriz[key]?.length || 0;
-                })() !== 1 ? 's' : ''}`
-                : `${estadisticas.fueraApetito} riesgo${estadisticas.fueraApetito !== 1 ? 's' : ''}`}
-              color={celdaSeleccionada ? "primary" : "error"}
-              size="small"
-            />
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity={celdaSeleccionada ? "info" : "warning"} sx={{ mb: 2 }}>
-            {celdaSeleccionada
-              ? `Riesgos en la celda seleccionada del mapa de ${celdaSeleccionada.tipo === 'inherente' ? 'riesgo inherente' : 'riesgo residual'}.`
-              : `Los siguientes riesgos tienen un valor de riesgo = ${UMBRALES_RIESGO.ALTO} y requieren atención inmediata.`}
-          </Alert>
-          {!celdaSeleccionada && (
-            <Button
-              variant="contained"
-              startIcon={<MapIcon />}
-              onClick={() => {
-                navigate(ROUTES.MAPA);
-                setRiesgosFueraApetitoDialogOpen(false);
-              }}
-              sx={{ mb: 2 }}
-            >
-              Ver en Mapa de Calor
-            </Button>
-          )}
-          <List>
-            {(celdaSeleccionada
-              ? (() => {
-                const key = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
-                const matriz = celdaSeleccionada.tipo === 'inherente' ? matrizInherente : matrizResidual;
-                return matriz[key] || [];
-              })()
-              : puntos.filter((p: any) => {
-                const valorRiesgo = p.probabilidad * p.impacto;
-                return valorRiesgo >= UMBRALES_RIESGO.ALTO;
-              })
-            ).map((punto: any) => {
-              const riesgo = riesgos.find((r: any) => r.id === punto.riesgoId);
-              const proceso = procesos.find((p: any) => p.id === riesgo?.procesoId);
-              const valorRiesgo = punto.probabilidad * punto.impacto;
-              const codigo = riesgo?.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `${riesgo?.numero || ''}${riesgo?.siglaGerencia || ''}`;
-              return (
-                <Card key={punto.riesgoId} sx={{ mb: 2, border: '2px solid', borderColor: colors.risk.critical.main }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          {codigo}
-                        </Typography>
-                        <Chip
-                          label={`Valor: ${valorRiesgo} (Prob: ${punto.probabilidad}, Imp: ${punto.impacto})`}
-                          size="small"
-                          color="error"
-                          sx={{ mb: 1 }}
-                        />
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          {riesgo?.descripcion || punto.descripcion}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Proceso:</strong> {proceso?.nombre || 'Sin proceso'}
-                        </Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => {
-                          navigate(ROUTES.RESUMEN_RIESGOS);
-                          setRiesgosFueraApetitoDialogOpen(false);
-                        }}
-                      >
-                        Ver Detalle
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
+        {/* Dialog para Riesgos Fuera del Apetito */}
+        <Dialog
+          open={riesgosFueraApetitoDialogOpen}
+          onClose={() => {
             setRiesgosFueraApetitoDialogOpen(false);
             setCeldaSeleccionada(null);
-          }}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
-      </>) }
+          }}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600} color={celdaSeleccionada ? "primary" : "error"}>
+                {celdaSeleccionada
+                  ? `Riesgos en Celda (${celdaSeleccionada.probabilidad}, ${celdaSeleccionada.impacto}) - ${celdaSeleccionada.tipo === 'inherente' ? 'Inherente' : 'Residual'}`
+                  : 'Riesgos Fuera del Apetito'}
+              </Typography>
+              <Chip
+                label={celdaSeleccionada
+                  ? `${(() => {
+                    const key = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
+                    const matriz = celdaSeleccionada.tipo === 'inherente' ? matrizInherente : matrizResidual;
+                    return matriz[key]?.length || 0;
+                  })()} riesgo${(() => {
+                    const key = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
+                    const matriz = celdaSeleccionada.tipo === 'inherente' ? matrizInherente : matrizResidual;
+                    return matriz[key]?.length || 0;
+                  })() !== 1 ? 's' : ''}`
+                  : `${estadisticas.fueraApetito} riesgo${estadisticas.fueraApetito !== 1 ? 's' : ''}`}
+                color={celdaSeleccionada ? "primary" : "error"}
+                size="small"
+              />
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity={celdaSeleccionada ? "info" : "warning"} sx={{ mb: 2 }}>
+              {celdaSeleccionada
+                ? `Riesgos en la celda seleccionada del mapa de ${celdaSeleccionada.tipo === 'inherente' ? 'riesgo inherente' : 'riesgo residual'}.`
+                : `Los siguientes riesgos tienen un valor de riesgo = ${UMBRALES_RIESGO.ALTO} y requieren atención inmediata.`}
+            </Alert>
+            {!celdaSeleccionada && (
+              <Button
+                variant="contained"
+                startIcon={<MapIcon />}
+                onClick={() => {
+                  navigate(ROUTES.MAPA);
+                  setRiesgosFueraApetitoDialogOpen(false);
+                }}
+                sx={{ mb: 2 }}
+              >
+                Ver en Mapa de Calor
+              </Button>
+            )}
+            <List>
+              {(celdaSeleccionada
+                ? (() => {
+                  const key = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
+                  const matriz = celdaSeleccionada.tipo === 'inherente' ? matrizInherente : matrizResidual;
+                  return matriz[key] || [];
+                })()
+                : puntos.filter((p: any) => {
+                  const valorRiesgo = p.probabilidad * p.impacto;
+                  return valorRiesgo >= UMBRALES_RIESGO.ALTO;
+                })
+              ).map((punto: any) => {
+                const riesgo = riesgos.find((r: any) => r.id === punto.riesgoId);
+                const proceso = procesos.find((p: any) => p.id === riesgo?.procesoId);
+                const valorRiesgo = punto.probabilidad * punto.impacto;
+                const codigo = riesgo?.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `${riesgo?.numero || ''}${riesgo?.siglaGerencia || ''}`;
+                return (
+                  <Card key={punto.riesgoId} sx={{ mb: 2, border: '2px solid', borderColor: colors.risk.critical.main }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box>
+                          <Typography variant="h6" gutterBottom>
+                            {codigo}
+                          </Typography>
+                          <Chip
+                            label={`Valor: ${valorRiesgo} (Prob: ${punto.probabilidad}, Imp: ${punto.impacto})`}
+                            size="small"
+                            color="error"
+                            sx={{ mb: 1 }}
+                          />
+                          <Typography variant="body2" color="text.secondary" paragraph>
+                            {riesgo?.descripcion || punto.descripcion}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Proceso:</strong> {proceso?.nombre || 'Sin proceso'}
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => {
+                            navigate(ROUTES.RESUMEN_RIESGOS);
+                            setRiesgosFueraApetitoDialogOpen(false);
+                          }}
+                        >
+                          Ver Detalle
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </List>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setRiesgosFueraApetitoDialogOpen(false);
+              setCeldaSeleccionada(null);
+            }}>Cerrar</Button>
+          </DialogActions>
+        </Dialog>
+      </>)}
     </Box>
   );
 }

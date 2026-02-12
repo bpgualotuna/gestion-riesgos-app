@@ -228,17 +228,21 @@ export function calcularPuntajePriorizacion(
  * Formato: número secuencial + sigla de Vicepresidencia/Gerencia Alta
  * Ejemplo: "1GFA" para Gestión Financiera y Administrativa
  */
+const siglasCache: Array<{ nombre: string; sigla: string }> = [];
+const contadorRiesgos = new Map<string, number>();
+
+export function setSiglasConfig(siglas: Array<{ nombre: string; sigla: string }>) {
+  siglasCache.splice(0, siglasCache.length, ...siglas);
+}
+
 export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string {
   if (!vicepresidenciaNombre || !vicepresidenciaNombre.trim()) {
     console.warn('No se proporcionó vicepresidencia para generar ID');
     return '';
   }
 
-  // Obtener siglas desde configuración
-  const storedSiglas = localStorage.getItem('config_siglas');
-  if (!storedSiglas) {
-    console.warn('No hay siglas configuradas en localStorage');
-    // Si no hay configuración, usar sigla por defecto basada en las iniciales
+  const siglas: Array<{ nombre: string; sigla: string }> = siglasCache;
+  if (siglas.length === 0) {
     const siglaDefault = vicepresidenciaNombre
       .split(' ')
       .filter(p => p.length > 0)
@@ -247,8 +251,6 @@ export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string
       .substring(0, 3);
     return generarIdConContador(siglaDefault);
   }
-
-  const siglas: Array<{ nombre: string; sigla: string }> = JSON.parse(storedSiglas);
 
   // Normalizar la vicepresidencia para búsqueda (remover palabras comunes como "Vicepresidencia de", "Gerencia de", etc.)
   const normalizarNombre = (nombre: string): string => {
@@ -300,10 +302,9 @@ export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string
  * Genera ID con contador secuencial por sigla
  */
 export function generarIdConContador(sigla: string): string {
-  const key = `contador_riesgos_${sigla}`;
-  const contadorActual = parseInt(localStorage.getItem(key) || '0', 10);
+  const contadorActual = contadorRiesgos.get(sigla) || 0;
   const nuevoContador = contadorActual + 1;
-  localStorage.setItem(key, nuevoContador.toString());
+  contadorRiesgos.set(sigla, nuevoContador);
   return `${nuevoContador}${sigla}`;
 }
 

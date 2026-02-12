@@ -19,32 +19,26 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import type { Proceso, Usuario } from '../../types';
-import {
-    getMockUsuarios,
-    getMockProcesos, updateMockProceso
-} from '../../api/services/mockData';
+import { useGetProcesosQuery, useGetUsuariosQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 
 export default function PermisosPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
 
-    const [procesos, setProcesos] = useState<Proceso[]>([]);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+    const { data: procesos = [] } = useGetProcesosQuery();
+    const { data: usuarios = [] } = useGetUsuariosQuery();
+    const [updateProceso] = useUpdateProcesoMutation();
 
     const [procesoId, setProcesoId] = useState<string>('');
     const [puedeCrear, setPuedeCrear] = useState<string[]>([]);
-
-    useEffect(() => {
-        setProcesos(getMockProcesos());
-        setUsuarios(getMockUsuarios());
-    }, []);
 
     // Update selection when process changes
     useEffect(() => {
         if (procesoId) {
             const proceso = procesos.find(p => p.id === procesoId);
             if (proceso) {
-                setPuedeCrear(proceso.puedeCrear || []);
+                const participantesIds = (proceso as any).participantes?.map((u: any) => String(u.id)) || [];
+                setPuedeCrear(participantesIds);
             }
         } else {
             setPuedeCrear([]);
@@ -69,10 +63,10 @@ export default function PermisosPage() {
 
         const procesoToUpdate = procesos.find(p => p.id === procesoId);
         if (procesoToUpdate) {
-            // Mock update
-            const updatedProceso = { ...procesoToUpdate, puedeCrear };
-            // In a real app we would call API
-            // await updateProceso(updatedProceso);
+            await updateProceso({
+                id: String(procesoToUpdate.id),
+                participantesIds: puedeCrear
+            } as any).unwrap();
 
             showSuccess('Permisos de creación actualizados correctamente');
         }
@@ -93,7 +87,7 @@ export default function PermisosPage() {
                     >
                         <MenuItem value=""><em>Seleccione un proceso</em></MenuItem>
                         {procesos.map((p) => (
-                            <MenuItem key={p.id} value={p.id}>
+                            <MenuItem key={p.id} value={String(p.id)}>
                                 {p.nombre}
                             </MenuItem>
                         ))}
@@ -104,9 +98,9 @@ export default function PermisosPage() {
                     multiple
                     options={usuarios}
                     getOptionLabel={(option) => `${option.nombre} (${option.role})`}
-                    value={usuarios.filter((u) => puedeCrear.includes(u.id))}
+                    value={usuarios.filter((u) => puedeCrear.includes(String(u.id)))}
                     onChange={(_event, newValue) => {
-                        setPuedeCrear(newValue.map((u) => u.id));
+                        setPuedeCrear(newValue.map((u) => String(u.id)));
                     }}
                     renderInput={(params) => (
                         <TextField {...params} label="Usuarios autorizados a crear" placeholder="Seleccionar usuarios" />

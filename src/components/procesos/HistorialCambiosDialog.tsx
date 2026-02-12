@@ -57,7 +57,7 @@ export default function HistorialCambiosDialog({
   procesoNombre,
   seccionFiltro,
 }: HistorialCambiosDialogProps) {
-  const { obtenerHistorialPorProceso, obtenerHistorialPorSeccion } = useHistorialCambios();
+  const { obtenerHistorialPorProceso, obtenerHistorialPorSeccion } = useHistorialCambios(procesoId);
 
   const historial = useMemo(() => {
     const cambios = seccionFiltro

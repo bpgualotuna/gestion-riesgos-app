@@ -54,7 +54,8 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { getMockRiesgos, getDescripcionesImpacto, getEstadosIncidencia } from '../../api/services/mockData';
+import { useGetImpactosQuery } from '../../api/services/riesgosApi';
+import { useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation, useGetRiesgosQuery } from '../../api/services/riesgosApi';
 import { LABELS_IMPACTO } from '../../utils/constants';
 import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
@@ -65,21 +66,8 @@ const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => 
   label: `${valor} - ${label}`
 }));
 
-// Normalizar descripciones de impacto desde formato numérico a nombres
-const normalizarDescripcionesImpacto = (data?: Record<string, Record<number, string>>) => ({
-  economico: data?.economico ?? data?.['4'] ?? {},
-  procesos: data?.procesos ?? data?.['8'] ?? {},
-  legal: data?.legal ?? data?.['6'] ?? {},
-  confidencialidadSGSI: data?.confidencialidadSGSI ?? data?.['2'] ?? {},
-  reputacional: data?.reputacional ?? data?.['9'] ?? {},
-  disponibilidadSGSI: data?.disponibilidadSGSI ?? data?.['3'] ?? {},
-  integridadSGSI: data?.integridadSGSI ?? data?.['5'] ?? {},
-  ambiental: data?.ambiental ?? data?.['1'] ?? {},
-  personas: data?.personas ?? data?.['7'] ?? {},
-});
-
-// Tipo derivado del catálogo centralizado
-type EstadoIncidencia = typeof getEstadosIncidencia extends () => readonly { value: infer T }[] ? T : never;
+const ESTADOS_INCIDENCIA = ['abierta', 'en_investigacion', 'resuelta', 'cerrada'] as const;
+type EstadoIncidencia = typeof ESTADOS_INCIDENCIA[number];
 
 
 // Tipo de incidencia - Materialización de riesgos residuales
@@ -133,7 +121,7 @@ export default function IncidenciasPage() {
   const { esAdmin } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado } = useProceso();
-  const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
+  const [incidenciasLocal, setIncidenciasLocal] = useState<Incidencia[]>([]);
   const [tabValue, setTabValue] = useState(0);
   const [riesgoExpandido, setRiesgoExpandido] = useState<string | null>(null);
   const [formularioExpandido, setFormularioExpandido] = useState<{ riesgoId: string; causaId?: string } | null>(null);
@@ -141,79 +129,52 @@ export default function IncidenciasPage() {
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
 
-  // Persistence
-  useEffect(() => {
-    const stored = localStorage.getItem('incidencias_db');
-    if (stored) {
-      setIncidencias(JSON.parse(stored));
-    }
-  }, []);
+  const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
+    procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
+  }, { skip: !procesoSeleccionado?.id });
+  const [createIncidencia] = useCreateIncidenciaMutation();
+  const [deleteIncidencia] = useDeleteIncidenciaMutation();
 
   useEffect(() => {
-    if (incidencias.length > 0) {
-      localStorage.setItem('incidencias_db', JSON.stringify(incidencias));
-    }
-  }, [incidencias]);
+    setIncidenciasLocal(incidenciasApi as Incidencia[]);
+  }, [incidenciasApi]);
+  const { data: impactosApi = [] } = useGetImpactosQuery();
   const descripcionesImpacto = useMemo(() => {
-    const storedImpactos = localStorage.getItem('catalogos_impactos');
-    const impactosData = storedImpactos ? JSON.parse(storedImpactos) : getDescripcionesImpacto();
-    return normalizarDescripcionesImpacto(impactosData);
-  }, []);
-  // Obtener riesgos del proceso seleccionado
-  // NOTA: Esta implementación reconstruye desde localStorage individual
-  // si el array consolidado 'riesgos' está vacío (problema de consistencia)
+    const base: Record<string, Record<number, string>> = {
+      economico: {},
+      procesos: {},
+      legal: {},
+      confidencialidadSGSI: {},
+      reputacional: {},
+      disponibilidadSGSI: {},
+      integridadSGSI: {},
+      ambiental: {},
+      personas: {},
+    };
+
+    impactosApi.forEach((tipo: any) => {
+      const key = tipo.clave === 'reputacion' ? 'reputacional' : tipo.clave;
+      if (!base[key]) return;
+      base[key] = (tipo.niveles || []).reduce((acc: Record<number, string>, nivel: any) => {
+        acc[nivel.nivel] = nivel.descripcion;
+        return acc;
+      }, {});
+    });
+
+    return base;
+  }, [impactosApi]);
+  const { data: riesgosResponse } = useGetRiesgosQuery(
+    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
+  );
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
-
-    // Intentar leer array consolidado
-    let riesgos: any[] = [];
-    const riesgosData = localStorage.getItem('riesgos');
-
-    if (riesgosData) {
-      try {
-        riesgos = JSON.parse(riesgosData);
-      } catch (e) {
-        console.error('Error parsing riesgos:', e);
-        riesgos = [];
-      }
-    }
-
-    // Si está vacío, reconstruir desde riesgos individuales (riesgo_{id})
-    if (riesgos.length === 0) {
-      console.warn('⚠️ Array consolidado "riesgos" vacío. Reconstruyendo desde riesgos individuales...');
-
-      const keys = Object.keys(localStorage).filter(key => key.startsWith('riesgo_'));
-
-      riesgos = keys.map(key => {
-        try {
-          return JSON.parse(localStorage.getItem(key)!);
-        } catch (e) {
-          console.error(`Error parsing ${key}:`, e);
-          return null;
-        }
-      }).filter(r => r !== null);
-
-      // Consolidar para futuras lecturas
-      if (riesgos.length > 0) {
-        console.log(`✅ Reconstruidos ${riesgos.length} riesgos. Consolidando en localStorage...`);
-        localStorage.setItem('riesgos', JSON.stringify(riesgos));
-      } else {
-        // Si no hay individuales tampoco, usar mock data
-        console.log('📦 No hay riesgos en localStorage. Usando mock data...');
-        const mockRiesgos = getMockRiesgos();
-        riesgos = mockRiesgos.data;
-      }
-    }
-
-    // Filtrar por proceso
-    return riesgos.filter((r: any) => r.procesoId === procesoSeleccionado.id) || [];
-  }, [procesoSeleccionado?.id]);
+    return (riesgosResponse?.data || []).filter((r: any) => String(r.procesoId) === String(procesoSeleccionado.id));
+  }, [riesgosResponse?.data, procesoSeleccionado?.id]);
 
   // Filtrar incidencias por proceso
   const incidenciasFiltradas = useMemo(() => {
-    if (!procesoSeleccionado?.id) return [];
-    return incidencias.filter((inc) => inc.procesoId === procesoSeleccionado.id);
-  }, [incidencias, procesoSeleccionado?.id]);
+    return (incidenciasLocal.filter((inc) => String(inc.procesoId) === String(procesoSeleccionado.id))) || [];
+  }, [incidenciasLocal, procesoSeleccionado?.id]);
 
   // Formulario inline
   const [formData, setFormData] = useState<Partial<Incidencia>>({
@@ -237,7 +198,7 @@ export default function IncidenciasPage() {
     },
   });
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     if (!formData.titulo || !formData.descripcion) {
       showError('Por favor complete todos los campos requeridos');
       return;
@@ -267,29 +228,25 @@ export default function IncidenciasPage() {
 
 
     // Solo crear nueva incidencia (el formulario inline no soporta edición)
-    const riesgoSeleccionado = riesgosDelProceso.find((r: any) => r.id === formData.riesgoId);
-
-    const nuevaIncidencia: Incidencia = {
-      id: `incidencia-${Date.now()}`,
+    await createIncidencia({
       codigo: `INC-${Date.now()}`,
-      ...formData,
+      riesgoId: formData.riesgoId,
       procesoId: procesoSeleccionado.id,
-      procesoNombre: procesoSeleccionado.nombre,
-      riesgoNombre: riesgoSeleccionado?.nombre,
-      impactosMaterializacion: impactos, // Ensure impacts object exists
+      titulo: formData.titulo,
+      descripcion: formData.descripcion,
+      estado: formData.estado,
+      fechaOcurrencia: formData.fechaOcurrencia,
       fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
       reportadoPor: 'Usuario Actual',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as Incidencia;
+      impactosMaterializacion: impactos,
+    }).unwrap();
 
-    setIncidencias((prev) => [...prev, nuevaIncidencia]);
     showSuccess('Incidencia creada exitosamente');
   };
 
-  const handleEliminar = (id: string) => {
+  const handleEliminar = async (id: string) => {
     if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
-      setIncidencias((prev) => prev.filter((inc) => inc.id !== id));
+      await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
     }
   };
@@ -357,11 +314,7 @@ export default function IncidenciasPage() {
   return (
     <AppPageLayout
       title="Materializar Riesgos"
-      description={
-        <span>
-          Gestión de eventos y materialización de riesgos residuales para el proceso: <strong>{procesoSeleccionado?.nombre || 'No seleccionado'}</strong>
-        </span>
-      }
+      description={`Gestión de eventos y materialización de riesgos residuales para el proceso: ${procesoSeleccionado?.nombre || 'No seleccionado'}`}
       alert={
         !procesoSeleccionado?.id ? (
           <Alert severity="warning">

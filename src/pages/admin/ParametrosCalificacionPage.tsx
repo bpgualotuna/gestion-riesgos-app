@@ -35,7 +35,31 @@ import SimpleCatalog from './SimpleCatalog';
 import ImpactosCatalog from './ImpactosCatalog';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import AppDataGrid from '../../components/ui/AppDataGrid';
-import * as mockService from '../../api/services/mockData';
+import {
+    useGetOrigenesQuery,
+    useGetConsecuenciasQuery,
+    useGetTiposRiesgosQuery,
+    useGetObjetivosQuery,
+    useGetFuentesQuery,
+    useGetFrecuenciasQuery,
+    useGetImpactosQuery,
+    useCreateTipologiaMutation,
+    useUpdateTipologiaMutation,
+    useDeleteTipologiaMutation,
+    useCreateSubtipoMutation,
+    useUpdateSubtipoMutation,
+    useDeleteSubtipoMutation,
+    useCreateObjetivoMutation,
+    useUpdateObjetivoMutation,
+    useDeleteObjetivoMutation,
+    useUpdateFrecuenciasMutation,
+    useUpdateFuentesMutation,
+    useUpdateOrigenesMutation,
+    useUpdateConsecuenciasMutation,
+    useUpdateImpactosMutation,
+    useCreateImpactoTipoMutation,
+    useDeleteImpactoTipoMutation,
+} from '../../api/services/riesgosApi';
 import { TipoRiesgo, SubtipoRiesgo } from '../../types';
 import { DIMENSIONES_IMPACTO } from '../../utils/constants';
 
@@ -50,56 +74,44 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
 
 function SubtiposCatalog({
     tiposRiesgo,
-    onSaveTiposRiesgo,
+    onCreateSubtipo,
+    onUpdateSubtipo,
+    onDeleteSubtipo,
 }: {
     tiposRiesgo: TipoRiesgo[];
-    onSaveTiposRiesgo: (items: TipoRiesgo[]) => void;
+    onCreateSubtipo: (data: { tipoRiesgoId: number; nombre: string; descripcion?: string; codigo?: string }) => Promise<void>;
+    onUpdateSubtipo: (data: { id: number; nombre?: string; descripcion?: string; codigo?: string }) => Promise<void>;
+    onDeleteSubtipo: (id: number) => Promise<void>;
 }) {
-    const [tipoSeleccionado, setTipoSeleccionado] = useState<string>(tiposRiesgo[0]?.codigo || '');
+    const [tipoSeleccionado, setTipoSeleccionado] = useState<number | null>(tiposRiesgo[0]?.id ?? null);
 
     const subtipos = useMemo(() => {
-        const tipo = tiposRiesgo.find(t => t.codigo === tipoSeleccionado);
-        return (tipo?.subtipos || []).map((s) => ({
-            id: s.codigo || `temp-${Date.now()}-${Math.random()}`,
-            codigo: s.codigo,
-            descripcion: s.descripcion
-        }));
+        const tipo = tiposRiesgo.find(t => t.id === tipoSeleccionado);
+        return tipo?.subtipos || [];
     }, [tiposRiesgo, tipoSeleccionado]);
 
-    const handleSaveSubtipo = (item: any) => {
-        const newTipos = tiposRiesgo.map((t) => {
-            if (t.codigo !== tipoSeleccionado) return t;
-
-            let subtiposActuales = t.subtipos || [];
-            let itemGuardar = { ...item };
-
-            // Si no tiene código, generar uno nuevo
-            if (!itemGuardar.codigo) {
-                const maxCod = subtiposActuales.reduce((max, s) => {
-                    const cod = parseInt(s.codigo);
-                    return isNaN(cod) ? max : Math.max(max, cod);
-                }, 0);
-                itemGuardar.codigo = String(maxCod + 1);
-            }
-
-            const existe = subtiposActuales.some((s) => s.codigo === itemGuardar.codigo);
-
-            const nuevosSubtipos: SubtipoRiesgo[] = existe
-                ? subtiposActuales.map((s) => (s.codigo === itemGuardar.codigo ? { codigo: itemGuardar.codigo, descripcion: itemGuardar.descripcion } : s))
-                : [...subtiposActuales, { codigo: itemGuardar.codigo, descripcion: itemGuardar.descripcion }];
-
-            return { ...t, subtipos: nuevosSubtipos };
-        });
-        onSaveTiposRiesgo(newTipos);
+    const handleSaveSubtipo = async (item: any) => {
+        if (!tipoSeleccionado) return;
+        if (item.id) {
+            await onUpdateSubtipo({
+                id: Number(item.id),
+                nombre: item.nombre,
+                descripcion: item.descripcion,
+                codigo: item.codigo
+            });
+        } else {
+            await onCreateSubtipo({
+                tipoRiesgoId: tipoSeleccionado,
+                nombre: item.nombre,
+                descripcion: item.descripcion,
+                codigo: item.codigo
+            });
+        }
     };
 
-    const handleDeleteSubtipo = (codigo: string) => {
+    const handleDeleteSubtipo = async (id: number) => {
         if (!window.confirm('¿Confirma eliminación del subtipo?')) return;
-        const newTipos = tiposRiesgo.map((t) => {
-            if (t.codigo !== tipoSeleccionado) return t;
-            return { ...t, subtipos: (t.subtipos || []).filter((s) => s.codigo !== codigo) };
-        });
-        onSaveTiposRiesgo(newTipos);
+        await onDeleteSubtipo(id);
     };
 
     return (
@@ -109,11 +121,11 @@ function SubtiposCatalog({
                 <Select
                     labelId="tipo-riesgo-select"
                     label="Tipo de Riesgo"
-                    value={tipoSeleccionado}
-                    onChange={(e) => setTipoSeleccionado(e.target.value as string)}
+                    value={tipoSeleccionado ?? ''}
+                    onChange={(e) => setTipoSeleccionado(Number(e.target.value))}
                 >
                     {tiposRiesgo.map((t) => (
-                        <MenuItem key={t.codigo} value={t.codigo}>
+                        <MenuItem key={t.id} value={t.id}>
                             {t.nombre}
                         </MenuItem>
                     ))}
@@ -125,10 +137,11 @@ function SubtiposCatalog({
                 itemLabel="Subtipo"
                 data={subtipos}
                 columns={[
-                    { field: 'codigo', headerName: 'ID', width: 120 },
-                    { field: 'descripcion', headerName: 'Descripción', flex: 1 },
+                    { field: 'nombre', headerName: 'Nombre', flex: 1 },
+                    { field: 'descripcion', headerName: 'Descripción', flex: 2 },
+                    { field: 'codigo', headerName: 'Código', width: 120, editable: false },
                 ]}
-                defaultItem={{ codigo: '', descripcion: '' }}
+                defaultItem={{ nombre: '', descripcion: '', codigo: '' }}
                 onSave={handleSaveSubtipo}
                 onDelete={handleDeleteSubtipo}
             />
@@ -146,14 +159,13 @@ export default function ParametrosCalificacionPage() {
     const [searchImpactos, setSearchImpactos] = useState('');
 
     // States
-    const [origenes, setOrigenes] = useState(mockService.getMockOrigenes());
-    const [tiposRiesgo, setTiposRiesgo] = useState<TipoRiesgo[]>(mockService.getMockTiposRiesgos());
-    const [consecuencias, setConsecuencias] = useState(mockService.getMockConsecuencias());
-    const [fuentes, setFuentes] = useState(mockService.getMockFuentes());
-    const [frecuencias, setFrecuencias] = useState(mockService.getMockFrecuencias());
-    const [objetivos, setObjetivos] = useState(mockService.getMockObjetivos());
-    const [impactos, setImpactos] = useState(mockService.getDescripcionesImpacto());
-    const [formulas, setFormulas] = useState(mockService.getMockFormulas());
+    const [origenes, setOrigenes] = useState<any[]>([]);
+    const [tiposRiesgo, setTiposRiesgo] = useState<TipoRiesgo[]>([]);
+    const [consecuencias, setConsecuencias] = useState<any[]>([]);
+    const [fuentes, setFuentes] = useState<any[]>([]);
+    const [frecuencias, setFrecuencias] = useState<any[]>([]);
+    const [objetivos, setObjetivos] = useState<any[]>([]);
+    const [formulas, setFormulas] = useState<any[]>([]);
     const [pesoDialogOpen, setPesoDialogOpen] = useState(false);
     const [pesoEditing, setPesoEditing] = useState<{ key: string; label: string; porcentaje: number } | null>(null);
     const [impactoPesos, setImpactoPesos] = useState(() => {
@@ -175,17 +187,50 @@ export default function ParametrosCalificacionPage() {
 
     const totalPeso = impactoPesos.reduce((acc: number, item: any) => acc + (Number(item.porcentaje) || 0), 0);
 
-    // Sync impacts from other pages (e.g., CatalogosIdentificacion)
-    useEffect(() => {
-        const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === 'catalog_descripciones_impacto' || e.key === 'catalogos_impactos') {
-                const newImpactos = mockService.getDescripcionesImpacto();
-                setImpactos(newImpactos);
-            }
-        };
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
+    const nivelesByTipo = useMemo(() => {
+        const map: Record<number, Record<number, string>> = {};
+        (impactosApi || []).forEach((tipo: any) => {
+            map[tipo.id] = (tipo.niveles || []).reduce((acc: Record<number, string>, n: any) => {
+                acc[n.nivel] = n.descripcion;
+                return acc;
+            }, {});
+        });
+        return map;
+    }, [impactosApi]);
+
+    // Queries
+    const { data: origenesApi = [] } = useGetOrigenesQuery();
+    const { data: consecuenciasApi = [] } = useGetConsecuenciasQuery();
+    const { data: tiposRiesgoApi = [] } = useGetTiposRiesgosQuery();
+    const { data: objetivosApi = [] } = useGetObjetivosQuery();
+    const { data: fuentesApi = [] } = useGetFuentesQuery();
+    const { data: frecuenciasApi = [] } = useGetFrecuenciasQuery();
+    const { data: impactosApi = [] } = useGetImpactosQuery();
+
+    // Mutations
+    const [createTipologia] = useCreateTipologiaMutation();
+    const [updateTipologia] = useUpdateTipologiaMutation();
+    const [deleteTipologia] = useDeleteTipologiaMutation();
+    const [createSubtipo] = useCreateSubtipoMutation();
+    const [updateSubtipo] = useUpdateSubtipoMutation();
+    const [deleteSubtipo] = useDeleteSubtipoMutation();
+    const [createObjetivo] = useCreateObjetivoMutation();
+    const [updateObjetivo] = useUpdateObjetivoMutation();
+    const [deleteObjetivo] = useDeleteObjetivoMutation();
+    const [updateFrecuencias] = useUpdateFrecuenciasMutation();
+    const [updateFuentes] = useUpdateFuentesMutation();
+    const [updateOrigenes] = useUpdateOrigenesMutation();
+    const [updateConsecuencias] = useUpdateConsecuenciasMutation();
+    const [updateImpactos] = useUpdateImpactosMutation();
+    const [createImpactoTipo] = useCreateImpactoTipoMutation();
+    const [deleteImpactoTipo] = useDeleteImpactoTipoMutation();
+
+    useEffect(() => setOrigenes(origenesApi), [origenesApi]);
+    useEffect(() => setConsecuencias(consecuenciasApi), [consecuenciasApi]);
+    useEffect(() => setTiposRiesgo(tiposRiesgoApi as TipoRiesgo[]), [tiposRiesgoApi]);
+    useEffect(() => setObjetivos(objetivosApi), [objetivosApi]);
+    useEffect(() => setFuentes(fuentesApi), [fuentesApi]);
+    useEffect(() => setFrecuencias(frecuenciasApi), [frecuenciasApi]);
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
@@ -199,76 +244,60 @@ export default function ParametrosCalificacionPage() {
     const createSaveHandler = (
         currentList: any[],
         setList: (val: any[]) => void,
-        updateService: (val: any[]) => void,
+        updateService: (val: any[]) => Promise<any[]>,
         idField: string = 'id'
     ) => {
-        return (item: any) => {
+        return async (item: any) => {
             let newList = [...currentList];
             // Check if item has ID (edit) or needs new ID
             if (item[idField] && newList.some(i => i[idField] === item[idField])) {
                 // Edit
                 newList = newList.map(i => i[idField] === item[idField] ? item : i);
             } else {
-                // New - generate auto-incrementing code and id
-                const newId = typeof currentList[0]?.[idField] === 'number'
-                    ? Math.max(...currentList.map(i => i[idField] as number)) + 1
-                    : `${idField}-${Date.now()}`;
-
-                // Auto-increment codigo if not provided
-                let nuevoItem = { ...item, [idField]: newId };
-                if (!nuevoItem.codigo || nuevoItem.codigo === '') {
-                    const codigosActuales = currentList.map(i => {
-                        const cod = i.codigo || i.code || i.label;
-                        return parseInt(cod) || 0;
-                    });
-                    const proximoCodigo = Math.max(...codigosActuales, 0) + 1;
-                    nuevoItem.codigo = String(proximoCodigo);
-                }
-                newList.push(nuevoItem);
+                // New - omit id to allow DB autoincrement
+                newList.push({ ...item });
             }
             setList(newList);
-            updateService(newList);
+            const updated = await updateService(newList);
+            if (updated) setList(updated);
         };
     };
 
     const createDeleteHandler = (
         currentList: any[],
         setList: (val: any[]) => void,
-        updateService: (val: any[]) => void,
+        updateService: (val: any[]) => Promise<any[]>,
         idField: string = 'id'
     ) => {
-        return (id: any) => {
+        return async (id: any) => {
             if (window.confirm('¿Confirma eliminación?')) {
                 const newList = currentList.filter(i => i[idField] !== id);
                 setList(newList);
-                updateService(newList);
+                const updated = await updateService(newList);
+                if (updated) setList(updated);
             }
         };
     };
 
-    const handleSaveTiposRiesgo = (item: any) => {
-        const exists = tiposRiesgo.some((t) => t.codigo === item.codigo);
-        let itemGuardar = { ...item };
-
-        // Si es nuevo (no existe) y no tiene código, generar auto-incrementable
-        if (!exists && (!item.codigo || item.codigo === '')) {
-            const codigosActuales = tiposRiesgo.map(t => parseInt(t.codigo) || 0);
-            const proximoCodigo = Math.max(...codigosActuales, 0) + 1;
-            itemGuardar.codigo = String(proximoCodigo);
+    const handleSaveTiposRiesgo = async (item: any) => {
+        try {
+            if (item.id) {
+                await updateTipologia({ id: item.id, ...item }).unwrap();
+            } else {
+                await createTipologia(item).unwrap();
+            }
+        } catch (error) {
+            console.error('Error guardando tipologia:', error);
         }
-
-        const newList = exists
-            ? tiposRiesgo.map((t) => (t.codigo === item.codigo ? { ...t, ...itemGuardar } : t))
-            : [...tiposRiesgo, itemGuardar];
-        setTiposRiesgo(newList);
-        mockService.updateMockTiposRiesgos(newList);
     };
 
-    const handleDeleteTiposRiesgo = (codigo: string) => {
+    const handleDeleteTiposRiesgo = async (id: number) => {
         if (!window.confirm('¿Confirma eliminación?')) return;
-        const newList = tiposRiesgo.filter((t) => t.codigo !== codigo);
-        setTiposRiesgo(newList);
-        mockService.updateMockTiposRiesgos(newList);
+        try {
+            await deleteTipologia(id as any).unwrap();
+        } catch (error) {
+            console.error('Error eliminando tipologia:', error);
+        }
     };
 
     // Filtered data for Riesgos sub-tabs
@@ -391,12 +420,16 @@ export default function ParametrosCalificacionPage() {
                                 itemLabel="Origen"
                                 data={filteredOrigenes}
                                 columns={[
-                                    { field: 'codigo', headerName: 'ID', width: 100 },
+                                    { field: 'codigo', headerName: 'Código', width: 120 },
                                     { field: 'nombre', headerName: 'Nombre', flex: 1 }
                                 ]}
                                 defaultItem={{ codigo: '', nombre: '' }}
-                                onSave={createSaveHandler(origenes, setOrigenes, mockService.updateMockOrigenes)}
-                                onDelete={createDeleteHandler(origenes, setOrigenes, mockService.updateMockOrigenes)}
+                                onSave={createSaveHandler(origenes, setOrigenes, async (data) => {
+                                    return await updateOrigenes(data).unwrap();
+                                })}
+                                onDelete={createDeleteHandler(origenes, setOrigenes, async (data) => {
+                                    return await updateOrigenes(data).unwrap();
+                                })}
                             />
                         </TabPanel>
 
@@ -422,12 +455,16 @@ export default function ParametrosCalificacionPage() {
                                 itemLabel="Consecuencia"
                                 data={filteredConsecuencias}
                                 columns={[
-                                    { field: 'codigo', headerName: 'ID', width: 100 },
+                                    { field: 'codigo', headerName: 'Código', width: 120 },
                                     { field: 'nombre', headerName: 'Nombre', flex: 1 }
                                 ]}
                                 defaultItem={{ codigo: '', nombre: '' }}
-                                onSave={createSaveHandler(consecuencias, setConsecuencias, mockService.updateMockConsecuencias)}
-                                onDelete={createDeleteHandler(consecuencias, setConsecuencias, mockService.updateMockConsecuencias)}
+                                onSave={createSaveHandler(consecuencias, setConsecuencias, async (data) => {
+                                    return await updateConsecuencias(data).unwrap();
+                                })}
+                                onDelete={createDeleteHandler(consecuencias, setConsecuencias, async (data) => {
+                                    return await updateConsecuencias(data).unwrap();
+                                })}
                             />
                         </TabPanel>
 
@@ -451,9 +488,9 @@ export default function ParametrosCalificacionPage() {
                             <SimpleCatalog
                                 title="Tipos de Riesgo"
                                 itemLabel="Tipo"
-                                data={filteredTiposRiesgo.map((t) => ({ ...t, id: t.codigo }))}
+                                data={filteredTiposRiesgo}
                                 columns={[
-                                    { field: 'id', headerName: 'ID', width: 100 },
+                                    { field: 'codigo', headerName: 'Código', width: 120 },
                                     { field: 'nombre', headerName: 'Nombre', flex: 1 },
                                     { field: 'descripcion', headerName: 'Descripción', flex: 2 }
                                 ]}
@@ -466,9 +503,14 @@ export default function ParametrosCalificacionPage() {
                         <TabPanel value={subTabValue[0]} index={3}>
                             <SubtiposCatalog
                                 tiposRiesgo={tiposRiesgo}
-                                onSaveTiposRiesgo={(items) => {
-                                    setTiposRiesgo(items);
-                                    mockService.updateMockTiposRiesgos(items);
+                                onCreateSubtipo={async (data) => {
+                                    await createSubtipo(data).unwrap();
+                                }}
+                                onUpdateSubtipo={async (data) => {
+                                    await updateSubtipo(data).unwrap();
+                                }}
+                                onDeleteSubtipo={async (id) => {
+                                    await deleteSubtipo(id).unwrap();
                                 }}
                             />
                         </TabPanel>
@@ -495,12 +537,20 @@ export default function ParametrosCalificacionPage() {
                                 itemLabel="Objetivo"
                                 data={filteredObjetivos}
                                 columns={[
-                                    { field: 'codigo', headerName: 'ID', width: 100 },
+                                    { field: 'codigo', headerName: 'Código', width: 120 },
                                     { field: 'descripcion', headerName: 'Descripción', flex: 1 }
                                 ]}
                                 defaultItem={{ codigo: '', descripcion: '' }}
-                                onSave={createSaveHandler(objetivos, setObjetivos, mockService.updateMockObjetivos)}
-                                onDelete={createDeleteHandler(objetivos, setObjetivos, mockService.updateMockObjetivos)}
+                                onSave={async (item) => {
+                                    if (item.id) {
+                                        await updateObjetivo({ id: item.id, ...item }).unwrap();
+                                    } else {
+                                        await createObjetivo(item).unwrap();
+                                    }
+                                }}
+                                onDelete={async (id) => {
+                                    await deleteObjetivo(id).unwrap();
+                                }}
                             />
                         </TabPanel>
                     </Box>
@@ -550,12 +600,16 @@ export default function ParametrosCalificacionPage() {
                             itemLabel="Fuente"
                             data={filteredFuentes}
                             columns={[
-                                { field: 'codigo', headerName: 'ID', width: 100 },
+                                { field: 'id', headerName: 'ID', width: 80, editable: false },
                                 { field: 'nombre', headerName: 'Nombre', flex: 1 }
                             ]}
-                            defaultItem={{ codigo: '', nombre: '' }}
-                            onSave={createSaveHandler(fuentes, setFuentes, mockService.updateMockFuentes)}
-                            onDelete={createDeleteHandler(fuentes, setFuentes, mockService.updateMockFuentes)}
+                            defaultItem={{ nombre: '' }}
+                            onSave={createSaveHandler(fuentes, setFuentes, async (data) => {
+                                return await updateFuentes(data).unwrap();
+                            })}
+                            onDelete={createDeleteHandler(fuentes, setFuentes, async (data) => {
+                                return await updateFuentes(data).unwrap();
+                            })}
                         />
                     </TabPanel>
 
@@ -581,13 +635,17 @@ export default function ParametrosCalificacionPage() {
                             itemLabel="Nivel"
                             data={filteredFrecuencias}
                             columns={[
-                                { field: 'id', headerName: 'ID', width: 80 },
+                                { field: 'id', headerName: 'ID', width: 80, editable: false },
                                 { field: 'label', headerName: 'Frecuencia', width: 160 },
                                 { field: 'descripcion', headerName: 'Descripción', flex: 1 }
                             ]}
-                            defaultItem={{ id: 0, label: '', descripcion: '' }}
-                            onSave={createSaveHandler(frecuencias, setFrecuencias as any, mockService.updateMockFrecuencias)}
-                            onDelete={createDeleteHandler(frecuencias, setFrecuencias as any, mockService.updateMockFrecuencias)}
+                            defaultItem={{ label: '', descripcion: '' }}
+                            onSave={createSaveHandler(frecuencias, setFrecuencias as any, async (data) => {
+                                return await updateFrecuencias(data).unwrap();
+                            })}
+                            onDelete={createDeleteHandler(frecuencias, setFrecuencias as any, async (data) => {
+                                return await updateFrecuencias(data).unwrap();
+                            })}
                         />
                     </TabPanel>
                 </TabPanel>
@@ -615,10 +673,20 @@ export default function ParametrosCalificacionPage() {
 
                     <TabPanel value={subTabValue[2]} index={0}>
                         <ImpactosCatalog
-                            data={impactos}
-                            onSave={(data) => {
-                                setImpactos(data);
-                                mockService.updateDescripcionesImpacto(data);
+                            tipos={impactosApi as any[]}
+                            nivelesByTipo={nivelesByTipo}
+                            onSaveNiveles={async (tipoId, niveles) => {
+                                const payload = Object.keys(niveles).map((nivel) => ({
+                                    nivel: Number(nivel),
+                                    descripcion: niveles[Number(nivel)] || ''
+                                }));
+                                await updateImpactos({ id: tipoId, niveles: payload }).unwrap();
+                            }}
+                            onAddTipo={async (data) => {
+                                await createImpactoTipo(data).unwrap();
+                            }}
+                            onDeleteTipo={async (tipoId) => {
+                                await deleteImpactoTipo(tipoId).unwrap();
                             }}
                         />
                     </TabPanel>

@@ -16,11 +16,6 @@ export const axiosClient = axios.create({
 // Request interceptor
 axiosClient.interceptors.request.use(
   (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
     return config;
   },
   (error) => {
@@ -37,8 +32,6 @@ axiosClient.interceptors.response.use(
     // Handle common errors
     if (error.response?.status === 401) {
       // Unauthorized - redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('currentUser');
       // Use window.location.pathname to preserve the current path structure
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

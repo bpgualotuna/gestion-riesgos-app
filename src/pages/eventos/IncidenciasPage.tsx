@@ -3,7 +3,7 @@
  * Gestión de incidencias relacionadas con riesgos
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -44,9 +44,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
-import AppDataGrid from '../../../../shared/components/ui/AppDataGrid';
+import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { getMockRiesgos } from '../../api/services/mockData';
+import { useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useUpdateIncidenciaMutation, useDeleteIncidenciaMutation, useCreatePlanAccionMutation } from '../../api/services/riesgosApi';
 
 // Tipo de incidencia
 interface Incidencia {
@@ -81,6 +81,18 @@ export default function IncidenciasPage() {
   const { procesoSeleccionado } = useProceso();
   const { showSuccess, showError } = useNotification();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
+    const { data: riesgosResponse } = useGetRiesgosQuery({ pageSize: 1000 });
+    const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
+      procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined
+    }, { skip: !procesoSeleccionado?.id && !esSupervisorRiesgos });
+    const [createIncidencia] = useCreateIncidenciaMutation();
+    const [updateIncidencia] = useUpdateIncidenciaMutation();
+    const [deleteIncidencia] = useDeleteIncidenciaMutation();
+    const [createPlanAccion] = useCreatePlanAccionMutation();
+
+    useEffect(() => {
+      setIncidencias(incidenciasApi as Incidencia[]);
+    }, [incidenciasApi]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -107,32 +119,11 @@ export default function IncidenciasPage() {
 
   // Riesgos disponibles (con causas de identificación)
   const riesgosDisponibles = useMemo(() => {
-    if (puedeElegirSinProceso) {
-      const riesgosData = localStorage.getItem('riesgos');
-      if (riesgosData) {
-        try {
-          return JSON.parse(riesgosData);
-        } catch (error) {
-          console.error('Error al cargar riesgos:', error);
-        }
-      }
-      const mockResponse = getMockRiesgos();
-      return mockResponse.data || [];
-    }
-
+    const riesgos = (riesgosResponse as any)?.data || [];
+    if (puedeElegirSinProceso) return riesgos;
     if (!procesoSeleccionado?.id) return [];
-    const riesgosIdent = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-    if (riesgosIdent) {
-      try {
-        return JSON.parse(riesgosIdent);
-      } catch (error) {
-        console.error('Error al cargar riesgos de identificación:', error);
-      }
-    }
-
-    const mockResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
-    return mockResponse.data || [];
-  }, [procesoSeleccionado?.id, puedeElegirSinProceso]);
+    return riesgos.filter((r: any) => String(r.procesoId) === String(procesoSeleccionado.id));
+  }, [riesgosResponse, procesoSeleccionado?.id, puedeElegirSinProceso]);
 
   const causasDelRiesgo = useMemo(() => {
     if (!formData.riesgoId) return [];
@@ -197,7 +188,7 @@ export default function IncidenciasPage() {
         estado: 'abierta',
         fechaOcurrencia: new Date().toISOString().split('T')[0],
         fechaReporte: new Date().toISOString().split('T')[0],
-        procesoId: procesoSeleccionado?.id,
+        procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
       });
       setPlanData({
         responsable: '',
@@ -229,7 +220,7 @@ export default function IncidenciasPage() {
     });
   };
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     if (!formData.titulo || !formData.descripcion) {
       showError('Por favor complete todos los campos requeridos');
       return;
@@ -251,72 +242,41 @@ export default function IncidenciasPage() {
     }
 
     if (modoEdicion && incidenciaSeleccionada) {
-      // Actualizar incidencia
-      setIncidencias((prev) =>
-        prev.map((inc) =>
-          inc.id === incidenciaSeleccionada.id
-            ? { ...inc, ...formData, updatedAt: new Date().toISOString() }
-            : inc
-        )
-      );
+      await updateIncidencia({ id: incidenciaSeleccionada.id, ...formData }).unwrap();
       showSuccess('Incidencia actualizada exitosamente');
     } else {
       const riesgoSeleccionado = riesgosDisponibles.find((r: any) => r.id === formData.riesgoId);
       const causaSeleccionada = causasDelRiesgo.find((c: any) => c.id === formData.causaId);
 
-      // Crear nueva incidencia
-      const incidenciaId = `incidencia-${Date.now()}`;
-      const planId = `plan-${Date.now()}`;
-
-      const nuevaIncidencia: Incidencia = {
-        id: incidenciaId,
+      const created = await createIncidencia({
         codigo: `INC-${Date.now()}`,
-        ...formData,
-        procesoId: procesoSeleccionado.id,
-        procesoNombre: procesoSeleccionado.nombre,
-        riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-        causaNombre: causaSeleccionada?.descripcion,
-        planAccionId: planId,
-        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
-        reportadoPor: 'Usuario Actual', // En producción vendría del contexto de autenticación
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as Incidencia;
-
-      setIncidencias((prev) => [...prev, nuevaIncidencia]);
-
-      // Crear/Anclar plan de acción
-      const planesKey = `planes_${procesoSeleccionado.id}`;
-      const planesData = localStorage.getItem(planesKey);
-      const planesExistentes = planesData ? JSON.parse(planesData) : [];
-
-      const nuevoPlan = {
-        id: planId,
-        procesoId: procesoSeleccionado.id,
-        incidenciaId: incidenciaId,
         riesgoId: formData.riesgoId,
-        riesgoNombre: riesgoSeleccionado?.nombre || riesgoSeleccionado?.descripcionRiesgo,
-        causaId: formData.causaId,
-        causaNombre: causaSeleccionada?.descripcion,
+        procesoId: procesoSeleccionado.id,
+        titulo: formData.titulo,
+        descripcion: formData.descripcion,
+        estado: formData.estado,
+        fechaOcurrencia: formData.fechaOcurrencia,
+        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+        reportadoPor: 'Usuario Actual',
+      }).unwrap();
+
+      await createPlanAccion({
+        incidenciaId: created.id,
         descripcion: formData.descripcion,
         responsable: planData.responsable,
-        decision: planData.decision,
-        fechaEstimada: planData.fechaEstimada,
-        estado: 'pendiente',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        fechaProgramada: planData.fechaEstimada,
+        estado: 'pendiente'
+      }).unwrap();
 
-      localStorage.setItem(planesKey, JSON.stringify([...planesExistentes, nuevoPlan]));
       showSuccess('Incidencia creada y plan de acción anclado');
     }
 
     handleCerrarDialog();
   };
 
-  const handleEliminar = (id: string) => {
+  const handleEliminar = async (id: string) => {
     if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
-      setIncidencias((prev) => prev.filter((inc) => inc.id !== id));
+      await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
     }
   };

@@ -60,8 +60,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
-import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
-import { getMockRiesgos } from '../../api/services/mockData';
+import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation } from '../../api/services/riesgosApi';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO } from '../../utils/constants';
 import {
   calcularRiesgoInherente,
@@ -153,47 +152,57 @@ export default function ControlesYPlanesAccionPageNueva() {
 
   // Cargar riesgos
   const { data: riesgosApiData } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 0 },
+    procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 1000, includeCausas: true } : { pageSize: 0 },
     { skip: !procesoSeleccionado }
   );
 
+  const [updateCausa] = useUpdateCausaMutation();
+  const [updateRiesgo] = useUpdateRiesgoMutation();
+
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
-
-    // 1. Try Local Storage first (most recent edits)
-    const riesgosIdentificacion = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-    if (riesgosIdentificacion) {
-      try { return JSON.parse(riesgosIdentificacion); } catch (error) { console.error('Error al cargar riesgos LS:', error); }
-    }
-
-    // 2. Try API Data
-    if (riesgosApiData && (riesgosApiData as any).data && (riesgosApiData as any).data.length > 0) {
-      return (riesgosApiData as any).data;
-    }
-
-    // 3. Try generic Mock/Process Data
-    const riesgosData = localStorage.getItem('riesgos');
-    if (riesgosData) {
-      return JSON.parse(riesgosData).filter((r: any) => r.procesoId === procesoSeleccionado.id);
-    }
-
-    const mockRiesgosResponse = getMockRiesgos({ procesoId: procesoSeleccionado.id });
-    return mockRiesgosResponse.data || [];
+    const data = ((riesgosApiData as any)?.data || []) as any[];
+    return data.map((riesgo) => ({
+      ...riesgo,
+      causas: (riesgo.causas || []).map((causa: any) => ({
+        ...causa,
+        ...(causa.gestion || {})
+      }))
+    }));
   }, [procesoSeleccionado?.id, riesgosApiData]);
 
-  // Cargar y Guardar Clasificaciones LocalStorage
   useEffect(() => {
-    if (procesoSeleccionado?.id) {
-      const stored = localStorage.getItem(`clasificaciones_${procesoSeleccionado.id}`);
-      if (stored) try { setClasificaciones(JSON.parse(stored)); } catch (error) { console.error(error); }
-    }
-  }, [procesoSeleccionado?.id]);
-
-  useEffect(() => {
-    if (procesoSeleccionado?.id && clasificaciones.length >= 0) {
-      localStorage.setItem(`clasificaciones_${procesoSeleccionado.id}`, JSON.stringify(clasificaciones));
-    }
-  }, [clasificaciones, procesoSeleccionado?.id]);
+    const nuevas: ClasificacionCausa[] = [];
+    riesgosDelProceso.forEach((riesgo: any) => {
+      (riesgo.causas || []).forEach((causa: any) => {
+        if (causa.tipoGestion || causa.gestion) {
+          nuevas.push({
+            id: `${riesgo.id}-${causa.id}`,
+            causaId: causa.id,
+            riesgoId: String(riesgo.id),
+            tipo: (String(causa.tipoGestion || causa.gestion?.tipoGestion || '') || '').toLowerCase() as any,
+            controlDescripcion: causa.controlDescripcion,
+            controlTipo: causa.controlTipo,
+            controlDesviaciones: causa.controlDesviaciones,
+            impactosResiduales: causa.impactosResiduales,
+            frecuenciaResidual: causa.frecuenciaResidual,
+            riesgoResidual: causa.riesgoResidual,
+            nivelRiesgoResidual: causa.nivelRiesgoResidual,
+            planDescripcion: causa.planDescripcion,
+            planDetalle: causa.planDetalle,
+            planResponsable: causa.planResponsable,
+            planDecision: causa.planDecision,
+            planFechaEstimada: causa.planFechaEstimada,
+            planEstado: causa.planEstado,
+            procesoId: String(procesoSeleccionado?.id || ''),
+            createdAt: causa.createdAt || new Date().toISOString(),
+            updatedAt: causa.updatedAt || new Date().toISOString(),
+          });
+        }
+      });
+    });
+    setClasificaciones(nuevas);
+  }, [riesgosDelProceso, procesoSeleccionado?.id]);
 
   // Derived Logic
   const causasNoClasificadas = useMemo(() => {
@@ -239,15 +248,9 @@ export default function ControlesYPlanesAccionPageNueva() {
   const controles = useMemo(() => clasificaciones.filter(c => c.tipo === 'control'), [clasificaciones]);
   const planes = useMemo(() => clasificaciones.filter(c => c.tipo === 'plan'), [clasificaciones]);
 
-  // Actualizar Riesgo LocalStorage (Residual)
-  const actualizarRiesgoLocalStorage = (riesgoId: string, updates: Partial<RiesgoFormData>) => {
-    const storedRiesgos = JSON.parse(localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado?.id}`) || '[]');
-    const newStoredRiesgos = storedRiesgos.map((r: any) => r.id === riesgoId ? { ...r, ...updates } : r);
-    localStorage.setItem(`riesgos_identificacion_${procesoSeleccionado?.id}`, JSON.stringify(newStoredRiesgos));
-    window.dispatchEvent(new Event('storage'));
-
-    // Force update triggers
-    window.location.reload();
+  // Actualizar Riesgo en API (Residual)
+  const actualizarRiesgoApi = async (riesgoId: string, updates: Partial<RiesgoFormData>) => {
+    await updateRiesgo({ id: String(riesgoId), ...updates } as any).unwrap();
   };
 
   // Handlers Residual
@@ -332,7 +335,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     }
   };
 
-  const handleGuardarClasificacion = () => {
+  const handleGuardarClasificacion = async () => {
     if (!causaEnEdicion) return;
     const { riesgoId, causa, clasificacion } = causaEnEdicion;
     // ... Validations simplified for brevity ...
@@ -348,11 +351,19 @@ export default function ControlesYPlanesAccionPageNueva() {
       planDecision: tipoClasificacion === 'plan' ? formPlan.decision : undefined,
       planFechaEstimada: tipoClasificacion === 'plan' ? formPlan.fechaEstimada : undefined,
       planEstado: tipoClasificacion === 'plan' ? formPlan.estado : undefined,
-      procesoId: procesoSeleccionado!.id,
+      procesoId: String(procesoSeleccionado!.id),
       createdAt: clasificacion?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     if (clasificacion) setClasificaciones(clasificaciones.map(c => c.id === clasificacion.id ? nuevaClasificacion : c));
     else setClasificaciones([...clasificaciones, nuevaClasificacion]);
+    await updateCausa({
+      id: causa.id,
+      tipoGestion: tipoClasificacion.toUpperCase(),
+      gestion: {
+        ...nuevaClasificacion,
+        tipoGestion: tipoClasificacion.toUpperCase()
+      }
+    }).unwrap();
     showSuccess('Causa clasificada correctamente');
     setCausaEnEdicion(null);
   };
@@ -361,10 +372,11 @@ export default function ControlesYPlanesAccionPageNueva() {
     const r = riesgosDelProceso.find((r: any) => r.id === riesgoId);
     return r?.nombre || r?.descripcionRiesgo || riesgoId;
   };
-  const handleGuardarEvaluacion = () => {
+  const handleGuardarEvaluacion = async () => {
     const riesgo = riesgosDelProceso.find((r: any) => r.id === riesgoIdEvaluacion);
     if (!riesgo || !causaIdEvaluacion) return;
 
+    let causaActualizada: any = null;
     const causasUpd = riesgo.causas.map((c: any) => {
       if (c.id === causaIdEvaluacion) {
         if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || (!tipoClasificacion)) {
@@ -388,7 +400,7 @@ export default function ControlesYPlanesAccionPageNueva() {
 
           const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
           const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
-          return {
+          causaActualizada = {
             ...c, ...criteriosEvaluacion,
             controlDesviaciones: criteriosEvaluacion.desviaciones,
             controlDescripcion: criteriosEvaluacion.descripcionControl,
@@ -399,9 +411,10 @@ export default function ControlesYPlanesAccionPageNueva() {
             frecuenciaResidual: fRes, impactoResidual: iRes,
             calificacionResidual: calcularCalificacionResidual(fRes, iRes)
           };
+          return causaActualizada;
         } else {
           // PLAN
-          return {
+          causaActualizada = {
             ...c,
             tipoGestion: 'PLAN',
             planDescripcion: formPlan.descripcion,
@@ -410,6 +423,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             planFechaEstimada: formPlan.fechaEstimada,
             puntajeTotal: undefined, porcentajeMitigacion: 0
           };
+          return causaActualizada;
         }
       }
       return c;
@@ -430,7 +444,15 @@ export default function ControlesYPlanesAccionPageNueva() {
         return residual !== undefined ? residual : inherente;
       }));
 
-      actualizarRiesgoLocalStorage(riesgoIdEvaluacion, {
+      if (causaActualizada) {
+        await updateCausa({
+          id: causaActualizada.id,
+          tipoGestion: causaActualizada.tipoGestion,
+          gestion: causaActualizada
+        }).unwrap();
+      }
+
+      await actualizarRiesgoApi(riesgoIdEvaluacion, {
         causas: causasUpd,
         riesgoResidual: maxRiesgoResidual
       } as any);

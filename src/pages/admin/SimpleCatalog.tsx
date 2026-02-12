@@ -114,17 +114,24 @@ export default function SimpleCatalog({
                 <DialogTitle>{editingItem ? `Editar ${itemLabel}` : `Nuevo ${itemLabel}`}</DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
-                        {Object.keys(defaultItem).filter(k => k !== 'id').map((key) => (
-                            <Grid2 xs={12} key={key}>
-                                <TextField
-                                    fullWidth
-                                    label={key.charAt(0).toUpperCase() + key.slice(1)}
-                                    value={formData[key] || ''}
-                                    onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                                    required
-                                />
-                            </Grid2>
-                        ))}
+                        {columns.map((col) => {
+                            if (col.field === 'actions') return null;
+                            if (col.field === 'id') return null;
+                            if (col.field === 'codigo' && col.editable === false) return null;
+                            const isEditable = col.editable !== false;
+                            return (
+                                <Grid2 xs={12} key={col.field}>
+                                    <TextField
+                                        fullWidth
+                                        label={col.headerName || col.field}
+                                        value={formData[col.field] || ''}
+                                        onChange={(e) => setFormData({ ...formData, [col.field]: e.target.value })}
+                                        disabled={!isEditable && !!editingItem} // Disable only if editing existing
+                                        required={isEditable}
+                                    />
+                                </Grid2>
+                            );
+                        })}
                     </Grid2>
                 </DialogContent>
                 <DialogActions>

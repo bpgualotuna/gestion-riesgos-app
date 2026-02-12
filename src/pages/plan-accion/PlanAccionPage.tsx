@@ -3,7 +3,7 @@
  * Incluye: Clasificación de Causas, Calificación Residual y Planes de Acción
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -49,7 +49,7 @@ import {
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
+import { useGetRiesgosQuery, useUpdateRiesgoMutation, useUpdateCausaMutation, useGetPlanesQuery, useCreatePlanAccionMutation } from '../../api/services/riesgosApi';
 import { RiesgoFormData, CausaRiesgo } from '../../types';
 import {
   calcularPuntajeControl,
@@ -110,6 +110,10 @@ export default function PlanAccionPage() {
 
   // Mock Planes
   const [planesAccion, setPlanesAccion] = useState<PlanAccion[]>([]);
+  const { data: planesApi = [] } = useGetPlanesQuery();
+  const [createPlanAccion] = useCreatePlanAccionMutation();
+  const [updateRiesgo] = useUpdateRiesgoMutation();
+  const [updateCausa] = useUpdateCausaMutation();
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [planDetalleOpen, setPlanDetalleOpen] = useState(false);
   const [planSeleccionadoDetalle, setPlanSeleccionadoDetalle] = useState<PlanAccion | null>(null);
@@ -125,45 +129,46 @@ export default function PlanAccionPage() {
   });
 
   // Carga de Riesgos
-  const riesgosIdentificacion = useMemo(() => {
-    if (!procesoSeleccionado?.id) return [];
-    const stored = localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado.id}`);
-    if (stored) {
-      try { return JSON.parse(stored); } catch (e) { console.error(e); }
-    }
-    return [];
-  }, [procesoSeleccionado?.id]);
-
   const { data: riesgosData } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
+    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000, includeCausas: true } : { pageSize: 1000 }
   );
 
   const riesgos = useMemo(() => {
-    const riesgosCombinados: any[] = [];
-    riesgosIdentificacion.forEach((riesgo: RiesgoFormData) => {
-      riesgosCombinados.push({
-        id: riesgo.id,
-        numeroIdentificacion: riesgo.numeroIdentificacion,
-        descripcionRiesgo: riesgo.descripcionRiesgo,
-        tipoRiesgo: riesgo.tipoRiesgo,
-        causas: riesgo.causas || [],
-        _datosCompletos: riesgo,
-      });
-    });
-    return riesgosCombinados;
-  }, [riesgosIdentificacion, riesgosData, procesoSeleccionado]);
+    const data = ((riesgosData as any)?.data || []) as any[];
+    return data.map((riesgo) => ({
+      ...riesgo,
+      descripcionRiesgo: riesgo.descripcion,
+      causas: (riesgo.causas || []).map((causa: any) => ({
+        ...causa,
+        ...(causa.gestion || {})
+      }))
+    }));
+  }, [riesgosData, procesoSeleccionado]);
+
+  useEffect(() => {
+    const mapped = (planesApi || []).map((plan: any) => ({
+      id: String(plan.id),
+      riesgoId: String(plan.riesgoId || ''),
+      nombre: plan.nombre || plan.descripcion || 'Plan de acción',
+      descripcion: plan.descripcion,
+      objetivo: plan.objetivo || '',
+      fechaInicio: plan.fechaInicio ? String(plan.fechaInicio).slice(0, 10) : '',
+      fechaLimite: plan.fechaFin ? String(plan.fechaFin).slice(0, 10) : '',
+      responsableNombre: plan.responsable || '',
+      estado: (plan.estado || 'borrador') as any,
+      porcentajeAvance: plan.porcentajeAvance || 0,
+      presupuesto: plan.presupuesto,
+      observaciones: plan.observaciones
+    }));
+    setPlanesAccion(mapped);
+  }, [planesApi]);
 
   const handleToggleExpandir = (id: string) => {
     setRiesgosExpandidos((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const actualizarRiesgoLocalStorage = (riesgoId: string, updates: Partial<RiesgoFormData>) => {
-    const storedRiesgos = JSON.parse(localStorage.getItem(`riesgos_identificacion_${procesoSeleccionado?.id}`) || '[]');
-    const newStoredRiesgos = storedRiesgos.map((r: any) =>
-      r.id === riesgoId ? { ...r, ...updates } : r
-    );
-    localStorage.setItem(`riesgos_identificacion_${procesoSeleccionado?.id}`, JSON.stringify(newStoredRiesgos));
-    window.dispatchEvent(new Event('storage'));
+  const actualizarRiesgoApi = async (riesgoId: string, updates: Partial<RiesgoFormData>) => {
+    await updateRiesgo({ id: String(riesgoId), ...updates } as any).unwrap();
   };
 
   const isReadOnly = modoProceso === 'visualizar';
@@ -507,13 +512,34 @@ export default function PlanAccionPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPlanDialogOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={() => {
-            setPlanesAccion([...planesAccion, {
-              id: Date.now().toString(),
-              riesgoId: riesgoIdEvaluacion || '',
-              ...formPlan,
+          <Button variant="contained" onClick={async () => {
+            const created = await createPlanAccion({
+              riesgoId: riesgoIdEvaluacion,
+              nombre: formPlan.nombre,
+              descripcion: formPlan.descripcion,
+              objetivo: formPlan.objetivo,
+              fechaInicio: formPlan.fechaInicio,
+              fechaFin: formPlan.fechaLimite,
+              responsable: formPlan.responsableNombre,
+              presupuesto: formPlan.presupuesto,
+              observaciones: formPlan.observaciones,
               estado: 'borrador',
               porcentajeAvance: 0
+            }).unwrap();
+
+            setPlanesAccion([...planesAccion, {
+              id: String(created.id),
+              riesgoId: String(created.riesgoId || riesgoIdEvaluacion || ''),
+              nombre: created.nombre || formPlan.nombre,
+              descripcion: created.descripcion,
+              objetivo: created.objetivo || formPlan.objetivo,
+              fechaInicio: created.fechaInicio ? String(created.fechaInicio).slice(0, 10) : formPlan.fechaInicio,
+              fechaLimite: created.fechaFin ? String(created.fechaFin).slice(0, 10) : formPlan.fechaLimite,
+              responsableNombre: created.responsable || formPlan.responsableNombre,
+              estado: created.estado || 'borrador',
+              porcentajeAvance: created.porcentajeAvance || 0,
+              presupuesto: created.presupuesto,
+              observaciones: created.observaciones
             }]);
             setPlanDialogOpen(false);
             showSuccess('Plan de acción creado exitosamente');
@@ -663,9 +689,10 @@ export default function PlanAccionPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogEvaluacionOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={() => {
+          <Button variant="contained" onClick={async () => {
             const riesgo = riesgos.find(r => r.id === riesgoIdEvaluacion);
             if (riesgo && causaIdEvaluacion) {
+              let causaActualizada: any = null;
               const causasUpd = riesgo.causas.map((c: any) => {
                 if (c.id === causaIdEvaluacion) {
                   // Logic recalculation
@@ -676,18 +703,25 @@ export default function PlanAccionPage() {
                   const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
                   const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
 
-                  return {
+                  causaActualizada = {
                     ...c, ...criteriosEvaluacion,
                     puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
                     frecuenciaResidual: fRes, impactoResidual: iRes,
                     calificacionResidual: calcularCalificacionResidual(fRes, iRes)
                   };
+                  return causaActualizada;
                 }
                 return c;
               });
-              actualizarRiesgoLocalStorage(riesgoIdEvaluacion!, { causas: causasUpd });
+              if (causaActualizada) {
+                await updateCausa({
+                  id: causaActualizada.id,
+                  tipoGestion: 'CONTROL',
+                  gestion: causaActualizada
+                }).unwrap();
+              }
+              await actualizarRiesgoApi(riesgoIdEvaluacion!, { causas: causasUpd } as any);
               setDialogEvaluacionOpen(false);
-              window.location.reload();
             }
           }}>Guardar</Button>
         </DialogActions>

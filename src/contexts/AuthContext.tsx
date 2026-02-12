@@ -4,8 +4,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getMockUsuarios } from '../api/services/mockData';
-// User roles matching mockData
+// User roles
 export type UserRole = 'admin' | 'dueño_procesos' | 'supervisor' | 'gerente_general';
 export type GerenteGeneralModo = 'director' | 'proceso';
 
@@ -30,7 +29,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   isLoading: boolean;
   gerenteGeneralMode: GerenteGeneralModo | null;
@@ -54,25 +53,12 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const storedUser = localStorage.getItem('currentUser');
-      return storedUser ? JSON.parse(storedUser) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [gerenteGeneralMode, setGerenteGeneralModeState] = useState<GerenteGeneralModo | null>(() => {
-    const storedMode = localStorage.getItem('gerenteGeneralMode');
-    if (storedMode === 'director' || storedMode === 'proceso') {
-      return storedMode;
-    }
-    return null;
-  });
+  const [gerenteGeneralMode, setGerenteGeneralModeState] = useState<GerenteGeneralModo | null>(null);
 
   // Login function
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/login`, {
         method: 'POST',
@@ -98,12 +84,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         setUser(contextUser);
-        localStorage.setItem('currentUser', JSON.stringify(contextUser));
         if (contextUser.role === 'gerente_general') {
           setGerenteGeneralModeState(null);
-          localStorage.removeItem('gerenteGeneralMode');
         }
-        return { success: true };
+        return { success: true, user: contextUser };
       } else {
         return { success: false, error: data.error || 'Credenciales inválidas' };
       }
@@ -116,18 +100,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Logout function
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('gerenteGeneralMode');
     setGerenteGeneralModeState(null);
   };
 
   const setGerenteGeneralMode = (mode: GerenteGeneralModo | null) => {
     setGerenteGeneralModeState(mode);
-    if (mode) {
-      localStorage.setItem('gerenteGeneralMode', mode);
-    } else {
-      localStorage.removeItem('gerenteGeneralMode');
-    }
   };
 
   const esGerenteGeneral = user?.role === 'gerente_general';

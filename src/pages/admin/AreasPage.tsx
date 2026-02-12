@@ -81,6 +81,8 @@ export default function AreasPage() {
         }
     }, [procesosData]);
 
+    const [tabValue, setTabValue] = useState(0);
+
     const [searchAreas, setSearchAreas] = useState('');
     const [searchAssignments, setSearchAssignments] = useState('');
 

@@ -6,9 +6,14 @@
 import { useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import type { HistorialCambio } from '../types';
+import { useCreateHistorialMutation, useGetHistorialQuery } from '../api/services/riesgosApi';
 
-export function useHistorialCambios() {
+export function useHistorialCambios(procesoId?: string) {
   const { user } = useAuth();
+  const { data: historialApi = [] } = useGetHistorialQuery(procesoId || '', { skip: !procesoId });
+  const [createHistorial] = useCreateHistorialMutation();
+
+  const historialMemo = useMemo(() => historialApi as HistorialCambio[], [historialApi]);
 
   /**
    * Registra un cambio en el historial
@@ -24,9 +29,6 @@ export function useHistorialCambios() {
       valoresNuevos?: Record<string, any>;
       razonCambio?: string;
     }) => {
-      const historialRaw = localStorage.getItem('historial_cambios');
-      const historial: HistorialCambio[] = historialRaw ? JSON.parse(historialRaw) : [];
-
       const nuevoCambio: HistorialCambio = {
         id: `cambio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         procesoId: params.procesoId,
@@ -43,28 +45,25 @@ export function useHistorialCambios() {
         createdAt: new Date().toISOString(),
       };
 
-      historial.push(nuevoCambio);
-      localStorage.setItem('historial_cambios', JSON.stringify(historial));
-
+      createHistorial(nuevoCambio);
       return nuevoCambio;
     },
-    [user]
+    [createHistorial, user]
   );
 
   /**
    * Obtiene el historial completo
    */
   const obtenerHistorial = useCallback((): HistorialCambio[] => {
-    const historialRaw = localStorage.getItem('historial_cambios');
-    return historialRaw ? JSON.parse(historialRaw) : [];
-  }, []);
+    return historialMemo;
+  }, [historialMemo]);
 
   /**
    * Obtiene el historial filtrado por proceso
    */
-  const obtenerHistorialPorProceso = useCallback((procesoId: string): HistorialCambio[] => {
+  const obtenerHistorialPorProceso = useCallback((idProceso: string): HistorialCambio[] => {
     const historial = obtenerHistorial();
-    return historial.filter((cambio) => cambio.procesoId === procesoId);
+    return historial.filter((cambio) => cambio.procesoId === idProceso);
   }, [obtenerHistorial]);
 
   /**
@@ -82,8 +81,8 @@ export function useHistorialCambios() {
    * Obtiene los últimos N cambios de un proceso
    */
   const obtenerUltimosCambios = useCallback(
-    (procesoId: string, limite: number = 10): HistorialCambio[] => {
-      const historial = obtenerHistorialPorProceso(procesoId);
+    (idProceso: string, limite: number = 10): HistorialCambio[] => {
+      const historial = obtenerHistorialPorProceso(idProceso);
       return historial
         .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
         .slice(0, limite);
@@ -155,14 +154,14 @@ export function useHistorialCambios() {
    * Limpia el historial completo (solo para administradores)
    */
   const limpiarHistorial = useCallback(() => {
-    localStorage.removeItem('historial_cambios');
+    // No hay endpoint de limpieza. Se deja como no-op.
   }, []);
 
   /**
    * Exporta el historial a JSON
    */
-  const exportarHistorial = useCallback((procesoId?: string): string => {
-    const historial = procesoId ? obtenerHistorialPorProceso(procesoId) : obtenerHistorial();
+  const exportarHistorial = useCallback((idProceso?: string): string => {
+    const historial = idProceso ? obtenerHistorialPorProceso(idProceso) : obtenerHistorial();
     return JSON.stringify(historial, null, 2);
   }, [obtenerHistorial, obtenerHistorialPorProceso]);
 

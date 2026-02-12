@@ -408,6 +408,19 @@ export interface Fuente {
   nombre: string;
 }
 
+export interface ImpactoNivel {
+  id: number;
+  nivel: number;
+  descripcion: string;
+}
+
+export interface ImpactoTipo {
+  id: number;
+  clave: string;
+  nombre: string;
+  niveles: ImpactoNivel[];
+}
+
 export interface ImpactoDescripcion {
   categoria?: string;
   nivel?: number;

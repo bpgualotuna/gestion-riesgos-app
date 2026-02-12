@@ -34,7 +34,6 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Proceso } from '../../types';
-import { getMockGerencias, getMockVicepresidencias, getMockAreas, getMockTiposProceso } from '../../api/services/mockData';
 import {
     useGetProcesosQuery,
     useCreateProcesoMutation,
@@ -42,7 +41,8 @@ import {
     useDeleteProcesoMutation,
     useGetTiposProcesoQuery,
     useGetGerenciasQuery,
-    useGetAreasQuery
+    useGetAreasQuery,
+    useGetUsuariosQuery
 } from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
@@ -84,6 +84,7 @@ export default function ProcesosDefinicionPage() {
     const { data: tiposProceso = [], isLoading: loadingTipos } = useGetTiposProcesoQuery();
     const { data: gerencias = [], isLoading: loadingGerencias } = useGetGerenciasQuery();
     const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
+    const { data: usuarios = [], isLoading: loadingUsuarios } = useGetUsuariosQuery();
 
     // Mutations
     const [createProceso] = useCreateProcesoMutation();
@@ -115,6 +116,7 @@ export default function ProcesosDefinicionPage() {
         tipoProceso: '',
         areaId: '',
         areaNombre: '',
+        responsableId: '',
         activo: true,
     });
     const [tipoFormData, setTipoFormData] = useState<any>({
@@ -156,9 +158,10 @@ export default function ProcesosDefinicionPage() {
                 vicepresidencia: proceso.vicepresidencia,
                 gerencia: proceso.gerencia,
                 objetivoProceso: proceso.objetivoProceso,
-                tipoProceso: proceso.tipoProceso,
+                tipoProceso: proceso.tipoProceso || (proceso as any).tipo,
                 areaId: proceso.areaId,
                 areaNombre: proceso.areaNombre,
+                responsableId: proceso.responsableId || (proceso as any).responsable?.id,
                 activo: proceso.activo,
             });
         } else {
@@ -172,6 +175,7 @@ export default function ProcesosDefinicionPage() {
                 tipoProceso: '',
                 areaId: '',
                 areaNombre: '',
+                responsableId: '',
                 activo: true,
             });
         }
@@ -241,12 +245,22 @@ export default function ProcesosDefinicionPage() {
             return;
         }
 
+        const payload = {
+            ...formData,
+            objetivo: formData.objetivoProceso,
+            tipo: formData.tipoProceso,
+        };
+        // Eliminar campos que no existen en el esquema o son redundantes
+        delete (payload as any).objetivoProceso;
+        delete (payload as any).tipoProceso;
+        delete (payload as any).areaNombre;
+
         try {
             if (editingProceso) {
-                await updateProceso({ id: editingProceso.id, ...formData } as any).unwrap();
+                await updateProceso({ id: editingProceso.id, ...payload } as any).unwrap();
                 showSuccess('Proceso actualizado correctamente');
             } else {
-                await createProceso(formData as any).unwrap();
+                await createProceso(payload as any).unwrap();
                 showSuccess('Proceso creado correctamente');
             }
             handleCloseDialog();
@@ -557,6 +571,19 @@ export default function ProcesosDefinicionPage() {
                                     areaNombre: newValue?.nombre || ''
                                 })}
                                 renderInput={(params) => <TextField {...params} label="Área de Asignación" />}
+                                fullWidth
+                            />
+                        </Grid2>
+                        <Grid2 xs={12} md={6}>
+                            <Autocomplete
+                                options={usuarios}
+                                getOptionLabel={(option) => option.nombre || ''}
+                                value={usuarios.find(u => String(u.id) === String(formData.responsableId)) || null}
+                                onChange={(_e, newValue) => setFormData({
+                                    ...formData,
+                                    responsableId: newValue?.id || ''
+                                })}
+                                renderInput={(params) => <TextField {...params} label="Responsable del Proceso" />}
                                 fullWidth
                             />
                         </Grid2>

@@ -24,24 +24,20 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef } from '@mui/x-data-grid';
 
 interface ImpactosCatalogProps {
-    data: Record<string, Record<number, string>>;
-    onSave: (data: Record<string, Record<number, string>>) => void;
+    tipos: { id: number; clave: string; nombre: string }[];
+    nivelesByTipo: Record<number, Record<number, string>>;
+    onSaveNiveles: (tipoId: number, niveles: Record<number, string>) => void;
+    onAddTipo: (data: { clave: string; nombre: string }) => void;
+    onDeleteTipo: (tipoId: number) => void;
 }
 
-// Mapeo de IDs a nombres de tipos de impacto
-const IMPACT_TYPE_LABELS: Record<string, string> = {
-    '1': 'Ambiental',
-    '2': 'Confidencialidad',
-    '3': 'Disponibilidad SGSI',
-    '4': 'Económico',
-    '5': 'Integridad SGSI',
-    '6': 'Legal/Normativo',
-    '7': 'Personas',
-    '8': 'Procesos',
-    '9': 'Reputacional',
-};
-
-export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) {
+export default function ImpactosCatalog({
+    tipos,
+    nivelesByTipo,
+    onSaveNiveles,
+    onAddTipo,
+    onDeleteTipo,
+}: ImpactosCatalogProps) {
     const [open, setOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [descriptions, setDescriptions] = useState<Record<number, string>>({});
@@ -49,18 +45,19 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
     const [newImpactType, setNewImpactType] = useState('');
     const [newError, setNewError] = useState('');
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-    const [selectedDetailKey, setSelectedDetailKey] = useState<string | null>(null);
+    const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null);
 
-    // Convert object to array for DataGrid
-    const rows = Object.keys(data).map(key => ({
-        id: key,
-        nombre: IMPACT_TYPE_LABELS[key] || 'Desconocido',
-        key: key
+    // Convert to array for DataGrid
+    const safeTipos = Array.isArray(tipos) ? tipos : [];
+    const rows = safeTipos.map((t) => ({
+        id: t.id,
+        nombre: t.nombre,
+        clave: t.clave,
     }));
 
     const handleOpen = (row: any) => {
-        setEditingKey(row.key);
-        setDescriptions({ ...data[row.key] });
+        setEditingKey(String(row.id));
+        setDescriptions({ ...nivelesByTipo[row.id] });
         setOpen(true);
     };
 
@@ -70,20 +67,19 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
     };
 
     const handleOpenDetailDialog = (row: any) => {
-        setSelectedDetailKey(row.key);
+        setSelectedDetailId(row.id);
         setDetailDialogOpen(true);
     };
 
     const handleCloseDetailDialog = () => {
         setDetailDialogOpen(false);
-        setSelectedDetailKey(null);
+        setSelectedDetailId(null);
     };
 
     const handleSave = () => {
         if (editingKey) {
-            const newData = { ...data };
-            newData[editingKey] = descriptions;
-            onSave(newData);
+            const tipoId = Number(editingKey);
+            onSaveNiveles(tipoId, descriptions);
         }
         handleClose();
     };
@@ -112,29 +108,18 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
             .toLowerCase()
             .replace(/[^a-z0-9]+(.)/g, (_, char) => char.toUpperCase());
 
-        if (data.hasOwnProperty(camelCaseKey)) {
+        if (tipos.some((t) => t.clave === camelCaseKey)) {
             setNewError('Este tipo de impacto ya existe');
             return;
         }
 
-        // Create new impact type with default empty descriptions
-        const newData = { ...data };
-        newData[camelCaseKey] = {
-            1: '',
-            2: '',
-            3: '',
-            4: '',
-            5: '',
-        };
-        onSave(newData);
+        onAddTipo({ clave: camelCaseKey, nombre: newImpactType.trim() });
         handleCloseNew();
     };
 
-    const handleDeleteImpact = (key: string) => {
-        if (window.confirm(`¿Está seguro de que desea eliminar el tipo de impacto "${key}"?`)) {
-            const newData = { ...data };
-            delete newData[key];
-            onSave(newData);
+    const handleDeleteImpact = (row: any) => {
+        if (window.confirm(`¿Está seguro de que desea eliminar el tipo de impacto "${row.nombre}"?`)) {
+            onDeleteTipo(row.id);
         }
     };
 
@@ -152,7 +137,7 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
                     </IconButton>
                     <IconButton 
                         size="small" 
-                        onClick={() => handleDeleteImpact(params.row.key)} 
+                        onClick={() => handleDeleteImpact(params.row)} 
                         title="Eliminar"
                     >
                         <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
@@ -190,7 +175,7 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
 
             {/* Diálogo para editar descripción */}
             <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-                <DialogTitle>Editar Descripciones: {rows.find(r => r.key === editingKey)?.nombre}</DialogTitle>
+                <DialogTitle>Editar Descripciones: {rows.find(r => String(r.id) === editingKey)?.nombre}</DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         {[1, 2, 3, 4, 5].map((level) => (
@@ -251,37 +236,48 @@ export default function ImpactosCatalog({ data, onSave }: ImpactosCatalogProps) 
             <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
                 <DialogTitle>Información del Tipo de Impacto</DialogTitle>
                 <DialogContent>
-                    {selectedDetailKey && (
+                    {selectedDetailId !== null && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary">ID</Typography>
-                                <Typography variant="body1">{selectedDetailKey}</Typography>
-                            </Box>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
-                                <Typography variant="body1">{IMPACT_TYPE_LABELS[selectedDetailKey] || selectedDetailKey}</Typography>
-                            </Box>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary">Descripciones por Nivel</Typography>
-                                {[1, 2, 3, 4, 5].map((level) => (
-                                    <Box key={level} sx={{ mt: 1 }}>
-                                        <Typography variant="caption" color="text.secondary">Nivel {level}:</Typography>
-                                        <Typography variant="body2">{data[selectedDetailKey][level] || '-'}</Typography>
-                                    </Box>
-                                ))}
-                            </Box>
+                            {(() => {
+                                const row = rows.find((r) => r.id === selectedDetailId);
+                                if (!row) return null;
+                                return (
+                                    <>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">ID</Typography>
+                                            <Typography variant="body1">{row.id}</Typography>
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                            <Typography variant="body1">{row.nombre}</Typography>
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Clave</Typography>
+                                            <Typography variant="body1">{row.clave}</Typography>
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Descripciones por Nivel</Typography>
+                                            {[1, 2, 3, 4, 5].map((level) => (
+                                                <Box key={level} sx={{ mt: 1 }}>
+                                                    <Typography variant="caption" color="text.secondary">Nivel {level}:</Typography>
+                                                    <Typography variant="body2">{nivelesByTipo[row.id]?.[level] || '-'}</Typography>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    </>
+                                );
+                            })()}
                         </Box>
                     )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
                     <Button onClick={() => {
-                        if (selectedDetailKey) {
-                            const row = rows.find(r => r.key === selectedDetailKey);
-                            if (row) {
-                                handleOpen(row);
-                                handleCloseDetailDialog();
-                            }
+                        if (selectedDetailId === null) return;
+                        const row = rows.find((r) => r.id === selectedDetailId);
+                        if (row) {
+                            handleOpen(row);
+                            handleCloseDetailDialog();
                         }
                     }} variant="contained" startIcon={<EditIcon />}>
                         Editar

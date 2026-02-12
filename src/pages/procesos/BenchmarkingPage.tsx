@@ -3,7 +3,7 @@
  * Comparación de riesgos con otras empresas según análisis Excel
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -27,6 +27,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { CLASIFICACION_RIESGO } from '../../utils/constants';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import { useGetBenchmarkingByProcesoQuery, useSetBenchmarkingByProcesoMutation } from '../../api/services/riesgosApi';
 
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
@@ -45,6 +46,25 @@ export default function BenchmarkingPage() {
   const isReadOnly = modoProceso === 'visualizar';
   const [empresas] = useState(['Empresa 1', 'Empresa 2', 'Empresa 3']);
   const [benchmarking, setBenchmarking] = useState<BenchmarkingItem[]>([]);
+  const { data: benchmarkingApi = [] } = useGetBenchmarkingByProcesoQuery(
+    procesoSeleccionado?.id ? String(procesoSeleccionado.id) : '',
+    { skip: !procesoSeleccionado?.id }
+  );
+  const [setBenchmarkingByProceso] = useSetBenchmarkingByProcesoMutation();
+
+  useEffect(() => {
+    if (benchmarkingApi && Array.isArray(benchmarkingApi)) {
+      const mapped = benchmarkingApi.map((item: any) => ({
+        id: String(item.id),
+        empresa: item.empresa || item.entidad || 'Empresa',
+        numero: item.numero || 1,
+        riesgo: item.riesgo || item.indicador || '',
+        clasificacion: item.clasificacion,
+        calificacion: item.calificacion,
+      }));
+      setBenchmarking(mapped);
+    }
+  }, [benchmarkingApi]);
 
   const handleAdd = (empresa: string) => {
     const newItem: BenchmarkingItem = {
@@ -66,8 +86,12 @@ export default function BenchmarkingPage() {
     );
   };
 
-  const handleSave = () => {
-    localStorage.setItem('benchmarking', JSON.stringify(benchmarking));
+  const handleSave = async () => {
+    if (!procesoSeleccionado?.id) {
+      showError('Seleccione un proceso');
+      return;
+    }
+    await setBenchmarkingByProceso({ procesoId: procesoSeleccionado.id, items: benchmarking }).unwrap();
     showSuccess('Datos de benchmarking guardados exitosamente');
   };
 
