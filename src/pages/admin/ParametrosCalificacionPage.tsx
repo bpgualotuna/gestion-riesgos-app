@@ -328,6 +328,36 @@ export default function ParametrosCalificacionPage() {
         [frecuencias, searchCausas.frecuencias]
     );
 
+    const impactoPesosColumns = useMemo(() => [
+        { field: 'label', headerName: 'Dimensión', flex: 1 },
+        { field: 'porcentaje', headerName: 'Porcentaje', width: 140 },
+        {
+            field: 'actions',
+            headerName: 'Acciones',
+            width: 100,
+            renderCell: (params: any) => (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <EditIcon
+                        sx={{
+                            color: '#2196f3',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            '&:hover': { opacity: 0.7 }
+                        }}
+                        onClick={() => {
+                            setPesoEditing({
+                                key: params.row.key,
+                                label: params.row.label,
+                                porcentaje: params.row.porcentaje,
+                            });
+                            setPesoDialogOpen(true);
+                        }}
+                    />
+                </Box>
+            ),
+        },
+    ], []);
+
     return (
         <AppPageLayout
             title="Parámetros de Calificación e Identificación"
@@ -754,35 +784,7 @@ export default function ParametrosCalificacionPage() {
                             </Box>
                             <AppDataGrid
                                 rows={impactoPesos}
-                                columns={[
-                                    { field: 'label', headerName: 'Dimensión', flex: 1 },
-                                    { field: 'porcentaje', headerName: 'Porcentaje', width: 140 },
-                                    {
-                                        field: 'actions',
-                                        headerName: 'Acciones',
-                                        width: 100,
-                                        renderCell: (params) => (
-                                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                                <EditIcon
-                                                    sx={{
-                                                        color: '#2196f3',
-                                                        cursor: 'pointer',
-                                                        fontSize: '20px',
-                                                        '&:hover': { opacity: 0.7 }
-                                                    }}
-                                                    onClick={() => {
-                                                        setPesoEditing({
-                                                            key: params.row.key,
-                                                            label: params.row.label,
-                                                            porcentaje: params.row.porcentaje,
-                                                        });
-                                                        setPesoDialogOpen(true);
-                                                    }}
-                                                />
-                                            </Box>
-                                        ),
-                                    },
-                                ]}
+                                columns={impactoPesosColumns}
                                 getRowId={(row) => row.id}
                             />
                         </Box>

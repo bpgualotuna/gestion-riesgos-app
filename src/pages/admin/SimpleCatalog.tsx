@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -47,7 +47,7 @@ export default function SimpleCatalog({
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
     const [selectedDetail, setSelectedDetail] = useState<any | null>(null);
 
-    const handleOpen = (item?: any) => {
+    const handleOpen = useCallback((item?: any) => {
         if (item) {
             setEditingItem(item);
             setFormData({ ...item });
@@ -56,17 +56,17 @@ export default function SimpleCatalog({
             setFormData({ ...defaultItem });
         }
         setOpen(true);
-    };
+    }, [defaultItem]);
 
     const handleClose = () => {
         setOpen(false);
         setEditingItem(null);
     };
 
-    const handleOpenDetailDialog = (item: any) => {
+    const handleOpenDetailDialog = useCallback((item: any) => {
         setSelectedDetail(item);
         setDetailDialogOpen(true);
-    };
+    }, []);
 
     const handleCloseDetailDialog = () => {
         setDetailDialogOpen(false);
@@ -92,7 +92,7 @@ export default function SimpleCatalog({
                 </IconButton>
             </Box>
         ),
-    }), []);
+    }), [handleOpen, onDelete]);
 
     const allColumns = useMemo(() => [...columns, actionColumn], [columns, actionColumn]);
 
