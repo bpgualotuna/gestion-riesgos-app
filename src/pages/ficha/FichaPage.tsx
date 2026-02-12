@@ -42,6 +42,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 interface FichaData {
   vicepresidencia: string;
   gerencia: string;
+  gerenciaSigla?: string; // Sigla de la gerencia para generación de IDs en riesgos
   area: string;
   responsable: string;
   encargado: string; // Quién está a cargo del proceso
@@ -172,9 +173,14 @@ export default function FichaPage() {
   // Cargar datos del proceso seleccionado
   const [formData, setFormData] = useState<FichaData>(() => {
     if (procesoActual) {
+      // Extraer sigla del catálogo de gerencias si existe
+      const gerenciaObj = gerencias?.find((g: any) => String(g.id) === String(procesoActual.gerencia));
+      const gerenciaSigla = gerenciaObj?.sigla || '';
+      
       return {
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
+        gerenciaSigla: gerenciaSigla,
         area: procesoActual.areaNombre || procesoActual.area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
@@ -185,6 +191,7 @@ export default function FichaPage() {
     return {
       vicepresidencia: '',
       gerencia: '',
+      gerenciaSigla: '',
       area: '',
       responsable: '',
       encargado: '',
@@ -196,9 +203,14 @@ export default function FichaPage() {
   // Actualizar formData cuando cambie el proceso seleccionado
   useEffect(() => {
     if (procesoActual) {
+      // Extraer sigla del catálogo de gerencias si existe
+      const gerenciaObj = gerencias?.find((g: any) => String(g.id) === String(procesoActual.gerencia));
+      const gerenciaSigla = gerenciaObj?.sigla || '';
+      
       setFormData({
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
+        gerenciaSigla: gerenciaSigla,
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',

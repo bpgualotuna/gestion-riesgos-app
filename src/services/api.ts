@@ -11,7 +11,7 @@
  * api.procesos.getById(1)
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api'
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || (typeof process !== 'undefined' && process.env && (process.env.REACT_APP_API_URL as string)) || 'http://localhost:8080/api'
 
 // ============================================
 // Configuración Headers
@@ -149,7 +149,7 @@ export const api = {
 
     // ========== RIESGOS ==========
     riesgos: {
-        getAll: async (filtros?: { procesoId?: number; clasificacion?: string; zona?: string; busqueda?: string; page?: number; pageSize?: number }) => {
+        getAll: async (filtros?: { procesoId?: number; clasificacion?: string; zona?: string; busqueda?: string; page?: number; pageSize?: number; includeCausas?: string }) => {
             const params = new URLSearchParams()
             if (filtros?.procesoId) params.append('procesoId', String(filtros.procesoId))
             if (filtros?.clasificacion) params.append('clasificacion', filtros.clasificacion)
@@ -157,6 +157,7 @@ export const api = {
             if (filtros?.busqueda) params.append('busqueda', filtros.busqueda)
             if (filtros?.page) params.append('page', String(filtros.page))
             if (filtros?.pageSize) params.append('pageSize', String(filtros.pageSize))
+            if (filtros?.includeCausas) params.append('includeCausas', filtros.includeCausas)
 
             const url = `${API_BASE_URL}/riesgos${params.toString() ? '?' + params.toString() : ''}`
             const res = await fetch(url, { headers: getHeaders() })
@@ -196,6 +197,24 @@ export const api = {
                 : `${API_BASE_URL}/riesgos/estadisticas`
             const res = await fetch(url, { headers: getHeaders() })
             return handleResponse(res)
+        },
+        causas: {
+            create: async (data: any) => {
+                const res = await fetch(`${API_BASE_URL}/riesgos/causas`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify(data)
+                })
+                return handleResponse(res)
+            },
+            update: async (id: number, data: any) => {
+                const res = await fetch(`${API_BASE_URL}/riesgos/causas/${id}`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify(data)
+                })
+                return handleResponse(res)
+            }
         }
     },
 

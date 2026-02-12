@@ -49,6 +49,8 @@ import {
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import { useRiesgo } from '../../contexts/RiesgoContext';
+import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
 import { useGetRiesgosQuery, useUpdateRiesgoMutation, useUpdateCausaMutation, useGetPlanesQuery, useCreatePlanAccionMutation } from '../../api/services/riesgosApi';
 import { RiesgoFormData, CausaRiesgo } from '../../types';
 import {
@@ -84,6 +86,7 @@ interface PlanAccion {
 export default function PlanAccionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const { showSuccess } = useNotification();
+  const { riesgos: riesgosContexto } = useRiesgos();
 
   // Estados
   const [activeTab, setActiveTab] = useState(0); // 0: Clasificación, 1: Residual, 2: Planes
@@ -129,9 +132,14 @@ export default function PlanAccionPage() {
   });
 
   // Carga de Riesgos
-  const { data: riesgosData } = useGetRiesgosQuery(
+  const { data: riesgosData, refetch: refetchRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000, includeCausas: true } : { pageSize: 1000 }
   );
+  
+  // Auto-refetch cuando el contexto detecte cambios
+  useEffect(() => {
+    refetchRiesgos();
+  }, [riesgosContexto, refetchRiesgos]);
 
   const riesgos = useMemo(() => {
     const data = ((riesgosData as any)?.data || []) as any[];
@@ -172,6 +180,16 @@ export default function PlanAccionPage() {
   };
 
   const isReadOnly = modoProceso === 'visualizar';
+  const { riesgoSeleccionado } = useRiesgo();
+
+  // Cuando el usuario selecciona un riesgo en Identificación, auto-expandirlo aquí
+  useEffect(() => {
+    if (!riesgoSeleccionado || String(riesgoSeleccionado.procesoId) !== String(procesoSeleccionado?.id)) return;
+    // Expandir el riesgo seleccionado en la lista
+    setRiesgosExpandidos((prev) => ({ ...prev, [String(riesgoSeleccionado.id)]: true }));
+    // Llevar al usuario a la pestaña de clasificación (si no está ya)
+    setActiveTab((prev) => (prev === 0 ? prev : 0));
+  }, [riesgoSeleccionado, procesoSeleccionado?.id]);
 
   // Handlers Clasificación
   const handleClasificarCausa = (riesgo: any, causa: CausaRiesgo) => {

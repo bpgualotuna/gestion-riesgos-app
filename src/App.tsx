@@ -15,6 +15,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProcesoProvider } from './contexts/ProcesoContext';
 import { RiesgoProvider } from './contexts/RiesgoContext';
 import { NotificacionProvider } from './contexts/NotificacionContext';
+import { RiesgosProvider } from './contexts/RiesgosContext-NUEVO';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 function App() {
@@ -30,9 +31,11 @@ function App() {
           <NotificacionProvider>
             <ProcesoProvider>
               <RiesgoProvider>
-                <ErrorBoundary>
-                  <RouterProvider router={router} />
-                </ErrorBoundary>
+                <RiesgosProvider>
+                  <ErrorBoundary>
+                    <RouterProvider router={router} />
+                  </ErrorBoundary>
+                </RiesgosProvider>
               </RiesgoProvider>
             </ProcesoProvider>
           </NotificacionProvider>

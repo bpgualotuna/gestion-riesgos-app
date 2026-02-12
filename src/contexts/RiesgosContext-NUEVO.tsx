@@ -5,7 +5,7 @@
  */
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react'
-import { api } from '@/services/api'
+import { api } from '../services/api'
 
 // ============================================
 // TIPOS
@@ -72,14 +72,15 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
 
       console.log('[RiesgosContext] Cargando riesgos con filtros:', filtros)
 
-      // Llamar a API con filtros
-      const respuesta = await api.riesgos.getAll(filtros)
+      // Llamar a API con filtros, SIEMPRE incluir causas
+      const filtrosConCausas = { ...filtros, includeCausas: 'true' }
+      const respuesta = await api.riesgos.getAll(filtrosConCausas)
 
       // La API retorna { data: [...], total, page, pageSize } o solo [...]
       const arregloRiesgos = respuesta.data || respuesta
       setRiesgos(arregloRiesgos)
 
-      console.log(`[RiesgosContext] ✅ ${arregloRiesgos.length} riesgos cargados`)
+      console.log(`[RiesgosContext] ✅ ${arregloRiesgos.length} riesgos cargados con causas`)
     } catch (err: any) {
       const mensaje = err.message || 'Error cargando riesgos'
       console.error('[RiesgosContext] ❌ Error:', mensaje)
@@ -99,7 +100,9 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
       console.log('[RiesgosContext] Creando riesgo:', data)
 
       const nuevoRiesgo = await api.riesgos.create(data)
-      setRiesgos([...riesgos, nuevoRiesgo])
+      
+      // Recargar todos los riesgos para sincronizar con otras páginas
+      await cargarRiesgos()
 
       console.log(`[RiesgosContext] ✅ Riesgo creado: ${nuevoRiesgo.id}`)
       return nuevoRiesgo
@@ -109,7 +112,7 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
       setError(mensaje)
       throw err
     }
-  }, [riesgos])
+  }, [cargarRiesgos])
 
   // ============================================
   // ACTUALIZAR RIESGOS
@@ -121,7 +124,7 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
       console.log(`[RiesgosContext] Actualizando riesgo ${id}:`, data)
 
       const actualizado = await api.riesgos.update(id, data)
-      
+
       // Actualizar en estado local
       setRiesgos(riesgos.map(r => r.id === id ? actualizado : r))
 
@@ -145,7 +148,7 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
       console.log(`[RiesgosContext] Eliminando riesgo ${id}`)
 
       await api.riesgos.delete(id)
-      
+
       // Actualizar en estado local
       setRiesgos(riesgos.filter(r => r.id !== id))
 
@@ -221,10 +224,10 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
 // HOOK PARA USAR CONTEXTO
 // ============================================
 
-export function useRiesgo() {
+export function useRiesgos() {
   const contexto = useContext(RiesgosContext)
   if (!contexto) {
-    throw new Error('useRiesgo debe usarse dentro de <RiesgosProvider>')
+    throw new Error('useRiesgos debe usarse dentro de <RiesgosProvider>')
   }
   return contexto
 }

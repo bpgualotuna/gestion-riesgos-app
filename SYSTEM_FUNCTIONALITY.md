@@ -147,7 +147,7 @@ El administrador tiene acceso completo a tres áreas principales:
    - Persistencia automática en localStorage centralizado
 
 **4. Controles y Planes de Acción** (`ControlesYPlanesAccionPageNueva.tsx`)
-   - **Vista de riesgos** identificados previamente
+   - **Vista de riesgos** identificados previamente pero aqui asoman los riegso que se agrearon en identificacion y clasifcaio aui tambein autimcmate se agrega y depsues e hace el tratameinto 
    - **Dos tipos de tratamiento:**
      
      **a) Control (Calificable):**

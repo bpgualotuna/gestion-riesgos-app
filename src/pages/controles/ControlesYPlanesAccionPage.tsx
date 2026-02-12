@@ -37,9 +37,7 @@ import {
   TableRow,
   Paper,
   Collapse,
-  RadioGroup,
   FormControlLabel,
-  Radio,
   Switch,
   LinearProgress
 } from '@mui/material';
@@ -445,19 +443,28 @@ export default function ControlesYPlanesAccionPageNueva() {
       }));
 
       if (causaActualizada) {
-        await updateCausa({
-          id: causaActualizada.id,
-          tipoGestion: causaActualizada.tipoGestion,
-          gestion: causaActualizada
-        }).unwrap();
+        try {
+          await updateCausa({
+            id: causaActualizada.id,
+            tipoGestion: causaActualizada.tipoGestion,
+            gestion: causaActualizada
+          }).unwrap();
+        } catch (err) {
+          console.error('Error al actualizar causa:', err);
+        }
       }
 
-      await actualizarRiesgoApi(riesgoIdEvaluacion, {
-        causas: causasUpd,
-        riesgoResidual: maxRiesgoResidual
-      } as any);
-      setEvaluacionExpandida(null);
-      showSuccess('Gestión guardada exitosamente y Riesgo Residual Actualizado');
+      try {
+        await actualizarRiesgoApi(riesgoIdEvaluacion, {
+          causas: causasUpd,
+          riesgoResidual: maxRiesgoResidual
+        } as any);
+        setEvaluacionExpandida(null);
+        showSuccess('Gestión guardada exitosamente y Riesgo Residual Actualizado');
+      } catch (err) {
+        console.error('Error al actualizar riesgo:', err);
+        showError('Error al guardar clasificación');
+      }
     }
   };
 
@@ -465,6 +472,27 @@ export default function ControlesYPlanesAccionPageNueva() {
     const r = riesgosDelProceso.find((r: any) => r.id === riesgoId);
     const c = r?.causas?.find((c: any) => c.id === causaId);
     return c?.descripcion || causaId;
+  };
+
+  const handleEliminarClasificacion = async (riesgoId: string, causa: any) => {
+    try {
+      await updateCausa({
+        id: causa.id,
+        tipoGestion: null,
+        planDescripcion: null,
+        planDetalle: null,
+        planResponsable: null,
+        planFechaEstimada: null,
+        planEstado: null,
+        controlDescripcion: null,
+        controlTipo: null,
+        controlDesviaciones: null,
+        gestion: null
+      }).unwrap();
+      showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
+    } catch (error) {
+      showError('Error al eliminar clasificación');
+    }
   };
 
   if (!procesoSeleccionado) return <Box sx={{ p: 3 }}><Alert severity="info">Por favor selecciona un proceso.</Alert></Box>;
@@ -917,13 +945,138 @@ export default function ControlesYPlanesAccionPageNueva() {
 
       {/* TAB 1: CONTROLES */}
       <TabPanel value={activeTab} index={1}>
-        <Typography variant="h6">Controles Registrados ({controles.length})</Typography>
-        {controles.map(c => (
-          <Card key={c.id} variant="outlined" sx={{ mb: 1, p: 2 }}>
-            <Typography><strong>Riesgo:</strong> {getRiesgoNombre(c.riesgoId)}</Typography>
-            <Typography><strong>Control:</strong> {c.controlDescripcion}</Typography>
-          </Card>
-        ))}
+        <Box>
+          {riesgosConControles.length === 0 ? (
+            <Card><CardContent><Typography align="center">No hay controles registrados.</Typography></CardContent></Card>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Column Headers */}
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                gap: 2,
+                px: 3,
+                py: 1.5,
+                mb: 1,
+                bgcolor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                alignItems: 'center'
+              }}>
+                <Box />
+                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Box />
+              </Box>
+
+              {riesgosConControles.map((riesgo: any) => {
+                const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
+                return (
+                  <Card key={riesgo.id} sx={{ mb: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
+                        gap: 2,
+                        p: 2,
+                        cursor: 'pointer',
+                        bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
+                        alignItems: 'center'
+                      }}
+                      onClick={() => handleToggleExpandirResidual(riesgo.id)}
+                    >
+                      <IconButton size="small" color="primary">
+                        {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                      <Typography variant="subtitle2" fontWeight={700} color="primary">
+                        {riesgo.numeroIdentificacion || riesgo.numero || 'Sin ID'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{riesgo.descripcionRiesgo || riesgo.nombre}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {riesgo.tipologiaNivelI || '02 Operacional'}
+                      </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Chip
+                          label="Control Activo"
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                          sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
+                        />
+                      </Box>
+                      <Box />
+                    </Box>
+                    <Collapse in={estaExpandido}>
+                      <Box sx={{ p: 2 }}>
+                        <TableContainer component={Paper}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow sx={{ bgcolor: '#eee' }}>
+                                <TableCell>Causa Original</TableCell>
+                                <TableCell>Descripción del Control</TableCell>
+                                <TableCell>Tipo</TableCell>
+                                <TableCell align="center">Efectividad</TableCell>
+                                <TableCell align="center">Acciones</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {riesgo.causas.map((causa: any) => (
+                                <TableRow
+                                  key={causa.id}
+                                  sx={{ cursor: 'pointer' }}
+                                  onClick={() => {
+                                    setItemDetalle(causa);
+                                    setDialogDetailOpen(true);
+                                    setCausaEnEdicion({ riesgoId: riesgo.id, causa });
+                                  }}
+                                >
+                                  <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
+                                  <TableCell>{causa.controlDescripcion || causa.gestion?.controlDescripcion || 'Sin descripción'}</TableCell>
+                                  <TableCell>{causa.controlTipo || causa.gestion?.controlTipo || 'N/A'}</TableCell>
+                                  <TableCell align="center">
+                                    {causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || 'Sin evaluar'}
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTipoClasificacion('CONTROL');
+                                          handleEvaluarControl(riesgo.id, causa);
+                                        }}
+                                      >
+                                        Editar
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="error"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEliminarClasificacion(riesgo.id, causa);
+                                        }}
+                                      >
+                                        Eliminar
+                                      </Button>
+                                    </Box>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Box>
+                    </Collapse>
+                  </Card>
+                );
+              })}
+            </Box>
+          )}
+        </Box>
       </TabPanel>
 
       {/* TAB 2: PLANES DE ACCIÓN */}
@@ -1003,10 +1156,30 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     <TableCell>{causa.planResponsable}</TableCell>
                                     <TableCell align="center">{causa.planFechaEstimada}</TableCell>
                                     <TableCell align="center">
-                                      <Button size="small" variant="outlined" onClick={() => {
-                                        setTipoClasificacion('PLAN');
-                                        handleEvaluarControl(riesgo.id, causa);
-                                      }}>Editar</Button>
+                                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setTipoClasificacion('PLAN');
+                                            handleEvaluarControl(riesgo.id, causa);
+                                          }}
+                                        >
+                                          Editar
+                                        </Button>
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          color="error"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEliminarClasificacion(riesgo.id, causa);
+                                          }}
+                                        >
+                                          Eliminar
+                                        </Button>
+                                      </Box>
                                     </TableCell>
                                   </TableRow>
                                   {evaluacionExpandida?.riesgoId === riesgo.id && evaluacionExpandida?.causaId === causa.id && (
@@ -1048,6 +1221,92 @@ export default function ControlesYPlanesAccionPageNueva() {
           )}
         </Box>
       </TabPanel>
+
+      {/* DIALOG DETALLE CAUSA (New) */}
+      <Dialog open={dialogDetailOpen} onClose={() => setDialogDetailOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Detalle de la Causa</DialogTitle>
+        <DialogContent dividers>
+          {itemDetalle ? (
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2">Descripción</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.descripcion}</Typography>
+
+                <Typography variant="subtitle2">Fuente</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.fuenteCausa || itemDetalle.fuente || 'N/A'}</Typography>
+
+                <Typography variant="subtitle2">Frecuencia</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.frecuencia || 'N/A'}</Typography>
+
+                <Typography variant="subtitle2">Impacto Global</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{(itemDetalle.calificacionGlobalImpacto || itemDetalle.impactoMaximo || 'N/A')}</Typography>
+
+                <Typography variant="subtitle2">Evaluación Definitiva</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.evaluacionDefinitiva || itemDetalle.gestion?.evaluacionDefinitiva || 'Sin evaluar'}</Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2">Control - Descripción</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.controlDescripcion || itemDetalle.gestion?.controlDescripcion || 'Sin descripción'}</Typography>
+
+                <Typography variant="subtitle2">Control - Tipo</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.controlTipo || itemDetalle.gestion?.controlTipo || 'N/A'}</Typography>
+
+                <Typography variant="subtitle2">Plan - Descripción</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{itemDetalle.planDescripcion || itemDetalle.gestion?.planDescripcion || 'N/A'}</Typography>
+
+                <Typography variant="subtitle2">Plan - Responsable / Fecha</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>{(itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || 'N/A')} / {(itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || 'N/A')}</Typography>
+
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2">Impactos Residuales</Typography>
+                {itemDetalle.impactosResiduales ? Object.entries(itemDetalle.impactosResiduales).map(([k, v]) => (
+                  <Typography key={k} variant="body2">{k}: {String(v)}</Typography>
+                )) : <Typography variant="body2">N/A</Typography>}
+              </Box>
+            </Box>
+          ) : (
+            <Typography>Sin detalle seleccionado.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogDetailOpen(false)}>Cerrar</Button>
+          <Button
+            onClick={() => {
+              if (!causaEnEdicion) return;
+              const { riesgoId, causa } = causaEnEdicion as any;
+              // Ensure the risk card is expanded and open evaluation flow
+              setRiesgosExpandidosResidual(pr => ({ ...pr, [riesgoId]: true }));
+              setDialogDetailOpen(false);
+              setTipoClasificacion((causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toLowerCase() as any);
+              handleEvaluarControl(riesgoId, causa);
+            }}
+            variant="contained"
+          >
+            Editar
+          </Button>
+          <Button
+            onClick={() => {
+              if (!causaEnEdicion) return;
+              const { riesgoId, causa } = causaEnEdicion as any;
+              setDialogDetailOpen(false);
+              handleAbrirClasificacion(riesgoId, causa);
+            }}
+          >
+            Clasificar
+          </Button>
+          <Button
+            color="error"
+            onClick={async () => {
+              if (!causaEnEdicion) return;
+              await handleEliminarClasificacion(causaEnEdicion.riesgoId, causaEnEdicion.causa);
+              setDialogDetailOpen(false);
+            }}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* DIALOG CLASIFICACION CAUSA (Existing) */}
       <Dialog open={!!causaEnEdicion} onClose={() => setCausaEnEdicion(null)} maxWidth="md" fullWidth>

@@ -68,7 +68,7 @@ import { BugReport as BugReportIcon } from '@mui/icons-material';
 export default function DashboardSupervisorPage() {
   const { esSupervisorRiesgos } = useAuth();
   const navigate = useNavigate();
-  
+
   // Filtros
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
   const [filtroNumeroRiesgo, setFiltroNumeroRiesgo] = useState<string>('all');
@@ -137,17 +137,17 @@ export default function DashboardSupervisorPage() {
   // Estadísticas
   const estadisticas = useMemo(() => {
     let total = riesgosFiltrados.length;
-    
+
     // Si hay muy pocos datos, usar datos de ejemplo para mejor visualización
     const usarDatosEjemplo = total < 5;
-    
+
     // Riesgos por tipo de proceso
     const porTipoProceso: Record<string, number> = {
       '01 Estratégico': 0,
       '02 Operacional': 0,
       '03 Apoyo': 0,
     };
-    
+
     if (usarDatosEjemplo) {
       porTipoProceso['01 Estratégico'] = 5;
       porTipoProceso['02 Operacional'] = 7;
@@ -166,7 +166,7 @@ export default function DashboardSupervisorPage() {
         }
       });
     }
-    
+
     // Eliminar tipos con 0
     Object.keys(porTipoProceso).forEach(key => {
       if (porTipoProceso[key] === 0) {
@@ -176,7 +176,7 @@ export default function DashboardSupervisorPage() {
 
     // Riesgos por proceso
     const porProceso: Record<string, { nombre: string; count: number }> = {};
-    
+
     if (usarDatosEjemplo || riesgosFiltrados.length === 0) {
       // Siempre usar datos de ejemplo si no hay datos o hay muy pocos
       porProceso['1'] = { nombre: 'Gestión de Procesos', count: 22 };
@@ -199,7 +199,7 @@ export default function DashboardSupervisorPage() {
           porProceso[proceso.id].count++;
         }
       });
-      
+
       // Si después de procesar no hay datos, usar datos de ejemplo
       if (Object.keys(porProceso).length === 0) {
         porProceso['1'] = { nombre: 'Gestión de Procesos', count: 22 };
@@ -222,7 +222,7 @@ export default function DashboardSupervisorPage() {
       '03 Financiero': 0,
       '04 Cumplimiento': 0,
     };
-    
+
     if (usarDatosEjemplo) {
       porTipologia['02 Operacional'] = 7;
       porTipologia['03 Financiero'] = 3;
@@ -244,7 +244,7 @@ export default function DashboardSupervisorPage() {
         }
       });
     }
-    
+
     // Eliminar tipos con 0
     Object.keys(porTipologia).forEach(key => {
       if (porTipologia[key] === 0) {
@@ -258,7 +258,7 @@ export default function DashboardSupervisorPage() {
       'Auditoría HHI': 0,
       'Otro': 0,
     };
-    
+
     if (usarDatosEjemplo) {
       origen['Talleres internos'] = 10; // 66.7% de 15
       origen['Auditoría HHI'] = 4; // 26.7% de 15
@@ -419,13 +419,13 @@ export default function DashboardSupervisorPage() {
       ];
       return datosEjemplo;
     }
-    
+
     return riesgosFiltrados.map((riesgo: any) => {
       const proceso = procesos.find((p: any) => p.id === riesgo.procesoId);
       // Formato de código: R001, R002, etc.
       const codigo = riesgo.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `${riesgo.numero || ''}${riesgo.siglaGerencia || ''}`;
       const punto = puntos.find((p: any) => p.riesgoId === riesgo.id);
-      
+
       const riesgoInherente = punto ? punto.probabilidad * punto.impacto : 0;
       const riesgoResidual = riesgoInherente * 0.8; // Aproximación
 
@@ -548,6 +548,38 @@ export default function DashboardSupervisorPage() {
       return true;
     });
 
+    // Combinar planes (causas) y planesApi para la tabla
+    const planesTableData = [
+      ...planesFiltrados.map((p: any) => {
+        const proc = procesos.find((pr: any) => String(pr.id) === String(p.procesoId));
+        return {
+          id: p.id,
+          nombre: p.planDescripcion || 'Sin descripción',
+          proceso: proc?.nombre || 'Sin proceso',
+          fechaInicio: p.fechaCreacion || new Date().toISOString(),
+          fechaLimite: p.planFechaEstimada || new Date().toISOString(),
+          responsable: p.planResponsable || 'No asignado',
+          porcentajeAvance: p.planAvance || 0,
+          estado: p.planEstado || 'pendiente',
+          origen: 'causa'
+        };
+      }),
+      ...planesAccionFiltrados.map((p: any) => {
+        const proc = procesos.find((pr: any) => String(pr.id) === String(p.procesoId));
+        return {
+          id: p.id,
+          nombre: p.nombre || p.descripcion || 'Sin nombre',
+          proceso: proc?.nombre || 'Sin proceso',
+          fechaInicio: p.fechaInicio || new Date().toISOString(),
+          fechaLimite: p.fechaFin || new Date().toISOString(),
+          responsable: p.responsableNombre || 'No asignado',
+          porcentajeAvance: p.avance || 0,
+          estado: p.estado || 'pendiente',
+          origen: 'api'
+        };
+      })
+    ];
+
     return {
       totalIncidencias: incidenciasFiltradas.length,
       totalControles: controlesFiltrados.length,
@@ -558,111 +590,15 @@ export default function DashboardSupervisorPage() {
       planesPorEstado,
       controlesFiltrados,
       planesFiltrados,
+      planesTableData,
       incidenciasFiltradas,
     };
-  }, [filtroProceso, busqueda, incidenciasApi, causasApi, planesApi]);
+  }, [filtroProceso, busqueda, incidenciasApi, causasApi, planesApi, procesos]);
 
   // Preparar datos para tabla de planes de acción
   const planesAccion = useMemo(() => {
-    // Mock de planes de acción - En producción vendría de la API
-    const planes = [
-      {
-        id: '1',
-        nombre: 'Plan de Mitigación R001',
-        proceso: 'Direccionamiento Estratégico',
-        fechaInicio: '2024-01-15',
-        fechaLimite: '2024-03-15',
-        estado: 'en_ejecucion',
-        responsable: 'Juan Pérez',
-        porcentajeAvance: 65,
-      },
-      {
-        id: '2',
-        nombre: 'Plan de Control R002',
-        proceso: 'Direccionamiento Estratégico',
-        fechaInicio: '2024-02-01',
-        fechaLimite: '2024-04-01',
-        estado: 'en_ejecucion',
-        responsable: 'María González',
-        porcentajeAvance: 45,
-      },
-      {
-        id: '3',
-        nombre: 'Plan de Prevención R003',
-        proceso: 'Gestión de Procesos',
-        fechaInicio: '2024-01-20',
-        fechaLimite: '2024-05-20',
-        estado: 'en_ejecucion',
-        responsable: 'Carlos Rodríguez',
-        porcentajeAvance: 30,
-      },
-      {
-        id: '4',
-        nombre: 'Plan de Mitigación R004',
-        proceso: 'Gestión de Talento Humano',
-        fechaInicio: '2024-02-10',
-        fechaLimite: '2024-06-10',
-        estado: 'pendiente',
-        responsable: 'Ana Martínez',
-        porcentajeAvance: 0,
-      },
-      {
-        id: '5',
-        nombre: 'Plan de Control R005',
-        proceso: 'Gestión de Finanzas',
-        fechaInicio: '2024-01-05',
-        fechaLimite: '2024-03-05',
-        estado: 'completado',
-        responsable: 'Luis Fernández',
-        porcentajeAvance: 100,
-      },
-    ];
-    return planes;
-  }, []);
-
-  // Preparar datos para incidencias
-  const incidencias = useMemo(() => {
-    // Mock de incidencias - En producción vendría de la API
-    const incidenciasData = [
-      {
-        id: '1',
-        codigo: 'INC-001',
-        titulo: 'Incidente de seguridad informática',
-        fecha: '2024-01-20',
-        severidad: 'alta',
-        estado: 'abierta',
-        proceso: 'Ciberseguridad',
-      },
-      {
-        id: '2',
-        codigo: 'INC-002',
-        titulo: 'Casi incidente operacional',
-        fecha: '2024-01-22',
-        severidad: 'media',
-        estado: 'en_investigacion',
-        proceso: 'Gestión de Procesos',
-      },
-      {
-        id: '3',
-        codigo: 'INC-003',
-        titulo: 'Incidente de cumplimiento',
-        fecha: '2024-01-25',
-        severidad: 'alta',
-        estado: 'abierta',
-        proceso: 'Compliance',
-      },
-      {
-        id: '4',
-        codigo: 'INC-004',
-        titulo: 'Casi incidente financiero',
-        fecha: '2024-01-28',
-        severidad: 'baja',
-        estado: 'cerrada',
-        proceso: 'Gestión de Finanzas',
-      },
-    ];
-    return incidenciasData;
-  }, []);
+    return metricsData.planesTableData || [];
+  }, [metricsData.planesTableData]);
 
   if (!esSupervisorRiesgos) {
     return (
@@ -675,24 +611,24 @@ export default function DashboardSupervisorPage() {
   }
 
   const columnasResumen: GridColDef[] = [
-    { 
-      field: 'codigo', 
-      headerName: 'Código', 
+    {
+      field: 'codigo',
+      headerName: 'Código',
       width: 120,
       headerAlign: 'center',
       align: 'center',
       headerClassName: 'super-app-theme--header',
     },
-    { 
-      field: 'proceso', 
-      headerName: 'Proceso', 
+    {
+      field: 'proceso',
+      headerName: 'Proceso',
       width: 200,
       headerClassName: 'super-app-theme--header',
     },
-    { 
-      field: 'descripcion', 
-      headerName: 'Descripción', 
-      flex: 1, 
+    {
+      field: 'descripcion',
+      headerName: 'Descripción',
+      flex: 1,
       minWidth: 300,
       headerClassName: 'super-app-theme--header',
     },
@@ -741,15 +677,15 @@ export default function DashboardSupervisorPage() {
   ];
 
   const columnasPlanes: GridColDef[] = [
-    { 
-      field: 'nombre', 
-      headerName: 'Nombre', 
+    {
+      field: 'nombre',
+      headerName: 'Nombre',
       flex: 1,
       headerClassName: 'super-app-theme--header',
     },
-    { 
-      field: 'proceso', 
-      headerName: 'Proceso', 
+    {
+      field: 'proceso',
+      headerName: 'Proceso',
       width: 200,
       headerClassName: 'super-app-theme--header',
     },
@@ -790,9 +726,9 @@ export default function DashboardSupervisorPage() {
         );
       },
     },
-    { 
-      field: 'responsable', 
-      headerName: 'Responsable', 
+    {
+      field: 'responsable',
+      headerName: 'Responsable',
       width: 150,
       headerClassName: 'super-app-theme--header',
     },
@@ -842,164 +778,181 @@ export default function DashboardSupervisorPage() {
     <Box>
       {/* Filtros */}
       <Box sx={{ mb: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Proceso</InputLabel>
-            <Select
-              value={filtroProceso}
-              onChange={(e) => setFiltroProceso(e.target.value)}
-              label="Proceso"
-            >
-              <MenuItem value="all">Todas</MenuItem>
-              {procesos.map((p: any) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.nombre}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel># Riesgo</InputLabel>
-            <Select
-              value={filtroNumeroRiesgo}
-              onChange={(e) => setFiltroNumeroRiesgo(e.target.value)}
-              label="# Riesgo"
-            >
-              <MenuItem value="all">Todas</MenuItem>
-              {Array.from(new Set(riesgos.map((r: any) => `R${String(r.numero || 0).padStart(3, '0')}`))).map((codigo) => (
-                <MenuItem key={codigo} value={codigo}>
-                  {codigo}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Origen</InputLabel>
-            <Select
-              value={filtroOrigen}
-              onChange={(e) => setFiltroOrigen(e.target.value)}
-              label="Origen"
-            >
-              <MenuItem value="all">Todas</MenuItem>
-              <MenuItem value="talleres">Talleres internos</MenuItem>
-              <MenuItem value="auditoria">Auditoría HHI</MenuItem>
-            </Select>
-          </FormControl>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Proceso</InputLabel>
+          <Select
+            value={filtroProceso}
+            onChange={(e) => setFiltroProceso(e.target.value)}
+            label="Proceso"
+          >
+            <MenuItem value="all">Todas</MenuItem>
+            {procesos.map((p: any) => (
+              <MenuItem key={p.id} value={p.id}>
+                {p.nombre}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel># Riesgo</InputLabel>
+          <Select
+            value={filtroNumeroRiesgo}
+            onChange={(e) => setFiltroNumeroRiesgo(e.target.value)}
+            label="# Riesgo"
+          >
+            <MenuItem value="all">Todas</MenuItem>
+            {Array.from(new Set(riesgos.map((r: any) => `R${String(r.numero || 0).padStart(3, '0')}`))).map((codigo) => (
+              <MenuItem key={codigo} value={codigo}>
+                {codigo}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Origen</InputLabel>
+          <Select
+            value={filtroOrigen}
+            onChange={(e) => setFiltroOrigen(e.target.value)}
+            label="Origen"
+          >
+            <MenuItem value="all">Todas</MenuItem>
+            <MenuItem value="talleres">Talleres internos</MenuItem>
+            <MenuItem value="auditoria">Auditoría HHI</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
-      {/* Primera Fila: Total de Riesgos, Treemap y Donut */}
-      <Grid2 container spacing={3} sx={{ mb: 3 }}>
-        {/* Total de Riesgos - KPI Mejorado */}
-        <Grid2 xs={12} sm={4} md={2}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)', 
-            height: '100%', 
+      {/* Primera Fila: KPIs Consolidados */}
+      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
+        {/* 1. Total de Riesgos */}
+        <Grid2 xs={12} sm={6} md={2.4}>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+            height: '100%',
             border: 'none',
-            boxShadow: '0 4px 20px rgba(25, 118, 210, 0.3)',
+            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
             position: 'relative',
             overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: -50,
-              right: -50,
-              width: 200,
-              height: 200,
-              borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.1)',
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              bottom: -30,
-              left: -30,
-              width: 150,
-              height: 150,
-              borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.08)',
-            },
           }}>
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', minHeight: 200, position: 'relative', zIndex: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <SecurityIcon sx={{ fontSize: 28, color: 'white', opacity: 0.9 }} />
-                <Typography variant="body2" sx={{ color: 'white', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Total de Riesgos
+            <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <SecurityIcon sx={{ fontSize: 24, color: 'white', opacity: 0.9 }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Total Riesgos
                 </Typography>
               </Box>
-              <Box sx={{ textAlign: 'center', mb: 2 }}>
-                <Typography variant="h1" fontWeight={800} sx={{ color: 'white', fontSize: '4rem', lineHeight: 1, textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
-                  {estadisticas.total}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', mt: 0.5 }}>
-                  Riesgos identificados
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Chip
-                  icon={<ErrorIcon sx={{ color: '#ffeb3b !important', fontSize: 16 }} />}
-                  label={`${Math.round(estadisticas.total * 0.15)} Críticos`}
-                  size="small"
-                  sx={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                    fontWeight: 600,
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                  }}
-                />
-                <Chip
-                  icon={<WarningIcon sx={{ color: '#ff9800 !important', fontSize: 16 }} />}
-                  label={`${Math.round(estadisticas.total * 0.25)} Altos`}
-                  size="small"
-                  sx={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                    fontWeight: 600,
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                  }}
-                />
+              <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', my: 1 }}>
+                {estadisticas.total}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip icon={<ErrorIcon sx={{ color: '#ffeb3b !important', fontSize: 14 }} />} label={`${Math.round(estadisticas.total * 0.15)} Críticos`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.7rem', height: 20 }} />
+                <Chip icon={<WarningIcon sx={{ color: '#ff9800 !important', fontSize: 14 }} />} label={`${Math.round(estadisticas.total * 0.25)} Altos`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.7rem', height: 20 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid2>
 
-        {/* Treemap: Riesgos por tipo - Mejorado */}
-        <Grid2 xs={12} sm={8} md={5}>
-          <Card sx={{ 
-            height: '100%', 
-            border: '1px solid #e0e0e0', 
-            background: 'white',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            },
-          }}>
+        {/* 2. Riesgos Materializados */}
+        <Grid2 xs={12} sm={6} md={2.4}>
+          <Card sx={{ background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)', height: '100%', border: 'none', boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)' }}>
+            <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <BugReportIcon sx={{ fontSize: 24, color: 'white', opacity: 0.9 }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Materializados
+                </Typography>
+              </Box>
+              <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', my: 1 }}>
+                {metricsData.totalIncidencias}
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>Abiertas</Typography>
+                <Chip label={metricsData.incidenciasAbiertas} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.25)', color: 'white', fontWeight: 700, fontSize: '0.75rem', height: 20 }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid2>
+
+        {/* 3. Controles Activos */}
+        <Grid2 xs={12} sm={6} md={2.4}>
+          <Card sx={{ background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)', height: '100%', border: 'none', boxShadow: '0 4px 12px rgba(33, 150, 243, 0.3)' }}>
+            <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <SecurityIcon sx={{ fontSize: 24, color: 'white', opacity: 0.9 }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Controles
+                </Typography>
+              </Box>
+              <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', my: 1 }}>
+                {metricsData.totalControles}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                <Chip label={`Prev: ${metricsData.controlesPorTipo.prevencion}`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.65rem', height: 18 }} />
+                <Chip label={`Det: ${metricsData.controlesPorTipo.deteccion}`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.65rem', height: 18 }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid2>
+
+        {/* 4. Planes de Acción */}
+        <Grid2 xs={12} sm={6} md={2.4}>
+          <Card sx={{ background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)', height: '100%', border: 'none', boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)' }}>
+            <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <AssignmentIcon sx={{ fontSize: 24, color: 'white', opacity: 0.9 }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Planes Acción
+                </Typography>
+              </Box>
+              <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', my: 1 }}>
+                {metricsData.totalPlanes}
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>En Progreso</Typography>
+                <Chip label={metricsData.planesPorEstado.en_progreso} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.25)', color: 'white', fontWeight: 700, fontSize: '0.75rem', height: 20 }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid2>
+
+        {/* 5. Riesgos Fuera Apetito */}
+        <Grid2 xs={12} sm={6} md={2.4}>
+          <Card
+            sx={{ background: 'linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%)', height: '100%', border: 'none', boxShadow: '0 4px 12px rgba(123, 31, 162, 0.3)', cursor: 'pointer' }}
+            onClick={() => setRiesgosFueraApetitoDialogOpen(true)}
+          >
+            <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <ReportProblemIcon sx={{ fontSize: 24, color: 'white', opacity: 0.9 }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Fuera Apetito
+                </Typography>
+              </Box>
+              <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', my: 1 }}>
+                {estadisticas.fueraApetito}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textAlign: 'center' }}>
+                Click para detalles
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid2>
+      </Grid2>
+
+      {/* Segunda Fila: Gráficos Principales (Tipo y Origen) */}
+      <Grid2 container spacing={3} sx={{ mb: 3 }}>
+        {/* Treemap: Riesgos por tipo */}
+        <Grid2 xs={12} md={7}>
+          <Card sx={{ height: '100%', border: '1px solid #e0e0e0', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '0.875rem', mb: 0 }}>
-                  Riesgos por tipo
-                </Typography>
-                <Chip 
-                  label={`${Object.values(estadisticas.porTipologia).reduce((a, b) => a + b, 0)} total`}
-                  size="small"
-                  sx={{ 
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
-                  }}
-                />
+                <Typography variant="h6" fontWeight={600} sx={{ fontSize: '0.875rem' }}>Riesgos por tipo</Typography>
+                <Chip label={`${Object.values(estadisticas.porTipologia).reduce((a, b) => a + b, 0)} total`} size="small" sx={{ backgroundColor: '#e3f2fd', color: '#1976d2', fontWeight: 600, fontSize: '0.75rem' }} />
               </Box>
               <Box sx={{ mt: 1 }}>
                 {(() => {
                   const sortedEntries = Object.entries(estadisticas.porTipologia).sort(([, a], [, b]) => b - a);
-                  const colores: Record<string, string> = {
-                    '01 Estratégico': '#ed6c02',
-                    '02 Operacional': '#1976d2',
-                    '03 Financiero': '#1565c0',
-                    '04 Cumplimiento': '#9c27b0',
-                  };
+                  const colores: Record<string, string> = { '01 Estratégico': '#ed6c02', '02 Operacional': '#1976d2', '03 Financiero': '#1565c0', '04 Cumplimiento': '#9c27b0' };
                   const totalTipos = Object.values(estadisticas.porTipologia).reduce((a, b) => a + b, 0);
 
                   return (
@@ -1007,81 +960,19 @@ export default function DashboardSupervisorPage() {
                       {sortedEntries.map(([tipologia, count]) => {
                         const porcentaje = totalTipos > 0 ? Math.round((count / totalTipos) * 100) : 0;
                         const color = colores[tipologia] || '#1976d2';
-
                         return (
                           <Grid2 key={tipologia} xs={12} sm={6}>
-                            <Tooltip
-                              title={
-                                <Box>
-                                  <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-                                    {tipologia}
-                                  </Typography>
-                                  <Typography variant="caption">
-                                    {count} riesgos ({porcentaje}% del total)
-                                  </Typography>
-                                </Box>
-                              }
-                              arrow
-                              placement="top"
-                            >
-                              <Box
-                                sx={{
-                                  background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
-                                  color: 'white',
-                                  p: 1.75,
-                                  borderRadius: 1.5,
-                                  minHeight: 90,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  justifyContent: 'center',
-                                  alignItems: 'center',
-                                  boxShadow: `0 3px 10px ${color}40`,
-                                  position: 'relative',
-                                  overflow: 'hidden',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.25s ease',
-                                  '&::before': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    background:
-                                      'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 100%)',
-                                    pointerEvents: 'none',
-                                  },
-                                  '&:hover': {
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: `0 6px 18px ${color}60`,
-                                  },
-                                }}
-                              >
-                                <Typography
-                                  variant="caption"
-                                  fontWeight={700}
-                                  sx={{
-                                    mb: 0.5,
-                                    textAlign: 'center',
-                                    fontSize: '0.7rem',
-                                    letterSpacing: '0.4px',
-                                  }}
-                                >
-                                  {tipologia}
-                                </Typography>
-                                <Typography
-                                  variant="h4"
-                                  fontWeight={900}
-                                  sx={{ fontSize: '2rem', textShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                                >
-                                  {count}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{ mt: 0.25, opacity: 0.95, fontSize: '0.7rem' }}
-                                >
-                                  {porcentaje}% del total
-                                </Typography>
+                            <Tooltip title={`${count} riesgos (${porcentaje}%)`} arrow>
+                              <Box sx={{
+                                background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
+                                color: 'white', p: 1.75, borderRadius: 1.5, minHeight: 80,
+                                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                                boxShadow: `0 3px 10px ${color}40`, position: 'relative', overflow: 'hidden',
+                                transition: 'all 0.25s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 18px ${color}60` }
+                              }}>
+                                <Typography variant="caption" fontWeight={700} sx={{ mb: 0.5, textAlign: 'center', fontSize: '0.7rem' }}>{tipologia}</Typography>
+                                <Typography variant="h4" fontWeight={900} sx={{ fontSize: '1.8rem' }}>{count}</Typography>
+                                <Typography variant="caption" sx={{ mt: 0.25, opacity: 0.95, fontSize: '0.7rem' }}>{porcentaje}% del total</Typography>
                               </Box>
                             </Tooltip>
                           </Grid2>
@@ -1095,397 +986,28 @@ export default function DashboardSupervisorPage() {
           </Card>
         </Grid2>
 
-        {/* Donut: Origen - Mejorado */}
-        <Grid2 xs={12} sm={4} md={5}>
-          <Card sx={{ 
-            height: '100%', 
-            border: '1px solid #e0e0e0', 
-            background: 'white',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            },
-          }}>
+        {/* Donut: Origen */}
+        <Grid2 xs={12} md={5}>
+          <Card sx={{ height: '100%', border: '1px solid #e0e0e0', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '0.875rem', mb: 0 }}>
-                  Origen
-                </Typography>
-                <Chip 
-                  icon={<CategoryIcon sx={{ fontSize: 14 }} />}
-                  label="Distribución"
-                  size="small"
-                  sx={{ 
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
-                  }}
-                />
+                <Typography variant="h6" fontWeight={600} sx={{ fontSize: '0.875rem' }}>Origen</Typography>
+                <Chip icon={<CategoryIcon sx={{ fontSize: 14 }} />} label="Distribución" size="small" sx={{ backgroundColor: '#e3f2fd', color: '#1976d2', fontWeight: 600, fontSize: '0.75rem' }} />
               </Box>
               <Box sx={{ height: 250, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={Object.entries(estadisticas.origen).map(([origen, count], index) => ({
-                        name: origen,
-                        value: count,
-                        color: ['#42a5f5', '#1976d2', '#90caf9'][index % 3],
-                      }))}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent = 0 }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
+                      data={Object.entries(estadisticas.origen).map(([origen, count], index) => ({ name: origen, value: count, color: ['#42a5f5', '#1976d2', '#90caf9'][index % 3] }))}
+                      cx="50%" cy="50%" labelLine={false} label={({ name, percent = 0 }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                      outerRadius={80} fill="#8884d8" dataKey="value"
                     >
-                      {Object.entries(estadisticas.origen).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={['#42a5f5', '#1976d2', '#90caf9'][index % 3]} />
-                      ))}
+                      {Object.entries(estadisticas.origen).map((entry, index) => (<Cell key={`cell-${index}`} fill={['#42a5f5', '#1976d2', '#90caf9'][index % 3]} />))}
                     </Pie>
-                    <RechartsTooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload[0]) {
-                          const data = payload[0];
-                          const percent = (data.payload as any)?.percent ?? 0;
-                          return (
-                            <Card sx={{ p: 1.5, boxShadow: 3 }}>
-                              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
-                                {data.name}
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: '#1976d2', fontWeight: 600 }}>
-                                {data.value} riesgos ({(percent * 100).toFixed(1)}%)
-                              </Typography>
-                            </Card>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value) => <span style={{ fontSize: '0.875rem' }}>{value}</span>}
-                    />
+                    <RechartsTooltip />
+                    <Legend verticalAlign="bottom" height={36} />
                   </PieChart>
                 </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid2>
-      </Grid2>
-
-
-      {/* Métricas Adicionales */}
-      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid2 xs={6} sm={4} md={2.4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #d32f2f 0%, #c62828 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(211, 47, 47, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <ErrorIcon sx={{ fontSize: 32, color: 'white', mb: 1, opacity: 0.9 }} />
-              <Typography variant="h4" fontWeight={800} sx={{ color: 'white', fontSize: '2rem' }}>
-                {Math.round(estadisticas.total * 0.15)}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
-                Críticos
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={6} sm={4} md={2.4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #ed6c02 0%, #e65100 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(237, 108, 2, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(237, 108, 2, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <WarningIcon sx={{ fontSize: 32, color: 'white', mb: 1, opacity: 0.9 }} />
-              <Typography variant="h4" fontWeight={800} sx={{ color: 'white', fontSize: '2rem' }}>
-                {Math.round(estadisticas.total * 0.25)}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
-                Altos
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={6} sm={4} md={2.4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #0288d1 0%, #01579b 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(2, 136, 209, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(2, 136, 209, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <AssessmentIcon sx={{ fontSize: 32, color: 'white', mb: 1, opacity: 0.9 }} />
-              <Typography variant="h4" fontWeight={800} sx={{ color: 'white', fontSize: '2rem' }}>
-                {Math.round(estadisticas.total * 0.35)}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
-                Medios
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={6} sm={4} md={2.4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #388e3c 0%, #1b5e20 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(56, 142, 60, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(56, 142, 60, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <CheckCircleIcon sx={{ fontSize: 32, color: 'white', mb: 1, opacity: 0.9 }} />
-              <Typography variant="h4" fontWeight={800} sx={{ color: 'white', fontSize: '2rem' }}>
-                {Math.round(estadisticas.total * 0.25)}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
-                Bajos
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} sm={4} md={2.4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(123, 31, 162, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(123, 31, 162, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <ReportProblemIcon sx={{ fontSize: 32, color: 'white', mb: 1, opacity: 0.9 }} />
-              <Typography variant="h4" fontWeight={800} sx={{ color: 'white', fontSize: '2rem' }}>
-                {estadisticas.fueraApetito}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
-                Fuera Apetito
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid2>
-      </Grid2>
-
-      {/* Métricas de Gestión de Riesgos */}
-      <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid2 xs={12} sm={4} md={4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(244, 67, 54, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                <BugReportIcon sx={{ fontSize: 32, color: 'white', opacity: 0.95 }} />
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Riesgos Materializados
-                  </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', lineHeight: 1 }}>
-                    {metricsData.totalIncidencias}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    Abiertas/Investigación
-                  </Typography>
-                  <Chip
-                    label={metricsData.incidenciasAbiertas}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.75rem',
-                      height: 22,
-                    }}
-                  />
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} sm={4} md={4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(33, 150, 243, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(33, 150, 243, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                <SecurityIcon sx={{ fontSize: 32, color: 'white', opacity: 0.95 }} />
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Controles
-                  </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', lineHeight: 1 }}>
-                    {metricsData.totalControles}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    Prevención
-                  </Typography>
-                  <Chip
-                    label={metricsData.controlesPorTipo.prevencion}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    Detección
-                  </Typography>
-                  <Chip
-                    label={metricsData.controlesPorTipo.deteccion}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    Corrección
-                  </Typography>
-                  <Chip
-                    label={metricsData.controlesPorTipo.correccion}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid2>
-        <Grid2 xs={12} sm={4} md={4}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 20px rgba(255, 152, 0, 0.4)',
-            },
-          }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                <AssignmentIcon sx={{ fontSize: 32, color: 'white', opacity: 0.95 }} />
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Planes de Acción
-                  </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ color: 'white', fontSize: '2.5rem', lineHeight: 1 }}>
-                    {metricsData.totalPlanes}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    En Progreso
-                  </Typography>
-                  <Chip
-                    label={metricsData.planesPorEstado.en_progreso}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    Pendientes
-                  </Typography>
-                  <Chip
-                    label={metricsData.planesPorEstado.pendiente}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem' }}>
-                    Completados
-                  </Typography>
-                  <Chip
-                    label={metricsData.planesPorEstado.completado}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      color: 'white',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
-                </Box>
               </Box>
             </CardContent>
           </Card>
@@ -1496,9 +1018,9 @@ export default function DashboardSupervisorPage() {
       <Grid2 container spacing={3} sx={{ mb: 3 }}>
         {/* Gráfico de Controles por Tipo */}
         <Grid2 xs={12} md={6}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
+          <Card sx={{
+            border: '1px solid #e0e0e0',
+            background: 'white',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             height: '100%',
           }}>
@@ -1507,11 +1029,11 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
                   Distribución de Controles por Tipo
                 </Typography>
-                <Chip 
+                <Chip
                   icon={<SecurityIcon sx={{ fontSize: 14 }} />}
                   label={`${metricsData.totalControles} controles`}
                   size="small"
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#e3f2fd',
                     color: '#1976d2',
                     fontWeight: 600,
@@ -1554,9 +1076,9 @@ export default function DashboardSupervisorPage() {
 
         {/* Gráfico de Planes por Estado */}
         <Grid2 xs={12} md={6}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
+          <Card sx={{
+            border: '1px solid #e0e0e0',
+            background: 'white',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             height: '100%',
           }}>
@@ -1565,11 +1087,11 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
                   Estado de Planes de Acción
                 </Typography>
-                <Chip 
+                <Chip
                   icon={<AssignmentIcon sx={{ fontSize: 14 }} />}
                   label={`${metricsData.totalPlanes} planes`}
                   size="small"
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#fff3e0',
                     color: '#f57c00',
                     fontWeight: 600,
@@ -1613,54 +1135,40 @@ export default function DashboardSupervisorPage() {
         </Grid2>
       </Grid2>
 
-      {/* Gráfico de Efectividad de Controles (Riesgo Residual) */}
+      {/* Fila Combinada: Efectividad de Controles y Lista de Controles */}
       <Grid2 container spacing={3} sx={{ mb: 3 }}>
-        <Grid2 xs={12}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
+        {/* Gráfico de Efectividad de Controles */}
+        <Grid2 xs={12} md={7}>
+          <Card sx={{
+            border: '1px solid #e0e0e0',
+            background: 'white',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            height: '100%'
           }}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
                   Efectividad de Controles por Nivel de Riesgo Residual
                 </Typography>
-                <Chip 
+                <Chip
                   icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
                   label="Análisis de Impacto"
                   size="small"
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#e8f5e9',
                     color: '#2e7d32',
                     fontWeight: 600,
                   }}
                 />
               </Box>
-              <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Box sx={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={[
-                      { 
-                        nivel: 'Crítico', 
-                        cantidad: metricsData.controlesPorNivelResidual.critico,
-                        color: '#d32f2f',
-                      },
-                      { 
-                        nivel: 'Alto', 
-                        cantidad: metricsData.controlesPorNivelResidual.alto,
-                        color: '#f57c00',
-                      },
-                      { 
-                        nivel: 'Medio', 
-                        cantidad: metricsData.controlesPorNivelResidual.medio,
-                        color: '#fbc02d',
-                      },
-                      { 
-                        nivel: 'Bajo', 
-                        cantidad: metricsData.controlesPorNivelResidual.bajo,
-                        color: '#388e3c',
-                      },
+                      { nivel: 'Crítico', cantidad: metricsData.controlesPorNivelResidual.critico, color: '#d32f2f' },
+                      { nivel: 'Alto', cantidad: metricsData.controlesPorNivelResidual.alto, color: '#f57c00' },
+                      { nivel: 'Medio', cantidad: metricsData.controlesPorNivelResidual.medio, color: '#fbc02d' },
+                      { nivel: 'Bajo', cantidad: metricsData.controlesPorNivelResidual.bajo, color: '#388e3c' },
                     ]}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
@@ -1682,248 +1190,78 @@ export default function DashboardSupervisorPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
-              <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Chip
-                  label={`Crítico: ${metricsData.controlesPorNivelResidual.critico}`}
-                  size="small"
-                  sx={{ backgroundColor: '#ffebee', color: '#c62828', fontWeight: 600 }}
-                />
-                <Chip
-                  label={`Alto: ${metricsData.controlesPorNivelResidual.alto}`}
-                  size="small"
-                  sx={{ backgroundColor: '#fff3e0', color: '#f57c00', fontWeight: 600 }}
-                />
-                <Chip
-                  label={`Medio: ${metricsData.controlesPorNivelResidual.medio}`}
-                  size="small"
-                  sx={{ backgroundColor: '#fffde7', color: '#f9a825', fontWeight: 600 }}
-                />
-                <Chip
-                  label={`Bajo: ${metricsData.controlesPorNivelResidual.bajo}`}
-                  size="small"
-                  sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }}
-                />
-              </Box>
             </CardContent>
           </Card>
         </Grid2>
-      </Grid2>
 
-      {/* Listas Detalladas de Controles y Planes */}
-      <Grid2 container spacing={3} sx={{ mb: 3 }}>
         {/* Lista de Controles */}
-        <Grid2 xs={12} md={6}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
+        <Grid2 xs={12} md={5}>
+          <Card sx={{
+            border: '1px solid #e0e0e0',
+            background: 'white',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             height: '100%',
           }}>
-            <CardContent sx={{ p: 3 }}>
+            <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
-                  Detalle de Controles
+                  Detalle de Controles ({metricsData.controlesFiltrados.length})
                 </Typography>
-                <Chip 
+                <Chip
                   icon={<SecurityIcon sx={{ fontSize: 14 }} />}
-                  label={`${metricsData.controlesFiltrados.length} total`}
+                  label="Recientes"
                   size="small"
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#e3f2fd',
                     color: '#1976d2',
                     fontWeight: 600,
                   }}
                 />
               </Box>
-              <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <Box sx={{ flex: 1, overflowY: 'auto', maxHeight: 350, pr: 1 }}>
                 {metricsData.controlesFiltrados.length === 0 ? (
                   <Alert severity="info" sx={{ mt: 2 }}>
-                    No hay controles registrados para el proceso seleccionado.
+                    No hay controles registrados.
                   </Alert>
                 ) : (
-                  <List sx={{ width: '100%' }}>
+                  <List sx={{ width: '100%', p: 0 }}>
                     {metricsData.controlesFiltrados.slice(0, 10).map((control: any, index: number) => (
                       <ListItem
                         key={control.id}
                         sx={{
                           mb: 1,
-                          p: 2,
+                          p: 1.5,
                           borderRadius: 1,
-                          border: '1px solid #e0e0e0',
+                          border: '1px solid #f0f0f0',
                           backgroundColor: index % 2 === 0 ? '#fafafa' : 'white',
-                          '&:hover': {
-                            backgroundColor: '#e3f2fd',
-                          },
+                          '&:hover': { backgroundColor: '#e3f2fd' },
                         }}
                       >
                         <ListItemText
                           primary={
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                              <Typography variant="body2" fontWeight={600} sx={{ color: '#424242' }}>
-                                {control.controlDescripcion || 'Sin descripción'}
-                              </Typography>
-                              <Chip
-                                label={control.controlTipo || 'Sin tipo'}
-                                size="small"
-                                sx={{
-                                  ml: 1,
-                                  backgroundColor: 
-                                    control.controlTipo === 'prevención' ? '#e8f5e9' :
-                                    control.controlTipo === 'detección' ? '#e3f2fd' :
-                                    '#fff3e0',
-                                  color:
-                                    control.controlTipo === 'prevención' ? '#2e7d32' :
-                                    control.controlTipo === 'detección' ? '#1976d2' :
-                                    '#f57c00',
-                                  fontWeight: 600,
-                                  fontSize: '0.7rem',
-                                }}
-                              />
-                            </Box>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: '#424242', lineHeight: 1.2, mb: 0.5 }}>
+                              {control.controlDescripcion || 'Sin descripción'}
+                            </Typography>
                           }
                           secondary={
-                            <Box sx={{ mt: 1 }}>
-                              <Typography variant="caption" sx={{ color: '#757575', display: 'block' }}>
-                                Riesgo Residual: {' '}
-                                <Chip
-                                  label={control.nivelRiesgoResidual || 'N/A'}
-                                  size="small"
-                                  sx={{
-                                    ml: 0.5,
-                                    backgroundColor: 
-                                      control.nivelRiesgoResidual === 'CRÍTICO' ? '#ffebee' :
-                                      control.nivelRiesgoResidual === 'ALTO' ? '#fff3e0' :
-                                      control.nivelRiesgoResidual === 'MEDIO' ? '#fff9c4' :
-                                      '#e8f5e9',
-                                    color:
-                                      control.nivelRiesgoResidual === 'CRÍTICO' ? '#c62828' :
-                                      control.nivelRiesgoResidual === 'ALTO' ? '#f57c00' :
-                                      control.nivelRiesgoResidual === 'MEDIO' ? '#f9a825' :
-                                      '#2e7d32',
-                                    fontWeight: 700,
-                                    fontSize: '0.65rem',
-                                    height: 18,
-                                  }}
-                                />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                              <Chip
+                                label={control.controlTipo || 'N/A'}
+                                size="small"
+                                sx={{
+                                  height: 20, fontSize: '0.65rem',
+                                  backgroundColor: control.controlTipo === 'prevención' ? '#e8f5e9' : '#e3f2fd',
+                                  color: control.controlTipo === 'prevención' ? '#2e7d32' : '#1976d2'
+                                }}
+                              />
+                              <Typography variant="caption" sx={{ color: '#757575', fontSize: '0.7rem' }}>
+                                RR: {control.nivelRiesgoResidual}
                               </Typography>
                             </Box>
                           }
                         />
                       </ListItem>
                     ))}
-                    {metricsData.controlesFiltrados.length > 10 && (
-                      <ListItem sx={{ justifyContent: 'center' }}>
-                        <Typography variant="caption" sx={{ color: '#757575' }}>
-                          Mostrando 10 de {metricsData.controlesFiltrados.length} controles
-                        </Typography>
-                      </ListItem>
-                    )}
-                  </List>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid2>
-
-        {/* Lista de Planes */}
-        <Grid2 xs={12} md={6}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            height: '100%',
-          }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
-                  Detalle de Planes de Acción
-                </Typography>
-                <Chip 
-                  icon={<AssignmentIcon sx={{ fontSize: 14 }} />}
-                  label={`${metricsData.planesFiltrados.length} total`}
-                  size="small"
-                  sx={{ 
-                    backgroundColor: '#fff3e0',
-                    color: '#f57c00',
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-              <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                {metricsData.planesFiltrados.length === 0 ? (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    No hay planes de acción registrados para el proceso seleccionado.
-                  </Alert>
-                ) : (
-                  <List sx={{ width: '100%' }}>
-                    {metricsData.planesFiltrados.slice(0, 10).map((plan: any, index: number) => (
-                      <ListItem
-                        key={plan.id}
-                        sx={{
-                          mb: 1,
-                          p: 2,
-                          borderRadius: 1,
-                          border: '1px solid #e0e0e0',
-                          backgroundColor: index % 2 === 0 ? '#fafafa' : 'white',
-                          '&:hover': {
-                            backgroundColor: '#fff3e0',
-                          },
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                              <Typography variant="body2" fontWeight={600} sx={{ color: '#424242' }}>
-                                {plan.planDescripcion || 'Sin descripción'}
-                              </Typography>
-                              <Chip
-                                label={plan.planEstado || 'Sin estado'}
-                                size="small"
-                                sx={{
-                                  ml: 1,
-                                  backgroundColor: 
-                                    plan.planEstado === 'completado' ? '#e8f5e9' :
-                                    plan.planEstado === 'en_progreso' ? '#e3f2fd' :
-                                    plan.planEstado === 'pendiente' ? '#fff3e0' :
-                                    '#ffebee',
-                                  color:
-                                    plan.planEstado === 'completado' ? '#2e7d32' :
-                                    plan.planEstado === 'en_progreso' ? '#1976d2' :
-                                    plan.planEstado === 'pendiente' ? '#f57c00' :
-                                    '#c62828',
-                                  fontWeight: 600,
-                                  fontSize: '0.7rem',
-                                }}
-                              />
-                            </Box>
-                          }
-                          secondary={
-                            <Box sx={{ mt: 1 }}>
-                              <Typography variant="caption" sx={{ color: '#757575', display: 'block' }}>
-                                Responsable: {plan.planResponsable || 'No asignado'}
-                              </Typography>
-                              {plan.planFechaEstimada && (
-                                <Typography variant="caption" sx={{ color: '#757575', display: 'block' }}>
-                                  Fecha estimada: {new Date(plan.planFechaEstimada).toLocaleDateString()}
-                                </Typography>
-                              )}
-                              {plan.planDecision && (
-                                <Typography variant="caption" sx={{ color: '#757575', display: 'block', mt: 0.5 }}>
-                                  Decisión: {plan.planDecision}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                    {metricsData.planesFiltrados.length > 10 && (
-                      <ListItem sx={{ justifyContent: 'center' }}>
-                        <Typography variant="caption" sx={{ color: '#757575' }}>
-                          Mostrando 10 de {metricsData.planesFiltrados.length} planes
-                        </Typography>
-                      </ListItem>
-                    )}
                   </List>
                 )}
               </Box>
@@ -2191,10 +1529,10 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.875rem', color: '#424242' }}>
                   Resumen de Riesgos (Código, Proceso, Descripción, RI, RR)
                 </Typography>
-                <Chip 
+                <Chip
                   label={`${filasTablaResumen.length} riesgos`}
                   size="small"
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#e3f2fd',
                     color: '#1976d2',
                     fontWeight: 600,
@@ -2246,9 +1584,9 @@ export default function DashboardSupervisorPage() {
       <Grid2 container spacing={3} sx={{ mb: 3 }}>
         {/* Tabla de Planes de Acción */}
         <Grid2 xs={12} md={8}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
+          <Card sx={{
+            border: '1px solid #e0e0e0',
+            background: 'white',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             height: '100%',
           }}>
@@ -2257,11 +1595,11 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.875rem', color: '#424242' }}>
                   Planes de Acción con Fechas
                 </Typography>
-                <Chip 
+                <Chip
                   icon={<AssignmentIcon sx={{ fontSize: 14 }} />}
-                  label={`${planesAccion.length} planes`}
+                  label={`${metricsData.planesFiltrados.length} planes`}
                   size="small"
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#e8f5e9',
                     color: '#2e7d32',
                     fontWeight: 600,
@@ -2270,7 +1608,7 @@ export default function DashboardSupervisorPage() {
               </Box>
               <Box sx={{ flex: 1, minHeight: 400 }}>
                 <AppDataGrid
-                  rows={planesAccion}
+                  rows={metricsData.planesFiltrados}
                   columns={columnasPlanes}
                   getRowId={(row) => row.id}
                   pageSizeOptions={[5, 10, 25]}
@@ -2309,9 +1647,9 @@ export default function DashboardSupervisorPage() {
 
         {/* Estadística de Incidencias */}
         <Grid2 xs={12} md={4}>
-          <Card sx={{ 
-            border: '1px solid #e0e0e0', 
-            background: 'white', 
+          <Card sx={{
+            border: '1px solid #e0e0e0',
+            background: 'white',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             height: '100%',
           }}>
@@ -2322,18 +1660,18 @@ export default function DashboardSupervisorPage() {
                     # Incidencias
                   </Typography>
                   <Typography variant="h3" fontWeight={800} sx={{ color: '#d32f2f', fontSize: '3rem', lineHeight: 1 }}>
-                    {incidencias.length}
+                    {metricsData.incidenciasFiltradas.length}
                   </Typography>
                 </Box>
                 <BugReportIcon sx={{ fontSize: 48, color: '#d32f2f', opacity: 0.3 }} />
               </Box>
-              
+
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {incidencias.map((incidencia) => (
-                  <Card 
+                {metricsData.incidenciasFiltradas.map((incidencia: any) => (
+                  <Card
                     key={incidencia.id}
-                    sx={{ 
-                      p: 2, 
+                    sx={{
+                      p: 2,
                       border: '1px solid #e0e0e0',
                       backgroundColor: incidencia.severidad === 'alta' ? '#ffebee' : incidencia.severidad === 'media' ? '#fff3e0' : '#f1f8e9',
                       transition: 'all 0.2s ease',

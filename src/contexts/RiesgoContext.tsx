@@ -29,73 +29,41 @@ export function RiesgoProvider({ children }: RiesgoProviderProps) {
   const [riesgoSeleccionado, setRiesgoSeleccionadoState] = useState<Riesgo | null>(null);
   const [modo, setModoState] = useState<ModoRiesgo>(null);
 
-  // Cargar riesgo seleccionado del localStorage al iniciar
+  // No más persistencia de riesgos en localStorage: los riesgos deben venir siempre de la API.
+  // Mantener solo estado en memoria para selección/edición durante la sesión.
+
+  // Inicializar sin leer localStorage
   useEffect(() => {
-    const storedRiesgoId = localStorage.getItem('riesgoSeleccionadoId');
-    const storedModo = localStorage.getItem('riesgoModo') as ModoRiesgo;
-    
-    if (storedRiesgoId && storedModo) {
-      const storedRiesgo = localStorage.getItem(`riesgo_${storedRiesgoId}`);
-      if (storedRiesgo) {
-        try {
-          setRiesgoSeleccionadoState(JSON.parse(storedRiesgo));
-          setModoState(storedModo);
-        } catch (error) {
-          console.error('Error parsing stored riesgo:', error);
-          localStorage.removeItem('riesgoSeleccionadoId');
-          localStorage.removeItem('riesgoModo');
-        }
-      }
-    }
+    setRiesgoSeleccionadoState(null);
+    setModoState(null);
   }, []);
 
   const setRiesgoSeleccionado = (riesgo: Riesgo | null) => {
     setRiesgoSeleccionadoState(riesgo);
-    if (riesgo) {
-      localStorage.setItem('riesgoSeleccionadoId', riesgo.id);
-      localStorage.setItem(`riesgo_${riesgo.id}`, JSON.stringify(riesgo));
-    } else {
-      localStorage.removeItem('riesgoSeleccionadoId');
-    }
   };
 
   const setModo = (nuevoModo: ModoRiesgo) => {
     setModoState(nuevoModo);
-    if (nuevoModo) {
-      localStorage.setItem('riesgoModo', nuevoModo);
-    } else {
-      localStorage.removeItem('riesgoModo');
-    }
   };
 
   const iniciarNuevo = () => {
     setRiesgoSeleccionadoState(null);
     setModoState('nuevo');
-    localStorage.removeItem('riesgoSeleccionadoId');
-    localStorage.setItem('riesgoModo', 'nuevo');
   };
 
   const iniciarVer = (riesgo: Riesgo) => {
     setRiesgoSeleccionadoState(riesgo);
     setModoState('ver');
-    localStorage.setItem('riesgoSeleccionadoId', riesgo.id);
-    localStorage.setItem(`riesgo_${riesgo.id}`, JSON.stringify(riesgo));
-    localStorage.setItem('riesgoModo', 'ver');
   };
 
   const iniciarEditar = (riesgo: Riesgo) => {
     setRiesgoSeleccionadoState(riesgo);
     setModoState('editar');
-    localStorage.setItem('riesgoSeleccionadoId', riesgo.id);
-    localStorage.setItem(`riesgo_${riesgo.id}`, JSON.stringify(riesgo));
-    localStorage.setItem('riesgoModo', 'editar');
   };
 
   const limpiar = () => {
     setRiesgoSeleccionadoState(null);
     setModoState(null);
-    localStorage.removeItem('riesgoSeleccionadoId');
-    localStorage.removeItem('riesgoModo');
   };
 
   const value: RiesgoContextType = {

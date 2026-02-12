@@ -52,6 +52,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
+import { useRiesgo } from '../../contexts/RiesgoContext';
+import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetImpactosQuery, useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation } from '../../api/services/riesgosApi';
@@ -137,8 +139,10 @@ export default function MaterializarRiesgosPage() {
   const [deleteIncidencia] = useDeleteIncidenciaMutation();
 
   useEffect(() => {
-    setIncidenciasLocal(incidenciasApi as Incidencia[]);
-  }, [incidenciasApi]);
+    if (JSON.stringify(incidenciasLocal) !== JSON.stringify(incidenciasApi)) {
+      setIncidenciasLocal(incidenciasApi as Incidencia[]);
+    }
+  }, [incidenciasApi, incidenciasLocal]);
   const { data: impactosApi = [] } = useGetImpactosQuery();
   const descripcionesImpacto = useMemo(() => {
     const base: Record<string, Record<number, string>> = {
@@ -164,14 +168,34 @@ export default function MaterializarRiesgosPage() {
 
     return base;
   }, [impactosApi]);
-  const { data: riesgosResponse } = useGetRiesgosQuery({ procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined });
+  
+  const { data: riesgosResponse, refetch: refetchRiesgos } = useGetRiesgosQuery({ 
+    procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
+    includeCausas: 'true'
+  });
   const riesgosData = riesgosResponse?.data || [];
+  
+  // Auto-refetch cuando el contexto detecte cambios
+  const { riesgos: riesgosContexto } = useRiesgos();
+  useEffect(() => {
+    refetchRiesgos();
+  }, [riesgosContexto, refetchRiesgos]);
 
   // Obtener riesgos del proceso seleccionado
+  const { riesgoSeleccionado } = useRiesgo();
+
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
     return riesgosData;
   }, [riesgosData, procesoSeleccionado?.id]);
+
+  // Si el usuario selecciona un riesgo en Identificación, auto-expandir/seleccionar aquí
+  useEffect(() => {
+    if (!riesgoSeleccionado || String(riesgoSeleccionado.procesoId) !== String(procesoSeleccionado?.id)) return;
+    setRiesgoExpandido(String(riesgoSeleccionado.id));
+    // Preseleccionar en el formulario inline
+    setFormData((prev) => ({ ...prev, riesgoId: String(riesgoSeleccionado.id), titulo: prev.titulo || `Incidencia - ${riesgoSeleccionado.numeroIdentificacion || riesgoSeleccionado.numero || ''}` }));
+  }, [riesgoSeleccionado, procesoSeleccionado?.id]);
 
   // Filtrar incidencias por proceso
   const incidenciasFiltradas = useMemo(() => {
@@ -413,9 +437,9 @@ export default function MaterializarRiesgosPage() {
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                       <Chip
-                        label={`${incidencias.filter(inc => inc.riesgoId === riesgo.id).length} MATERIALIZADOS`}
+                        label={`${incidenciasFiltradas.filter(inc => inc.riesgoId === riesgo.id).length} MATERIALIZADOS`}
                         size="small"
-                        color={incidencias.some(inc => inc.riesgoId === riesgo.id) ? 'error' : 'success'}
+                        color={incidenciasFiltradas.some(inc => inc.riesgoId === riesgo.id) ? 'error' : 'success'}
                         variant="outlined"
                         sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
                       />
@@ -427,7 +451,7 @@ export default function MaterializarRiesgosPage() {
                     <Box sx={{ p: 2, bgcolor: '#fafafa' }}>
                       <Typography variant="subtitle2" gutterBottom>Causas Asociadas:</Typography>
                       {(riesgo.causas || []).map((causa: any) => {
-                        const incidenteExistente = incidencias.find((i) => i.riesgoId === riesgo.id && i.causaId === causa.id);
+                        const incidenteExistente = incidenciasFiltradas.find((i) => i.riesgoId === riesgo.id && i.causaId === causa.id);
                         const isExpanded = formularioExpandido?.causaId === causa.id;
 
                         return (
