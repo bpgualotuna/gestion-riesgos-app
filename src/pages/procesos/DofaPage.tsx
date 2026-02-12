@@ -112,7 +112,7 @@ export default function DofaPage() {
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
 
   // Fetch process details directly
-  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id, {
+  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
     skip: !procesoSeleccionado?.id
   });
   const [updateProceso] = useUpdateProcesoMutation();

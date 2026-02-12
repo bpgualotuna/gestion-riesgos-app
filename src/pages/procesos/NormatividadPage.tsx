@@ -53,7 +53,7 @@ export default function NormatividadPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
-  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id, {
+  const { data: procesoData } = useGetProcesoByIdQuery(procesoSeleccionado?.id || '', {
     skip: !procesoSeleccionado?.id
   });
   const [updateProceso] = useUpdateProcesoMutation();

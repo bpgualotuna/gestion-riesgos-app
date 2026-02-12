@@ -89,7 +89,7 @@ export default function IdentificacionPage() {
 
   // Queries
   const { data: riesgosData, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
-    { procesoId: procesoSeleccionado?.id ? Number(procesoSeleccionado.id) : undefined },
+    { procesoId: procesoSeleccionado?.id ? Number(procesoSeleccionado.id) : 0 },
     { skip: !procesoSeleccionado?.id }
   );
 
