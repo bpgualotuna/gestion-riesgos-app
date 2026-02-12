@@ -46,17 +46,23 @@ interface ComparativaRiesgo {
 }
 
 const getEtiquetaNivel = (valor: number): string => {
-  if (valor >= 20) return 'CRÍTICO';
-  if (valor >= 15) return 'ALTO';
-  if (valor >= 8) return 'MEDIO';
+  // Según documento Proceso_Calificacion_Inherente_Global.md
+  // Zonas: 15-25 CRÍTICO, 10-14 ALTO, 4-9 MEDIO, 1-3 BAJO
+  // Excepción: 2x2 = 3.99 (cae en zona baja)
+  if (valor >= 15 && valor <= 25) return 'CRÍTICO';
+  if (valor >= 10 && valor <= 14) return 'ALTO';
+  if (valor >= 4 && valor <= 9) return 'MEDIO';
   return 'BAJO';
 };
 
 const getColorNivel = (valor: number): string => {
-  if (valor >= 20) return colors.risk.critical.main;
-  if (valor >= 15) return colors.risk.high.main;
-  if (valor >= 8) return colors.risk.medium.main;
-  return colors.risk.low.main;
+  // Según documento Proceso_Calificacion_Inherente_Global.md
+  // Zonas: 15-25 Rojo (Crítico), 10-14 Naranja (Alto), 4-9 Amarillo (Medio), 1-3 Verde (Bajo)
+  // Excepción: 2x2 = 3.99 (cae en zona verde)
+  if (valor >= 15 && valor <= 25) return colors.risk.critical.main; // Rojo
+  if (valor >= 10 && valor <= 14) return colors.risk.high.main; // Naranja
+  if (valor >= 4 && valor <= 9) return colors.risk.medium.main; // Amarillo
+  return colors.risk.low.main; // Verde (1-3, incluye 3.99)
 };
 
 export default function ResumenEstadisticasMapas({

@@ -16,11 +16,9 @@ import { FilterList as FilterIcon, Clear as ClearIcon } from '@mui/icons-materia
 interface DashboardFiltrosProps {
     filtroArea?: string;
     filtroProceso: string;
-    filtroNumeroRiesgo: string;
     filtroOrigen: string;
     onFiltroAreaChange?: (value: string) => void;
     onFiltroProcesoChange: (value: string) => void;
-    onFiltroNumeroRiesgoChange: (value: string) => void;
     onFiltroOrigenChange: (value: string) => void;
     procesos: any[];
     riesgos: any[];
@@ -30,11 +28,9 @@ interface DashboardFiltrosProps {
 const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
     filtroArea,
     filtroProceso,
-    filtroNumeroRiesgo,
     filtroOrigen,
     onFiltroAreaChange,
     onFiltroProcesoChange,
-    onFiltroNumeroRiesgoChange,
     onFiltroOrigenChange,
     procesos,
     riesgos,
@@ -52,22 +48,9 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
         return procesos.filter(p => p.areaNombre === filtroArea);
     }, [procesos, filtroArea]);
 
-    // Obtener lista única de códigos de riesgo para el filtro
-    const codigosRiesgo = React.useMemo(() => {
-        // Si hay filtro de proceso, mostrar solo riesgos de ese proceso
-        const riesgosParaListar = filtroProceso !== 'all'
-            ? riesgos.filter(r => r.procesoId === filtroProceso)
-            : riesgos;
-
-        return [...new Set(riesgosParaListar.map(r =>
-            r.numero ? `R${String(r.numero).padStart(3, '0')}` : `${r.numero || ''}${r.siglaGerencia || ''}`
-        ))].sort();
-    }, [riesgos, filtroProceso]);
-
     const handleClearFilters = () => {
         if (onFiltroAreaChange) onFiltroAreaChange('all');
         onFiltroProcesoChange('all');
-        onFiltroNumeroRiesgoChange('all');
         onFiltroOrigenChange('all');
     };
 
@@ -81,7 +64,7 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                             Filtros del Dashboard
                         </Typography>
                     </Box>
-                    {((filtroArea && filtroArea !== 'all') || filtroProceso !== 'all' || filtroNumeroRiesgo !== 'all' || filtroOrigen !== 'all') && (
+                    {((filtroArea && filtroArea !== 'all') || filtroProceso !== 'all' || filtroOrigen !== 'all') && (
                         <Button
                             startIcon={<ClearIcon />}
                             size="small"
@@ -104,9 +87,8 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                                     label="Área"
                                     onChange={(e) => {
                                         onFiltroAreaChange(e.target.value);
-                                        // Resetear filtros dependientes
+                                        // Resetear filtro de proceso al cambiar área
                                         onFiltroProcesoChange('all');
-                                        onFiltroNumeroRiesgoChange('all');
                                     }}
                                 >
                                     <MenuItem value="all">
@@ -129,9 +111,7 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                                 value={filtroProceso}
                                 label="Proceso"
                                 onChange={(e) => {
-                                    onFiltroProcesoChange(e.target.value);
-                                    // Resetear filtro de riesgo al cambiar proceso
-                                    onFiltroNumeroRiesgoChange('all');
+                                        onFiltroProcesoChange(e.target.value);
                                 }}
                             >
                                 <MenuItem value="all">
@@ -140,27 +120,6 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                                 {procesosFiltradosPorArea.map((proceso) => (
                                     <MenuItem key={proceso.id} value={proceso.id}>
                                         {proceso.nombre}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid2>
-
-                    <Grid2 size={{ xs: 12, md: ocultarFiltroOrigen ? (onFiltroAreaChange ? 4 : 6) : (onFiltroAreaChange ? 3 : 4) }}>
-                        <FormControl fullWidth size="small">
-                            <InputLabel id="filtro-riesgo-label">Código de Riesgo</InputLabel>
-                            <Select
-                                labelId="filtro-riesgo-label"
-                                value={filtroNumeroRiesgo}
-                                label="Código de Riesgo"
-                                onChange={(e) => onFiltroNumeroRiesgoChange(e.target.value)}
-                            >
-                                <MenuItem value="all">
-                                    <em>Todos los Riesgos</em>
-                                </MenuItem>
-                                {codigosRiesgo.map((codigo) => (
-                                    <MenuItem key={codigo as string} value={codigo as string}>
-                                        {codigo as string}
                                     </MenuItem>
                                 ))}
                             </Select>

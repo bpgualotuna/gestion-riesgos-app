@@ -19,26 +19,31 @@ export interface Riesgo {
   descripcion: string;
   clasificacion: string;
   proceso: string;
-  zona: string;
-  tipologiaNivelI: string;
-  tipologiaNivelII: string;
-  causaRiesgo: string;
-  fuenteCausa: string;
-  origen: string;
-  vicepresidenciaGerenciaAlta: string;
-  siglaVicepresidencia: string;
-  gerencia: string;
-  siglaGerencia: string;
+  zona?: string;
+  tipologiaNivelI?: string;
+  tipologiaNivelII?: string;
+  causaRiesgo?: string;
+  fuenteCausa?: string;
+  origen?: string;
+  vicepresidenciaGerenciaAlta?: string;
+  siglaVicepresidencia?: string;
+  gerencia?: string;
+  siglaGerencia?: string;
   createdAt?: string;
   updatedAt?: string;
   fechaUltimaModificacion?: string;
   evaluacion?: EvaluacionRiesgo;
+  causas?: CausaRiesgo[];
   // Compatibility fields
   tipoRiesgo?: string;
   subtipo?: string;
   objetivo?: string;
   descripcionTipoRiesgo?: string;
   descripcionSubtipo?: string;
+  // Campos adicionales del proceso
+  procesoNombre?: string;
+  areaNombre?: string;
+  responsableNombre?: string;
 }
 
 export interface Evaluacion {
@@ -55,14 +60,22 @@ export interface EvaluacionRiesgo {
   impactoProcesos: number;
   impactoReputacion: number;
   impactoEconomico: number;
-  impactoTecnologico: number;
+  impactoTecnologico?: number;
+  confidencialidadSGSI?: number;
+  disponibilidadSGSI?: number;
+  integridadSGSI?: number;
   probabilidad: number;
   impactoGlobal: number;
   impactoMaximo: number;
   riesgoInherente: number;
   nivelRiesgo: string;
-  fechaEvaluacion: string;
-  evaluadoPor: string;
+  fechaEvaluacion?: string;
+  evaluadoPor?: string;
+  // Valores residuales
+  probabilidadResidual?: number;
+  impactoResidual?: number;
+  riesgoResidual?: number;
+  nivelRiesgoResidual?: string;
 }
 
 export interface PriorizacionRiesgo {
@@ -231,7 +244,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface FiltrosRiesgo {
-  procesoId?: string;
+  procesoId?: string | number;
   busqueda?: string;
   clasificacion?: string;
   nivelRiesgo?: string;
@@ -239,6 +252,7 @@ export interface FiltrosRiesgo {
   zona?: string;
   page?: number;
   pageSize?: number;
+  includeCausas?: boolean;
 }
 
 export interface EstadisticasRiesgo {
@@ -270,6 +284,8 @@ export interface PuntoMapa {
   numeroIdentificacion?: string;
   probabilidadResidual?: number;
   impactoResidual?: number;
+  procesoId?: number | string;
+  procesoNombre?: string;
 }
 
 export interface RiesgoMapa {

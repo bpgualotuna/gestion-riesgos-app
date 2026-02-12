@@ -26,7 +26,20 @@ import {
   List,
   ListItem,
   ListItemText,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Collapse,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
+import {
+  ExpandMore as ExpandMoreIcon,
+} from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
 import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery } from '../../api/services/riesgosApi';
 import { colors } from '../../app/theme/colors';
@@ -70,7 +83,7 @@ export default function MapaPage() {
 
   // Obtener evaluación del riesgo seleccionado para el diálogo de detalles
   const { data: evaluacionesRiesgo = [] } = useGetEvaluacionesByRiesgoQuery(
-    riesgoSeleccionadoDetalle?.id || '',
+    String(riesgoSeleccionadoDetalle?.id || ''),
     { skip: !riesgoSeleccionadoDetalle }
   );
   const evaluacionRiesgo = evaluacionesRiesgo[0] || null;
@@ -83,7 +96,7 @@ export default function MapaPage() {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
       return procesos.filter((p) => {
         if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
+        if (p.areaId && areasAsignadas.includes(String(p.areaId))) return true;
         return false;
       });
     }
@@ -91,7 +104,7 @@ export default function MapaPage() {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
       return procesos.filter((p) => {
         if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
+        if (p.areaId && areasAsignadas.includes(String(p.areaId))) return true;
         return false;
       });
     }
@@ -99,7 +112,7 @@ export default function MapaPage() {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
       return procesos.filter((p) => {
         if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
+        if (p.areaId && areasAsignadas.includes(String(p.areaId))) return true;
         return false;
       });
     }
@@ -108,7 +121,7 @@ export default function MapaPage() {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
       return procesos.filter((p) => {
         if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
+        if (p.areaId && areasAsignadas.includes(String(p.areaId))) return true;
         return false;
       });
     }
@@ -141,7 +154,10 @@ export default function MapaPage() {
   };
 
   const { data: puntos, isLoading: isLoadingPuntos, error: errorPuntos } = useGetPuntosMapaQuery(filtros);
-  const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos } = useGetRiesgosQuery(filtros);
+  const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos } = useGetRiesgosQuery({
+    ...filtros,
+    includeCausas: true
+  });
 
   // Obtener riesgos completos para el diálogo
   const riesgosCompletos = riesgosData?.data || [];
@@ -183,13 +199,43 @@ export default function MapaPage() {
   // Crear matriz 5x5 para riesgo inherente usando puntos filtrados
   const matrizInherente = useMemo(() => {
     const matriz: { [key: string]: PuntoMapa[] } = {};
-    puntosFiltrados.forEach((punto) => {
-      const clave = `${punto.probabilidad}-${punto.impacto}`;
+    
+    // Filtrar solo puntos válidos
+    const puntosValidos = puntosFiltrados.filter(p => {
+      const prob = Number(p.probabilidad);
+      const imp = Number(p.impacto);
+      return !isNaN(prob) && !isNaN(imp) && prob >= 1 && prob <= 5 && imp >= 1 && imp <= 5;
+    });
+    
+    puntosValidos.forEach((punto) => {
+      // Asegurar que probabilidad e impacto sean números enteros
+      const probabilidad = Math.round(Number(punto.probabilidad));
+      const impacto = Math.round(Number(punto.impacto));
+      
+      // Validar que estén en el rango correcto (1-5)
+      if (probabilidad < 1 || probabilidad > 5 || impacto < 1 || impacto > 5) {
+        console.warn('[MapaPage] ⚠️ Punto con valores fuera de rango:', {
+          riesgoId: punto.riesgoId,
+          id: generarIdRiesgo(punto),
+          probabilidad,
+          impacto
+        });
+        return; // Saltar este punto
+      }
+      
+      const clave = `${probabilidad}-${impacto}`;
+      
       if (!matriz[clave]) {
         matriz[clave] = [];
       }
-      matriz[clave].push(punto);
+      // Guardar el punto con valores validados
+      matriz[clave].push({
+        ...punto,
+        probabilidad,
+        impacto,
+      });
     });
+    
     return matriz;
   }, [puntosFiltrados]);
 
@@ -242,12 +288,17 @@ export default function MapaPage() {
       }
     }
 
-    // Fallback: Lógica matemática simple
-    const riesgo = probabilidad * impacto;
-    if (riesgo >= 20) return NIVELES_RIESGO.CRITICO;
-    if (riesgo >= 15) return NIVELES_RIESGO.ALTO;
-    if (riesgo >= 10) return NIVELES_RIESGO.ALTO;
-    if (riesgo >= 5) return NIVELES_RIESGO.MEDIO;
+    // Fallback: Lógica matemática según documento Proceso_Calificacion_Inherente_Global.md
+    // Zonas: 15-25 Crítico, 10-14 Alto, 4-9 Medio, 1-3 Bajo
+    // Excepción: 2x2 = 3.99 (cae en zona baja)
+    let riesgo = probabilidad * impacto;
+    if (probabilidad === 2 && impacto === 2) {
+      riesgo = 3.99; // Excepción documentada
+    }
+    
+    if (riesgo >= 15 && riesgo <= 25) return NIVELES_RIESGO.CRITICO;
+    if (riesgo >= 10 && riesgo <= 14) return NIVELES_RIESGO.ALTO;
+    if (riesgo >= 4 && riesgo <= 9) return NIVELES_RIESGO.MEDIO;
     return NIVELES_RIESGO.BAJO;
   };
 
@@ -395,8 +446,22 @@ export default function MapaPage() {
 
   const riesgosCeldaSeleccionada = useMemo(() => {
     if (!celdaSeleccionada) return [];
-    const clave = `${celdaSeleccionada.probabilidad}-${celdaSeleccionada.impacto}`;
-    return matrizActual[clave] || [];
+    
+    // Asegurar que sean números enteros
+    const prob = Math.round(Number(celdaSeleccionada.probabilidad)) || 1;
+    const imp = Math.round(Number(celdaSeleccionada.impacto)) || 1;
+    const clave = `${prob}-${imp}`;
+    
+    const riesgos = matrizActual[clave] || [];
+    
+    // Validar que los riesgos realmente pertenezcan a esta celda
+    const riesgosValidos = riesgos.filter(p => {
+      const pProb = Math.round(Number(p.probabilidad));
+      const pImp = Math.round(Number(p.impacto));
+      return pProb === prob && pImp === imp;
+    });
+    
+    return riesgosValidos;
   }, [celdaSeleccionada, matrizActual]);
 
   // Si es supervisor, dueño o gerente general, mostrar solo procesos que tiene asignados
@@ -424,7 +489,10 @@ export default function MapaPage() {
 
   /* Hook moved to top */
   const getCellColor = (probabilidad: number, impacto: number): string => {
-    const cellKey = `${probabilidad}-${impacto}`;
+    // Asegurar que sean números válidos
+    const prob = Number(probabilidad) || 1;
+    const imp = Number(impacto) || 1;
+    const cellKey = `${prob}-${imp}`;
 
     // Use backend configuration if available
     if (mapaConfig && mapaConfig.inherente) {
@@ -437,31 +505,95 @@ export default function MapaPage() {
       }
     }
 
-    // Fallback to theme colors
-    const riesgo = probabilidad * impacto;
-    if (riesgo >= 25) return colors.risk.critical.main;
-    if (riesgo >= 17) return '#d32f2f';
-    if (riesgo >= 10) return colors.risk.high.main;
-    if (riesgo >= 4) return colors.risk.medium.main;
-    return colors.risk.low.main;
+    // Fallback to theme colors según documento Proceso_Calificacion_Inherente_Global.md
+    // Zonas: 15-25 Rojo, 10-14 Naranja, 4-9 Amarillo, 1-3 Verde
+    // Excepción: 2x2 = 3.99 (cae en zona verde)
+    let riesgo = prob * imp;
+    if (prob === 2 && imp === 2) {
+      riesgo = 3.99; // Excepción documentada
+    }
+    
+    if (riesgo >= 15 && riesgo <= 25) return colors.risk.critical.main; // Rojo - Zona Extrema/Crítica
+    if (riesgo >= 10 && riesgo <= 14) return colors.risk.high.main; // Naranja - Zona Alta
+    if (riesgo >= 4 && riesgo <= 9) return colors.risk.medium.main; // Amarillo - Zona Moderada
+    return colors.risk.low.main; // Verde - Zona Baja (1-3, incluye 3.99)
+  };
+
+  // Función para obtener el color basado en el nivel de riesgo (string)
+  const getColorByNivelRiesgo = (nivelRiesgo: string | null | undefined): string => {
+    if (!nivelRiesgo) return colors.risk.low.main;
+    
+    const nivelUpper = nivelRiesgo.toUpperCase();
+    if (nivelUpper.includes('CRÍTICO') || nivelUpper.includes('CRITICO')) {
+      return colors.risk.critical.main; // Rojo
+    }
+    if (nivelUpper.includes('ALTO')) {
+      return colors.risk.high.main; // Naranja
+    }
+    if (nivelUpper.includes('MEDIO')) {
+      return colors.risk.medium.main; // Amarillo
+    }
+    return colors.risk.low.main; // Verde (BAJO o cualquier otro)
+  };
+  
+  // Función auxiliar para convertir color hex a rgba con opacidad
+  const hexToRgba = (hex: string, opacity: number): string => {
+    // Si el color ya tiene formato rgba, devolverlo
+    if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
+    
+    // Remover # si existe
+    const cleanHex = hex.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   };
 
   const getCellLabel = (probabilidad: number, impacto: number): string => {
-    const riesgo = probabilidad * impacto;
-    if (riesgo >= 20) return 'CRÍTICO';
-    if (riesgo >= 15) return 'ALTO';
-    if (riesgo >= 10) return 'MEDIO';
+    // Calcular riesgo con excepción 2x2 = 3.99
+    let riesgo = probabilidad * impacto;
+    if (probabilidad === 2 && impacto === 2) {
+      riesgo = 3.99;
+    }
+    
+    // Etiquetas según documento
+    if (riesgo >= 15 && riesgo <= 25) return 'CRÍTICO';
+    if (riesgo >= 10 && riesgo <= 14) return 'ALTO';
+    if (riesgo >= 4 && riesgo <= 9) return 'MEDIO';
     return 'BAJO';
   };
 
   const handleCellClick = (probabilidad: number, impacto: number, tipo: 'inherente' | 'residual') => {
+    // Asegurar que sean números enteros
+    const prob = Math.round(Number(probabilidad)) || 1;
+    const imp = Math.round(Number(impacto)) || 1;
+    const clave = `${prob}-${imp}`;
+    
     setTipoMapaSeleccionado(tipo);
-    const clave = `${probabilidad}-${impacto}`;
     const matrizActual = tipo === 'inherente' ? matrizInherente : matrizResidual;
     const riesgosCelda = matrizActual[clave] || [];
+    
+    console.log('[MapaPage] 🔍 Click en celda:', {
+      probabilidad,
+      impacto,
+      probValidada: prob,
+      impValidado: imp,
+      clave,
+      tipo,
+      cantidadRiesgos: riesgosCelda.length,
+      riesgos: riesgosCelda.map(p => ({
+        id: generarIdRiesgo(p),
+        prob: p.probabilidad,
+        imp: p.impacto,
+        clavePunto: `${p.probabilidad}-${p.impacto}`
+      }))
+    });
+    
     if (riesgosCelda.length > 0) {
-      setCeldaSeleccionada({ probabilidad, impacto });
+      setCeldaSeleccionada({ probabilidad: prob, impacto: imp });
       setDialogoResumenAbierto(true);
+    } else {
+      console.warn('[MapaPage] ⚠️ No se encontraron riesgos en la celda', clave);
     }
   };
 
@@ -549,21 +681,31 @@ export default function MapaPage() {
                       </Typography>
                     </Box>
                     {probabilidades.map((probabilidad) => {
-                      const key = `${probabilidad}-${impacto}`;
+                      // Asegurar que sean números enteros para la clave
+                      const prob = Math.round(Number(probabilidad)) || 1;
+                      const imp = Math.round(Number(impacto)) || 1;
+                      const key = `${prob}-${imp}`;
                       const riesgosCelda = matriz[key] || [];
-                      const cellColor = getCellColor(probabilidad, impacto);
-                      const fuerApetito = esFueraApetito(probabilidad, impacto);
-                      const bordesLimite = getBordesLimite(probabilidad, impacto);
+                      const cellColor = getCellColor(prob, imp);
+                      const fuerApetito = esFueraApetito(prob, imp);
+                      const bordesLimite = getBordesLimite(prob, imp);
+                      
+                      // Validar que los riesgos en esta celda realmente pertenezcan aquí
+                      const riesgosValidosEnCelda = riesgosCelda.filter(p => {
+                        const pProb = Math.round(Number(p.probabilidad));
+                        const pImp = Math.round(Number(p.impacto));
+                        return pProb === prob && pImp === imp;
+                      });
 
                       // Determine visible IDs (max 3 or 4 to keep it small)
                       const maxVisible = 4;
-                      const visibleRiesgos = riesgosCelda.slice(0, maxVisible);
-                      const remaining = riesgosCelda.length - maxVisible;
+                      const visibleRiesgos = riesgosValidosEnCelda.slice(0, maxVisible);
+                      const remaining = riesgosValidosEnCelda.length - maxVisible;
 
                       return (
                         <Box
                           key={probabilidad}
-                          onClick={() => handleCellClick(probabilidad, impacto, tipo)}
+                          onClick={() => handleCellClick(prob, imp, tipo)}
                           sx={{
                             width: 60, // Reduced from 70
                             minHeight: 60, // Reduced from 70
@@ -576,7 +718,7 @@ export default function MapaPage() {
 
                             ...(fuerApetito && { border: '3px solid #d32f2f' }),
 
-                            backgroundColor: `${cellColor}20`,
+                            backgroundColor: hexToRgba(cellColor, 0.3), // 30% de opacidad para mejor visibilidad
                             // Thicker left border indicator
                             borderLeftWidth: fuerApetito ? 3 : (bordesLimite.left ? 3 : 4),
                             borderLeftColor: fuerApetito ? '#d32f2f' : (bordesLimite.left ? '#d32f2f' : cellColor),
@@ -585,13 +727,13 @@ export default function MapaPage() {
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'flex-start',
-                            cursor: riesgosCelda.length > 0 ? 'pointer' : 'default',
+                            cursor: riesgosValidosEnCelda.length > 0 ? 'pointer' : 'default',
                             transition: 'all 0.2s',
                             p: 0.25,
                             position: 'relative',
                             '&:hover': {
-                              backgroundColor: `${cellColor}40`,
-                              transform: riesgosCelda.length > 0 ? 'scale(1.05)' : 'none',
+                              backgroundColor: hexToRgba(cellColor, 0.5), // 50% de opacidad al hover
+                              transform: riesgosValidosEnCelda.length > 0 ? 'scale(1.05)' : 'none',
                               zIndex: 10,
                             },
                             ml: 0.5,
@@ -703,14 +845,28 @@ export default function MapaPage() {
 
 
 
+  // Estado para secciones expandidas en el diálogo
+  const [seccionesExpandidas, setSeccionesExpandidas] = useState<{
+    causas: boolean;
+    residual: boolean;
+    controles: boolean;
+  }>({
+    causas: false,
+    residual: false,
+    controles: false,
+  });
+
   // Manejar clic en ID del riesgo individual
   const handleIdRiesgoClick = (e: React.MouseEvent, punto: PuntoMapa) => {
     e.stopPropagation(); // Evitar que se active el click de la celda
+    // Buscar el riesgo completo con causas
     const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
     if (riesgo) {
       setRiesgoSeleccionadoDetalle(riesgo);
       setPuntoSeleccionadoDetalle(punto);
       setDialogoDetalleRiesgoAbierto(true);
+      // Resetear secciones expandidas
+      setSeccionesExpandidas({ causas: false, residual: false, controles: false });
     }
   };
 
@@ -726,7 +882,16 @@ export default function MapaPage() {
     isLoadingPuntos,
     isLoadingRiesgos,
     errorPuntos: errorPuntos ? 'Error presente' : 'Sin error',
-    errorRiesgos: errorRiesgos ? 'Error presente' : 'Sin error'
+    errorRiesgos: errorRiesgos ? 'Error presente' : 'Sin error',
+    muestraPuntos: puntosFiltrados?.slice(0, 3).map(p => ({
+      riesgoId: p.riesgoId,
+      id: generarIdRiesgo(p),
+      probabilidad: p.probabilidad,
+      impacto: p.impacto,
+      tipoProb: typeof p.probabilidad,
+      tipoImp: typeof p.impacto,
+      clave: `${p.probabilidad}-${p.impacto}`
+    }))
   });
 
   // Validación removida - permite cargar sin proceso seleccionado
@@ -1048,6 +1213,21 @@ export default function MapaPage() {
               <List>
                 {riesgosCeldaSeleccionada.map((punto) => {
                   const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
+                  
+                  // Usar información del riesgo completo si está disponible, sino del punto
+                  const descripcion = riesgo?.descripcion || punto.descripcion || 'Sin descripción';
+                  const zona = riesgo?.zona || 'N/A';
+                  const tipologia = riesgo?.tipologiaNivelI || null;
+                  
+                  console.log('[MapaPage] 📄 Mostrando riesgo en diálogo:', {
+                    puntoId: punto.riesgoId,
+                    id: generarIdRiesgo(punto),
+                    prob: punto.probabilidad,
+                    imp: punto.impacto,
+                    tieneRiesgoCompleto: !!riesgo,
+                    descripcion
+                  });
+                  
                   return (
                     <Card key={punto.riesgoId} sx={{ mb: 2 }}>
                       <CardContent>
@@ -1057,10 +1237,10 @@ export default function MapaPage() {
                               ID: {generarIdRiesgo(punto)}
                             </Typography>
                             <Chip
-                              label={punto.nivelRiesgo}
+                              label={punto.nivelRiesgo || 'Sin calificar'}
                               size="small"
                               sx={{
-                                backgroundColor: getCellColor(punto.probabilidad, punto.impacto),
+                                backgroundColor: getColorByNivelRiesgo(punto.nivelRiesgo),
                                 color: '#fff',
                                 mr: 1,
                               }}
@@ -1074,26 +1254,22 @@ export default function MapaPage() {
 
                         </Box>
                         <Typography variant="body2" color="text.secondary" paragraph>
-                          <strong>Descripción:</strong> {punto.descripcion}
+                          <strong>Descripción:</strong> {descripcion}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                        <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap' }}>
                           <Typography variant="body2">
                             <strong>Probabilidad:</strong> {punto.probabilidad}
                           </Typography>
                           <Typography variant="body2">
                             <strong>Impacto:</strong> {punto.impacto}
                           </Typography>
-                          {riesgo && (
-                            <>
-                              <Typography variant="body2">
-                                <strong>Zona:</strong> {riesgo.zona}
-                              </Typography>
-                              {riesgo.tipologiaNivelI && (
-                                <Typography variant="body2">
-                                  <strong>Tipología:</strong> {riesgo.tipologiaNivelI}
-                                </Typography>
-                              )}
-                            </>
+                          <Typography variant="body2">
+                            <strong>Zona:</strong> {zona}
+                          </Typography>
+                          {tipologia && (
+                            <Typography variant="body2">
+                              <strong>Tipología:</strong> {tipologia}
+                            </Typography>
                           )}
                         </Box>
                       </CardContent>
@@ -1144,7 +1320,7 @@ export default function MapaPage() {
                         label={puntoSeleccionadoDetalle.nivelRiesgo}
                         size="small"
                         sx={{
-                          backgroundColor: getCellColor(puntoSeleccionadoDetalle.probabilidad, puntoSeleccionadoDetalle.impacto),
+                          backgroundColor: getColorByNivelRiesgo(puntoSeleccionadoDetalle.nivelRiesgo),
                           color: '#fff',
                           fontWeight: 600,
                         }}
@@ -1153,11 +1329,6 @@ export default function MapaPage() {
                         label={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
                         size="small"
                         color={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
-                      />
-                      <Chip
-                        label={`Zona: ${riesgoSeleccionadoDetalle.zona}`}
-                        size="small"
-                        variant="outlined"
                       />
                     </Box>
                     <Typography variant="body2" color="text.secondary" paragraph>
@@ -1178,36 +1349,45 @@ export default function MapaPage() {
                     </Box>
 
                     {/* Información del Proceso y Responsable */}
-                    {riesgoSeleccionadoDetalle.procesoId && (() => {
-                      const procesoRiesgo = procesos.find(p => p.id === riesgoSeleccionadoDetalle.procesoId);
-                      return procesoRiesgo ? (
-                        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                            Información del Proceso
-                          </Typography>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <Typography variant="body2">
-                              <strong>Proceso:</strong> {procesoRiesgo.nombre}
+                    {(() => {
+                      const procesoId = riesgoSeleccionadoDetalle.procesoId || puntoSeleccionadoDetalle?.procesoId;
+                      const procesoNombre = puntoSeleccionadoDetalle?.procesoNombre || 
+                        (procesoId ? procesos.find(p => String(p.id) === String(procesoId))?.nombre : null) ||
+                        riesgoSeleccionadoDetalle.procesoNombre ||
+                        'Proceso desconocido';
+                      
+                      if (procesoId) {
+                        const procesoRiesgo = procesos.find(p => String(p.id) === String(procesoId));
+                        return (
+                          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                              Información del Proceso
                             </Typography>
-                            {procesoRiesgo.responsableNombre && (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                               <Typography variant="body2">
-                                <strong>Responsable (Dueño del Proceso):</strong>{' '}
-                                <Chip
-                                  label={procesoRiesgo.responsableNombre}
-                                  size="small"
-                                  color="primary"
-                                  sx={{ ml: 0.5 }}
-                                />
+                                <strong>Proceso:</strong> {procesoNombre}
                               </Typography>
-                            )}
-                            {procesoRiesgo.areaNombre && (
-                              <Typography variant="body2">
-                                <strong>Área:</strong> {procesoRiesgo.areaNombre}
-                              </Typography>
-                            )}
+                              {procesoRiesgo?.responsableNombre && (
+                                <Typography variant="body2">
+                                  <strong>Responsable (Dueño del Proceso):</strong>{' '}
+                                  <Chip
+                                    label={procesoRiesgo.responsableNombre}
+                                    size="small"
+                                    color="primary"
+                                    sx={{ ml: 0.5 }}
+                                  />
+                                </Typography>
+                              )}
+                              {procesoRiesgo?.areaNombre && (
+                                <Typography variant="body2">
+                                  <strong>Área:</strong> {procesoRiesgo.areaNombre}
+                                </Typography>
+                              )}
+                            </Box>
                           </Box>
-                        </Box>
-                      ) : null;
+                        );
+                      }
+                      return null;
                     })()}
                   </CardContent>
                 </Card>
@@ -1244,7 +1424,7 @@ export default function MapaPage() {
                             label={evaluacionRiesgo.nivelRiesgo}
                             size="small"
                             sx={{
-                              backgroundColor: getCellColor(evaluacionRiesgo.probabilidad, evaluacionRiesgo.impactoMaximo),
+                              backgroundColor: getColorByNivelRiesgo(evaluacionRiesgo.nivelRiesgo),
                               color: '#fff',
                               fontWeight: 600,
                               mt: 0.5,
@@ -1300,6 +1480,99 @@ export default function MapaPage() {
                   <Alert severity="info" sx={{ mb: 2 }}>
                     Este riesgo aún no tiene evaluación registrada.
                   </Alert>
+                )}
+
+                {/* Causas del Riesgo - Expandible */}
+                {riesgoSeleccionadoDetalle && (riesgoSeleccionadoDetalle.causas as any) && (riesgoSeleccionadoDetalle.causas as any).length > 0 && (
+                  <Accordion 
+                    expanded={seccionesExpandidas.causas}
+                    onChange={() => setSeccionesExpandidas(prev => ({ ...prev, causas: !prev.causas }))}
+                    sx={{ mt: 2 }}
+                  >
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="h6" fontWeight={600}>
+                        Causas Identificadas ({(riesgoSeleccionadoDetalle.causas as any)?.length || 0})
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                              <TableCell><strong>Descripción</strong></TableCell>
+                              <TableCell><strong>Fuente</strong></TableCell>
+                              <TableCell align="center"><strong>Frecuencia</strong></TableCell>
+                              <TableCell align="center"><strong>Calificación Inherente</strong></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {((riesgoSeleccionadoDetalle.causas as any) || []).map((causa: any, idx: number) => (
+                              <TableRow key={causa.id || idx}>
+                                <TableCell>{causa.descripcion || 'Sin descripción'}</TableCell>
+                                <TableCell>{causa.fuenteCausa || 'N/A'}</TableCell>
+                                <TableCell align="center">{causa.frecuencia || 'N/A'}</TableCell>
+                                <TableCell align="center">
+                                  {causa.calificacionInherentePorCausa !== undefined && causa.calificacionInherentePorCausa !== null
+                                    ? causa.calificacionInherentePorCausa.toFixed(2)
+                                    : 'N/A'}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
+                {/* Información Residual - Expandible */}
+                {evaluacionRiesgo && ((evaluacionRiesgo as any).probabilidadResidual || (evaluacionRiesgo as any).impactoResidual) && (
+                  <Accordion 
+                    expanded={seccionesExpandidas.residual}
+                    onChange={() => setSeccionesExpandidas(prev => ({ ...prev, residual: !prev.residual }))}
+                    sx={{ mt: 2 }}
+                  >
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="h6" fontWeight={600}>
+                        Evaluación Residual
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Probabilidad Residual</Typography>
+                          <Typography variant="h6" fontWeight={600}>
+                            {(evaluacionRiesgo as any).probabilidadResidual || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Impacto Residual</Typography>
+                          <Typography variant="h6" fontWeight={600}>
+                            {(evaluacionRiesgo as any).impactoResidual || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Riesgo Residual</Typography>
+                          <Typography variant="h6" fontWeight={600} color="success.main">
+                            {(evaluacionRiesgo as any).riesgoResidual || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Nivel Riesgo Residual</Typography>
+                          <Chip
+                            label={(evaluacionRiesgo as any).nivelRiesgoResidual || 'N/A'}
+                            size="small"
+                            sx={{
+                              backgroundColor: getColorByNivelRiesgo((evaluacionRiesgo as any).nivelRiesgoResidual),
+                              color: '#fff',
+                              fontWeight: 600,
+                              mt: 0.5,
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
                 )}
               </Box>
             ) : null}

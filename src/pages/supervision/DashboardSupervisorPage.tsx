@@ -72,13 +72,12 @@ export default function DashboardSupervisorPage() {
   // Filtros
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
   const [filtroArea, setFiltroArea] = useState<string>('all');
-  const [filtroNumeroRiesgo, setFiltroNumeroRiesgo] = useState<string>('all');
   const [filtroOrigen, setFiltroOrigen] = useState<string>('all');
   const [busqueda, setBusqueda] = useState('');
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
 
   // Obtener datos
-  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, includeCausas: true });
+  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000 });
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery({});
   const { data: planesApi = [] } = useGetPlanesQuery();
@@ -187,13 +186,6 @@ export default function DashboardSupervisorPage() {
       filtrados = filtrados.filter((r: any) => r.procesoId === filtroProceso);
     }
 
-    if (filtroNumeroRiesgo !== 'all') {
-      filtrados = filtrados.filter((r: any) => {
-        const codigo = `R${String(r.numero || 0).padStart(3, '0')}`;
-        return codigo === filtroNumeroRiesgo;
-      });
-    }
-
     if (filtroOrigen !== 'all') {
       // Filtrar por origen (tipología nivel I o fuente)
       filtrados = filtrados.filter((r: any) => {
@@ -221,7 +213,7 @@ export default function DashboardSupervisorPage() {
     }
 
     return filtrados;
-  }, [riesgos, filtroArea, filtroProceso, filtroNumeroRiesgo, filtroOrigen, busqueda, procesos]);
+  }, [riesgos, filtroArea, filtroProceso, filtroOrigen, busqueda, procesos]);
 
   // Crear matrices de riesgo inherente y residual
   const matrizInherente = useMemo(() => {
@@ -269,9 +261,15 @@ export default function DashboardSupervisorPage() {
   // Estadísticas - Usando hook personalizado
   const estadisticas = useDashboardEstadisticas({ riesgosFiltrados, procesos, puntos });
 
+  // Procesos filtrados por área (para KPIs dinámicos)
+  const procesosFiltradosPorArea = useMemo(() => {
+    if (filtroArea === 'all') return procesos;
+    return procesos.filter((p: any) => p.areaNombre === filtroArea);
+  }, [procesos, filtroArea]);
+
   const kpis = useMemo(() => {
     const totalRiesgos = riesgosFiltrados.length;
-    const totalProcesos = procesos.length;
+    const totalProcesos = procesosFiltradosPorArea.length;
     
     // Filtrar puntos que corresponden a riesgos filtrados
     const riesgosIds = riesgosFiltrados.map((r: any) => r.id);
@@ -284,7 +282,7 @@ export default function DashboardSupervisorPage() {
       riesgosCriticos,
       fueraApetito: estadisticas.fueraApetito || 0,
     };
-  }, [riesgosFiltrados, procesos, puntos, estadisticas.fueraApetito]);
+  }, [riesgosFiltrados, procesosFiltradosPorArea, puntos, estadisticas.fueraApetito]);
 
   const topProcesos = useMemo(() => {
     const counts = procesos.map((p: any) => {
@@ -732,63 +730,16 @@ export default function DashboardSupervisorPage() {
         <DashboardFiltros
           filtroArea={filtroArea}
           filtroProceso={filtroProceso}
-          filtroNumeroRiesgo={filtroNumeroRiesgo}
           filtroOrigen={filtroOrigen}
           onFiltroAreaChange={setFiltroArea}
           onFiltroProcesoChange={setFiltroProceso}
-          onFiltroNumeroRiesgoChange={setFiltroNumeroRiesgo}
           onFiltroOrigenChange={setFiltroOrigen}
           procesos={procesos}
           riesgos={riesgos}
           ocultarFiltroOrigen={user?.role === 'dueño_procesos'} // Ocultar filtro Origen para Dueño de Procesos
         />
 
-        {/* Bloques adicionales de Estadisticas */}
-        <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
-          <Grid2 xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <AssessmentIcon color="primary" />
-                  <Typography variant="subtitle2" fontWeight={600}>Total de Riesgos</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700}>{kpis.totalRiesgos}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {kpis.totalProcesos} procesos en seguimiento
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ReportProblemIcon color="error" />
-                  <Typography variant="subtitle2" fontWeight={600}>Riesgos Criticos</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700} color="error.main">{kpis.riesgosCriticos}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Fuera de apetito: {kpis.fueraApetito}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
-          <Grid2 xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <AccountTreeIcon color="secondary" />
-                  <Typography variant="subtitle2" fontWeight={600}>Procesos Activos</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700}>{kpis.totalProcesos}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Asignaciones vigentes
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
-        </Grid2>
-
+        {/* Resumen Ejecutivo y Tendencia (con KPIs combinados) */}
         <Grid2 container spacing={2.5} sx={{ mb: 3 }}>
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%' }}>
@@ -837,68 +788,46 @@ export default function DashboardSupervisorPage() {
           </Grid2>
         </Grid2>
 
+        {/* Primera Fila: Estadísticas resumidas (sin duplicar información del header) */}
         <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-          <Grid2 xs={12} md={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                  Top Procesos por Riesgos
-                </Typography>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Proceso</TableCell>
-                      <TableCell align="right">Riesgos</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {topProcesos.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={2} align="center">Sin datos</TableCell>
-                      </TableRow>
-                    )}
-                    {topProcesos.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>{row.nombre}</TableCell>
-                        <TableCell align="right">{row.total}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Grid2>
-        </Grid2>
-
-        {/* Primera Fila: Estadísticas */}
-        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-          {/* Card 1: Total de Riesgos - Usando componente */}
-          <Grid2 xs={12} sm={6} md={3}>
-            <TotalRiesgosCard
-              total={estadisticas.total}
-              criticos={estadisticas.porTipologia['01 Estratégico'] || 0}
-              altos={estadisticas.porTipologia['02 Operacional'] || 0}
-            />
-          </Grid2>
-
-          {/* Card 2: Riesgos por Proceso */}
-          <Grid2 xs={12} sm={6} md={3}>
+          {/* Card 1: Procesos con Riesgos (dinámico con filtros) */}
+          <Grid2 xs={12} sm={6} md={4}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <BusinessCenterIcon color="primary" />
                   <Typography variant="subtitle2" fontWeight={600}>Procesos con Riesgos</Typography>
                 </Box>
-                <Typography variant="h4" fontWeight={700}>{Object.keys(estadisticas.porProceso || {}).length}</Typography>
+                <Typography variant="h4" fontWeight={700}>
+                  {Object.keys(estadisticas.porProceso || {}).length}
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  En seguimiento
+                  En seguimiento (según filtros aplicados)
                 </Typography>
               </CardContent>
             </Card>
           </Grid2>
 
-          {/* Card 3: Planes de Acción */}
-          <Grid2 xs={12} sm={6} md={3}>
+          {/* Card 2: Riesgos fuera de apetito */}
+          <Grid2 xs={12} sm={6} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <ReportProblemIcon color="error" />
+                  <Typography variant="subtitle2" fontWeight={600}>Riesgos Fuera de Apetito</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700} color="error.main">
+                  {kpis.fueraApetito}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Calculados sobre los riesgos filtrados
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid2>
+
+          {/* Card 3: Planes de Acción activos */}
+          <Grid2 xs={12} sm={6} md={4}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -908,22 +837,6 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h4" fontWeight={700}>{planesApi?.length || 0}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Total activos
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
-
-          {/* Card 4: Controles */}
-          <Grid2 xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <CheckCircleIcon color="warning" />
-                  <Typography variant="subtitle2" fontWeight={600}>Controles Activos</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700}>{kpis.fueraApetito}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  En monitoreo
                 </Typography>
               </CardContent>
             </Card>
@@ -941,7 +854,7 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                   Riesgos Materializados por Proceso
                 </Typography>
-                {riesgos.length === 0 ? (
+                {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
@@ -950,7 +863,7 @@ export default function DashboardSupervisorPage() {
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
                       incidenciasData.forEach((inc: any) => {
-                        const riesgo = riesgos.find((r: any) => r.id === inc.riesgoId);
+                        const riesgo = riesgosFiltrados.find((r: any) => r.id === inc.riesgoId);
                         if (riesgo) {
                           const procesoNombre = procesos.find((p: any) => p.id === riesgo.procesoId)?.nombre || 'Sin proceso';
                           if (!dataPorProceso[procesoNombre]) {
@@ -992,7 +905,7 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                   Planes de Acción por Proceso
                 </Typography>
-                {riesgos.length === 0 || planesApi.length === 0 ? (
+                {riesgosFiltrados.length === 0 || planesApi.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
@@ -1000,10 +913,10 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
-                      const riesgosIds = riesgos.map((r: any) => r.id);
+                      const riesgosIds = riesgosFiltrados.map((r: any) => r.id);
                       planesApi.forEach((p: any) => {
                         if (riesgosIds.includes(p.riesgoId)) {
-                          const riesgo = riesgos.find((r: any) => r.id === p.riesgoId);
+                          const riesgo = riesgosFiltrados.find((r: any) => r.id === p.riesgoId);
                           const procesoNombre = procesos.find((proc: any) => proc.id === riesgo?.procesoId)?.nombre || 'Sin proceso';
                           if (!dataPorProceso[procesoNombre]) {
                             dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };

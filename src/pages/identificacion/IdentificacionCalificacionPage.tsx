@@ -39,6 +39,7 @@ import {
   Collapse,
   Tabs,
   Tab,
+  CircularProgress,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -655,6 +656,13 @@ export default function IdentificacionPage() {
         showError('Seleccione un proceso antes de crear un riesgo');
         return;
       }
+      // Calcular el siguiente número de riesgo disponible para este proceso
+      // para evitar colisiones con la restricción única (procesoId, numero) en backend.
+      const numerosExistentes = riesgos
+        .filter((r: any) => String((r as any).procesoId ?? procesoSeleccionado.id) === String(procesoSeleccionado.id))
+        .map((r: any) => Number(r.numero ?? 0) || 0);
+      const maxNumeroExistente = numerosExistentes.length > 0 ? Math.max(...numerosExistentes) : 0;
+      const siguienteNumero = maxNumeroExistente + 1;
       // Obtener datos de gerencia del proceso seleccionado
       let gerenciaNombre = '';
       let gerenciaSigla = '';
@@ -692,7 +700,8 @@ export default function IdentificacionPage() {
       
       const payload = {
         procesoId: procesoSeleccionado?.id,
-        numero: Number(nuevoRiesgo.numeroIdentificacion.replace(/\D/g, '')) || 0,
+        // Usar siempre un número secuencial garantizado para evitar duplicados
+        numero: siguienteNumero,
         numeroIdentificacion: nuevoRiesgo.numeroIdentificacion, // ID completo con sigla (ej: "1GDH")
         descripcion: nuevoRiesgo.descripcionRiesgo || 'Nuevo Riesgo',
         clasificacion: 'Negativa',
@@ -802,8 +811,11 @@ export default function IdentificacionPage() {
           impactoLegal: actualizacion.impactos.legal,
           impactoReputacion: actualizacion.impactos.reputacion,
           impactoPersonas: actualizacion.impactos.personas,
-          impactoAmbiental: actualizacion.impactos.ambiental
-          // ... otros
+          impactoAmbiental: actualizacion.impactos.ambiental,
+          // Campos SGSI
+          confidencialidadSGSI: actualizacion.impactos.confidencialidadSGSI,
+          disponibilidadSGSI: actualizacion.impactos.disponibilidadSGSI,
+          integridadSGSI: actualizacion.impactos.integridadSGSI
         };
       }
 
@@ -811,12 +823,27 @@ export default function IdentificacionPage() {
       // Por ahora asumimos actualización de campos de riesgo base. 
       // Para causas, idealmente usar endpoints de causas o incluir en updateRiesgo si prisma lo permite.
 
+      // Actualización optimista del estado local para feedback inmediato
+      setRiesgos(prevRiesgos => prevRiesgos.map(r => {
+        if (String(r.id) === String(riesgoId)) {
+          return {
+            ...r,
+            ...actualizacion,
+            // Asegurar que impactos se merge correctamente
+            impactos: actualizacion.impactos ? { ...r.impactos, ...actualizacion.impactos } : r.impactos
+          };
+        }
+        return r;
+      }));
+
       console.log('[FRONTEND] Actualizando riesgo:', riesgoId, payload);
       await actualizarRiesgoApi(Number(riesgoId), payload);
-      await cargarRiesgos(); // Recargar después de actualizar
+      await cargarRiesgos(); // Recargar después de actualizar para sincronizar con backend
       // showSuccess('Riesgo actualizado'); // Puede ser muy ruidoso si es en tiempo real
     } catch (e) {
       console.error(e);
+      // Revertir actualización optimista en caso de error
+      await cargarRiesgos();
       showError('Error al actualizar riesgo');
     }
   };
@@ -829,18 +856,20 @@ export default function IdentificacionPage() {
   const [causaEditando, setCausaEditando] = useState<CausaRiesgo | null>(null);
   const [riesgoIdParaCausa, setRiesgoIdParaCausa] = useState<string>('');
   const [nuevaCausaDescripcion, setNuevaCausaDescripcion] = useState<string>('');
-  const [nuevaCausaFuente, setNuevaCausaFuente] = useState<string>('1');
+  const [nuevaCausaFuente, setNuevaCausaFuente] = useState<string>('');
   const [nuevaCausaFrecuencia, setNuevaCausaFrecuencia] = useState<number>(3);
   const [causaDetalleOpen, setCausaDetalleOpen] = useState(false);
   const [causaSeleccionadaDetalle, setCausaSeleccionadaDetalle] = useState<CausaRiesgo | null>(null);
+  const [causaEliminando, setCausaEliminando] = useState<string | null>(null); // ID de la causa que se está eliminando
 
   // Si el catálogo de fuentes cambia, elegir un valor por defecto válido
   useEffect(() => {
-    if (!fuentesCausa) return;
+    if (!fuentesCausa || nuevaCausaFuente) return; // Solo establecer si está vacío
     try {
       if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
         const f = fuentesCausa[0];
-        setNuevaCausaFuente(String(f?.id ?? f?.nombre ?? f));
+        const fuenteId = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+        if (fuenteId) setNuevaCausaFuente(fuenteId);
       } else if (typeof fuentesCausa === 'object') {
         const keys = Object.keys(fuentesCausa || {});
         if (keys.length > 0) setNuevaCausaFuente(keys[0]);
@@ -1034,7 +1063,15 @@ export default function IdentificacionPage() {
                           setRiesgoIdParaCausa(riesgoId);
                           setCausaEditando(null);
                           setNuevaCausaDescripcion('');
-                          setNuevaCausaFuente('1');
+                          // Establecer primera fuente disponible
+                          let primeraFuente = '';
+                          if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
+                            const f = fuentesCausa[0];
+                            primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+                          } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
+                            primeraFuente = Object.keys(fuentesCausa)[0];
+                          }
+                          setNuevaCausaFuente(primeraFuente);
                           setNuevaCausaFrecuencia(3);
                           setDialogCausaOpen(true);
                         }}
@@ -1042,14 +1079,67 @@ export default function IdentificacionPage() {
                           setRiesgoIdParaCausa(riesgoId);
                           setCausaEditando(causa);
                           setNuevaCausaDescripcion(causa.descripcion);
-                          setNuevaCausaFuente(causa.fuenteCausa || '1');
-                          setNuevaCausaFrecuencia(causa.frecuencia || 3);
+                          
+                          // Buscar el ID de la fuente correspondiente al nombre
+                          let fuenteId = ''; // Default vacío
+                          if (causa.fuenteCausa) {
+                            if (Array.isArray(fuentesCausa)) {
+                              const fuenteObj = fuentesCausa.find((f: any) => 
+                                f.nombre === causa.fuenteCausa || 
+                                String(f.id) === String(causa.fuenteCausa) ||
+                                String(f.codigo) === String(causa.fuenteCausa)
+                              );
+                              if (fuenteObj) {
+                                fuenteId = String(fuenteObj.id ?? fuenteObj.codigo ?? fuenteObj.nombre ?? '');
+                              }
+                            } else if (typeof fuentesCausa === 'object') {
+                              // Buscar en el objeto por nombre o clave
+                              const found = Object.entries(fuentesCausa).find(([key, value]: [string, any]) => 
+                                value?.nombre === causa.fuenteCausa || 
+                                key === String(causa.fuenteCausa)
+                              );
+                              if (found) {
+                                fuenteId = found[0];
+                              }
+                            }
+                          }
+                          
+                          // Si no se encontró, usar la primera fuente disponible
+                          if (!fuenteId) {
+                            if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
+                              const f = fuentesCausa[0];
+                              fuenteId = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+                            } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
+                              fuenteId = Object.keys(fuentesCausa)[0];
+                            }
+                          }
+                          
+                          setNuevaCausaFuente(fuenteId);
+                          // Convertir frecuencia de string a number si es necesario
+                          const frecuenciaNum = typeof causa.frecuencia === 'string' 
+                            ? parseInt(causa.frecuencia) || 3 
+                            : (causa.frecuencia || 3);
+                          setNuevaCausaFrecuencia(frecuenciaNum);
                           setDialogCausaOpen(true);
                         }}
-                        onEliminarCausa={(riesgoId, causaId) => {
-                          const nuevasCausas = riesgo.causas.filter(c => c.id !== causaId);
-                          actualizarRiesgo(riesgoId, { causas: nuevasCausas });
+                        onEliminarCausa={async (riesgoId, causaId) => {
+                          // Evitar múltiples clics
+                          if (causaEliminando) return;
+                          
+                          setCausaEliminando(String(causaId));
+                          try {
+                            console.log('[FRONTEND] Eliminando causa:', causaId);
+                            await api.riesgos.causas.delete(Number(causaId));
+                            await cargarRiesgos();
+                            showSuccess('Causa eliminada correctamente');
+                          } catch (error) {
+                            console.error('Error al eliminar causa:', error);
+                            showError('Error al eliminar causa');
+                          } finally {
+                            setCausaEliminando(null);
+                          }
                         }}
+                        causaEliminando={causaEliminando}
                         tiposRiesgos={tiposRiesgos}
                         origenes={origenes}
                         tiposProceso={tiposProceso}
@@ -1062,8 +1152,15 @@ export default function IdentificacionPage() {
 
                       {/* Resumen de Calificaciones */}
                       {(() => {
+                        // Ordenar causas por ID ascendente para numeración consistente
+                        const causasOrdenadas = [...(riesgo.causas || [])].sort((a, b) => {
+                          const idA = Number(a.id) || 0;
+                          const idB = Number(b.id) || 0;
+                          return idA - idB;
+                        });
+
                         // Calcular la calificación inherente global (máximo de todas las causas)
-                        const calificacionesInherentes = riesgo.causas
+                        const calificacionesInherentes = causasOrdenadas
                           .map(causa => causa.calificacionInherentePorCausa)
                           .filter(cal => cal !== undefined && cal !== null) as number[];
 
@@ -1089,13 +1186,13 @@ export default function IdentificacionPage() {
 
                         // Para este paso, refactorizaré para que coincida con la lógica de negocio centralizada.
                         const getNivelRiesgo = (calificacion: number): { nivel: string; color: string; bgColor: string } => {
-                          // TODO: Consumir de getMockNivelesRiesgo() o props
+                          // Según documento Proceso_Calificacion_Inherente_Global.md
+                          // Zonas: 15-25 Rojo (Crítico), 10-14 Naranja (Alto), 4-9 Amarillo (Medio), 1-3 Verde (Bajo)
                           if (calificacion === 0) return { nivel: 'Sin Calificar', color: '#666', bgColor: '#f5f5f5' };
-                          if (calificacion >= 20) return { nivel: 'CRÍTICO', color: '#fff', bgColor: '#d32f2f' };
-                          if (calificacion >= 15) return { nivel: 'ALTO', color: '#fff', bgColor: '#f57c00' };
-                          if (calificacion >= 10) return { nivel: 'MEDIO', color: '#fff', bgColor: '#ed6c02' };
-                          if (calificacion >= 5) return { nivel: 'BAJO', color: '#fff', bgColor: '#fbc02d' };
-                          return { nivel: 'MUY BAJO', color: '#fff', bgColor: '#388e3c' };
+                          if (calificacion >= 15 && calificacion <= 25) return { nivel: 'CRÍTICO', color: '#fff', bgColor: '#d32f2f' }; // Rojo
+                          if (calificacion >= 10 && calificacion <= 14) return { nivel: 'ALTO', color: '#fff', bgColor: '#f57c00' }; // Naranja
+                          if (calificacion >= 4 && calificacion <= 9) return { nivel: 'MEDIO', color: '#fff', bgColor: '#fbc02d' }; // Amarillo
+                          return { nivel: 'BAJO', color: '#fff', bgColor: '#388e3c' }; // Verde (1-3, incluye 3.99)
                         };
 
                         const nivelInfo = getNivelRiesgo(calificacionInherenteGlobal);
@@ -1107,7 +1204,7 @@ export default function IdentificacionPage() {
                             </Typography>
 
                             {/* Tabla de calificaciones por causa */}
-                            {riesgo.causas.length > 0 ? (
+                            {causasOrdenadas.length > 0 ? (
                               <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
                                 <Table size="small">
                                   <TableHead>
@@ -1119,7 +1216,7 @@ export default function IdentificacionPage() {
                                     </TableRow>
                                   </TableHead>
                                   <TableBody>
-                                    {riesgo.causas.map((causa, index) => (
+                                    {causasOrdenadas.map((causa, index) => (
                                       <TableRow key={causa.id}>
                                         <TableCell>
                                           <Typography variant="body2">
@@ -1209,7 +1306,21 @@ export default function IdentificacionPage() {
       {/* Contenido del Tab RESIDUAL */}
 
       {/* Diálogo para agregar/editar causa */}
-      <Dialog open={dialogCausaOpen} onClose={() => setDialogCausaOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogCausaOpen} onClose={() => {
+        setDialogCausaOpen(false);
+        setCausaEditando(null);
+        setNuevaCausaDescripcion('');
+        // Resetear a primera fuente disponible
+        let primeraFuente = '';
+        if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
+          const f = fuentesCausa[0];
+          primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+        } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
+          primeraFuente = Object.keys(fuentesCausa)[0];
+        }
+        setNuevaCausaFuente(primeraFuente);
+        setNuevaCausaFrecuencia(3);
+      }} maxWidth="sm" fullWidth>
         <DialogTitle>{causaEditando ? 'Editar Causa' : 'Agregar Causa'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -1279,33 +1390,71 @@ export default function IdentificacionPage() {
                 let fuenteNombre = '';
                 if (Array.isArray(fuentesCausa)) {
                   const fuenteObj = fuentesCausa.find((f: any) => String(f.id ?? f.nombre ?? f) === nuevaCausaFuente);
-                  fuenteNombre = fuenteObj?.nombre ?? '';
+                  fuenteNombre = fuenteObj?.nombre ?? nuevaCausaFuente;
                 } else if (typeof fuentesCausa === 'object') {
-                  fuenteNombre = (fuentesCausa as any)[nuevaCausaFuente]?.nombre ?? '';
+                  fuenteNombre = (fuentesCausa as any)[nuevaCausaFuente]?.nombre ?? nuevaCausaFuente;
+                } else {
+                  fuenteNombre = nuevaCausaFuente;
                 }
 
-                // Crear causa vía API
-                const causaData = {
-                  riesgoId: Number(riesgoIdParaCausa),
-                  descripcion: nuevaCausaDescripcion,
-                  fuenteCausa: fuenteNombre || nuevaCausaFuente,
-                  frecuencia: nuevaCausaFrecuencia,
-                  seleccionada: true
-                };
+                if (causaEditando) {
+                  // ACTUALIZAR causa existente
+                  const causaData = {
+                    descripcion: nuevaCausaDescripcion,
+                    fuenteCausa: fuenteNombre,
+                    frecuencia: nuevaCausaFrecuencia,
+                  };
 
-                console.log('[FRONTEND] Creando causa:', causaData);
-                const causaCreada = await api.riesgos.causas.create(causaData);
+                  console.log('[FRONTEND] Actualizando causa:', causaEditando.id, causaData);
+                  await api.riesgos.causas.update(Number(causaEditando.id), causaData);
+                  
+                  await cargarRiesgos();
+                  showSuccess('Causa actualizada correctamente');
+                } else {
+                  // CREAR nueva causa
+                  if (!nuevaCausaDescripcion.trim()) {
+                    showError('La descripción de la causa es requerida');
+                    return;
+                  }
+                  
+                  const riesgoIdNum = Number(riesgoIdParaCausa);
+                  if (!riesgoIdNum || isNaN(riesgoIdNum)) {
+                    showError('ID de riesgo inválido');
+                    return;
+                  }
 
-                // AUTO-CALIFICACIÓN: Recalcular evaluación del riesgo
-                // El backend debe recalcular automáticamente el riesgoInherente considerando todas las causas
-                // Por ahora solo recargamos
-                await cargarRiesgos();
+                  const causaData = {
+                    riesgoId: riesgoIdNum,
+                    descripcion: nuevaCausaDescripcion.trim(),
+                    fuenteCausa: fuenteNombre || null,
+                    frecuencia: nuevaCausaFrecuencia,
+                    seleccionada: true
+                  };
+
+                  console.log('[FRONTEND] Creando causa:', causaData);
+                  await api.riesgos.causas.create(causaData);
+
+                  await cargarRiesgos();
+                  showSuccess('Causa agregada correctamente');
+                }
                 
-                showSuccess('Causa agregada correctamente');
+                // Limpiar formulario y cerrar diálogo
                 setDialogCausaOpen(false);
+                setCausaEditando(null);
+                setNuevaCausaDescripcion('');
+                // Resetear a primera fuente disponible
+                let primeraFuente = '';
+                if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
+                  const f = fuentesCausa[0];
+                  primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+                } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
+                  primeraFuente = Object.keys(fuentesCausa)[0];
+                }
+                setNuevaCausaFuente(primeraFuente);
+                setNuevaCausaFrecuencia(3);
               } catch (error) {
-                console.error('Error al crear causa:', error);
-                showError('Error al agregar causa');
+                console.error('Error al guardar causa:', error);
+                showError(causaEditando ? 'Error al actualizar causa' : 'Error al agregar causa');
               }
             }}
           >
@@ -1752,6 +1901,7 @@ function RiesgoFormulario({
   labelsFrecuencia,
   fuentesCausa,
   descripcionesImpacto,
+  causaEliminando,
 }: {
   riesgo: RiesgoFormData;
   actualizarRiesgo: (riesgoId: string, actualizacion: Partial<RiesgoFormData>) => void;
@@ -1761,6 +1911,7 @@ function RiesgoFormulario({
   onAgregarCausa: (riesgoId: string) => void;
   onEditarCausa: (riesgoId: string, causa: CausaRiesgo) => void;
   onEliminarCausa: (riesgoId: string, causaId: string) => void;
+  causaEliminando?: string | null;
   // Dynamic props
   tiposRiesgos: any[];
   origenes: any[];
@@ -2259,6 +2410,7 @@ function RiesgoFormulario({
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper', width: '60px' }}>N°</TableCell>
                   <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }}>Causa</TableCell>
                   <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }}>Fuente</TableCell>
                   <TableCell sx={{ fontWeight: 600, backgroundColor: 'background.paper' }}>Frecuencia</TableCell>
@@ -2270,14 +2422,21 @@ function RiesgoFormulario({
               <TableBody>
                 {riesgo.causas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isReadOnly ? 3 : 4} align="center">
+                    <TableCell colSpan={isReadOnly ? 4 : 5} align="center">
                       <Typography variant="body2" color="text.secondary">
                         No hay causas registradas
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  riesgo.causas.map((causa: CausaRiesgo) => (
+                  // Mostrar causas en orden por ID y numeradas desde 1
+                  [...riesgo.causas]
+                    .sort((a: CausaRiesgo, b: CausaRiesgo) => {
+                      const idA = Number(a.id) || 0;
+                      const idB = Number(b.id) || 0;
+                      return idA - idB;
+                    })
+                    .map((causa: CausaRiesgo, index: number) => (
                     <TableRow
                       key={causa.id}
                       sx={{
@@ -2286,6 +2445,11 @@ function RiesgoFormulario({
                         },
                       }}
                     >
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600} color="text.secondary">
+                          {index + 1}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Typography variant="body2">
                           {causa.descripcion.length > 80
@@ -2323,8 +2487,14 @@ function RiesgoFormulario({
                             }}
                             color="error"
                             title="Eliminar causa"
+                            disabled={causaEliminando === String(causa.id) || !!causaEliminando}
+                            sx={{ position: 'relative' }}
                           >
-                            <DeleteIcon fontSize="small" />
+                            {causaEliminando === String(causa.id) ? (
+                              <CircularProgress size={16} color="error" />
+                            ) : (
+                              <DeleteIcon fontSize="small" />
+                            )}
                           </IconButton>
                         </TableCell>
                       )}

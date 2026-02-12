@@ -224,6 +224,20 @@ export const api = {
                     body: JSON.stringify(data)
                 })
                 return handleResponse(res)
+            },
+            delete: async (id: number) => {
+                console.log(`[API] DELETE /riesgos/causas/${id}`);
+                const res = await fetch(`${API_BASE_URL}/riesgos/causas/${id}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                })
+                console.log(`[API] DELETE response status: ${res.status}`);
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
+                    console.error(`[API] DELETE error:`, errorData);
+                    throw new Error(errorData.error || `Error al eliminar causa ${id} (${res.status})`)
+                }
+                return handleResponse(res)
             }
         }
     },
