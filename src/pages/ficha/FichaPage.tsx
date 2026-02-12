@@ -154,9 +154,9 @@ export default function FichaPage() {
       return {
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: procesoActual.gerencia || '',
-        area: procesoActual.areaNombre || '',
-        responsable: procesoActual.responsableNombre || procesoActual.responsable || '',
-        encargado: procesoActual.responsableNombre || procesoActual.responsable || '',
+        area: procesoActual.areaNombre || procesoActual.area?.nombre || '',
+        responsable: (procesoActual as any).responsable?.nombre || '',
+        encargado: (procesoActual as any).responsable?.nombre || '',
         fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         objetivoProceso: procesoActual.objetivoProceso || '',
       };
@@ -178,9 +178,9 @@ export default function FichaPage() {
       setFormData({
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: procesoActual.gerencia || '',
-        area: procesoActual.areaNombre || '',
-        responsable: procesoActual.responsableNombre || procesoActual.responsable || '',
-        encargado: procesoActual.responsableNombre || procesoActual.responsable || '',
+        area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
+        responsable: (procesoActual as any).responsable?.nombre || '',
+        encargado: (procesoActual as any).responsable?.nombre || '',
         fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         objetivoProceso: procesoActual.objetivoProceso || '',
       });

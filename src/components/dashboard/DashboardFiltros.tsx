@@ -24,6 +24,7 @@ interface DashboardFiltrosProps {
     onFiltroOrigenChange: (value: string) => void;
     procesos: any[];
     riesgos: any[];
+    ocultarFiltroOrigen?: boolean; // Nueva prop para ocultar filtro Origen
 }
 
 const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
@@ -36,7 +37,8 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
     onFiltroNumeroRiesgoChange,
     onFiltroOrigenChange,
     procesos,
-    riesgos
+    riesgos,
+    ocultarFiltroOrigen = false // Default false para mantener comportamiento existente
 }) => {
     // Obtener lista única de áreas desde areaNombre de procesos
     const areas = React.useMemo(() => {
@@ -144,7 +146,7 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                         </FormControl>
                     </Grid2>
 
-                    <Grid2 size={{ xs: 12, md: onFiltroAreaChange ? 3 : 4 }}>
+                    <Grid2 size={{ xs: 12, md: ocultarFiltroOrigen ? (onFiltroAreaChange ? 4 : 6) : (onFiltroAreaChange ? 3 : 4) }}>
                         <FormControl fullWidth size="small">
                             <InputLabel id="filtro-riesgo-label">Código de Riesgo</InputLabel>
                             <Select
@@ -165,24 +167,26 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                         </FormControl>
                     </Grid2>
 
-                    <Grid2 size={{ xs: 12, md: onFiltroAreaChange ? 3 : 4 }}>
-                        <FormControl fullWidth size="small">
-                            <InputLabel id="filtro-origen-label">Origen</InputLabel>
-                            <Select
-                                labelId="filtro-origen-label"
-                                value={filtroOrigen}
-                                label="Origen"
-                                onChange={(e) => onFiltroOrigenChange(e.target.value)}
-                            >
-                                <MenuItem value="all">
-                                    <em>Todos los Orígenes</em>
-                                </MenuItem>
-                                <MenuItem value="talleres">Talleres</MenuItem>
-                                <MenuItem value="auditoria">Auditoría</MenuItem>
-                                <MenuItem value="otros">Otros</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid2>
+                    {!ocultarFiltroOrigen && (
+                        <Grid2 size={{ xs: 12, md: onFiltroAreaChange ? 3 : 4 }}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel id="filtro-origen-label">Origen</InputLabel>
+                                <Select
+                                    labelId="filtro-origen-label"
+                                    value={filtroOrigen}
+                                    label="Origen"
+                                    onChange={(e) => onFiltroOrigenChange(e.target.value)}
+                                >
+                                    <MenuItem value="all">
+                                        <em>Todos los Orígenes</em>
+                                    </MenuItem>
+                                    <MenuItem value="talleres">Talleres</MenuItem>
+                                    <MenuItem value="auditoria">Auditoría</MenuItem>
+                                    <MenuItem value="otros">Otros</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid2>
+                    )}
                 </Grid2>
             </CardContent>
         </Card>

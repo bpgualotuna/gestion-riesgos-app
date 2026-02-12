@@ -749,6 +749,7 @@ export default function DashboardSupervisorPage() {
           onFiltroOrigenChange={setFiltroOrigen}
           procesos={procesos}
           riesgos={riesgos}
+          ocultarFiltroOrigen={user?.role === 'dueño_procesos'} // Ocultar filtro Origen para Dueño de Procesos
         />
 
         {/* Bloques adicionales de Estadisticas */}

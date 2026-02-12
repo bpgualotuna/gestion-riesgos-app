@@ -157,14 +157,6 @@ export default function ParametrosCalificacionPage() {
     const [searchRiesgos, setSearchRiesgos] = useState({ origenes: '', consecuencias: '', tiposRiesgo: '', objetivos: '' });
     const [searchCausas, setSearchCausas] = useState({ fuentes: '', frecuencias: '' });
     const [searchImpactos, setSearchImpactos] = useState('');
-
-    // States
-    const [origenes, setOrigenes] = useState<any[]>([]);
-    const [tiposRiesgo, setTiposRiesgo] = useState<TipoRiesgo[]>([]);
-    const [consecuencias, setConsecuencias] = useState<any[]>([]);
-    const [fuentes, setFuentes] = useState<any[]>([]);
-    const [frecuencias, setFrecuencias] = useState<any[]>([]);
-    const [objetivos, setObjetivos] = useState<any[]>([]);
     const [formulas, setFormulas] = useState<any[]>([]);
     const [pesoDialogOpen, setPesoDialogOpen] = useState(false);
     const [pesoEditing, setPesoEditing] = useState<{ key: string; label: string; porcentaje: number } | null>(null);
@@ -225,12 +217,13 @@ export default function ParametrosCalificacionPage() {
     const [createImpactoTipo] = useCreateImpactoTipoMutation();
     const [deleteImpactoTipo] = useDeleteImpactoTipoMutation();
 
-    useEffect(() => setOrigenes(origenesApi), [origenesApi]);
-    useEffect(() => setConsecuencias(consecuenciasApi), [consecuenciasApi]);
-    useEffect(() => setTiposRiesgo(tiposRiesgoApi as TipoRiesgo[]), [tiposRiesgoApi]);
-    useEffect(() => setObjetivos(objetivosApi), [objetivosApi]);
-    useEffect(() => setFuentes(fuentesApi), [fuentesApi]);
-    useEffect(() => setFrecuencias(frecuenciasApi), [frecuenciasApi]);
+    // Use query data directly to avoid infinite render loops from useEffect syncing
+    const origenes = origenesApi;
+    const consecuencias = consecuenciasApi;
+    const tiposRiesgo = tiposRiesgoApi as TipoRiesgo[];
+    const objetivos = objetivosApi;
+    const fuentes = fuentesApi;
+    const frecuencias = frecuenciasApi;
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
@@ -240,41 +233,38 @@ export default function ParametrosCalificacionPage() {
         setSubTabValue(prev => ({ ...prev, [tabIndex]: newValue }));
     };
 
-    // Generic Save Handler for Simple Catalogs
+    // Generic Save Handler for Simple Catalogs - uses mutations without local state
     const createSaveHandler = (
-        currentList: any[],
-        setList: (val: any[]) => void,
         updateService: (val: any[]) => Promise<any[]>,
-        idField: string = 'id'
+        currentList: any[] = []
     ) => {
         return async (item: any) => {
-            let newList = [...currentList];
-            // Check if item has ID (edit) or needs new ID
-            if (item[idField] && newList.some(i => i[idField] === item[idField])) {
-                // Edit
-                newList = newList.map(i => i[idField] === item[idField] ? item : i);
-            } else {
-                // New - omit id to allow DB autoincrement
-                newList.push({ ...item });
+            try {
+                let newList = [...currentList];
+                if (item.id && newList.some(i => i.id === item.id)) {
+                    newList = newList.map(i => i.id === item.id ? item : i);
+                } else {
+                    newList.push({ ...item });
+                }
+                await updateService(newList);
+            } catch (error) {
+                console.error('Error guardando:', error);
             }
-            setList(newList);
-            const updated = await updateService(newList);
-            if (updated) setList(updated);
         };
     };
 
     const createDeleteHandler = (
-        currentList: any[],
-        setList: (val: any[]) => void,
         updateService: (val: any[]) => Promise<any[]>,
-        idField: string = 'id'
+        currentList: any[] = []
     ) => {
         return async (id: any) => {
             if (window.confirm('¿Confirma eliminación?')) {
-                const newList = currentList.filter(i => i[idField] !== id);
-                setList(newList);
-                const updated = await updateService(newList);
-                if (updated) setList(updated);
+                try {
+                    const newList = currentList.filter(i => i.id !== id);
+                    await updateService(newList);
+                } catch (error) {
+                    console.error('Error eliminando:', error);
+                }
             }
         };
     };
@@ -356,6 +346,39 @@ export default function ParametrosCalificacionPage() {
                 </Box>
             ),
         },
+    ], []);
+
+    // Memoized column definitions for all SimpleCatalog instances
+    const origenesColumns = useMemo(() => [
+        { field: 'codigo', headerName: 'Código', width: 120 },
+        { field: 'nombre', headerName: 'Nombre', flex: 1 }
+    ], []);
+
+    const consecuenciasColumns = useMemo(() => [
+        { field: 'codigo', headerName: 'Código', width: 120 },
+        { field: 'nombre', headerName: 'Nombre', flex: 1 }
+    ], []);
+
+    const tiposRiesgoColumns = useMemo(() => [
+        { field: 'codigo', headerName: 'Código', width: 120 },
+        { field: 'nombre', headerName: 'Nombre', flex: 1 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 2 }
+    ], []);
+
+    const objetivosColumns = useMemo(() => [
+        { field: 'codigo', headerName: 'Código', width: 120 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 1 }
+    ], []);
+
+    const fuentesColumns = useMemo(() => [
+        { field: 'id', headerName: 'ID', width: 80, editable: false },
+        { field: 'nombre', headerName: 'Nombre', flex: 1 }
+    ], []);
+
+    const frecuenciasColumns = useMemo(() => [
+        { field: 'id', headerName: 'ID', width: 80, editable: false },
+        { field: 'label', headerName: 'Frecuencia', width: 160 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 1 }
     ], []);
 
     return (
@@ -449,17 +472,14 @@ export default function ParametrosCalificacionPage() {
                                 title="Orígenes de Riesgo"
                                 itemLabel="Origen"
                                 data={filteredOrigenes}
-                                columns={[
-                                    { field: 'codigo', headerName: 'Código', width: 120 },
-                                    { field: 'nombre', headerName: 'Nombre', flex: 1 }
-                                ]}
+                                columns={origenesColumns}
                                 defaultItem={{ codigo: '', nombre: '' }}
-                                onSave={createSaveHandler(origenes, setOrigenes, async (data) => {
+                                onSave={createSaveHandler(async (data) => {
                                     return await updateOrigenes(data).unwrap();
-                                })}
-                                onDelete={createDeleteHandler(origenes, setOrigenes, async (data) => {
+                                }, origenes)}
+                                onDelete={createDeleteHandler(async (data) => {
                                     return await updateOrigenes(data).unwrap();
-                                })}
+                                }, origenes)}
                             />
                         </TabPanel>
 
@@ -484,17 +504,14 @@ export default function ParametrosCalificacionPage() {
                                 title="Consecuencias"
                                 itemLabel="Consecuencia"
                                 data={filteredConsecuencias}
-                                columns={[
-                                    { field: 'codigo', headerName: 'Código', width: 120 },
-                                    { field: 'nombre', headerName: 'Nombre', flex: 1 }
-                                ]}
+                                columns={consecuenciasColumns}
                                 defaultItem={{ codigo: '', nombre: '' }}
-                                onSave={createSaveHandler(consecuencias, setConsecuencias, async (data) => {
+                                onSave={createSaveHandler(async (data) => {
                                     return await updateConsecuencias(data).unwrap();
-                                })}
-                                onDelete={createDeleteHandler(consecuencias, setConsecuencias, async (data) => {
+                                }, consecuencias)}
+                                onDelete={createDeleteHandler(async (data) => {
                                     return await updateConsecuencias(data).unwrap();
-                                })}
+                                }, consecuencias)}
                             />
                         </TabPanel>
 
@@ -519,11 +536,7 @@ export default function ParametrosCalificacionPage() {
                                 title="Tipos de Riesgo"
                                 itemLabel="Tipo"
                                 data={filteredTiposRiesgo}
-                                columns={[
-                                    { field: 'codigo', headerName: 'Código', width: 120 },
-                                    { field: 'nombre', headerName: 'Nombre', flex: 1 },
-                                    { field: 'descripcion', headerName: 'Descripción', flex: 2 }
-                                ]}
+                                columns={tiposRiesgoColumns}
                                 defaultItem={{ codigo: '', nombre: '', descripcion: '' }}
                                 onSave={handleSaveTiposRiesgo}
                                 onDelete={handleDeleteTiposRiesgo}
@@ -566,10 +579,7 @@ export default function ParametrosCalificacionPage() {
                                 title="Objetivos Estratégicos"
                                 itemLabel="Objetivo"
                                 data={filteredObjetivos}
-                                columns={[
-                                    { field: 'codigo', headerName: 'Código', width: 120 },
-                                    { field: 'descripcion', headerName: 'Descripción', flex: 1 }
-                                ]}
+                                columns={objetivosColumns}
                                 defaultItem={{ codigo: '', descripcion: '' }}
                                 onSave={async (item) => {
                                     if (item.id) {
@@ -629,17 +639,14 @@ export default function ParametrosCalificacionPage() {
                             title="Fuentes de Causa"
                             itemLabel="Fuente"
                             data={filteredFuentes}
-                            columns={[
-                                { field: 'id', headerName: 'ID', width: 80, editable: false },
-                                { field: 'nombre', headerName: 'Nombre', flex: 1 }
-                            ]}
+                            columns={fuentesColumns}
                             defaultItem={{ nombre: '' }}
-                            onSave={createSaveHandler(fuentes, setFuentes, async (data) => {
+                            onSave={createSaveHandler(async (data) => {
                                 return await updateFuentes(data).unwrap();
-                            })}
-                            onDelete={createDeleteHandler(fuentes, setFuentes, async (data) => {
+                            }, fuentes)}
+                            onDelete={createDeleteHandler(async (data) => {
                                 return await updateFuentes(data).unwrap();
-                            })}
+                            }, fuentes)}
                         />
                     </TabPanel>
 
@@ -664,18 +671,14 @@ export default function ParametrosCalificacionPage() {
                             title="Niveles de Frecuencia (Probabilidad)"
                             itemLabel="Nivel"
                             data={filteredFrecuencias}
-                            columns={[
-                                { field: 'id', headerName: 'ID', width: 80, editable: false },
-                                { field: 'label', headerName: 'Frecuencia', width: 160 },
-                                { field: 'descripcion', headerName: 'Descripción', flex: 1 }
-                            ]}
+                            columns={frecuenciasColumns}
                             defaultItem={{ label: '', descripcion: '' }}
-                            onSave={createSaveHandler(frecuencias, setFrecuencias as any, async (data) => {
+                            onSave={createSaveHandler(async (data) => {
                                 return await updateFrecuencias(data).unwrap();
-                            })}
-                            onDelete={createDeleteHandler(frecuencias, setFrecuencias as any, async (data) => {
+                            }, frecuencias)}
+                            onDelete={createDeleteHandler(async (data) => {
                                 return await updateFrecuencias(data).unwrap();
-                            })}
+                            }, frecuencias)}
                         />
                     </TabPanel>
                 </TabPanel>
