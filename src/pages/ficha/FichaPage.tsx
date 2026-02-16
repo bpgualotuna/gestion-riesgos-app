@@ -98,17 +98,13 @@ export default function FichaPage() {
       });
     }
 
-    // Gerente General Proceso
+    // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
+    // Ve solo sus procesos como responsable (igual que dueño de proceso)
     if (esGerenteGeneralProceso) {
-      if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
-      return procesos.filter((p: any) => {
-        if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
-        return false;
-      });
+      return procesos.filter((p: any) => p.responsableId === user?.id);
     }
 
-    // Dueño de Proceso REAL
+    // Dueño de Proceso - ve solo sus procesos como responsable
     if (user?.role === 'dueño_procesos') {
       return procesos.filter((p: any) => p.responsableId === user.id);
     }
@@ -156,11 +152,12 @@ export default function FichaPage() {
     return Object.values(grouped);
   }, [procesosFiltrados]);
 
+  // NO mostrar filtros para Dueño de Proceso ni Gerente General (Proceso)
+  // Solo mostrar para Supervisor y Gerente General Director
   const mostrarFiltrosProceso =
-    esSupervisorRiesgos ||
-    esGerenteGeneralDirector ||
-    user?.role === 'supervisor' ||
-    user?.role === 'gerente_general';
+    (esSupervisorRiesgos || esGerenteGeneralDirector) &&
+    !esGerenteGeneralProceso &&
+    user?.role !== 'dueño_procesos';
 
   // La ficha es del proceso, solo depende del modo del proceso
   const isReadOnly = modoProceso === 'visualizar';

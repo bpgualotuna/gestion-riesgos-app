@@ -137,14 +137,10 @@ export default function ProcesosPage() {
   const [showForm, setShowForm] = useState(false);
 
   const procesosVisibles = useMemo(() => {
-    // Gerente General Proceso
+    // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
+    // Ve solo sus procesos como responsable (igual que dueño de proceso)
     if (esGerenteGeneralProceso && user) {
-      if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
-      return procesos.filter((p) => {
-        if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
-        return false;
-      });
+      return procesos.filter((p) => p.responsableId === user.id);
     }
     // Dueño de Proceso REAL
     if (user?.role === 'dueño_procesos') {

@@ -60,7 +60,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Login function
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/login`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

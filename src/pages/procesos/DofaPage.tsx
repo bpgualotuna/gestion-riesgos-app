@@ -92,6 +92,18 @@ export default function DofaPage() {
 
   const procesosVisibles = useMemo(() => {
     if (esGerenteGeneralDirector) return procesos;
+    
+    // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
+    // Ve solo sus procesos como responsable (igual que dueño de proceso)
+    if (esGerenteGeneralProceso && user) {
+      return procesos.filter((p: any) => p.responsableId === user.id);
+    }
+    
+    // Dueño de Proceso - ve solo sus procesos como responsable
+    if (esDueñoProcesos && user) {
+      return procesos.filter((p: any) => p.responsableId === user.id);
+    }
+    
     if (esSupervisorRiesgos && user) {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
       return procesos.filter((p: any) => {
@@ -101,7 +113,7 @@ export default function DofaPage() {
       });
     }
     return procesos;
-  }, [procesos, esSupervisorRiesgos, esGerenteGeneralDirector, areasAsignadas, procesosAsignados, user]);
+  }, [procesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, areasAsignadas, procesosAsignados, user]);
 
   // Supervisor/gerente director/gerente proceso siempre en modo solo lectura
   const isReadOnly = modoProceso === 'visualizar' || esSupervisorRiesgos || esGerenteGeneralDirector || esGerenteGeneralProceso;
