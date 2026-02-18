@@ -114,6 +114,20 @@ export default function ContextoInternoPage() {
     }
   };
 
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="Análisis de Contexto Interno"
+        description="Análisis de factores internos de la organización que afectan el proceso"
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   return (
     <AppPageLayout
       title="Análisis de Contexto Interno"

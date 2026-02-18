@@ -17,7 +17,7 @@ import {
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGetProcesosQuery } from '../../api/services/riesgosApi';
-import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
+import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import { useNotification } from '../../hooks/useNotification';
 
 interface FiltroProcesoSupervisorProps {
@@ -35,8 +35,10 @@ export default function FiltroProcesoSupervisor({ soloSupervisores = true }: Fil
     const [filtroArea, setFiltroArea] = useState<string>('all');
 
     // Determinar si debe mostrar los filtros
-    // NO mostrar para Dueño de Proceso ni Gerente General (Proceso) - ellos ven solo sus procesos asignados
-    // Solo mostrar para Supervisor y Gerente General Director
+    // Mostrar SOLO para Supervisor y Gerente General Director.
+    // NO mostrar para Dueño de Proceso ni Gerente General (Proceso):
+    //   - Dueño de Proceso selecciona el proceso únicamente desde el header.
+    //   - Gerente General (Proceso) también usa solo el selector del header.
     const esDuenoProcesos = user?.role === 'dueño_procesos';
     const mostrarFiltros =
         !soloSupervisores ||
@@ -59,12 +61,12 @@ export default function FiltroProcesoSupervisor({ soloSupervisores = true }: Fil
         // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
         // Ve solo sus procesos como responsable (igual que dueño de proceso)
         if (esGerenteGeneralProceso) {
-            return procesos.filter((p: any) => p.responsableId === user?.id);
+            return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user?.id));
         }
 
-        // Dueño de Proceso - ve solo sus procesos como responsable
+        // Dueño de Proceso - ve solo sus procesos como responsable (considerando responsablesList)
         if (user?.role === 'dueño_procesos') {
-            return procesos.filter((p: any) => p.responsableId === user.id);
+            return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
         }
 
         return procesos;

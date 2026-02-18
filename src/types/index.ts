@@ -96,6 +96,7 @@ export interface Proceso {
   descripcion: string;
   vicepresidencia: string;
   gerencia: string;
+  sigla?: string; // Sigla del proceso para identificar riesgos (ej: "PF" para Planificación Financiera)
   responsable: string;
   responsableId: number | string;
   responsableNombre: string;
@@ -121,6 +122,7 @@ export interface Proceso {
   createdAt: string;
   updatedAt: string;
   puedeCrear?: string[];
+  responsablesList?: Array<{ id: number; nombre: string; email?: string; role?: string }>;
 }
 
 export interface Area {

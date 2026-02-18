@@ -86,7 +86,7 @@ import { useProceso } from "../../contexts/ProcesoContext";
 import { useGetProcesosQuery } from "../../api/services/riesgosApi";
 import NotificacionesMenu from "../notificaciones/NotificacionesMenu";
 import { useNotification } from "../../hooks/useNotification";
-import { useAreasProcesosAsignados } from "../../hooks/useAsignaciones";
+import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from "../../hooks/useAsignaciones";
 
 
 const DRAWER_WIDTH = 280;
@@ -237,8 +237,8 @@ export default function MainLayout() {
       // Gerente General Proceso ve procesos asignados desde AreasPage
       return procesos.filter((p) => procesosAsignados.includes(String(p.id)));
     } else if (user?.role === 'dueño_procesos') {
-      // Dueño del proceso REAL solo ve sus procesos
-      return procesos.filter((p) => p.responsableId === user.id);
+      // Dueño del proceso REAL solo ve sus procesos (considerando responsablesList)
+      return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
     }
     return procesos;
   }, [procesos, esAdmin, esSupervisorRiesgos, esGerenteGeneralProceso, procesosAsignados, esGerenteGeneral, user]);
@@ -1201,7 +1201,10 @@ export default function MainLayout() {
                 background: (theme) => theme.palette.background.default,
               }}
             >
-              {esDueñoProcesos && tieneAsignaciones && !procesoSeleccionado?.id && (
+              {/* Mostrar alerta solo si NO estamos en dashboard o mapa (tienen sus propios filtros) */}
+              {esDueñoProcesos && tieneAsignaciones && !procesoSeleccionado?.id && 
+               location.pathname !== ROUTES.DASHBOARD_SUPERVISOR && 
+               location.pathname !== ROUTES.MAPA && (
                 <Alert severity="info" sx={{ mb: 2 }}>
                   Seleccione un proceso para habilitar el resto del menú.
                 </Alert>

@@ -49,7 +49,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGetProcesosQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
-import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
+import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
@@ -96,12 +96,12 @@ export default function DofaPage() {
     // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
     // Ve solo sus procesos como responsable (igual que dueño de proceso)
     if (esGerenteGeneralProceso && user) {
-      return procesos.filter((p: any) => p.responsableId === user.id);
+      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
     }
     
     // Dueño de Proceso - ve solo sus procesos como responsable
     if (esDueñoProcesos && user) {
-      return procesos.filter((p: any) => p.responsableId === user.id);
+      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
     }
     
     if (esSupervisorRiesgos && user) {
@@ -117,6 +117,21 @@ export default function DofaPage() {
 
   // Supervisor/gerente director/gerente proceso siempre en modo solo lectura
   const isReadOnly = modoProceso === 'visualizar' || esSupervisorRiesgos || esGerenteGeneralDirector || esGerenteGeneralProceso;
+
+  // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
+  if (esDueñoProcesos && !procesoSeleccionado?.id) {
+    return (
+      <AppPageLayout
+        title="Matriz DOFA"
+        description="Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas del proceso."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso en el encabezado para ver su matriz DOFA.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
   const [tabValue, setTabValue] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<DofaItem | null>(null);

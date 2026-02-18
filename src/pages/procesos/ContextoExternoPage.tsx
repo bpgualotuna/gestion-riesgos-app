@@ -103,6 +103,20 @@ export default function ContextoExternoPage() {
     }
   };
 
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="Análisis de Contexto Externo"
+        description="Análisis de factores externos que afectan el proceso"
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   return (
     <AppPageLayout
       title="Análisis de Contexto Externo"

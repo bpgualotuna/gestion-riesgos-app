@@ -120,7 +120,7 @@ interface Incidencia {
 }
 
 export default function MaterializarRiesgosPage() {
-  const { esAdmin } = useAuth();
+  const { esAdmin, esDueñoProcesos } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
@@ -131,6 +131,21 @@ export default function MaterializarRiesgosPage() {
   const [datosFormulario, setDatosFormulario] = useState<Partial<Incidencia>>({});
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
+
+  // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
+  if (esDueñoProcesos && !procesoSeleccionado?.id) {
+    return (
+      <AppPageLayout
+        title="Materialización de Riesgos"
+        description="Gestión y registro de eventos donde los riesgos se han materializado."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso en el encabezado para ver sus eventos.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
 
   const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
     procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,

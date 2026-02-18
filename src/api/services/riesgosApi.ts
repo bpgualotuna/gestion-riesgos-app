@@ -109,6 +109,38 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Proceso'],
     }),
 
+    // Responsables múltiples por proceso
+    getResponsablesByProceso: builder.query<any[], string>({
+      query: (procesoId) => `procesos/${procesoId}/responsables`,
+      providesTags: (_result, _error, procesoId) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
+    }),
+
+    addResponsableToProceso: builder.mutation<any, { procesoId: string; usuarioId: number }>({
+      query: ({ procesoId, usuarioId }) => ({
+        url: `procesos/${procesoId}/responsables`,
+        method: 'POST',
+        body: { usuarioId },
+      }),
+      invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
+    }),
+
+    removeResponsableFromProceso: builder.mutation<void, { procesoId: string; usuarioId: number }>({
+      query: ({ procesoId, usuarioId }) => ({
+        url: `procesos/${procesoId}/responsables/${usuarioId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
+    }),
+
+    updateResponsablesProceso: builder.mutation<any[], { procesoId: string; responsablesIds: number[] }>({
+      query: ({ procesoId, responsablesIds }) => ({
+        url: `procesos/${procesoId}/responsables`,
+        method: 'PUT',
+        body: { responsablesIds },
+      }),
+      invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
+    }),
+
     // ============================================
     // RIESGOS
     // ============================================
@@ -1137,6 +1169,10 @@ export const {
   useDeleteProcesoMutation,
   useDuplicateProcesoMutation,
   useBulkUpdateProcesosMutation,
+  useGetResponsablesByProcesoQuery,
+  useAddResponsableToProcesoMutation,
+  useRemoveResponsableFromProcesoMutation,
+  useUpdateResponsablesProcesoMutation,
   // Riesgos
   useGetRiesgosQuery,
   useGetRiesgoByIdQuery,

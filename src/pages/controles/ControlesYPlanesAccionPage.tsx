@@ -130,7 +130,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [causaDetalleView, setCausaDetalleView] = useState<{ riesgoId: string; causa: any } | null>(null);
   const [dialogDetailOpen, setDialogDetailOpen] = useState(false);
   const [itemDetalle, setItemDetalle] = useState<ClasificacionCausa | null>(null);
-  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
+  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS' | string>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
@@ -487,6 +487,20 @@ export default function ControlesYPlanesAccionPageNueva() {
 
           const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
           const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
+          const calRes = calcularCalificacionResidual(fRes, iRes);
+          
+          // Calcular nivelRiesgoResidual para esta causa individual
+          let nivelResidualCausa = 'Sin Calificar';
+          if (calRes >= 15 && calRes <= 25) {
+            nivelResidualCausa = 'Crítico';
+          } else if (calRes >= 10 && calRes <= 14) {
+            nivelResidualCausa = 'Alto';
+          } else if (calRes >= 5 && calRes <= 9) {
+            nivelResidualCausa = 'Medio';
+          } else if (calRes >= 1 && calRes <= 4) {
+            nivelResidualCausa = 'Bajo';
+          }
+          
           causaActualizada = {
             ...c, ...criteriosEvaluacion,
             controlDesviaciones: criteriosEvaluacion.desviaciones,
@@ -496,7 +510,8 @@ export default function ControlesYPlanesAccionPageNueva() {
             tipoGestion: tipoClasificacion === 'AMBOS' ? 'AMBOS' : 'CONTROL',
             puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
             frecuenciaResidual: fRes, impactoResidual: iRes,
-            calificacionResidual: calcularCalificacionResidual(fRes, iRes),
+            calificacionResidual: calRes,
+            nivelRiesgoResidual: nivelResidualCausa,
             ...(tipoClasificacion === 'AMBOS' && {
               planDescripcion: formPlan.descripcion,
               planDetalle: formPlan.detalle,
@@ -527,34 +542,51 @@ export default function ControlesYPlanesAccionPageNueva() {
     });
 
     if (riesgoIdEvaluacion) {
-      // Calcular Riesgo Residual Global (MAX de los residuales de las causas)
-      // Si una causa no tiene evaluación residual (ej. pendiente), se usa su inherente
-      // Si la causa no tiene valores propios, usamos los del riesgo padre
-      const causasConControles = causasUpd.filter((c: any) => {
+      // Calcular Riesgo Residual Global (MAX de los residuales de TODAS las causas con controles)
+      // IMPORTANTE: Siempre recalcular desde TODAS las causas del riesgo, no solo las actualizadas
+      // Esto asegura que si se añaden más causas, el riesgo global siempre refleje el máximo
+      
+      // Obtener TODAS las causas del riesgo (las actualizadas + las existentes)
+      const todasLasCausas = causasUpd;
+      
+      // Filtrar solo las causas que tienen controles aplicados
+      const causasConControles = todasLasCausas.filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
         return tipo === 'CONTROL' || tipo === 'AMBOS';
       });
       
-      const calificacionesResiduales = causasConControles.length > 0
-        ? causasConControles.map((c: any) => {
-            const residual = c.calificacionResidual;
-            // Fallback robusto para cálculo inherente
-            const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 0;
-            const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 0;
-            const inherente = prob * imp;
-            return residual !== undefined ? residual : inherente;
-          })
-        : causasUpd.map((c: any) => {
-            const residual = c.calificacionResidual;
-            const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 0;
-            const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 0;
-            const inherente = prob * imp;
-            return residual !== undefined ? residual : inherente;
-          });
+      // Calcular calificaciones residuales de TODAS las causas con controles
+      const calificacionesResiduales = causasConControles.map((c: any) => {
+        // Priorizar calificacionResidual calculada
+        if (c.calificacionResidual !== undefined && c.calificacionResidual !== null) {
+          return Number(c.calificacionResidual);
+        }
+        
+        // Si no hay calificación residual, intentar calcular desde frecuenciaResidual e impactoResidual
+        if (c.frecuenciaResidual !== undefined && c.impactoResidual !== undefined) {
+          const freqRes = Number(c.frecuenciaResidual);
+          const impRes = Number(c.impactoResidual);
+          if (!isNaN(freqRes) && !isNaN(impRes) && freqRes >= 1 && freqRes <= 5 && impRes >= 1 && impRes <= 5) {
+            // Aplicar excepción 2x2 = 3.99
+            if (freqRes === 2 && impRes === 2) {
+              return 3.99;
+            }
+            return freqRes * impRes;
+          }
+        }
+        
+        // Fallback: usar riesgo inherente de la causa (si no tiene control, usar inherente)
+        const prob = c.frecuencia || riesgo.evaluacion?.probabilidad || 1;
+        const imp = c.calificacionGlobalImpacto || riesgo.evaluacion?.impactoGlobal || riesgo.evaluacion?.impactoMaximo || 1;
+        const inherente = prob * imp;
+        return inherente;
+      });
       
+      // El riesgo residual global SIEMPRE es el MÁXIMO de todas las calificaciones residuales
+      // Si no hay causas con controles, usar el riesgo inherente del riesgo
       const maxRiesgoResidual = calificacionesResiduales.length > 0 
         ? Math.max(...calificacionesResiduales)
-        : riesgo.evaluacion?.riesgoInherente || 0;
+        : (riesgo.evaluacion?.riesgoInherente || riesgo.evaluacion?.probabilidad * riesgo.evaluacion?.impactoGlobal || 0);
       
       // Calcular probabilidadResidual e impactoResidual desde maxRiesgoResidual
       let mejorProbRes = 1;
@@ -589,9 +621,9 @@ export default function ControlesYPlanesAccionPageNueva() {
         nivelRiesgoResidual = 'Crítico';
       } else if (maxRiesgoResidual >= 10 && maxRiesgoResidual <= 14) {
         nivelRiesgoResidual = 'Alto';
-      } else if (maxRiesgoResidual >= 4 && maxRiesgoResidual <= 9) {
+      } else if (maxRiesgoResidual >= 5 && maxRiesgoResidual <= 9) {
         nivelRiesgoResidual = 'Medio';
-      } else if (maxRiesgoResidual >= 1 && maxRiesgoResidual <= 3) {
+      } else if (maxRiesgoResidual >= 1 && maxRiesgoResidual <= 4) {
         nivelRiesgoResidual = 'Bajo';
       }
 
@@ -716,7 +748,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPendientes('id')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                   {sortPendientes.field === 'id' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -727,7 +759,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPendientes('descripcion')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortPendientes.field === 'descripcion' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -738,7 +770,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPendientes('tipologia')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
                   {sortPendientes.field === 'tipologia' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -760,7 +792,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPendientes('estado')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                   {sortPendientes.field === 'estado' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -911,45 +943,39 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       <TableCell align="center">{causa.frecuencia || 1}</TableCell>
                                       <TableCell align="center">{(causa.calificacionGlobalImpacto || 1).toFixed(2)}</TableCell>
                                       <TableCell align="center">
-                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            startIcon={<ShieldIcon />}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setTipoClasificacion('CONTROL');
-                                              handleEvaluarControl(riesgo.id, causa);
+                                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                                          <InputLabel>Acción</InputLabel>
+                                          <Select
+                                            value=""
+                                            label="Acción"
+                                            onChange={(e) => {
+                                              const accion = e.target.value;
+                                              if (accion) {
+                                                setTipoClasificacion(accion as any);
+                                                handleEvaluarControl(riesgo.id, causa);
+                                              }
                                             }}
                                           >
-                                            Control
-                                          </Button>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            startIcon={<AssignmentIcon />}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setTipoClasificacion('PLAN');
-                                              handleEvaluarControl(riesgo.id, causa);
-                                            }}
-                                          >
-                                            Plan de Acción
-                                          </Button>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            color="secondary"
-                                            startIcon={<CheckCircleIcon />}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setTipoClasificacion('AMBOS');
-                                              handleEvaluarControl(riesgo.id, causa);
-                                            }}
-                                          >
-                                            Ambos
-                                          </Button>
-                                        </Box>
+                                            <MenuItem value="CONTROL">
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <ShieldIcon fontSize="small" />
+                                                Control
+                                              </Box>
+                                            </MenuItem>
+                                            <MenuItem value="PLAN">
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <AssignmentIcon fontSize="small" />
+                                                Plan de Acción
+                                              </Box>
+                                            </MenuItem>
+                                            <MenuItem value="AMBOS">
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <CheckCircleIcon fontSize="small" />
+                                                Ambos
+                                              </Box>
+                                            </MenuItem>
+                                          </Select>
+                                        </FormControl>
                                       </TableCell>
                                       <TableCell align="center">
                                         <Chip label="Pendiente" variant="outlined" size="small" />
@@ -1210,6 +1236,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                 )}
 
                                                 {(tipoClasificacion === 'PLAN' || tipoClasificacion === 'plan' || tipoClasificacion === 'AMBOS') && (
+                                                  <Box sx={{ mt: tipoClasificacion === 'AMBOS' ? 4 : 0 }}>
+                                                    {tipoClasificacion === 'AMBOS' && (
+                                                      <Divider sx={{ my: 3 }}>
+                                                        <Typography variant="h6" color="primary" fontWeight={600}>
+                                                          Configurar Plan de Acción
+                                                        </Typography>
+                                                      </Divider>
+                                                    )}
                                                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
@@ -1218,6 +1252,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
                                                       <TextField label="Fecha Estimada de Finalización" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                                      </Box>
                                                     </Box>
                                                   </Box>
                                                 )}
@@ -1273,7 +1308,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('id')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                   {sortControles.field === 'id' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1284,7 +1319,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('descripcion')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortControles.field === 'descripcion' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1295,7 +1330,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('tipologia')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
                   {sortControles.field === 'tipologia' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1317,7 +1352,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('estado')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                   {sortControles.field === 'estado' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1458,7 +1493,6 @@ export default function ControlesYPlanesAccionPageNueva() {
                               <TableRow sx={{ bgcolor: '#eee' }}>
                                 <TableCell>Causa Original</TableCell>
                                 <TableCell>Descripción del Control</TableCell>
-                                <TableCell>Tipo</TableCell>
                                 <TableCell align="center">Efectividad</TableCell>
                                 <TableCell align="center">Acciones</TableCell>
                               </TableRow>
@@ -1486,49 +1520,302 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 };
                                 
                                 return (
+                                <Fragment key={causa.id}>
                                 <TableRow
-                                  key={causa.id}
                                   sx={{ cursor: 'pointer' }}
                                   onClick={() => {
-                                    setItemDetalle(detalleControl);
-                                    setCausaDetalleView({ riesgoId: riesgo.id, causa });
+                                      setItemDetalle(detalleControl);
+                                      setCausaDetalleView({ riesgoId: riesgo.id, causa });
                                     setDialogDetailOpen(true);
                                   }}
                                 >
                                   <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
                                   <TableCell>{causa.controlDescripcion || causa.gestion?.controlDescripcion || 'Sin descripción'}</TableCell>
-                                  <TableCell>{causa.controlTipo || causa.gestion?.controlTipo || 'N/A'}</TableCell>
                                   <TableCell align="center">
                                     {causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || 'Sin evaluar'}
                                   </TableCell>
                                   <TableCell align="center">
-                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                      <IconButton
+                                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                        <IconButton
                                         size="small"
-                                        color="primary"
+                                          color="primary"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setTipoClasificacion('CONTROL');
+                                            const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
+                                            setTipoClasificacion(tipoGestion as any);
                                           handleEvaluarControl(riesgo.id, causa);
                                         }}
-                                        title="Editar"
-                                      >
-                                        <EditIcon fontSize="small" />
-                                      </IconButton>
-                                      <IconButton
+                                          title="Editar Control"
+                                        >
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton
                                         size="small"
                                         color="error"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleEliminarClasificacion(riesgo.id, causa);
                                         }}
-                                        title="Eliminar"
+                                          title="Eliminar"
                                       >
-                                        <DeleteIcon fontSize="small" />
-                                      </IconButton>
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
                                     </Box>
                                   </TableCell>
                                 </TableRow>
+                                  {evaluacionExpandida?.riesgoId === riesgo.id && evaluacionExpandida?.causaId === causa.id && (
+                                    <TableRow>
+                                      <TableCell colSpan={4} sx={{ p: 0 }}>
+                                        <Collapse in={true}>
+                                          <Box sx={{ p: 3, bgcolor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
+                                            <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>
+                                              Evaluar Efectividad del Control
+                                            </Typography>
+                                            {(() => {
+                                              const inherentProb = Number(causa.frecuencia || riesgo.evaluacion?.probabilidad || 1);
+                                              const inherentImp = Number(causa.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 1);
+                                              let pt = 0;
+                                              let def = 'Inefectivo';
+                                              let mit = 0;
+
+                                              if (criteriosEvaluacion.tieneControl) {
+                                                pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+                                                const prel = determinarEvaluacionPreliminar(pt);
+                                                def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.desviaciones);
+                                                mit = obtenerPorcentajeMitigacionAvanzado(def);
+                                              }
+
+                                              const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, criteriosEvaluacion.tipoMitigacion);
+                                              const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, criteriosEvaluacion.tipoMitigacion);
+                                              const calRes = calcularCalificacionResidual(fRes, iRes);
+                                              const nivelRes = determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+
+                                              const getColorNivel = (n: string) => {
+                                                if (n === NIVELES_RIESGO.CRITICO) return '#d32f2f';
+                                                if (n === NIVELES_RIESGO.ALTO) return '#f57c00';
+                                                if (n === NIVELES_RIESGO.MEDIO) return '#fdd835';
+                                                if (n === NIVELES_RIESGO.BAJO) return '#388e3c';
+                                                return '#e0e0e0';
+                                              };
+
+                                              return (
+                                                <>
+                                                  <Box sx={{ mb: 2 }}>
+                                                    <FormControlLabel
+                                                      control={<Switch checked={criteriosEvaluacion.tieneControl} onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tieneControl: e.target.checked }))} />}
+                                                      label={<Typography fontWeight="bold">¿Tiene Control Implementado?</Typography>}
+                                                    />
+                                                  </Box>
+
+                                                  {criteriosEvaluacion.tieneControl && (
+                                                    <Collapse in={true}>
+                                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3 }}>
+                                                          <TextField
+                                                            label="Descripción del Control"
+                                                            multiline
+                                                            rows={2}
+                                                            value={criteriosEvaluacion.descripcionControl || ''}
+                                                            onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, descripcionControl: e.target.value }))}
+                                                            fullWidth
+                                                            placeholder="Describa el control..."
+                                                          />
+                                                          <FormControl fullWidth size="small">
+                                                            <InputLabel>¿Disminuye Frecuencia o Impacto?</InputLabel>
+                                                            <Select
+                                                              value={criteriosEvaluacion.tipoMitigacion}
+                                                              label="¿Disminuye Frecuencia o Impacto?"
+                                                              onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tipoMitigacion: e.target.value as any }))}
+                                                            >
+                                                              <MenuItem value="FRECUENCIA">Disminuye Frecuencia</MenuItem>
+                                                              <MenuItem value="IMPACTO">Disminuye Impacto</MenuItem>
+                                                              <MenuItem value="AMBAS">Ambas</MenuItem>
+                                                            </Select>
+                                                          </FormControl>
+                                                          <TextField
+                                                            label="Responsable del Control"
+                                                            value={criteriosEvaluacion.responsable || ''}
+                                                            onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, responsable: e.target.value }))}
+                                                            fullWidth
+                                                          />
+                                                        </Box>
+
+                                                        <Divider>Evaluación de Criterios (Puntaje Variable)</Divider>
+
+                                                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+                                                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Aplicabilidad</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.aplicabilidad}
+                                                                label="Aplicabilidad"
+                                                                sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                onChange={(e) => {
+                                                                  const v = e.target.value; const p = v === 'totalmente' ? 100 : v === 'parcial' ? 30 : 0;
+                                                                  setCriteriosEvaluacion(pr => ({ ...pr, aplicabilidad: v, puntajeAplicabilidad: p }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="totalmente" sx={{ whiteSpace: 'normal' }}>Cuenta con procedimientos documentados y se deja evidencia de su ejecución (100)</MenuItem>
+                                                                <MenuItem value="parcial" sx={{ whiteSpace: 'normal' }}>Cuenta con procedimientos documentados total o parcialmente pero no se deja evidencia de su ejecución, o al contrario (30)</MenuItem>
+                                                                <MenuItem value="nula" sx={{ whiteSpace: 'normal' }}>No se deja evidencia de su ejecución, ni se cuenta con los procedimientos documentados (0)</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Cobertura</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.cobertura}
+                                                                label="Cobertura"
+                                                                sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                onChange={(e) => {
+                                                                  const v = e.target.value; const p = v === 'total' ? 100 : v === 'parcial' ? 70 : 10;
+                                                                  setCriteriosEvaluacion(pr => ({ ...pr, cobertura: v, puntajeCobertura: p }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="total" sx={{ whiteSpace: 'normal' }}>La frecuencia del control tiene una periodicidad definida y se realiza sobre la totalidad de la población (100)</MenuItem>
+                                                                <MenuItem value="parcial" sx={{ whiteSpace: 'normal' }}>La frecuencia del control tiene una periodicidad definida y se hace sobre una muestra de la población (70)</MenuItem>
+                                                                <MenuItem value="eventual" sx={{ whiteSpace: 'normal' }}>La frecuencia del control es eventual o a discreción del funcionario que realiza el control (10)</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Facilidad de Uso</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.facilidadUso}
+                                                                label="Facilidad de Uso"
+                                                                sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                onChange={(e) => {
+                                                                  const v = e.target.value; const p = v === 'coherente' ? 100 : v === 'complejo' ? 70 : 30;
+                                                                  setCriteriosEvaluacion(pr => ({ ...pr, facilidadUso: v, puntajeFacilidad: p }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="coherente" sx={{ whiteSpace: 'normal' }}>La complejidad del control es coherente con el riesgo identificado y la actividad realizada (100)</MenuItem>
+                                                                <MenuItem value="complejo" sx={{ whiteSpace: 'normal' }}>El control es muy complejo en su ejecución y requiere simplificación (70)</MenuItem>
+                                                                <MenuItem value="sencillo" sx={{ whiteSpace: 'normal' }}>El control es muy sencillo en comparación con el riesgo identificado y la actividad realizada, y requiere mayor profundización (30)</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+                                                          </Box>
+
+                                                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Segregación</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.segregacion}
+                                                                label="Segregación"
+                                                                sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                onChange={(e) => {
+                                                                  const v = e.target.value; const p = v === 'si' ? 100 : v === 'na' ? 100 : 0;
+                                                                  setCriteriosEvaluacion(pr => ({ ...pr, segregacion: v, puntajeSegregacion: p }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="si">Sí (100)</MenuItem>
+                                                                <MenuItem value="no">No (0)</MenuItem>
+                                                                <MenuItem value="na">N/A (100)</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Naturaleza</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.naturaleza}
+                                                                label="Naturaleza"
+                                                                sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                onChange={(e) => {
+                                                                  const v = e.target.value; const p = v === 'automatico' ? 80 : v === 'semiautomatico' ? 60 : 40;
+                                                                  setCriteriosEvaluacion(pr => ({ ...pr, naturaleza: v, puntajeNaturaleza: p }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="automatico">Automático (80)</MenuItem>
+                                                                <MenuItem value="semiautomatico">Semiautomático (60)</MenuItem>
+                                                                <MenuItem value="manual">Manual (40)</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Desviaciones</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.desviaciones || 'A'}
+                                                                label="Desviaciones"
+                                                                sx={{ '& .MuiSelect-select': { whiteSpace: 'normal' } }}
+                                                                onChange={(e) => {
+                                                                  setCriteriosEvaluacion(pr => ({ ...pr, desviaciones: e.target.value }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="A" sx={{ whiteSpace: 'normal' }}>A. El control ha fallado 0 veces durante el último año</MenuItem>
+                                                                <MenuItem value="B" sx={{ whiteSpace: 'normal' }}>B. Se han encontrado desviaciones en el desempeño del control</MenuItem>
+                                                                <MenuItem value="C" sx={{ whiteSpace: 'normal' }}>C. El control falla la mayoría de las veces</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+                                                          </Box>
+                                                        </Box>
+
+                                                        <Box sx={{ mt: 3, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
+                                                          <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">
+                                                            CALIFICACIÓN DEL RIESGO RESIDUAL
+                                                          </Typography>
+                                                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, textAlign: 'center' }}>
+                                                            <Box>
+                                                              <Typography variant="caption" display="block" color="text.secondary">Eficacia Control</Typography>
+                                                              <Typography variant="body2" fontWeight="bold">
+                                                                {criteriosEvaluacion.tieneControl ? def : 'Inefectivo (Sin Control)'}
+                                                              </Typography>
+                                                              {criteriosEvaluacion.tieneControl && (
+                                                                <Typography variant="caption">({pt.toFixed(0)} pts)</Typography>
+                                                              )}
+                                                            </Box>
+                                                            <Box>
+                                                              <Typography variant="caption" display="block" color="text.secondary">% Mitigación</Typography>
+                                                              <Typography variant="h6" color="primary">
+                                                                {(mit * 100).toFixed(0)}%
+                                                              </Typography>
+                                                            </Box>
+                                                            <Box>
+                                                              <Typography variant="caption" display="block" color="text.secondary">Frec. Residual</Typography>
+                                                              <Typography variant="h6">
+                                                                {fRes}
+                                                              </Typography>
+                                                            </Box>
+                                                            <Box>
+                                                              <Typography variant="caption" display="block" color="text.secondary">Imp. Residual</Typography>
+                                                              <Typography variant="h6">
+                                                                {iRes}
+                                                              </Typography>
+                                                            </Box>
+                                                            <Box>
+                                                              <Paper elevation={0} sx={{
+                                                                p: 1,
+                                                                bgcolor: getColorNivel(nivelRes),
+                                                                color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(nivelRes.toUpperCase()) ? 'white' : 'black',
+                                                                borderRadius: 1
+                                                              }}>
+                                                                <Typography variant="caption" display="block" fontWeight="bold">Riesgo Residual</Typography>
+                                                                <Typography variant="h5" fontWeight="bold">
+                                                                  {calRes}
+                                                                </Typography>
+                                                                <Typography variant="caption">
+                                                                  {nivelRes}
+                                                                </Typography>
+                                                              </Paper>
+                                                            </Box>
+                                                          </Box>
+                                                        </Box>
+                                                      </Box>
+                                                    </Collapse>
+                                                  )}
+
+                                                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                                    <Button onClick={() => setEvaluacionExpandida(null)}>Cancelar</Button>
+                                                    <Button variant="contained" onClick={handleGuardarEvaluacion}>Guardar Control</Button>
+                                                  </Box>
+                                                </>
+                                              );
+                                            })()}
+                                          </Box>
+                                        </Collapse>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </Fragment>
                                 );
                               })}
                             </TableBody>
@@ -1569,7 +1856,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('id')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                   {sortPlanes.field === 'id' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1580,7 +1867,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('descripcion')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortPlanes.field === 'descripcion' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1591,7 +1878,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('tipologia')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
                   {sortPlanes.field === 'tipologia' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1602,7 +1889,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('estado')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                   {sortPlanes.field === 'estado' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -1648,45 +1935,66 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 <TableCell>Causa Original</TableCell>
                                 <TableCell>Descripción del Plan</TableCell>
                                 <TableCell>Responsable</TableCell>
-                                <TableCell>Decisión</TableCell>
                                 <TableCell align="center">Fecha Estimada</TableCell>
                                 <TableCell align="center">Acciones</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {riesgo.causas.map((causa: any) => (
+                              {riesgo.causas.map((causa: any) => {
+                                const detallePlan: any = {
+                                  ...causa,
+                                  descripcion: causa.descripcion,
+                                  fuenteCausa: causa.fuenteCausa,
+                                  frecuencia: causa.frecuencia,
+                                  planDescripcion: causa.planDescripcion || causa.gestion?.planDescripcion,
+                                  planDetalle: causa.planDetalle || causa.gestion?.planDetalle,
+                                  planResponsable: causa.planResponsable || causa.gestion?.planResponsable,
+                                  planDecision: causa.planDecision || causa.gestion?.planDecision,
+                                  planFechaEstimada: causa.planFechaEstimada || causa.gestion?.planFechaEstimada,
+                                  planEstado: causa.planEstado || causa.gestion?.planEstado,
+                                  tipo: causa.tipoGestion || 'PLAN'
+                                };
+                                
+                                return (
                                 <Fragment key={causa.id}>
-                                  <TableRow>
+                                    <TableRow
+                                      sx={{ cursor: 'pointer' }}
+                                      onClick={() => {
+                                        setItemDetalle(detallePlan);
+                                        setCausaDetalleView({ riesgoId: riesgo.id, causa });
+                                        setDialogDetailOpen(true);
+                                      }}
+                                    >
                                     <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
-                                    <TableCell>{causa.planDescripcion}</TableCell>
-                                    <TableCell>{causa.planResponsable}</TableCell>
-                                    <TableCell>{causa.planDecision || causa.gestion?.planDecision || 'N/A'}</TableCell>
-                                    <TableCell align="center">{causa.planFechaEstimada}</TableCell>
+                                      <TableCell>{causa.planDescripcion || causa.gestion?.planDescripcion || 'Sin descripción'}</TableCell>
+                                      <TableCell>{causa.planResponsable || causa.gestion?.planResponsable || 'N/A'}</TableCell>
+                                      <TableCell align="center">{causa.planFechaEstimada || causa.gestion?.planFechaEstimada || 'N/A'}</TableCell>
                                     <TableCell align="center">
-                                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                        <IconButton
+                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                          <IconButton
                                           size="small"
-                                          color="primary"
+                                            color="primary"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            setTipoClasificacion('PLAN');
+                                              const tipoGestion = (causa.tipoGestion || 'PLAN').toUpperCase();
+                                              setTipoClasificacion(tipoGestion as any);
                                             handleEvaluarControl(riesgo.id, causa);
                                           }}
-                                          title="Editar"
-                                        >
-                                          <EditIcon fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
+                                            title="Editar Plan"
+                                          >
+                                            <EditIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
                                           size="small"
                                           color="error"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleEliminarClasificacion(riesgo.id, causa);
                                           }}
-                                          title="Eliminar"
+                                            title="Eliminar"
                                         >
-                                          <DeleteIcon fontSize="small" />
-                                        </IconButton>
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
                                       </Box>
                                     </TableCell>
                                   </TableRow>
@@ -1716,7 +2024,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     </TableRow>
                                   )}
                                 </Fragment>
-                              ))}
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </TableContainer>
@@ -1735,12 +2044,14 @@ export default function ControlesYPlanesAccionPageNueva() {
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
-              Detalle del Control
+              {itemDetalle && (((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') || ((itemDetalle as any).tipo === 'AMBOS'))
+                ? 'Detalle del Control' 
+                : 'Detalle del Plan de Acción'}
             </Typography>
             {itemDetalle && (
               <Chip
-                label={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'Control' : itemDetalle.tipo === 'AMBOS' ? 'Control y Plan de Acción' : 'Plan de Acción'}
-                color={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'primary' : itemDetalle.tipo === 'AMBOS' ? 'secondary' : 'info'}
+                label={((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') ? 'Control' : ((itemDetalle as any).tipo === 'AMBOS') ? 'Control y Plan de Acción' : 'Plan de Acción'}
+                color={((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') ? 'primary' : ((itemDetalle as any).tipo === 'AMBOS') ? 'secondary' : 'info'}
                 size="small"
               />
             )}
@@ -1755,43 +2066,47 @@ export default function ControlesYPlanesAccionPageNueva() {
                   Causa Original
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2 }}>
-                  {itemDetalle.descripcion || causaDetalleView?.causa?.descripcion || 'Sin descripción'}
+                  {(itemDetalle as any).descripcion ?? causaDetalleView?.causa?.descripcion ?? 'Sin descripción'}
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Fuente</Typography>
-                    <Typography variant="body2">{itemDetalle.fuenteCausa || causaDetalleView?.causa?.fuenteCausa || 'N/A'}</Typography>
+                    <Typography variant="body2">
+                      {(itemDetalle as any).fuenteCausa ?? causaDetalleView?.causa?.fuenteCausa ?? 'N/A'}
+                    </Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Frecuencia</Typography>
-                    <Typography variant="body2">{itemDetalle.frecuencia || causaDetalleView?.causa?.frecuencia || 'N/A'}</Typography>
+                    <Typography variant="body2">
+                      {(itemDetalle as any).frecuencia ?? causaDetalleView?.causa?.frecuencia ?? 'N/A'}
+                    </Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Impacto Global</Typography>
                     <Typography variant="body2">
-                      {(itemDetalle.calificacionGlobalImpacto || causaDetalleView?.causa?.calificacionGlobalImpacto || 'N/A')}
+                      {(itemDetalle as any).calificacionGlobalImpacto ?? causaDetalleView?.causa?.calificacionGlobalImpacto ?? 'N/A'}
                     </Typography>
                   </Box>
                 </Box>
               </Box>
 
               {/* Información del Control */}
-              {(itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' || itemDetalle.tipo === 'AMBOS' || itemDetalle.controlDescripcion) && (
+              {(((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') || ((itemDetalle as any).tipo === 'AMBOS') || (itemDetalle as any).controlDescripcion) && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Control
                   </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    <Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Descripción del Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {itemDetalle.controlDescripcion || itemDetalle.gestion?.controlDescripcion || causaDetalleView?.causa?.controlDescripcion || 'Sin descripción'}
+                        {(itemDetalle as any).controlDescripcion || (itemDetalle as any).gestion?.controlDescripcion || causaDetalleView?.causa?.controlDescripcion || 'Sin descripción'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Tipo de Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.controlTipo || itemDetalle.gestion?.controlTipo || causaDetalleView?.causa?.controlTipo || 'N/A'}
+                        {(itemDetalle as any).controlTipo || (itemDetalle as any).gestion?.controlTipo || causaDetalleView?.causa?.controlTipo || 'N/A'}
                       </Typography>
                     </Box>
                   </Box>
@@ -1804,22 +2119,22 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Box>
                         <Typography variant="caption" color="text.secondary">Efectividad</Typography>
                         <Typography variant="body2" fontWeight={600}>
-                          {itemDetalle.evaluacionDefinitiva || itemDetalle.gestion?.evaluacionDefinitiva || causaDetalleView?.causa?.evaluacionDefinitiva || 'Sin evaluar'}
+                          {(itemDetalle as any).evaluacionDefinitiva || (itemDetalle as any).gestion?.evaluacionDefinitiva || causaDetalleView?.causa?.evaluacionDefinitiva || 'Sin evaluar'}
                         </Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">Puntaje Total</Typography>
                         <Typography variant="body2" fontWeight={600}>
-                          {itemDetalle.puntajeTotal || itemDetalle.gestion?.puntajeTotal || causaDetalleView?.causa?.puntajeTotal || 'N/A'}
+                          {(itemDetalle as any).puntajeTotal || (itemDetalle as any).gestion?.puntajeTotal || causaDetalleView?.causa?.puntajeTotal || 'N/A'}
                         </Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">% Mitigación</Typography>
                         <Typography variant="body2" fontWeight={600} color="primary">
-                          {itemDetalle.porcentajeMitigacion !== undefined 
-                            ? `${(itemDetalle.porcentajeMitigacion * 100).toFixed(0)}%`
-                            : itemDetalle.gestion?.porcentajeMitigacion !== undefined
-                            ? `${(itemDetalle.gestion.porcentajeMitigacion * 100).toFixed(0)}%`
+                          {(itemDetalle as any).porcentajeMitigacion !== undefined
+                            ? `${((itemDetalle as any).porcentajeMitigacion * 100).toFixed(0)}%`
+                            : (itemDetalle as any).gestion?.porcentajeMitigacion !== undefined
+                            ? `${((itemDetalle as any).gestion.porcentajeMitigacion * 100).toFixed(0)}%`
                             : causaDetalleView?.causa?.porcentajeMitigacion !== undefined
                             ? `${(causaDetalleView.causa.porcentajeMitigacion * 100).toFixed(0)}%`
                             : 'N/A'}
@@ -1829,7 +2144,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   </Box>
 
                   {/* Riesgo Residual */}
-                  {(itemDetalle.frecuenciaResidual || itemDetalle.riesgoResidual) && (
+                  {((itemDetalle as any).frecuenciaResidual || (itemDetalle as any).riesgoResidual) && (
                     <Box sx={{ mt: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 1, border: '1px solid #ffb74d' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                         Riesgo Residual
@@ -1838,31 +2153,31 @@ export default function ControlesYPlanesAccionPageNueva() {
                         <Box>
                           <Typography variant="caption" color="text.secondary">Frecuencia Residual</Typography>
                           <Typography variant="body2" fontWeight={600}>
-                            {itemDetalle.frecuenciaResidual || causaDetalleView?.causa?.frecuenciaResidual || 'N/A'}
+                            {(itemDetalle as any).frecuenciaResidual || causaDetalleView?.causa?.frecuenciaResidual || 'N/A'}
                           </Typography>
-                        </Box>
+              </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Impacto Residual</Typography>
                           <Typography variant="body2" fontWeight={600}>
-                            {itemDetalle.impactoResidual || causaDetalleView?.causa?.impactoResidual || 'N/A'}
+                            {(itemDetalle as any).impactoResidual || causaDetalleView?.causa?.impactoResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Calificación Residual</Typography>
                           <Typography variant="body2" fontWeight={600} color="error">
-                            {itemDetalle.riesgoResidual || itemDetalle.calificacionResidual || causaDetalleView?.causa?.riesgoResidual || causaDetalleView?.causa?.calificacionResidual || 'N/A'}
+                            {(itemDetalle as any).riesgoResidual || (itemDetalle as any).calificacionResidual || causaDetalleView?.causa?.riesgoResidual || causaDetalleView?.causa?.calificacionResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Nivel Residual</Typography>
                           <Chip
-                            label={itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || 'N/A'}
+                            label={(itemDetalle as any).nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || 'N/A'}
                             size="small"
                             color={
-                              (itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('crítico') || 
-                              (itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('critico')
+                              ((itemDetalle as any).nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('crítico') || 
+                              ((itemDetalle as any).nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('critico')
                                 ? 'error'
-                                : (itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('alto')
+                                : ((itemDetalle as any).nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('alto')
                                 ? 'warning'
                                 : 'default'
                             }
@@ -1875,51 +2190,51 @@ export default function ControlesYPlanesAccionPageNueva() {
               )}
 
               {/* Información del Plan */}
-              {(itemDetalle.tipo === 'plan' || itemDetalle.tipo === 'PLAN' || itemDetalle.tipo === 'AMBOS' || itemDetalle.planDescripcion) && (
+              {((itemDetalle as any).tipo === 'plan' || (itemDetalle as any).tipo === 'PLAN' || (itemDetalle as any).tipo === 'AMBOS' || (itemDetalle as any).planDescripcion) && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Plan de Acción
                   </Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    <Box>
+              <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Descripción</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {itemDetalle.planDescripcion || itemDetalle.gestion?.planDescripcion || causaDetalleView?.causa?.planDescripcion || 'N/A'}
+                        {(itemDetalle as any).planDescripcion || (itemDetalle as any).gestion?.planDescripcion || causaDetalleView?.causa?.planDescripcion || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Detalle</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {itemDetalle.planDetalle || itemDetalle.gestion?.planDetalle || causaDetalleView?.causa?.planDetalle || 'N/A'}
+                        {(itemDetalle as any).planDetalle || (itemDetalle as any).gestion?.planDetalle || causaDetalleView?.causa?.planDetalle || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Responsable</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || causaDetalleView?.causa?.planResponsable || 'N/A'}
+                        {(itemDetalle as any).planResponsable || (itemDetalle as any).gestion?.planResponsable || causaDetalleView?.causa?.planResponsable || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Fecha Estimada</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || causaDetalleView?.causa?.planFechaEstimada || 'N/A'}
+                        {(itemDetalle as any).planFechaEstimada || (itemDetalle as any).gestion?.planFechaEstimada || causaDetalleView?.causa?.planFechaEstimada || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Decisión</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.planDecision || itemDetalle.gestion?.planDecision || causaDetalleView?.causa?.planDecision || 'N/A'}
+                        {(itemDetalle as any).planDecision || (itemDetalle as any).gestion?.planDecision || causaDetalleView?.causa?.planDecision || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Estado</Typography>
                       <Chip
-                        label={itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaDetalleView?.causa?.planEstado || 'N/A'}
+                        label={(itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || 'N/A'}
                         size="small"
                         color={
-                          (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'completado'
+                          ((itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'completado'
                             ? 'success'
-                            : (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'en_progreso'
+                            : ((itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'en_progreso'
                             ? 'warning'
                             : 'default'
                         }
@@ -1930,17 +2245,17 @@ export default function ControlesYPlanesAccionPageNueva() {
               )}
 
               {/* Impactos Residuales */}
-              {itemDetalle.impactosResiduales && (
+              {(itemDetalle as any).impactosResiduales && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                     Impactos Residuales
                   </Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-                    {Object.entries(itemDetalle.impactosResiduales).map(([k, v]) => (
+                    {Object.entries((itemDetalle as any).impactosResiduales || {}).map(([k, v]) => (
                       <Box key={k} sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                         <Typography variant="caption" color="text.secondary" display="block">{k}</Typography>
                         <Typography variant="body2" fontWeight={600}>{String(v)}</Typography>
-                      </Box>
+              </Box>
                     ))}
                   </Box>
                 </Box>
@@ -1952,35 +2267,6 @@ export default function ControlesYPlanesAccionPageNueva() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setDialogDetailOpen(false); setCausaDetalleView(null); }}>Cerrar</Button>
-          <Button
-            onClick={() => {
-              if (!causaDetalleView) return;
-              const { riesgoId, causa } = causaDetalleView;
-              setDialogDetailOpen(false);
-              setCausaDetalleView(null);
-              setRiesgosExpandidosResidual(pr => ({ ...pr, [riesgoId]: true }));
-              const tipo = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
-              setTipoClasificacion(tipo as any);
-              setTimeout(() => {
-                handleEvaluarControl(riesgoId, causa);
-              }, 100);
-            }}
-            variant="contained"
-            color="primary"
-          >
-            Editar Control
-          </Button>
-          <Button
-            color="error"
-            onClick={async () => {
-              if (!causaDetalleView) return;
-              await handleEliminarClasificacion(causaDetalleView.riesgoId, causaDetalleView.causa);
-              setDialogDetailOpen(false);
-              setCausaDetalleView(null);
-            }}
-          >
-            Eliminar
-          </Button>
         </DialogActions>
       </Dialog>
 

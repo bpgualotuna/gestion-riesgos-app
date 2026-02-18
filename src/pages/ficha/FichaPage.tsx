@@ -34,7 +34,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUpdateProcesoMutation, useGetProcesosQuery, useGetGerenciasQuery } from '../../api/services/riesgosApi';
 import { useEffect } from 'react';
-import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
+import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
@@ -42,7 +42,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 interface FichaData {
   vicepresidencia: string;
   gerencia: string;
-  gerenciaSigla?: string; // Sigla de la gerencia para generación de IDs en riesgos
+  sigla: string; // Sigla del proceso para identificar riesgos (ej: "PF" para Planificación Financiera)
   area: string;
   responsable: string;
   encargado: string; // Quién está a cargo del proceso
@@ -85,6 +85,21 @@ export default function FichaPage() {
     ? procesos.find(p => String(p.id) === String(procesoId))
     : procesoSeleccionado;
 
+  // Dueño de Proceso: si no tiene proceso seleccionado (ni por URL ni por header), mostrar solo mensaje
+  if (esDueñoProcesos && !procesoActual?.id) {
+    return (
+      <AppPageLayout
+        title="Ficha del Proceso"
+        description="Formulario de diligenciamiento obligatorio con información básica del proceso."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso en el encabezado para ver su ficha.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   const procesosDisponibles = useMemo(() => {
     if (esAdmin) return procesos;
 
@@ -101,12 +116,12 @@ export default function FichaPage() {
     // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
     // Ve solo sus procesos como responsable (igual que dueño de proceso)
     if (esGerenteGeneralProceso) {
-      return procesos.filter((p: any) => p.responsableId === user?.id);
+      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user?.id));
     }
 
     // Dueño de Proceso - ve solo sus procesos como responsable
     if (user?.role === 'dueño_procesos') {
-      return procesos.filter((p: any) => p.responsableId === user.id);
+      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
     }
 
     return procesos;
@@ -177,7 +192,7 @@ export default function FichaPage() {
       return {
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
-        gerenciaSigla: gerenciaSigla,
+        sigla: (procesoActual as any).sigla || '',
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
@@ -189,7 +204,7 @@ export default function FichaPage() {
     return {
       vicepresidencia: '',
       gerencia: '',
-      gerenciaSigla: '',
+      sigla: '',
       area: '',
       responsable: '',
       encargado: '',
@@ -208,7 +223,7 @@ export default function FichaPage() {
       setFormData({
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
-        gerenciaSigla: gerenciaSigla,
+        sigla: (procesoActual as any).sigla || '',
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
@@ -250,6 +265,7 @@ export default function FichaPage() {
         ...(puedeEditarInfoOrganizacional && {
           vicepresidencia: formData.vicepresidencia,
           gerencia: formData.gerencia,
+          sigla: formData.sigla,
           // Omitimos responsableId por ahora para no enviar nombres donde se espera un ID numérico
         }),
       }).unwrap();
@@ -435,6 +451,18 @@ export default function FichaPage() {
               required
               disabled={!puedeEditarInfoOrganizacional}
               helperText={!puedeEditarInfoOrganizacional ? 'Campo bloqueado por el administrador' : ''}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+
+            <TextField
+              fullWidth
+              label="Sigla del Proceso"
+              value={formData.sigla}
+              onChange={handleChange('sigla')}
+              required
+              disabled={!puedeEditarInfoOrganizacional}
+              helperText={puedeEditarInfoOrganizacional ? 'Usada para identificar riesgos (ej: "PF" para Planificación Financiera, "GTH" para Gestión de Talento Humano)' : 'Campo bloqueado por el administrador'}
+              inputProps={{ maxLength: 4, style: { textTransform: 'uppercase' } }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
 

@@ -45,7 +45,7 @@ import {
 import { useGetProcesosQuery, useCreateProcesoMutation, useDeleteProcesoMutation } from '../../api/services/riesgosApi';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useAreasProcesosAsignados } from '../../hooks/useAsignaciones';
+import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import { useNotification } from '../../hooks/useNotification';
 import { useRevisionProceso } from '../../hooks/useRevisionProceso';
 import AppDataGrid from '../../components/ui/AppDataGrid';
@@ -140,11 +140,11 @@ export default function ProcesosPage() {
     // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
     // Ve solo sus procesos como responsable (igual que dueño de proceso)
     if (esGerenteGeneralProceso && user) {
-      return procesos.filter((p) => p.responsableId === user.id);
+      return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
     }
     // Dueño de Proceso REAL
     if (user?.role === 'dueño_procesos') {
-      return procesos.filter((p) => p.responsableId === user.id);
+      return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
     }
     if (esSupervisorRiesgos) {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];

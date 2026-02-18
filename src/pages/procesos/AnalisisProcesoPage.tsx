@@ -159,6 +159,20 @@ export default function AnalisisProcesoPage() {
     'Indicadores de desempeño',
   ];
 
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="Análisis de Proceso"
+        description="Documentación del análisis del proceso mediante diagramas y descripciones"
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   return (
     <AppPageLayout
       title="Análisis de Proceso"

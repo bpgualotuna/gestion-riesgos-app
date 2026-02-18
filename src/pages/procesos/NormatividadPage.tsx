@@ -67,6 +67,7 @@ export default function NormatividadPage() {
   }, [procesoData]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDetalleOpen, setDialogDetalleOpen] = useState(false);
   const [selectedNormatividad, setSelectedNormatividad] = useState<Normatividad | null>(null);
 
   const handleEditar = (e: React.MouseEvent, row: Normatividad) => {
@@ -99,18 +100,21 @@ export default function NormatividadPage() {
     {
       field: 'numero',
       headerName: 'Nro.',
-      width: 80,
+      flex: 0.5,
+      minWidth: 60,
+      maxWidth: 80,
     },
     {
       field: 'nombre',
       headerName: 'Nombre de la Regulación',
-      flex: 1,
-      minWidth: 300,
+      flex: 2,
+      minWidth: 200,
     },
     {
       field: 'estado',
       headerName: 'Estado',
-      width: 130,
+      flex: 0.8,
+      minWidth: 100,
       renderCell: (params) => (
         <Chip
           label={params.value}
@@ -128,12 +132,14 @@ export default function NormatividadPage() {
     {
       field: 'regulador',
       headerName: 'Regulador',
-      width: 200,
+      flex: 1,
+      minWidth: 120,
     },
     {
       field: 'cumplimiento',
       headerName: 'Cumplimiento',
-      width: 130,
+      flex: 0.8,
+      minWidth: 100,
       renderCell: (params) => (
         <Chip
           label={params.value}
@@ -151,7 +157,8 @@ export default function NormatividadPage() {
     {
       field: 'clasificacion',
       headerName: 'Clasificación',
-      width: 180,
+      flex: 0.8,
+      minWidth: 100,
       renderCell: (params) => (
         <Chip
           label={params.value === CLASIFICACION_RIESGO.POSITIVA ? 'Positivo' : 'Negativo'}
@@ -163,7 +170,8 @@ export default function NormatividadPage() {
     {
       field: 'acciones',
       headerName: 'Acciones',
-      width: 110,
+      flex: 0.6,
+      minWidth: 90,
       sortable: false,
       disableColumnMenu: true,
       renderCell: (params) =>
@@ -189,6 +197,20 @@ export default function NormatividadPage() {
         ) : null,
     },
   ];
+
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="Inventario de Normatividad"
+        description="Catálogo de normativas aplicables al proceso"
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
 
   return (
     <AppPageLayout
@@ -248,10 +270,144 @@ export default function NormatividadPage() {
         pageSizeOptions={[5, 10, 25, 50]}
         onRowClick={(params) => {
           setSelectedNormatividad(params.row as Normatividad);
-          setDialogOpen(true);
+          setDialogDetalleOpen(true);
         }}
       />
 
+      {/* Diálogo de Detalle (Solo lectura) */}
+      <Dialog open={dialogDetalleOpen} onClose={() => setDialogDetalleOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              Detalle de Normatividad
+            </Typography>
+            {!isReadOnly && (
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setDialogDetalleOpen(false);
+                  setDialogOpen(true);
+                }}
+              >
+                Editar
+              </Button>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedNormatividad && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Nombre de la Regulación Aplicable
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  {selectedNormatividad.nombre || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Estado
+                </Typography>
+                <Chip
+                  label={selectedNormatividad.estado}
+                  size="small"
+                  color={
+                    selectedNormatividad.estado === 'Existente'
+                      ? 'success'
+                      : selectedNormatividad.estado === 'Requerida'
+                        ? 'warning'
+                        : 'info'
+                  }
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Regulador
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  {selectedNormatividad.regulador || 'N/A'}
+                </Typography>
+              </Box>
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Sanciones Penales/Civiles/Económicas
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                  {selectedNormatividad.sanciones || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Plazo para Implementación
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  {selectedNormatividad.plazoImplementacion || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Cumplimiento
+                </Typography>
+                <Chip
+                  label={selectedNormatividad.cumplimiento}
+                  size="small"
+                  color={
+                    selectedNormatividad.cumplimiento === 'Total'
+                      ? 'success'
+                      : selectedNormatividad.cumplimiento === 'Parcial'
+                        ? 'warning'
+                        : 'error'
+                  }
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Detalle del Incumplimiento
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                  {selectedNormatividad.detalleIncumplimiento || 'N/A'}
+                </Typography>
+              </Box>
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Riesgo Identificado
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                  {selectedNormatividad.riesgoIdentificado || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Clasificación
+                </Typography>
+                <Chip
+                  label={selectedNormatividad.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Riesgo Positivo' : 'Riesgo Negativo'}
+                  size="small"
+                  color={selectedNormatividad.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'error'}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Comentarios Adicionales
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                  {selectedNormatividad.comentarios || 'N/A'}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogDetalleOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de Edición/Creación */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
         <form onSubmit={async (e) => {
           e.preventDefault();

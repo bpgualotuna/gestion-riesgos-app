@@ -3,7 +3,7 @@
  * Diseño de tres paneles: RIESGO, CAUSAS, IMPACTO
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -134,6 +134,7 @@ const DEFAULT_NIVELES_RIESGO: any[] = [];
 const DEFAULT_CLASIFICACIONES_RIESGO: any[] = [];
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
@@ -241,14 +242,32 @@ function getFuenteLabel(fuentes: any, clave: any) {
 
 export default function IdentificacionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
+  const { esDueñoProcesos } = useAuth();
   const { riesgos: riesgosApiData, cargarRiesgos, crearRiesgo, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess, showError } = useNotification();
   const dispatch = useAppDispatch();
 
+  // Dueño de Proceso: requiere tener un proceso seleccionado desde el header
+  if (esDueñoProcesos && !procesoSeleccionado?.id) {
+    return (
+      <AppPageLayout
+        title="Identificación y Calificación Inherente"
+        description="Identifique y califique el riesgo inherente de su proceso basándose en su frecuencia e impacto."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">
+            Por favor selecciona un proceso en el encabezado para gestionar sus riesgos.
+          </Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   // Helper para normalizar riesgos cargados - asegurar que causas tengan calificaciones
-  // Función para calcular calificación global impacto (movida antes de normalizarRiesgos)
-  const calcularCalificacionGlobalImpacto = (impactos: RiesgoFormData['impactos']): number => {
+  // Función para calcular calificación global impacto (memoizada)
+  const calcularCalificacionGlobalImpacto = useCallback((impactos: RiesgoFormData['impactos']): number => {
     return calcularImpactoGlobal({
       personas: impactos.personas || 1,
       legal: impactos.legal || 1,
@@ -260,7 +279,7 @@ export default function IdentificacionPage() {
       disponibilidadSGSI: impactos.disponibilidadSGSI || 1,
       integridadSGSI: impactos.integridadSGSI || 1,
     });
-  };
+  }, []);
 
   // Helper para obtener etiqueta de fuente a partir del catálogo que puede ser array u objeto
   const getFuenteLabel = (fuentes: any, clave: any) => {
@@ -287,31 +306,33 @@ export default function IdentificacionPage() {
     return String(val);
   };
 
-  // Función para calcular calificación inherente por causa (usa configuración desde API)
+  // Función para calcular calificación inherente por causa (usa configuración desde API, memoizada)
   const { data: configuracionesApi } = useGetConfiguracionesQuery();
-  const calcularCalificacionInherentePorCausa = (
-    calificacionGlobalImpacto: number,
-    frecuencia: number
-  ): number => {
-    // Leer valor especial desde configuraciones cargadas por API, fallback a 3.99
-    let valorEspecial = 3.99;
+  const valorEspecialMemo = useMemo(() => {
+    let valor = 3.99;
     try {
       const cfg = Array.isArray(configuracionesApi) ? configuracionesApi.find((c: any) => c?.clave === 'formula_especial') : null;
       if (cfg && cfg.valor) {
         const parsed = typeof cfg.valor === 'string' ? JSON.parse(cfg.valor) : cfg.valor;
-        valorEspecial = parsed?.valorEspecial ?? valorEspecial;
+        valor = parsed?.valorEspecial ?? valor;
       }
     } catch (e) {
       // usar fallback
     }
+    return valor;
+  }, [configuracionesApi]);
 
+  const calcularCalificacionInherentePorCausa = useCallback((
+    calificacionGlobalImpacto: number,
+    frecuencia: number
+  ): number => {
     // Caso especial: si ambos son 2, usar valor especial
     if (calificacionGlobalImpacto === 2 && frecuencia === 2) {
-      return valorEspecial || 3.99;
+      return valorEspecialMemo || 3.99;
     }
 
     return calificacionGlobalImpacto * frecuencia;
-  };
+  }, [valorEspecialMemo]);
 
   // Función para recalcular y guardar la calificación inherente global
   const recalcularYGuardarCalificacionInherenteGlobal = async (riesgoId: number) => {
@@ -427,57 +448,16 @@ export default function IdentificacionPage() {
         impactoGlobal: mejorImp
       };
 
-      console.log('[FRONTEND] Recalculando calificación inherente global:', {
-        riesgoId,
-        calificacionInherenteGlobal,
-        nivelRiesgo,
-        probabilidad: mejorProb,
-        impactoGlobal: mejorImp
-      });
 
       await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
       
       // Invalidar caché del mapa para que se actualice automáticamente
       dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
-      console.log('[FRONTEND] ✅ Calificación inherente global guardada, caché del mapa invalidado');
     } catch (error) {
-      console.error('[FRONTEND] Error al recalcular calificación inherente global:', error);
-      // No mostrar error al usuario, solo loguear
+      // Error silencioso - no mostrar al usuario
     }
   };
 
-  const normalizarRiesgos = (riesgosData: RiesgoFormData[]) => {
-    return riesgosData.map(riesgo => {
-      // Calcular calificación global impacto
-      const calificacionGlobal = calcularCalificacionGlobalImpacto(riesgo.impactos || {
-        economico: 1,
-        procesos: 1,
-        legal: 1,
-        confidencialidadSGSI: 1,
-        reputacion: 1,
-        disponibilidadSGSI: 1,
-        personas: 1,
-        integridadSGSI: 1,
-        ambiental: 1,
-      });
-
-      // Normalizar causas con calificaciones si no las tienen
-      const causasNormalizadas = (riesgo.causas || []).map(causa => {
-        const calificacionInherentePorCausa = calcularCalificacionInherentePorCausa(
-          calificacionGlobal,
-          causa.frecuencia || 3
-        );
-
-        return {
-          ...causa,
-          calificacionGlobalImpacto: causa.calificacionGlobalImpacto ?? calificacionGlobal,
-          calificacionInherentePorCausa: causa.calificacionInherentePorCausa ?? calificacionInherentePorCausa,
-        };
-      });
-
-      return { ...riesgo, causas: causasNormalizadas };
-    });
-  };
 
   // Estado para múltiples riesgos
   const [riesgos, setRiesgos] = useState<RiesgoFormData[]>([]);
@@ -588,102 +568,133 @@ export default function IdentificacionPage() {
     });
   };
 
-  // Cargar riesgos desde API cuando cambia el proceso
-  useEffect(() => {
-    console.log('[IdentificacionPage] 🔄 Efecto de carga de riesgos:', {
-      procesoSeleccionadoId: procesoSeleccionado?.id,
-      procesoSeleccionadoNombre: procesoSeleccionado?.nombre
-    });
-    
-    if (procesoSeleccionado?.id) {
-      console.log('[IdentificacionPage] 📥 Cargando riesgos para proceso:', procesoSeleccionado.id);
-      cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
+  // Memoizar función de carga de riesgos para evitar re-renders
+  const cargarRiesgosMemo = useCallback((procesoId?: number | string) => {
+    if (procesoId) {
+      cargarRiesgos({ procesoId, includeCausas: true });
     } else {
-      // Si no hay proceso seleccionado, cargar todos los riesgos
-      console.log('[IdentificacionPage] 📥 Cargando todos los riesgos (sin filtro de proceso)');
       cargarRiesgos({ includeCausas: true });
     }
-  }, [procesoSeleccionado?.id, cargarRiesgos]);
+  }, [cargarRiesgos]);
 
-  // Actualizar estado local cuando llegan datos de API
+  // Cargar riesgos desde API cuando cambia el proceso
   useEffect(() => {
-    if (riesgosApiData) {
-      console.log('[FRONTEND] Mapeando riesgos desde API:', riesgosApiData);
-      // Mapear datos de API a RiesgoFormData si es necesario
-      // La API devuelve estructura Riesgo, el componente usa RiesgoFormData (compatible mayormente)
-      // Ajustar mapeo si hay diferencias claves
-      const mapeados = riesgosApiData.map((r: any) => {
-        // Mapear objetivoId a texto objetivo
-        let objetivoTexto = '';
-        if (r.objetivoId && objetivos.length > 0) {
-          const obj = objetivos.find((o: any) => o.id === r.objetivoId);
-          if (obj) {
-            objetivoTexto = `${obj.codigo} ${obj.descripcion}`;
-          }
-        } else if (r.objetivo) {
-          // Si viene el objeto objetivo expandido
-          objetivoTexto = `${r.objetivo.codigo || ''} ${r.objetivo.descripcion || ''}`.trim();
-        }
+    if (procesoSeleccionado?.id) {
+      cargarRiesgosMemo(procesoSeleccionado.id);
+    } else {
+      cargarRiesgosMemo();
+    }
+  }, [procesoSeleccionado?.id, cargarRiesgosMemo]);
 
-        console.log(`[FRONTEND] Riesgo ${r.id}: origen=${r.origen}, clasificacion=${r.clasificacion}, objetivoId=${r.objetivoId}, objetivoTexto=${objetivoTexto}`);
+  // Memoizar función de mapeo de riesgos
+  const mapearRiesgos = useCallback((riesgosData: any[], objetivosList: any[], procesoSel: any) => {
+    return riesgosData.map((r: any) => {
+      // Mapear objetivoId a texto objetivo
+      let objetivoTexto = '';
+      if (r.objetivoId && objetivosList.length > 0) {
+        const obj = objetivosList.find((o: any) => o.id === r.objetivoId);
+        if (obj) {
+          objetivoTexto = `${obj.codigo} ${obj.descripcion}`;
+        }
+      } else if (r.objetivo) {
+        objetivoTexto = `${r.objetivo.codigo || ''} ${r.objetivo.descripcion || ''}`.trim();
+      }
+
+      // Recalcular numeroIdentificacion usando la sigla del proceso
+      let numeroIdentificacion = r.numeroIdentificacion || '';
+      const procesoDelRiesgo = r.proceso || procesoSel;
+      if (procesoDelRiesgo) {
+        const procesoSigla = (procesoDelRiesgo as any).sigla || 
+          (procesoDelRiesgo.nombre 
+            ? procesoDelRiesgo.nombre
+                .split(' ')
+                .filter((p: string) => p.length > 0 && !['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e'].includes(p.toLowerCase()))
+                .map((palabra: string) => palabra.charAt(0).toUpperCase())
+                .join('')
+                .substring(0, 4)
+            : 'GEN');
+        
+        const numeroRiesgo = r.numero || 0;
+        if (numeroRiesgo > 0) {
+          numeroIdentificacion = `${numeroRiesgo}${procesoSigla.toUpperCase()}`;
+        } else if (r.numeroIdentificacion) {
+          // Intentar extraer el número del numeroIdentificacion actual
+          const match = String(r.numeroIdentificacion).match(/^(\d+)/);
+          if (match) {
+            numeroIdentificacion = `${match[1]}${procesoSigla.toUpperCase()}`;
+          }
+        }
+      }
+
+      return {
+        ...r,
+        id: r.id,
+        descripcionRiesgo: r.descripcion || '',
+        numeroIdentificacion: numeroIdentificacion || r.numero || '',
+        origenRiesgo: r.origen || 'Interno',
+        consecuencia: r.clasificacion || 'Negativa',
+        objetivo: objetivoTexto || '',
+        tipoRiesgo: r.tipoRiesgo || '',
+        subtipoRiesgo: r.subtipoRiesgo || '',
+        tipoProceso: r.proceso?.tipo || procesoSel?.tipo || 'Operacional',
+        impactos: r.evaluacion ? {
+          economico: r.evaluacion.impactoEconomico || 1,
+          procesos: r.evaluacion.impactoProcesos || 1,
+          legal: r.evaluacion.impactoLegal || 1,
+          confidencialidadSGSI: r.evaluacion.confidencialidadSGSI || 1,
+          reputacion: r.evaluacion.impactoReputacion || 1,
+          disponibilidadSGSI: r.evaluacion.disponibilidadSGSI || 1,
+          personas: r.evaluacion.impactoPersonas || 1,
+          integridadSGSI: r.evaluacion.integridadSGSI || 1,
+          ambiental: r.evaluacion.impactoAmbiental || 1,
+        } : {
+          economico: 1, procesos: 1, legal: 1, confidencialidadSGSI: 1,
+          reputacion: 1, disponibilidadSGSI: 1, personas: 1, integridadSGSI: 1, ambiental: 1
+        },
+        causas: r.causas || [],
+        proceso: r.proceso
+      };
+    });
+  }, []);
+
+  // Memoizar normalización de riesgos
+  const normalizarRiesgosMemo = useCallback((riesgosData: RiesgoFormData[]) => {
+    return riesgosData.map(riesgo => {
+      const calificacionGlobal = calcularCalificacionGlobalImpacto(riesgo.impactos || {
+        economico: 1, procesos: 1, legal: 1, confidencialidadSGSI: 1,
+        reputacion: 1, disponibilidadSGSI: 1, personas: 1, integridadSGSI: 1, ambiental: 1,
+      });
+
+      const causasNormalizadas = (riesgo.causas || []).map(causa => {
+        const calificacionInherentePorCausa = calcularCalificacionInherentePorCausa(
+          calificacionGlobal,
+          causa.frecuencia || 3
+        );
 
         return {
-          ...r,
-          id: r.id,
-          descripcionRiesgo: r.descripcion || '',
-          numeroIdentificacion: r.numeroIdentificacion || r.numero || '', // Fallback
-          origenRiesgo: r.origen || 'Interno',
-          consecuencia: r.clasificacion || 'Negativa',
-          objetivo: objetivoTexto || '',
-          tipoRiesgo: r.tipoRiesgo || '',
-          subtipoRiesgo: r.subtipoRiesgo || '',
-          tipoProceso: r.proceso?.tipo || procesoSeleccionado?.tipo || 'Operacional',
-          impactos: r.evaluacion ? {
-            economico: r.evaluacion.impactoEconomico || 1,
-            procesos: r.evaluacion.impactoProcesos || 1,
-            legal: r.evaluacion.impactoLegal || 1,
-            confidencialidadSGSI: r.evaluacion.confidencialidadSGSI || 1,
-            reputacion: r.evaluacion.impactoReputacion || 1,
-            disponibilidadSGSI: r.evaluacion.disponibilidadSGSI || 1,
-            personas: r.evaluacion.impactoPersonas || 1,
-            integridadSGSI: r.evaluacion.integridadSGSI || 1,
-            ambiental: r.evaluacion.impactoAmbiental || 1,
-          } : {
-            economico: 1, procesos: 1, legal: 1, confidencialidadSGSI: 1,
-            reputacion: 1, disponibilidadSGSI: 1, personas: 1, integridadSGSI: 1, ambiental: 1
-          },
-          causas: r.causas || [],
-          proceso: r.proceso // Preservar objeto proceso completo
+          ...causa,
+          calificacionGlobalImpacto: causa.calificacionGlobalImpacto ?? calificacionGlobal,
+          calificacionInherentePorCausa: causa.calificacionInherentePorCausa ?? calificacionInherentePorCausa,
         };
       });
-      console.log('[FRONTEND] Riesgos mapeados:', {
-        total: mapeados.length,
-        muestra: mapeados.slice(0, 3).map((r: any) => ({
-          id: r.id,
-          numeroIdentificacion: r.numeroIdentificacion,
-          descripcionRiesgo: r.descripcionRiesgo?.substring(0, 50),
-          procesoId: r.procesoId
-        }))
-      });
-      
-      const riesgosNormalizados = normalizarRiesgos(mapeados);
-      console.log('[FRONTEND] Riesgos normalizados:', {
-        total: riesgosNormalizados.length,
-        muestra: riesgosNormalizados.slice(0, 3).map((r: any) => ({
-          id: r.id,
-          numeroIdentificacion: r.numeroIdentificacion
-        }))
-      });
-      
-      setRiesgos(riesgosNormalizados);
-    } else if (riesgosApiData === null || riesgosApiData === undefined) {
-      console.log('[FRONTEND] ⚠️ riesgosApiData es null/undefined, limpiando riesgos');
-      setRiesgos([]);
-    } else {
-      console.warn('[FRONTEND] ⚠️ riesgosApiData no es un array:', typeof riesgosApiData, riesgosApiData);
-      setRiesgos([]);
+
+      return { ...riesgo, causas: causasNormalizadas };
+    });
+  }, [calcularCalificacionGlobalImpacto, calcularCalificacionInherentePorCausa]);
+
+  // Memoizar riesgos procesados
+  const riesgosProcesados = useMemo(() => {
+    if (!riesgosApiData || !Array.isArray(riesgosApiData)) {
+      return [];
     }
-  }, [riesgosApiData, objetivos, procesoSeleccionado]);
+    const mapeados = mapearRiesgos(riesgosApiData, objetivos, procesoSeleccionado);
+    return normalizarRiesgosMemo(mapeados);
+  }, [riesgosApiData, objetivos, procesoSeleccionado, mapearRiesgos, normalizarRiesgosMemo]);
+
+  // Actualizar estado local cuando cambian los riesgos procesados
+  useEffect(() => {
+    setRiesgos(riesgosProcesados);
+  }, [riesgosProcesados]);
 
 
 
@@ -706,78 +717,99 @@ export default function IdentificacionPage() {
   // Refresh catalogs on mount - listen for changes from admin
 
 
-  // Populate catalogs from backend when available, prefer backend over localStorage
+  // Populate catalogs from backend when available (optimizado - solo actualiza si cambia)
   useEffect(() => {
     if (tiposRiesgosApi && tiposRiesgosApi.length > 0) {
-      setTiposRiesgos(normalizarTiposRiesgos(tiposRiesgosApi));
+      setTiposRiesgos(prev => {
+        const nuevo = normalizarTiposRiesgos(tiposRiesgosApi);
+        // Solo actualizar si realmente cambió
+        if (JSON.stringify(prev) !== JSON.stringify(nuevo)) {
+          return nuevo;
+        }
+        return prev;
+      });
     }
   }, [tiposRiesgosApi]);
 
   useEffect(() => {
-    if (objetivosApi) setObjetivos(objetivosApi);
-  }, [objetivosApi]);
+    if (objetivosApi && JSON.stringify(objetivos) !== JSON.stringify(objetivosApi)) {
+      setObjetivos(objetivosApi);
+    }
+  }, [objetivosApi, objetivos]);
 
   useEffect(() => {
     if (frecuenciasApi) {
-      // Normalizar frecuencias: convertir array [{id,label,descripcion},...] a {1:...,2:...}
       try {
+        let mapped: Record<number, { label: string; descripcion?: string }> = {};
         if (Array.isArray(frecuenciasApi)) {
-          const mapped: Record<number, { label: string; descripcion?: string }> = {};
-          // Si los ids vienen como 11..15 u otros, mapear por orden a 1..n
           frecuenciasApi.forEach((f: any, idx: number) => {
             const key = idx + 1;
             mapped[key] = { label: f.label ?? f.nombre ?? String(f), descripcion: f.descripcion ?? '' };
           });
-          setLabelsFrecuencia(mapped as any);
         } else {
-          setLabelsFrecuencia(frecuenciasApi as any);
+          mapped = frecuenciasApi as any;
         }
+        setLabelsFrecuencia(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(mapped)) {
+            return mapped as any;
+          }
+          return prev;
+        });
       } catch (err) {
-        setLabelsFrecuencia(frecuenciasApi as any);
+        // Silently fail
       }
     }
   }, [frecuenciasApi]);
 
   useEffect(() => {
-    if (fuentesApi) setFuentesCausa(fuentesApi as any[]);
-  }, [fuentesApi]);
+    if (fuentesApi && JSON.stringify(fuentesCausa) !== JSON.stringify(fuentesApi)) {
+      setFuentesCausa(fuentesApi as any[]);
+    }
+  }, [fuentesApi, fuentesCausa]);
 
   useEffect(() => {
-    if (impactosApi) setDescripcionesImpacto(normalizarDescripcionesImpacto(impactosApi as any));
-  }, [impactosApi]);
-
-  // Si la API devuelve un array de impactos (impactoTipo con niveles), mapearlo a la estructura esperada
-  useEffect(() => {
-    if (impactosApi && Array.isArray(impactosApi)) {
-      const mapped = mapImpactosArrayToObject(impactosApi as any[]);
-      setDescripcionesImpacto(normalizarDescripcionesImpacto(mapped));
+    if (impactosApi) {
+      const normalized = Array.isArray(impactosApi) 
+        ? normalizarDescripcionesImpacto(mapImpactosArrayToObject(impactosApi as any[]))
+        : normalizarDescripcionesImpacto(impactosApi as any);
+      setDescripcionesImpacto(prev => {
+        if (JSON.stringify(prev) !== JSON.stringify(normalized)) {
+          return normalized;
+        }
+        return prev;
+      });
     }
   }, [impactosApi]);
 
   useEffect(() => {
-    if (origenesApi) setOrigenes(origenesApi as any[]);
-  }, [origenesApi]);
+    if (origenesApi && JSON.stringify(origenes) !== JSON.stringify(origenesApi)) {
+      setOrigenes(origenesApi as any[]);
+    }
+  }, [origenesApi, origenes]);
 
   useEffect(() => {
-    if (tiposProcesoApi) setTiposProceso(tiposProcesoApi as any[]);
-  }, [tiposProcesoApi]);
+    if (tiposProcesoApi && JSON.stringify(tiposProceso) !== JSON.stringify(tiposProcesoApi)) {
+      setTiposProceso(tiposProcesoApi as any[]);
+    }
+  }, [tiposProcesoApi, tiposProceso]);
 
   useEffect(() => {
-    if (consecuenciasApi) setConsecuencias(consecuenciasApi as any[]);
-  }, [consecuenciasApi]);
+    if (consecuenciasApi && JSON.stringify(consecuencias) !== JSON.stringify(consecuenciasApi)) {
+      setConsecuencias(consecuenciasApi as any[]);
+    }
+  }, [consecuenciasApi, consecuencias]);
 
   useEffect(() => {
-    if (nivelesRiesgoApi) setNivelesRiesgo(nivelesRiesgoApi as any[]);
-  }, [nivelesRiesgoApi]);
+    if (nivelesRiesgoApi && JSON.stringify(nivelesRiesgo) !== JSON.stringify(nivelesRiesgoApi)) {
+      setNivelesRiesgo(nivelesRiesgoApi as any[]);
+    }
+  }, [nivelesRiesgoApi, nivelesRiesgo]);
 
   useEffect(() => {
-    if (clasificacionesApi) setClasificacionesRiesgo(clasificacionesApi as any[]);
-  }, [clasificacionesApi]);
-
-  // If gerencias/vicepresidencias available, we can later use them to generate siglas
-  useEffect(() => {
-    // nothing to set in state now; available via gerenciasApi / vicepresidenciasApi
-  }, [gerenciasApi, vicepresidenciasApi]);
+    if (clasificacionesApi && JSON.stringify(clasificacionesRiesgo) !== JSON.stringify(clasificacionesApi)) {
+      setClasificacionesRiesgo(clasificacionesApi as any[]);
+    }
+  }, [clasificacionesApi, clasificacionesRiesgo]);
 
   // Registrar siglas para generación de IDs usando la configuración desde backend
   useEffect(() => {
@@ -807,45 +839,43 @@ export default function IdentificacionPage() {
     }
   }, [gerenciasApi, vicepresidenciasApi]);
 
-  // Actualizar numeroIdentificacion de todos los riesgos cuando cambie el proceso o carguen las gerencias
+  // Actualizar numeroIdentificacion de todos los riesgos cuando cambie el proceso
   useEffect(() => {
     if (!procesoSeleccionado || riesgos.length === 0) return;
 
-    // Recalcular el numeroIdentificacion para cada riesgo basado en procesoSeleccionado y gerenciasApi
-    const riesgosActualizados = riesgos.map(riesgo => {
-      // Si ya tiene un numeroIdentificacion válido (contiene sigla), no recalcular
-      if (riesgo.numeroIdentificacion && riesgo.numeroIdentificacion.includes(riesgo.numeroIdentificacion.slice(-2))) {
-        return riesgo;
-      }
+    // Obtener la sigla del proceso (prioridad: proceso.sigla > generar desde nombre)
+    const procesoSigla = (procesoSeleccionado as any).sigla || 
+      (procesoSeleccionado.nombre 
+        ? procesoSeleccionado.nombre
+            .split(' ')
+            .filter((p: string) => p.length > 0 && !['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e'].includes(p.toLowerCase()))
+            .map((palabra: string) => palabra.charAt(0).toUpperCase())
+            .join('')
+            .substring(0, 4)
+        : 'GEN');
 
-      // Buscar la gerencia del proceso en el catálogo
-      let gerenciaSigla = '';
-      const gerenciaId = (procesoSeleccionado as any).gerencia;
-      if (gerenciaId && gerenciasApi && Array.isArray(gerenciasApi)) {
-        const gerenciaEnCatalogo = gerenciasApi.find((g: any) => String(g.id) === String(gerenciaId) || String(g.nombre) === String(gerenciaId));
-        if (gerenciaEnCatalogo?.sigla) {
-          gerenciaSigla = gerenciaEnCatalogo.sigla;
+    const sigla = procesoSigla.toUpperCase();
+
+    // Recalcular el numeroIdentificacion para cada riesgo basado en procesoSeleccionado.sigla
+    const riesgosActualizados = riesgos.map(riesgo => {
+      // Extraer el número del riesgo (del numeroIdentificacion actual o del campo numero)
+      let numeroRiesgo = riesgo.numero || 0;
+      if (!numeroRiesgo && riesgo.numeroIdentificacion) {
+        const match = String(riesgo.numeroIdentificacion).match(/^(\d+)/);
+        if (match) {
+          numeroRiesgo = parseInt(match[1], 10);
         }
       }
-
-      // Fallback: generar desde nombre
-      if (!gerenciaSigla && (procesoSeleccionado as any).gerencia) {
-        const gerenciaValue = (procesoSeleccionado as any).gerencia;
-        const gerenciaNombre = typeof gerenciaValue === 'object'
-          ? (gerenciaValue.nombre || String(gerenciaValue))
-          : String(gerenciaValue);
-        gerenciaSigla = gerenciaNombre.toUpperCase().split(' ').map((s: string) => s[0]).join('').slice(0, 4);
+      if (!numeroRiesgo) {
+        numeroRiesgo = 1; // Fallback
       }
 
-      // Generar ID
-      const idGenerado = generarIdRiesgoAutomatico(gerenciaSigla || 'GEN');
-      const numeroId = idGenerado && idGenerado.length > 0
-        ? idGenerado
-        : generarIdConContador(String(gerenciaSigla || 'GEN').toUpperCase().split(' ').map(s => s[0]).join('').slice(0, 4));
+      // Generar nuevo numeroIdentificacion: número + sigla del proceso
+      const nuevoNumeroIdentificacion = `${numeroRiesgo}${sigla}`;
 
       return {
         ...riesgo,
-        numeroIdentificacion: numeroId
+        numeroIdentificacion: nuevoNumeroIdentificacion
       };
     });
 
@@ -854,7 +884,7 @@ export default function IdentificacionPage() {
     if (haycambios) {
       setRiesgos(riesgosActualizados);
     }
-  }, [procesoSeleccionado, gerenciasApi]);
+  }, [procesoSeleccionado]);
 
   // Función para crear un nuevo riesgo vacío
   const crearNuevoRiesgo = (): RiesgoFormData => {
@@ -864,27 +894,18 @@ export default function IdentificacionPage() {
     let numeroIdentificacion = '';
 
     if (procesoSeleccionado) {
-      let gerenciaSigla = '';
+      // Obtener la sigla del proceso (prioridad: proceso.sigla > generar desde nombre)
+      const procesoSigla = (procesoSeleccionado as any).sigla || 
+        (procesoSeleccionado.nombre 
+          ? procesoSeleccionado.nombre
+              .split(' ')
+              .filter((p: string) => p.length > 0)
+              .map((palabra: string) => palabra.charAt(0).toUpperCase())
+              .join('')
+              .substring(0, 4)
+          : 'GEN');
 
-      // Paso 1: Buscar la gerencia en el catálogo (gerenciasApi) por ID
-      const gerenciaId = (procesoSeleccionado as any).gerencia;
-      if (gerenciaId && gerenciasApi && Array.isArray(gerenciasApi)) {
-        const gerenciaEnCatalogo = gerenciasApi.find((g: any) => String(g.id) === String(gerenciaId) || String(g.nombre) === String(gerenciaId));
-        if (gerenciaEnCatalogo?.sigla) {
-          gerenciaSigla = gerenciaEnCatalogo.sigla;
-        }
-      }
-
-      // Paso 2: Si no se encontró en el catálogo, fallback: generar sigla desde el nombre
-      if (!gerenciaSigla && (procesoSeleccionado as any).gerencia) {
-        const gerenciaValue = (procesoSeleccionado as any).gerencia;
-        const gerenciaNombre = typeof gerenciaValue === 'object'
-          ? (gerenciaValue.nombre || String(gerenciaValue))
-          : String(gerenciaValue);
-        gerenciaSigla = gerenciaNombre.toUpperCase().split(' ').map((s: string) => s[0]).join('').slice(0, 4);
-      }
-
-      const sigla = gerenciaSigla || 'GEN';
+      const sigla = procesoSigla.toUpperCase();
 
       // Calcular el siguiente número a partir de los riesgos ya existentes del mismo proceso (no reiniciar)
       const riesgosDelProceso = riesgos.filter(
@@ -977,11 +998,23 @@ export default function IdentificacionPage() {
       const riesgoInherente = calcularRiesgoInherente(impactoMaximo, probabilidad);
       const nivelRiesgo = determinarNivelRiesgo(riesgoInherente, 'Negativa');
       
+      // Obtener la sigla del proceso para el numeroIdentificacion
+      const procesoSigla = (procesoSeleccionado as any).sigla || 
+        (procesoSeleccionado.nombre 
+          ? procesoSeleccionado.nombre
+              .split(' ')
+              .filter((p: string) => p.length > 0 && !['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e'].includes(p.toLowerCase()))
+              .map((palabra: string) => palabra.charAt(0).toUpperCase())
+              .join('')
+              .substring(0, 4)
+          : 'GEN');
+      const numeroIdentificacionFinal = `${siguienteNumero}${procesoSigla.toUpperCase()}`;
+      
       const payload = {
         procesoId: procesoSeleccionado?.id,
         // Usar siempre un número secuencial garantizado para evitar duplicados
         numero: siguienteNumero,
-        numeroIdentificacion: nuevoRiesgo.numeroIdentificacion, // ID completo con sigla (ej: "1GDH")
+        numeroIdentificacion: numeroIdentificacionFinal, // ID completo con sigla del proceso (ej: "1PF")
         descripcion: nuevoRiesgo.descripcionRiesgo || 'Nuevo Riesgo',
         clasificacion: 'Negativa',
         origen: 'Interno',
@@ -1011,7 +1044,6 @@ export default function IdentificacionPage() {
         }
       };
       
-      console.log('✅ PAYLOAD COMPLETO CON TODOS LOS CAMPOS:', payload);
 
       const creado = await crearRiesgo(payload);
       showSuccess('Riesgo creado exitosamente');
@@ -1116,7 +1148,6 @@ export default function IdentificacionPage() {
         return r;
       }));
 
-      console.log('[FRONTEND] Actualizando riesgo:', riesgoId, payload);
       await actualizarRiesgoApi(Number(riesgoId), payload);
       await cargarRiesgos(); // Recargar después de actualizar para sincronizar con backend
       // showSuccess('Riesgo actualizado'); // Puede ser muy ruidoso si es en tiempo real
@@ -1222,21 +1253,6 @@ export default function IdentificacionPage() {
       {/* Contenido del Tab INHERENTE */}
 
       <>
-        {/* Debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <Card sx={{ mb: 2, bgcolor: '#f0f0f0' }}>
-            <CardContent>
-              <Typography variant="caption" component="div">
-                <strong>🔍 Debug:</strong><br/>
-                - riesgos.length: {riesgos.length}<br/>
-                - riesgosApiData?.length: {riesgosApiData?.length || 0}<br/>
-                - procesoSeleccionado?.id: {procesoSeleccionado?.id || 'null'}<br/>
-                - procesoSeleccionado?.nombre: {procesoSeleccionado?.nombre || 'null'}
-              </Typography>
-            </CardContent>
-          </Card>
-        )}
-        
         {/* Lista de riesgos */}
         {riesgos.length === 0 ? (
           <Card>
@@ -1852,7 +1868,6 @@ export default function IdentificacionPage() {
                     frecuencia: nuevaCausaFrecuencia,
                   };
 
-                  console.log('[FRONTEND] Actualizando causa:', causaEditando.id, causaData);
                   const riesgoIdNumUpdate = Number(riesgoIdParaCausa);
                   await api.riesgos.causas.update(Number(causaEditando.id), causaData);
                   
@@ -1886,7 +1901,6 @@ export default function IdentificacionPage() {
                     seleccionada: true
                   };
 
-                  console.log('[FRONTEND] Creando causa:', causaData);
                   await api.riesgos.causas.create(causaData);
 
                   // Recalcular y guardar calificación inherente global después de crear causa
@@ -2376,7 +2390,6 @@ export default function IdentificacionPage() {
               const { causaId } = causaPendienteEliminar;
               setCausaEliminando(causaId);
               try {
-                console.log('[FRONTEND] Eliminando causa (confirmada):', causaId);
                 const riesgoIdNum = causaPendienteEliminar ? Number(causaPendienteEliminar.riesgoId) : null;
                 await api.riesgos.causas.delete(Number(causaId));
                 

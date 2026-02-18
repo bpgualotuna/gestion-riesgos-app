@@ -5,10 +5,11 @@
  */
 
 /* @refresh reset */
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import type { Proceso } from '../types';
 import { AuthContext } from './AuthContext';
 import { useGetProcesosQuery } from "../api/services/riesgosApi";
+import { esUsuarioResponsableProceso } from '../hooks/useAsignaciones';
 
 export type ModoProceso = 'editar' | 'visualizar' | null;
 
@@ -34,6 +35,7 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
   // Si no está disponible, usar valores por defecto
   const authContext = useContext(AuthContext);
   const esDueñoProcesos = authContext ? authContext.esDueñoProcesos : false;
+  const user = authContext?.user;
 
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
   const [procesoSeleccionado, setProcesoSeleccionadoState] = useState<Proceso | null>(null);
@@ -107,6 +109,22 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     localStorage.setItem('modoProceso', 'visualizar');
   };
 
+  // Verificar si el usuario puede gestionar procesos
+  // Puede gestionar si:
+  // 1. Tiene rol 'dueño_procesos' (o es Gerente General en modo proceso)
+  // 2. O está en responsablesList del proceso seleccionado (incluso sin rol dueño_procesos)
+  const puedeGestionarProcesos = useMemo(() => {
+    // Si tiene el rol, puede gestionar todos sus procesos
+    if (esDueñoProcesos) return true;
+    
+    // Si no tiene el rol pero está en responsablesList del proceso seleccionado, puede gestionar ese proceso
+    if (procesoSeleccionado && user) {
+      return esUsuarioResponsableProceso(procesoSeleccionado, user.id);
+    }
+    
+    return false;
+  }, [esDueñoProcesos, procesoSeleccionado, user]);
+
   const value: ProcesoContextType = {
     procesoSeleccionado,
     setProcesoSeleccionado,
@@ -115,7 +133,7 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     iniciarModoEditar,
     iniciarModoVisualizar,
     isLoading,
-    puedeGestionarProcesos: esDueñoProcesos, // Dueño del proceso o Gerente General en modo proceso
+    puedeGestionarProcesos, // Considera tanto el rol como si está en responsablesList
   };
 
   return <ProcesoContext.Provider value={value}>{children}</ProcesoContext.Provider>;

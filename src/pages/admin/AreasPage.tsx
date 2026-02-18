@@ -52,7 +52,11 @@ import {
     useDeleteAreaMutation,
     useGetUsuariosQuery,
     useGetProcesosQuery,
-    useBulkUpdateProcesosMutation
+    useBulkUpdateProcesosMutation,
+    useGetResponsablesByProcesoQuery,
+    useAddResponsableToProcesoMutation,
+    useRemoveResponsableFromProcesoMutation,
+    useUpdateResponsablesProcesoMutation
 } from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
 
@@ -75,9 +79,21 @@ export default function AreasPage() {
     const { data: procesosData = [] } = useGetProcesosQuery();
     const [procesos, setProcesos] = useState<Proceso[]>([]);
 
+    // Estado para rastrear responsables seleccionados localmente (antes de guardar)
+    const [responsablesSeleccionados, setResponsablesSeleccionados] = useState<Record<string, number[]>>({});
+    
+    // Cargar responsables de todos los procesos al inicio
     useEffect(() => {
         if (procesosData.length > 0) {
             setProcesos(procesosData);
+            // Inicializar responsablesSeleccionados con los responsables existentes
+            const responsablesIniciales: Record<string, number[]> = {};
+            procesosData.forEach((p: any) => {
+                if (p.responsablesList && p.responsablesList.length > 0) {
+                    responsablesIniciales[String(p.id)] = p.responsablesList.map((r: any) => r.id);
+                }
+            });
+            setResponsablesSeleccionados(responsablesIniciales);
         }
     }, [procesosData]);
 
@@ -122,6 +138,9 @@ export default function AreasPage() {
     const [updateArea] = useUpdateAreaMutation();
     const [deleteArea] = useDeleteAreaMutation();
     const [bulkUpdateProcesos] = useBulkUpdateProcesosMutation();
+    const [addResponsable] = useAddResponsableToProcesoMutation();
+    const [removeResponsable] = useRemoveResponsableFromProcesoMutation();
+    const [updateResponsables] = useUpdateResponsablesProcesoMutation();
 
     // Filtered data
     const filteredAreas = useMemo(() => {
@@ -251,12 +270,12 @@ export default function AreasPage() {
     ];
 
     // ==========================================
-    // ASSIGNMENT LOGIC
+    // ASSIGNMENT LOGIC - MÚLTIPLES RESPONSABLES
     // ==========================================
     const handleProcessToggle = (procesoId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
-        // Para Gerente General, guardar asignaciones separadas según el modo
+        // Para Gerente General, guardar asignaciones separadas según el modo (localStorage)
         if (esGerenteGeneral) {
             const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
             const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
@@ -278,18 +297,31 @@ export default function AreasPage() {
             // Force re-render
             setProcesos([...procesos]);
         } else {
-            // Usuario normal - actualizar responsableId
-            const updatedProcesos = procesos.map(p => {
-                if (String(p.id) === String(procesoId)) {
-                    return {
-                        ...p,
-                        responsableId: isChecked ? selectedUserForAssignment.id : null,
-                        responsableNombre: isChecked ? selectedUserForAssignment.nombre : ''
-                    };
+            // Usuario normal - usar sistema de múltiples responsables
+            const procesoIdStr = String(procesoId);
+            const usuarioId = selectedUserForAssignment.id;
+            
+            // Obtener responsables actuales del proceso (o inicializar)
+            const responsablesActuales = responsablesSeleccionados[procesoIdStr] || [];
+            
+            let nuevosResponsables: number[];
+            if (isChecked) {
+                // Agregar el usuario si no está ya en la lista
+                if (!responsablesActuales.includes(usuarioId)) {
+                    nuevosResponsables = [...responsablesActuales, usuarioId];
+                } else {
+                    nuevosResponsables = responsablesActuales;
                 }
-                return p;
+            } else {
+                // Remover el usuario de la lista
+                nuevosResponsables = responsablesActuales.filter(id => id !== usuarioId);
+            }
+            
+            // Actualizar el estado local
+            setResponsablesSeleccionados({
+                ...responsablesSeleccionados,
+                [procesoIdStr]: nuevosResponsables
             });
-            setProcesos(updatedProcesos);
         }
     };
 
@@ -318,29 +350,59 @@ export default function AreasPage() {
             // Force re-render
             setProcesos([...procesos]);
         } else {
-            // Usuario normal - actualizar responsableId
-            const updatedProcesos = procesos.map(p => {
-                if (String(p.areaId) === String(areaId)) {
-                    return {
-                        ...p,
-                        responsableId: isChecked ? selectedUserForAssignment.id : '',
-                        responsableNombre: isChecked ? selectedUserForAssignment.nombre : ''
-                    };
+            // Usuario normal - agregar/remover como responsable de todos los procesos del área
+            const procesosDelArea = procesos.filter(p => String(p.areaId) === String(areaId));
+            const usuarioId = selectedUserForAssignment.id;
+            
+            const nuevosResponsables = { ...responsablesSeleccionados };
+            
+            procesosDelArea.forEach(proceso => {
+                const procesoIdStr = String(proceso.id);
+                const responsablesActuales = nuevosResponsables[procesoIdStr] || [];
+                
+                if (isChecked) {
+                    // Agregar el usuario si no está ya en la lista
+                    if (!responsablesActuales.includes(usuarioId)) {
+                        nuevosResponsables[procesoIdStr] = [...responsablesActuales, usuarioId];
+                    }
+                } else {
+                    // Remover el usuario de la lista
+                    nuevosResponsables[procesoIdStr] = responsablesActuales.filter(id => id !== usuarioId);
                 }
-                return p;
             });
-            setProcesos(updatedProcesos);
+            
+            setResponsablesSeleccionados(nuevosResponsables);
         }
     };
 
     const saveAssignments = async () => {
         try {
             // Para Gerente General, las asignaciones ya están en localStorage
-            if (!esGerenteGeneral) {
-                await bulkUpdateProcesos(procesos).unwrap();
+            if (esGerenteGeneral) {
+                showSuccess('Asignaciones guardadas correctamente (localStorage)');
+                return;
             }
+            
+            // Para usuarios normales, usar el sistema de múltiples responsables
+            // Guardar responsables para cada proceso que tenga cambios
+            const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsablesIds]) => {
+                await updateResponsables({
+                    procesoId,
+                    responsablesIds
+                }).unwrap();
+            });
+            
+            await Promise.all(promesas);
+            
+            // Limpiar el estado local después de guardar
+            setResponsablesSeleccionados({});
+            
+            // Refrescar los procesos para obtener los responsables actualizados
+            // (esto se hace automáticamente por invalidatesTags)
+            
             showSuccess('Asignaciones guardadas correctamente');
         } catch (error) {
+            console.error('Error al guardar asignaciones:', error);
             showError('Error al guardar asignaciones');
         }
     };
@@ -371,13 +433,55 @@ export default function AreasPage() {
             };
         }
 
-        const allOwned = areaProcesos.every(p => String(p.responsableId) === String(selectedUserForAssignment.id));
-        const someOwned = areaProcesos.some(p => String(p.responsableId) === String(selectedUserForAssignment.id));
+        // Para usuarios normales, verificar si están en la lista de responsables
+        const usuarioId = selectedUserForAssignment.id;
+        const allOwned = areaProcesos.every(p => {
+            const responsables = responsablesSeleccionados[String(p.id)] || [];
+            return responsables.includes(usuarioId);
+        });
+        const someOwned = areaProcesos.some(p => {
+            const responsables = responsablesSeleccionados[String(p.id)] || [];
+            return responsables.includes(usuarioId);
+        });
 
         return {
             checked: allOwned,
             indeterminate: someOwned && !allOwned
         };
+    };
+    
+    // Verificar si un proceso tiene a un usuario como responsable
+    const isProcesoResponsable = (procesoId: string | number, usuarioId: number) => {
+        if (esGerenteGeneral) {
+            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
+            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
+            const areasAsignadas = currentData.areas || [];
+            const procesosAsignados = currentData.procesos || [];
+            const proceso = procesos.find(p => String(p.id) === String(procesoId));
+            return procesosAsignados.includes(String(procesoId)) || (proceso && areasAsignadas.includes(String(proceso.areaId)));
+        }
+        
+        const responsables = responsablesSeleccionados[String(procesoId)] || [];
+        return responsables.includes(usuarioId);
+    };
+    
+    // Obtener todos los responsables de un proceso para mostrarlos
+    const getResponsablesProceso = (procesoId: string | number) => {
+        const proceso = procesos.find(p => String(p.id) === String(procesoId));
+        if (!proceso) return [];
+        
+        // Obtener responsables desde la API (responsablesList) o desde el estado local
+        const responsablesApi = (proceso as any).responsablesList || [];
+        const responsablesLocal = responsablesSeleccionados[String(procesoId)] || [];
+        
+        // Combinar ambos y eliminar duplicados
+        const todosResponsables = new Set([...responsablesApi.map((r: any) => r.id), ...responsablesLocal]);
+        return Array.from(todosResponsables).map(id => {
+            const responsableApi = responsablesApi.find((r: any) => r.id === id);
+            if (responsableApi) return responsableApi;
+            const usuario = usuarios.find(u => u.id === id);
+            return usuario ? { id: usuario.id, nombre: usuario.nombre, email: usuario.email, role: usuario.role } : null;
+        }).filter(Boolean);
     };
 
     return (
@@ -567,19 +671,12 @@ export default function AreasPage() {
                                                     {areaProcesses.length > 0 ? (
                                                         <Box sx={{ pl: 4 }}>
                                                             {areaProcesses.map(proceso => {
-                                                                let isOwned;
-                                                                if (esGerenteGeneral) {
-                                                                    const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-                                                                    const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-                                                                    const areasAsignadas = currentData.areas || [];
-                                                                    const procesosAsignados = currentData.procesos || [];
-                                                                    // El proceso está asignado si está en la lista de procesos O si su área está asignada
-                                                                    isOwned = procesosAsignados.includes(proceso.id) || areasAsignadas.includes(proceso.areaId);
-                                                                } else {
-                                                                    isOwned = proceso.responsableId === selectedUserForAssignment.id;
-                                                                }
+                                                                const isOwned = isProcesoResponsable(proceso.id, selectedUserForAssignment.id);
+                                                                const responsablesProceso = getResponsablesProceso(proceso.id);
+                                                                
                                                                 return (
-                                                                    <Box key={proceso.id} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
+                                                                    <Box key={proceso.id} sx={{ display: 'flex', flexDirection: 'column', py: 0.5 }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                                         <FormControlLabel
                                                                             control={
                                                                                 <Checkbox
@@ -589,13 +686,24 @@ export default function AreasPage() {
                                                                             }
                                                                             label={proceso.nombre}
                                                                         />
-                                                                        {!isOwned && proceso.responsableNombre && (
+                                                                        </Box>
+                                                                        {/* Mostrar todos los responsables actuales del proceso */}
+                                                                        {responsablesProceso.length > 0 && (
+                                                                            <Box sx={{ pl: 4, mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                                                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                                                                                    Responsables:
+                                                                                </Typography>
+                                                                                {responsablesProceso.map((resp: any) => (
                                                                             <Chip
-                                                                                label={`Actual: ${proceso.responsableNombre}`}
+                                                                                        key={resp.id}
+                                                                                        label={resp.nombre}
                                                                                 size="small"
                                                                                 variant="outlined"
-                                                                                sx={{ ml: 2, fontSize: '0.7rem' }}
+                                                                                        color={resp.id === selectedUserForAssignment.id ? "primary" : "default"}
+                                                                                        sx={{ fontSize: '0.7rem' }}
                                                                             />
+                                                                                ))}
+                                                                            </Box>
                                                                         )}
                                                                     </Box>
                                                                 );

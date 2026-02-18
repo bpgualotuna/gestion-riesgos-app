@@ -1,7 +1,31 @@
 ﻿import { useAuth } from '../contexts/AuthContext';
+import { Proceso } from '../types';
 
 type AreaItem = { id: string; directorId?: string };
-type ProcesoItem = { id: string; areaId?: string; responsableId?: string };
+type ProcesoItem = { 
+    id: string; 
+    areaId?: string; 
+    responsableId?: string;
+    responsablesList?: Array<{ id: number; nombre: string }>;
+};
+
+// Helper para verificar si un usuario es responsable de un proceso
+export const esUsuarioResponsableProceso = (proceso: Proceso | ProcesoItem | any, userId?: string | number): boolean => {
+    if (!userId || !proceso) return false;
+    const userIdNum = Number(userId);
+    
+    // Verificar responsableId (compatibilidad con sistema anterior)
+    if (proceso.responsableId && Number(proceso.responsableId) === userIdNum) {
+        return true;
+    }
+    
+    // Verificar responsablesList (sistema nuevo de múltiples responsables)
+    if (proceso.responsablesList && Array.isArray(proceso.responsablesList)) {
+        return proceso.responsablesList.some((r: any) => Number(r.id) === userIdNum);
+    }
+    
+    return false;
+};
 
 const loadFromStorage = <T>(key: string, fallback: T): T => {
     try {
@@ -18,6 +42,7 @@ const getAsignaciones = (userId?: string) => {
         return { areaIds: [] as string[], procesoIds: [] as string[] };
     }
 
+    const userIdNum = Number(userId);
     const areas = loadFromStorage<AreaItem[]>('catalog_areas', []);
     const procesos = loadFromStorage<ProcesoItem[]>('catalog_procesos', []);
 
@@ -26,7 +51,9 @@ const getAsignaciones = (userId?: string) => {
     );
 
     const procesosPorArea = procesos.filter((p) => p.areaId && areaIds.has(p.areaId));
-    const procesosPorResponsable = procesos.filter((p) => p.responsableId === userId);
+    
+    // Buscar procesos donde el usuario es responsable (tanto responsableId como responsablesList)
+    const procesosPorResponsable = procesos.filter((p) => esUsuarioResponsableProceso(p, userId));
 
     const procesoIds = new Set<string>();
     procesosPorArea.forEach((p) => procesoIds.add(String(p.id)));

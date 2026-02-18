@@ -62,7 +62,7 @@ import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
-import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor } from '../../hooks/useAsignaciones';
+import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 
 export default function DashboardSupervisorPage() {
   const { esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
@@ -77,7 +77,7 @@ export default function DashboardSupervisorPage() {
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
 
   // Obtener datos
-  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000 });
+  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, includeCausas: true });
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery({});
   const { data: planesApi = [] } = useGetPlanesQuery();
@@ -122,7 +122,7 @@ export default function DashboardSupervisorPage() {
 
     // Para Dueño de Procesos REAL (role === 'dueño_procesos'), filtrar solo sus procesos
     if (user?.role === 'dueño_procesos') {
-      return todosLosProcesos.filter((p: any) => p.responsableId === user.id);
+      return todosLosProcesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
     }
 
     // Para Supervisor (lógica existente)
@@ -156,39 +156,49 @@ export default function DashboardSupervisorPage() {
     return procesos.map((p: any) => p.nombre).filter(Boolean);
   }, [procesos]);
   const riesgos = useMemo(() => {
-    if ((!esSupervisorRiesgos && !esDueñoProcesos && !esGerenteGeneralDirector) || !user) return todosLosRiesgos;
-
-    // Para Gerente General, también filtrar por procesos asignados
-    if (esGerenteGeneralDirector) {
-      const procesosIds = procesos.map((p: any) => p.id);
-      return todosLosRiesgos.filter((r: any) => procesosIds.includes(r.procesoId));
+    // Si no es supervisor, dueño o gerente, mostrar todos (solo admin)
+    if ((!esSupervisorRiesgos && !esDueñoProcesos && !esGerenteGeneralDirector && !esGerenteGeneralProceso) || !user) {
+      return todosLosRiesgos;
     }
 
-    // Filtrar riesgos de procesos asignados (ya filtrados arriba)
-    const procesosIds = procesos.map((p: any) => p.id);
-    return todosLosRiesgos.filter((r: any) => procesosIds.includes(r.procesoId));
-  }, [todosLosRiesgos, procesos, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, user]);
+    // Obtener IDs de procesos asignados (asegurar comparación correcta string/number)
+    const procesosIds = procesos.map((p: any) => String(p.id));
+    
+    // Filtrar riesgos que pertenecen a los procesos asignados
+    // Asegurar que los riesgos tengan causas cargadas para contar controles
+    return todosLosRiesgos.filter((r: any) => {
+      const procesoIdRiesgo = String(r.procesoId);
+      return procesosIds.includes(procesoIdRiesgo);
+    }).map((r: any) => {
+      // Asegurar que el riesgo tenga causas (si no las tiene, intentar obtenerlas del riesgo completo)
+      if (!r.causas && todosLosRiesgos.find((tr: any) => tr.id === r.id)?.causas) {
+        return { ...r, causas: todosLosRiesgos.find((tr: any) => tr.id === r.id)?.causas };
+      }
+      return r;
+    });
+  }, [todosLosRiesgos, procesos, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, user]);
 
   const [celdaSeleccionada, setCeldaSeleccionada] = useState<{ probabilidad: number; impacto: number; tipo: 'inherente' | 'residual' } | null>(null);
 
-  // Filtrar riesgos según filtros (MOVED UP)
+  // Filtrar riesgos según filtros
+  // IMPORTANTE: Siempre partir de riesgos ya filtrados por asignaciones
   const riesgosFiltrados = useMemo(() => {
-    let filtrados = riesgos;
+    let filtrados = [...riesgos]; // Copiar array para no mutar el original
 
     // Filtrar por área
     if (filtroArea !== 'all') {
       const procesosEnArea = procesos.filter((p: any) => p.areaNombre === filtroArea);
-      const procesosIds = procesosEnArea.map((p: any) => p.id);
-      filtrados = filtrados.filter((r: any) => procesosIds.includes(r.procesoId));
+      const procesosIds = procesosEnArea.map((p: any) => String(p.id));
+      filtrados = filtrados.filter((r: any) => procesosIds.includes(String(r.procesoId)));
     }
 
+    // Filtrar por proceso específico
     if (filtroProceso !== 'all') {
-      // Asegurar comparación correcta (puede ser string o number)
       filtrados = filtrados.filter((r: any) => String(r.procesoId) === String(filtroProceso));
     }
 
+    // Filtrar por origen
     if (filtroOrigen !== 'all') {
-      // Filtrar por origen (tipología nivel I o fuente)
       filtrados = filtrados.filter((r: any) => {
         if (filtroOrigen === 'talleres') {
           return r.tipologiaNivelI?.includes('Taller') || r.fuenteCausa?.includes('Taller');
@@ -200,11 +210,13 @@ export default function DashboardSupervisorPage() {
       });
     }
 
+    // Filtrar por búsqueda
     if (busqueda.trim()) {
       const busquedaLower = busqueda.toLowerCase();
       filtrados = filtrados.filter((r: any) => {
-        const codigo = `${r.numero || ''}${r.siglaGerencia || ''}`;
-        const proceso = procesos.find((p: any) => p.id === r.procesoId);
+        const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
+        const sigla = proceso?.sigla || r.siglaGerencia || '';
+        const codigo = r.numeroIdentificacion || `${r.numero || ''}${sigla}`;
         return (
           codigo.toLowerCase().includes(busquedaLower) ||
           r.descripcion?.toLowerCase().includes(busquedaLower) ||
@@ -217,10 +229,13 @@ export default function DashboardSupervisorPage() {
   }, [riesgos, filtroArea, filtroProceso, filtroOrigen, busqueda, procesos]);
 
   // Crear matrices de riesgo inherente y residual
+  // IMPORTANTE: Filtrar puntos según riesgos filtrados (que ya respetan asignaciones)
   const matrizInherente = useMemo(() => {
     const matriz: { [key: string]: any[] } = {};
+    // Obtener IDs de riesgos filtrados para comparación eficiente
+    const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
     // Filtrar puntos que corresponden a riesgos filtrados
-    const puntosFiltrados = puntos.filter((p: any) => riesgosFiltrados.some((r: any) => r.id === p.riesgoId));
+    const puntosFiltrados = puntos.filter((p: any) => riesgosIds.has(String(p.riesgoId)));
 
     puntosFiltrados.forEach((punto: any) => {
       const key = `${punto.probabilidad}-${punto.impacto}`;
@@ -234,14 +249,15 @@ export default function DashboardSupervisorPage() {
 
   const matrizResidual = useMemo(() => {
     const matriz: { [key: string]: any[] } = {};
+    // Obtener IDs de riesgos filtrados para comparación eficiente
+    const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
     // Filtrar puntos que corresponden a riesgos filtrados
-    const puntosFiltrados = puntos.filter((p: any) => riesgosFiltrados.some((r: any) => r.id === p.riesgoId));
+    const puntosFiltrados = puntos.filter((p: any) => riesgosIds.has(String(p.riesgoId)));
 
     puntosFiltrados.forEach((punto: any) => {
-      // Calcular riesgo residual (aproximación: reducir 20%)
-      const factorReduccion = 0.8;
-      const probResidual = Math.max(1, Math.round(punto.probabilidad * factorReduccion));
-      const impResidual = Math.max(1, Math.round(punto.impacto * factorReduccion));
+      // Usar valores residuales del backend si están disponibles
+      const probResidual = punto.probabilidadResidual || Math.max(1, Math.round(punto.probabilidad * 0.8));
+      const impResidual = punto.impactoResidual || Math.max(1, Math.round(punto.impacto * 0.8));
       const key = `${probResidual}-${impResidual}`;
       if (!matriz[key]) {
         matriz[key] = [];
@@ -273,8 +289,8 @@ export default function DashboardSupervisorPage() {
     const totalProcesos = procesosFiltradosPorArea.length;
     
     // Filtrar puntos que corresponden a riesgos filtrados
-    const riesgosIds = riesgosFiltrados.map((r: any) => r.id);
-    const puntosFiltrados = puntos.filter((p: any) => riesgosIds.includes(p.riesgoId));
+    const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
+    const puntosFiltrados = puntos.filter((p: any) => riesgosIds.has(String(p.riesgoId)));
     const riesgosCriticos = puntosFiltrados.filter((p: any) => (p.probabilidad * p.impacto) >= UMBRALES_RIESGO.CRITICO).length;
     
     return {
@@ -335,8 +351,9 @@ export default function DashboardSupervisorPage() {
   const filasTablaResumen = useMemo(() => {
     return riesgosFiltrados.map((riesgo: any) => {
       const proceso = procesos.find((p: any) => p.id === riesgo.procesoId);
-      // Formato de código: R001, R002, etc.
-      const codigo = riesgo.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `${riesgo.numero || ''}${riesgo.siglaGerencia || ''}`;
+      // Usar numeroIdentificacion si existe, sino generar desde número y sigla del proceso
+      const sigla = proceso?.sigla || riesgo.siglaGerencia || '';
+      const codigo = riesgo.numeroIdentificacion || (riesgo.numero ? `${riesgo.numero}${sigla}` : `R${String(riesgo.numero || 0).padStart(3, '0')}`);
       const punto = puntos.find((p: any) => p.riesgoId === riesgo.id);
 
       const riesgoInherente = punto ? punto.probabilidad * punto.impacto : 0;
@@ -367,9 +384,60 @@ export default function DashboardSupervisorPage() {
     });
   }, [riesgosFiltrados, procesos, puntos]);
 
+  // Filtrar planes de acción según riesgos filtrados (que ya respetan asignaciones)
+  const planesFiltrados = useMemo(() => {
+    if (!planesApi || planesApi.length === 0) {
+      console.log('[Dashboard] No hay planes en planesApi');
+      return [];
+    }
+    
+    if (riesgosFiltrados.length === 0) {
+      console.log('[Dashboard] No hay riesgos filtrados, no se pueden filtrar planes');
+      return [];
+    }
+    
+    const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
+    
+    // Debug: Log para verificar datos
+    console.log('[Dashboard] Planes API totales:', planesApi.length);
+    console.log('[Dashboard] Riesgos filtrados:', riesgosFiltrados.length);
+    console.log('[Dashboard] Riesgos IDs:', Array.from(riesgosIds).slice(0, 10));
+    console.log('[Dashboard] Primeros 3 planes API:', planesApi.slice(0, 3).map((p: any) => ({ 
+      id: p.id, 
+      riesgoId: p.riesgoId, 
+      descripcion: p.descripcion?.substring(0, 50) 
+    })));
+    
+    const filtrados = (planesApi || []).filter((plan: any) => {
+      // Filtrar planes que pertenecen a riesgos filtrados
+      // Nota: riesgoId puede ser null para planes reactivos (vinculados a incidencias)
+      if (!plan.riesgoId) {
+        return false; // Excluir planes sin riesgoId (pueden ser reactivos)
+      }
+      const planRiesgoId = String(plan.riesgoId);
+      const tieneRiesgo = riesgosIds.has(planRiesgoId);
+      if (!tieneRiesgo) {
+        console.log(`[Dashboard] Plan ${plan.id} con riesgoId ${planRiesgoId} no está en riesgos filtrados`);
+      }
+      return tieneRiesgo;
+    });
+    
+    console.log('[Dashboard] Planes filtrados:', filtrados.length);
+    if (filtrados.length === 0 && planesApi.length > 0) {
+      console.warn('[Dashboard] ⚠️ Hay planes pero ninguno coincide con riesgos filtrados');
+      console.log('[Dashboard] Ejemplo de planes sin coincidencia:', planesApi.slice(0, 3).map((p: any) => ({
+        planId: p.id,
+        planRiesgoId: p.riesgoId,
+        estaEnRiesgosFiltrados: riesgosIds.has(String(p.riesgoId))
+      })));
+    }
+    
+    return filtrados;
+  }, [planesApi, riesgosFiltrados]);
+
   // Preparar datos para tabla de planes de acción - Usando servicio centralizado
   const planesAccion = useMemo(() => {
-    return (planesApi || []).map((plan: any) => ({
+    return planesFiltrados.map((plan: any) => ({
       id: plan.id,
       nombre: plan.descripcion || 'Plan de acción',
       proceso: plan.procesoNombre || 'Sin proceso',
@@ -378,7 +446,7 @@ export default function DashboardSupervisorPage() {
       estado: (plan.estado || 'pendiente').toString().toLowerCase().replace(' ', '_'),
       porcentajeAvance: plan.estado === 'Completado' ? 100 : plan.estado === 'En ejecución' ? 50 : 0,
     }));
-  }, [planesApi]);
+  }, [planesFiltrados]);
 
   const totalIncidencias = incidenciasStats?.total || 0;
 
@@ -841,7 +909,7 @@ export default function DashboardSupervisorPage() {
                   <AssignmentIcon color="success" />
                   <Typography variant="subtitle2" fontWeight={600}>Planes de Acción</Typography>
                 </Box>
-                <Typography variant="h4" fontWeight={700}>{planesApi?.length || 0}</Typography>
+                <Typography variant="h4" fontWeight={700}>{planesFiltrados.length}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Total activos
                 </Typography>
@@ -974,7 +1042,7 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                   Planes de Acción por Proceso
                 </Typography>
-                {riesgosFiltrados.length === 0 || planesApi.length === 0 ? (
+                {riesgosFiltrados.length === 0 || planesFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
@@ -982,15 +1050,19 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
-                      const riesgosIds = riesgosFiltrados.map((r: any) => r.id);
-                      planesApi.forEach((p: any) => {
-                        if (riesgosIds.includes(p.riesgoId)) {
-                          const riesgo = riesgosFiltrados.find((r: any) => r.id === p.riesgoId);
-                          const procesoNombre = procesos.find((proc: any) => proc.id === riesgo?.procesoId)?.nombre || 'Sin proceso';
-                          if (!dataPorProceso[procesoNombre]) {
-                            dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
+                      const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
+                      
+                      // Filtrar planes que pertenecen a riesgos filtrados
+                      planesFiltrados.forEach((p: any) => {
+                        if (riesgosIds.has(String(p.riesgoId))) {
+                          const riesgo = riesgosFiltrados.find((r: any) => String(r.id) === String(p.riesgoId));
+                          if (riesgo) {
+                            const procesoNombre = procesos.find((proc: any) => String(proc.id) === String(riesgo.procesoId))?.nombre || 'Sin proceso';
+                            if (!dataPorProceso[procesoNombre]) {
+                              dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
+                            }
+                            dataPorProceso[procesoNombre].cantidad++;
                           }
-                          dataPorProceso[procesoNombre].cantidad++;
                         }
                       });
                       const chartData = Object.values(dataPorProceso);
@@ -1031,16 +1103,28 @@ export default function DashboardSupervisorPage() {
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
                       riesgosFiltrados.forEach((r: any) => {
-                        const procesoNombre = procesos.find((p: any) => p.id === r.procesoId)?.nombre || 'Sin proceso';
+                        const procesoNombre = procesos.find((p: any) => String(p.id) === String(r.procesoId))?.nombre || 'Sin proceso';
                         if (!dataPorProceso[procesoNombre]) {
                           dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
                         }
+                        // Contar controles desde las causas
+                        // Los controles son causas con tipoGestion === 'CONTROL' o 'AMBOS'
                         if (r.causas && Array.isArray(r.causas)) {
                           r.causas.forEach((causa: any) => {
-                            if (causa.controles && Array.isArray(causa.controles)) {
-                              dataPorProceso[procesoNombre].cantidad += causa.controles.length;
+                            const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
+                            // Verificar si la causa es un control
+                            if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') {
+                              dataPorProceso[procesoNombre].cantidad++;
+                            }
+                            // También verificar si tiene puntajeTotal (indicador de control evaluado)
+                            else if (causa.puntajeTotal !== undefined && causa.puntajeTotal !== null) {
+                              dataPorProceso[procesoNombre].cantidad++;
                             }
                           });
+                        }
+                        // También verificar controles directos del riesgo (si existen en la relación)
+                        if (r.controles && Array.isArray(r.controles)) {
+                          dataPorProceso[procesoNombre].cantidad += r.controles.length;
                         }
                       });
                       const chartData = Object.values(dataPorProceso);
@@ -1136,7 +1220,8 @@ export default function DashboardSupervisorPage() {
                 const riesgo = riesgos.find((r: any) => r.id === punto.riesgoId);
                 const proceso = procesos.find((p: any) => p.id === riesgo?.procesoId);
                 const valorRiesgo = punto.probabilidad * punto.impacto;
-                const codigo = riesgo?.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `${riesgo?.numero || ''}${riesgo?.siglaGerencia || ''}`;
+                const sigla = proceso?.sigla || riesgo?.siglaGerencia || '';
+                const codigo = riesgo?.numeroIdentificacion || (riesgo?.numero ? `${riesgo.numero}${sigla}` : `R${String(riesgo?.numero || 0).padStart(3, '0')}`);
                 return (
                   <Card key={punto.riesgoId} sx={{ mb: 2, border: '2px solid', borderColor: colors.risk.critical.main }}>
                     <CardContent>

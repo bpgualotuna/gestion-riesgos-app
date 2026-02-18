@@ -53,17 +53,37 @@ export default function BenchmarkingPage() {
   const [setBenchmarkingByProceso] = useSetBenchmarkingByProcesoMutation();
 
   useEffect(() => {
-    if (benchmarkingApi && Array.isArray(benchmarkingApi)) {
-      const mapped = benchmarkingApi.map((item: any) => ({
-        id: String(item.id),
-        empresa: item.empresa || item.entidad || 'Empresa',
-        numero: item.numero || 1,
-        riesgo: item.riesgo || item.indicador || '',
-        clasificacion: item.clasificacion,
-        calificacion: item.calificacion,
-      }));
-      setBenchmarking(mapped);
-    }
+    if (!benchmarkingApi || !Array.isArray(benchmarkingApi)) return;
+
+    const mapped: BenchmarkingItem[] = benchmarkingApi.map((item: any) => ({
+      id: String(item.id),
+      empresa: item.empresa || item.entidad || 'Empresa',
+      numero: item.numero || 1,
+      riesgo: item.riesgo || item.indicador || '',
+      clasificacion: item.clasificacion,
+      calificacion: item.calificacion,
+    }));
+
+    // Evitar actualizaciones infinitas: solo actualizar si realmente cambió
+    setBenchmarking((prev) => {
+      if (
+        prev.length === mapped.length &&
+        prev.every((item, index) => {
+          const other = mapped[index];
+          return (
+            item.id === other.id &&
+            item.empresa === other.empresa &&
+            item.numero === other.numero &&
+            item.riesgo === other.riesgo &&
+            item.clasificacion === other.clasificacion &&
+            item.calificacion === other.calificacion
+          );
+        })
+      ) {
+        return prev;
+      }
+      return mapped;
+    });
   }, [benchmarkingApi]);
 
   const handleAdd = (empresa: string) => {
@@ -99,6 +119,20 @@ export default function BenchmarkingPage() {
     nombre: empresa,
     items: benchmarking.filter((b) => b.empresa === empresa),
   }));
+
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="Benchmarking"
+        description="Comparación de riesgos identificados con otras empresas del sector"
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
 
   return (
     <AppPageLayout
