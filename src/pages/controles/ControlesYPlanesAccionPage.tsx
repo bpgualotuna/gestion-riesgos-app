@@ -51,7 +51,12 @@ import {
   Shield as ShieldIcon,
   FactCheck as FactCheckIcon,
   Security as SecurityIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  UnfoldMore as UnfoldMoreIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -122,9 +127,10 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [clasificaciones, setClasificaciones] = useState<ClasificacionCausa[]>([]);
   const [riesgoExpandido, setRiesgoExpandido] = useState<string | null>(null);
   const [causaEnEdicion, setCausaEnEdicion] = useState<{ riesgoId: string; causa: any; clasificacion?: ClasificacionCausa; } | null>(null);
+  const [causaDetalleView, setCausaDetalleView] = useState<{ riesgoId: string; causa: any } | null>(null);
   const [dialogDetailOpen, setDialogDetailOpen] = useState(false);
   const [itemDetalle, setItemDetalle] = useState<ClasificacionCausa | null>(null);
-  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN'>('seleccion');
+  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
@@ -229,7 +235,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || '').toUpperCase();
-        return tipo === 'PLAN';
+        return tipo === 'PLAN' || tipo === 'AMBOS';
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
   }, [riesgosDelProceso]);
@@ -239,10 +245,91 @@ export default function ControlesYPlanesAccionPageNueva() {
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
-        return tipo === 'CONTROL';
+        return tipo === 'CONTROL' || tipo === 'AMBOS';
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
   }, [riesgosDelProceso]);
+
+  // Ordenamiento para las listas de riesgos en las pestañas
+  type RiesgoSortFieldSimple = 'id' | 'descripcion' | 'tipologia' | 'clasificacion' | 'estado';
+
+  const [sortPendientes, setSortPendientes] = useState<{ field: RiesgoSortFieldSimple; direction: 'asc' | 'desc' }>({
+    field: 'id',
+    direction: 'asc',
+  });
+  const [sortControles, setSortControles] = useState<{ field: RiesgoSortFieldSimple; direction: 'asc' | 'desc' }>({
+    field: 'id',
+    direction: 'asc',
+  });
+  const [sortPlanes, setSortPlanes] = useState<{ field: RiesgoSortFieldSimple; direction: 'asc' | 'desc' }>({
+    field: 'id',
+    direction: 'asc',
+  });
+
+  const getRiesgoSimpleSortValue = (riesgo: any, field: RiesgoSortFieldSimple) => {
+    switch (field) {
+      case 'id':
+        return riesgo.numeroIdentificacion || riesgo.numero || riesgo.id || '';
+      case 'descripcion':
+        return riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || '';
+      case 'tipologia':
+        return riesgo.tipologiaNivelI || riesgo.tipologia || '';
+      case 'clasificacion':
+        // Usar nivel de riesgo residual si existe, o nivel inherente
+        return (
+          riesgo.evaluacion?.nivelRiesgoResidual ||
+          riesgo.nivelRiesgoResidual ||
+          riesgo.riesgoResidual ||
+          riesgo.evaluacion?.nivelRiesgo ||
+          riesgo.nivelRiesgo ||
+          ''
+        );
+      case 'estado':
+        return riesgo.estado || '';
+      default:
+        return '';
+    }
+  };
+
+  const ordenarRiesgos = (lista: any[], sort: { field: RiesgoSortFieldSimple; direction: 'asc' | 'desc' }) => {
+    const data = [...lista];
+    data.sort((a, b) => {
+      const aVal = getRiesgoSimpleSortValue(a, sort.field);
+      const bVal = getRiesgoSimpleSortValue(b, sort.field);
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      const comp = aStr.localeCompare(bStr, 'es');
+      return sort.direction === 'asc' ? comp : -comp;
+    });
+    return data;
+  };
+
+  const riesgosPendientesOrdenados = useMemo(
+    () => ordenarRiesgos(riesgosPendientes, sortPendientes),
+    [riesgosPendientes, sortPendientes],
+  );
+  const riesgosConControlesOrdenados = useMemo(
+    () => ordenarRiesgos(riesgosConControles, sortControles),
+    [riesgosConControles, sortControles],
+  );
+  const riesgosConPlanesOrdenados = useMemo(
+    () => ordenarRiesgos(riesgosConPlanes, sortPlanes),
+    [riesgosConPlanes, sortPlanes],
+  );
+
+  const toggleSort =
+    (setter: React.Dispatch<React.SetStateAction<{ field: RiesgoSortFieldSimple; direction: 'asc' | 'desc' }>>) =>
+    (field: RiesgoSortFieldSimple) => {
+      setter((prev) =>
+        prev.field === field
+          ? { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+          : { field, direction: 'asc' },
+      );
+    };
+
+  const handleSortPendientes = toggleSort(setSortPendientes);
+  const handleSortControlesLista = toggleSort(setSortControles);
+  const handleSortPlanesLista = toggleSort(setSortPlanes);
 
   // Legacy arrays (kept for compatibility in case used elsewhere, but ideally replaced)
   const controles = useMemo(() => clasificaciones.filter(c => c.tipo === 'control'), [clasificaciones]);
@@ -379,7 +466,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     let causaActualizada: any = null;
     const causasUpd = riesgo.causas.map((c: any) => {
       if (c.id === causaIdEvaluacion) {
-        if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || (!tipoClasificacion)) {
+        if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || tipoClasificacion === 'AMBOS' || (!tipoClasificacion)) {
           let pt = 0;
           let prel = 'Inefectivo';
           let def = 'Inefectivo';
@@ -406,10 +493,18 @@ export default function ControlesYPlanesAccionPageNueva() {
             controlDescripcion: criteriosEvaluacion.descripcionControl,
             controlResponsable: criteriosEvaluacion.responsable,
             tieneControl: criteriosEvaluacion.tieneControl,
-            tipoGestion: 'CONTROL',
+            tipoGestion: tipoClasificacion === 'AMBOS' ? 'AMBOS' : 'CONTROL',
             puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
             frecuenciaResidual: fRes, impactoResidual: iRes,
-            calificacionResidual: calcularCalificacionResidual(fRes, iRes)
+            calificacionResidual: calcularCalificacionResidual(fRes, iRes),
+            ...(tipoClasificacion === 'AMBOS' && {
+              planDescripcion: formPlan.descripcion,
+              planDetalle: formPlan.detalle,
+              planResponsable: formPlan.responsable,
+              planDecision: formPlan.decision,
+              planFechaEstimada: formPlan.fechaEstimada,
+              planEstado: formPlan.estado,
+            }),
           };
           return causaActualizada;
         } else {
@@ -437,7 +532,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       // Si la causa no tiene valores propios, usamos los del riesgo padre
       const causasConControles = causasUpd.filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-        return tipo === 'CONTROL';
+        return tipo === 'CONTROL' || tipo === 'AMBOS';
       });
       
       const calificacionesResiduales = causasConControles.length > 0
@@ -617,15 +712,65 @@ export default function ControlesYPlanesAccionPageNueva() {
                 alignItems: 'center'
               }}>
                 <Box /> {/* Spacer for icon */}
-                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPendientes('id')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                  {sortPendientes.field === 'id' ? (
+                    sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPendientes('descripcion')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                  {sortPendientes.field === 'descripcion' ? (
+                    sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPendientes('tipologia')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                  {sortPendientes.field === 'tipologia' ? (
+                    sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPendientes('clasificacion')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
+                  {sortPendientes.field === 'clasificacion' ? (
+                    sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPendientes('estado')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                  {sortPendientes.field === 'estado' ? (
+                    sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
                 <Box /> {/* Spacer for end icon */}
               </Box>
 
-              {riesgosPendientes.map((riesgo: any) => {
+              {riesgosPendientesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
                   <Card key={riesgo.id} sx={{ mb: 2 }}>
@@ -766,28 +911,45 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       <TableCell align="center">{causa.frecuencia || 1}</TableCell>
                                       <TableCell align="center">{(causa.calificacionGlobalImpacto || 1).toFixed(2)}</TableCell>
                                       <TableCell align="center">
-                                        <FormControl fullWidth size="small">
-                                          <Select
-                                            value={tipoGestion === 'PENDIENTE' ? '' : tipoGestion}
-                                            displayEmpty
-                                            onChange={(e) => {
-                                              const val = e.target.value;
-                                              if (val === 'CONTROL' || val === 'PLAN') {
-                                                setTipoClasificacion(val as any);
-                                                handleEvaluarControl(riesgo.id, causa);
-                                              }
-                                            }}
-                                            renderValue={(selected) => {
-                                              if (!selected || selected === 'PENDIENTE') return <Typography color="text.secondary" variant="body2">-- Seleccione --</Typography>;
-                                              return selected === 'CONTROL' ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ShieldIcon fontSize="small" /> Control</Box>
-                                                : <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><AssignmentIcon fontSize="small" /> Plan</Box>;
+                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<ShieldIcon />}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setTipoClasificacion('CONTROL');
+                                              handleEvaluarControl(riesgo.id, causa);
                                             }}
                                           >
-                                            <MenuItem value="" disabled><em>Seleccione...</em></MenuItem>
-                                            <MenuItem value="CONTROL">Control</MenuItem>
-                                            <MenuItem value="PLAN">Plan de Acción</MenuItem>
-                                          </Select>
-                                        </FormControl>
+                                            Control
+                                          </Button>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<AssignmentIcon />}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setTipoClasificacion('PLAN');
+                                              handleEvaluarControl(riesgo.id, causa);
+                                            }}
+                                          >
+                                            Plan de Acción
+                                          </Button>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            color="secondary"
+                                            startIcon={<CheckCircleIcon />}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setTipoClasificacion('AMBOS');
+                                              handleEvaluarControl(riesgo.id, causa);
+                                            }}
+                                          >
+                                            Ambos
+                                          </Button>
+                                        </Box>
                                       </TableCell>
                                       <TableCell align="center">
                                         <Chip label="Pendiente" variant="outlined" size="small" />
@@ -800,10 +962,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                                             <Collapse in={true}>
                                               <Box sx={{ p: 3, bgcolor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
                                                 <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>
-                                                  {tipoClasificacion === 'PLAN' ? 'Configurar Plan de Acción' : 'Evaluar Efectividad del Control'}
+                                                  {tipoClasificacion === 'AMBOS' ? 'Evaluar Control y Configurar Plan de Acción' : tipoClasificacion === 'PLAN' ? 'Configurar Plan de Acción' : 'Evaluar Efectividad del Control'}
                                                 </Typography>
 
-                                                {(tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || (!tipoClasificacion && !causaIdEvaluacion)) && (
+                                                {(tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || tipoClasificacion === 'AMBOS' || (!tipoClasificacion && !causaIdEvaluacion)) && (
                                                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                                     {(() => {
                                                       const inherentProb = Number(causa.frecuencia || riesgo.evaluacion?.probabilidad || 1);
@@ -1047,7 +1209,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                   </Box>
                                                 )}
 
-                                                {(tipoClasificacion === 'PLAN' || tipoClasificacion === 'plan') && (
+                                                {(tipoClasificacion === 'PLAN' || tipoClasificacion === 'plan' || tipoClasificacion === 'AMBOS') && (
                                                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
@@ -1107,15 +1269,65 @@ export default function ControlesYPlanesAccionPageNueva() {
                 alignItems: 'center'
               }}>
                 <Box />
-                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortControlesLista('id')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                  {sortControles.field === 'id' ? (
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortControlesLista('descripcion')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                  {sortControles.field === 'descripcion' ? (
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortControlesLista('tipologia')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                  {sortControles.field === 'tipologia' ? (
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortControlesLista('clasificacion')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
+                  {sortControles.field === 'clasificacion' ? (
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortControlesLista('estado')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                  {sortControles.field === 'estado' ? (
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
                 <Box />
               </Box>
 
-              {riesgosConControles.map((riesgo: any) => {
+              {riesgosConControlesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
                   <Card key={riesgo.id} sx={{ mb: 2 }}>
@@ -1153,10 +1365,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                           
                           // Si no hay nivel residual, calcular desde las causas con controles
                           if (!nivelRiesgo && riesgo.causas && riesgo.causas.length > 0) {
-                            // Filtrar solo causas que tengan controles (tipoGestion === 'CONTROL')
+                            // Filtrar solo causas que tengan controles (tipoGestion === 'CONTROL' o 'AMBOS')
                             const causasConControles = riesgo.causas.filter((c: any) => {
                               const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-                              return tipo === 'CONTROL';
+                              return tipo === 'CONTROL' || tipo === 'AMBOS';
                             });
                             
                             if (causasConControles.length > 0) {
@@ -1279,8 +1491,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   sx={{ cursor: 'pointer' }}
                                   onClick={() => {
                                     setItemDetalle(detalleControl);
+                                    setCausaDetalleView({ riesgoId: riesgo.id, causa });
                                     setDialogDetailOpen(true);
-                                    setCausaEnEdicion({ riesgoId: riesgo.id, causa });
                                   }}
                                 >
                                   <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
@@ -1290,29 +1502,30 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     {causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || 'Sin evaluar'}
                                   </TableCell>
                                   <TableCell align="center">
-                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                      <Button
+                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                      <IconButton
                                         size="small"
-                                        variant="outlined"
+                                        color="primary"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setTipoClasificacion('CONTROL');
                                           handleEvaluarControl(riesgo.id, causa);
                                         }}
+                                        title="Editar"
                                       >
-                                        Editar
-                                      </Button>
-                                      <Button
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                      <IconButton
                                         size="small"
-                                        variant="outlined"
                                         color="error"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleEliminarClasificacion(riesgo.id, causa);
                                         }}
+                                        title="Eliminar"
                                       >
-                                        Eliminar
-                                      </Button>
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
                                     </Box>
                                   </TableCell>
                                 </TableRow>
@@ -1352,14 +1565,54 @@ export default function ControlesYPlanesAccionPageNueva() {
                 alignItems: 'center'
               }}>
                 <Box />
-                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPlanesLista('id')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                  {sortPlanes.field === 'id' ? (
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPlanesLista('descripcion')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                  {sortPlanes.field === 'descripcion' ? (
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPlanesLista('tipologia')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                  {sortPlanes.field === 'tipologia' ? (
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  onClick={() => handleSortPlanesLista('estado')}
+                >
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                  {sortPlanes.field === 'estado' ? (
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="inherit" />
+                  )}
+                </Box>
                 <Box />
               </Box>
 
-              {riesgosConPlanes.map((riesgo: any) => {
+              {riesgosConPlanesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
                   <Card key={riesgo.id} sx={{ mb: 2 }}>
@@ -1410,29 +1663,30 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     <TableCell>{causa.planDecision || causa.gestion?.planDecision || 'N/A'}</TableCell>
                                     <TableCell align="center">{causa.planFechaEstimada}</TableCell>
                                     <TableCell align="center">
-                                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                        <Button
+                                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                        <IconButton
                                           size="small"
-                                          variant="outlined"
+                                          color="primary"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setTipoClasificacion('PLAN');
                                             handleEvaluarControl(riesgo.id, causa);
                                           }}
+                                          title="Editar"
                                         >
-                                          Editar
-                                        </Button>
-                                        <Button
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton
                                           size="small"
-                                          variant="outlined"
                                           color="error"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleEliminarClasificacion(riesgo.id, causa);
                                           }}
+                                          title="Eliminar"
                                         >
-                                          Eliminar
-                                        </Button>
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
                                       </Box>
                                     </TableCell>
                                   </TableRow>
@@ -1477,7 +1731,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       </TabPanel>
 
       {/* DIALOG DETALLE CAUSA/CONTROL (Mejorado) */}
-      <Dialog open={dialogDetailOpen} onClose={() => setDialogDetailOpen(false)} maxWidth="lg" fullWidth>
+      <Dialog open={dialogDetailOpen} onClose={() => { setDialogDetailOpen(false); setCausaDetalleView(null); }} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
@@ -1485,8 +1739,8 @@ export default function ControlesYPlanesAccionPageNueva() {
             </Typography>
             {itemDetalle && (
               <Chip
-                label={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'Control' : 'Plan de Acción'}
-                color={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'primary' : 'info'}
+                label={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'Control' : itemDetalle.tipo === 'AMBOS' ? 'Control y Plan de Acción' : 'Plan de Acción'}
+                color={itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' ? 'primary' : itemDetalle.tipo === 'AMBOS' ? 'secondary' : 'info'}
                 size="small"
               />
             )}
@@ -1501,28 +1755,28 @@ export default function ControlesYPlanesAccionPageNueva() {
                   Causa Original
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2 }}>
-                  {itemDetalle.descripcion || causaEnEdicion?.causa?.descripcion || 'Sin descripción'}
+                  {itemDetalle.descripcion || causaDetalleView?.causa?.descripcion || 'Sin descripción'}
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Fuente</Typography>
-                    <Typography variant="body2">{itemDetalle.fuenteCausa || causaEnEdicion?.causa?.fuenteCausa || 'N/A'}</Typography>
+                    <Typography variant="body2">{itemDetalle.fuenteCausa || causaDetalleView?.causa?.fuenteCausa || 'N/A'}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Frecuencia</Typography>
-                    <Typography variant="body2">{itemDetalle.frecuencia || causaEnEdicion?.causa?.frecuencia || 'N/A'}</Typography>
+                    <Typography variant="body2">{itemDetalle.frecuencia || causaDetalleView?.causa?.frecuencia || 'N/A'}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Impacto Global</Typography>
                     <Typography variant="body2">
-                      {(itemDetalle.calificacionGlobalImpacto || causaEnEdicion?.causa?.calificacionGlobalImpacto || 'N/A')}
+                      {(itemDetalle.calificacionGlobalImpacto || causaDetalleView?.causa?.calificacionGlobalImpacto || 'N/A')}
                     </Typography>
                   </Box>
                 </Box>
               </Box>
 
               {/* Información del Control */}
-              {(itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' || itemDetalle.controlDescripcion) && (
+              {(itemDetalle.tipo === 'control' || itemDetalle.tipo === 'CONTROL' || itemDetalle.tipo === 'AMBOS' || itemDetalle.controlDescripcion) && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Control
@@ -1531,13 +1785,13 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Descripción del Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {itemDetalle.controlDescripcion || itemDetalle.gestion?.controlDescripcion || causaEnEdicion?.causa?.controlDescripcion || 'Sin descripción'}
+                        {itemDetalle.controlDescripcion || itemDetalle.gestion?.controlDescripcion || causaDetalleView?.causa?.controlDescripcion || 'Sin descripción'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Tipo de Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.controlTipo || itemDetalle.gestion?.controlTipo || causaEnEdicion?.causa?.controlTipo || 'N/A'}
+                        {itemDetalle.controlTipo || itemDetalle.gestion?.controlTipo || causaDetalleView?.causa?.controlTipo || 'N/A'}
                       </Typography>
                     </Box>
                   </Box>
@@ -1550,13 +1804,13 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Box>
                         <Typography variant="caption" color="text.secondary">Efectividad</Typography>
                         <Typography variant="body2" fontWeight={600}>
-                          {itemDetalle.evaluacionDefinitiva || itemDetalle.gestion?.evaluacionDefinitiva || causaEnEdicion?.causa?.evaluacionDefinitiva || 'Sin evaluar'}
+                          {itemDetalle.evaluacionDefinitiva || itemDetalle.gestion?.evaluacionDefinitiva || causaDetalleView?.causa?.evaluacionDefinitiva || 'Sin evaluar'}
                         </Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">Puntaje Total</Typography>
                         <Typography variant="body2" fontWeight={600}>
-                          {itemDetalle.puntajeTotal || itemDetalle.gestion?.puntajeTotal || causaEnEdicion?.causa?.puntajeTotal || 'N/A'}
+                          {itemDetalle.puntajeTotal || itemDetalle.gestion?.puntajeTotal || causaDetalleView?.causa?.puntajeTotal || 'N/A'}
                         </Typography>
                       </Box>
                       <Box>
@@ -1566,8 +1820,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                             ? `${(itemDetalle.porcentajeMitigacion * 100).toFixed(0)}%`
                             : itemDetalle.gestion?.porcentajeMitigacion !== undefined
                             ? `${(itemDetalle.gestion.porcentajeMitigacion * 100).toFixed(0)}%`
-                            : causaEnEdicion?.causa?.porcentajeMitigacion !== undefined
-                            ? `${(causaEnEdicion.causa.porcentajeMitigacion * 100).toFixed(0)}%`
+                            : causaDetalleView?.causa?.porcentajeMitigacion !== undefined
+                            ? `${(causaDetalleView.causa.porcentajeMitigacion * 100).toFixed(0)}%`
                             : 'N/A'}
                         </Typography>
                       </Box>
@@ -1584,31 +1838,31 @@ export default function ControlesYPlanesAccionPageNueva() {
                         <Box>
                           <Typography variant="caption" color="text.secondary">Frecuencia Residual</Typography>
                           <Typography variant="body2" fontWeight={600}>
-                            {itemDetalle.frecuenciaResidual || causaEnEdicion?.causa?.frecuenciaResidual || 'N/A'}
+                            {itemDetalle.frecuenciaResidual || causaDetalleView?.causa?.frecuenciaResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Impacto Residual</Typography>
                           <Typography variant="body2" fontWeight={600}>
-                            {itemDetalle.impactoResidual || causaEnEdicion?.causa?.impactoResidual || 'N/A'}
+                            {itemDetalle.impactoResidual || causaDetalleView?.causa?.impactoResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Calificación Residual</Typography>
                           <Typography variant="body2" fontWeight={600} color="error">
-                            {itemDetalle.riesgoResidual || itemDetalle.calificacionResidual || causaEnEdicion?.causa?.riesgoResidual || causaEnEdicion?.causa?.calificacionResidual || 'N/A'}
+                            {itemDetalle.riesgoResidual || itemDetalle.calificacionResidual || causaDetalleView?.causa?.riesgoResidual || causaDetalleView?.causa?.calificacionResidual || 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Nivel Residual</Typography>
                           <Chip
-                            label={itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || 'N/A'}
+                            label={itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || 'N/A'}
                             size="small"
                             color={
-                              (itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('crítico') || 
-                              (itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('critico')
+                              (itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('crítico') || 
+                              (itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('critico')
                                 ? 'error'
-                                : (itemDetalle.nivelRiesgoResidual || causaEnEdicion?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('alto')
+                                : (itemDetalle.nivelRiesgoResidual || causaDetalleView?.causa?.nivelRiesgoResidual || '').toLowerCase().includes('alto')
                                 ? 'warning'
                                 : 'default'
                             }
@@ -1621,7 +1875,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               )}
 
               {/* Información del Plan */}
-              {(itemDetalle.tipo === 'plan' || itemDetalle.tipo === 'PLAN' || itemDetalle.planDescripcion) && (
+              {(itemDetalle.tipo === 'plan' || itemDetalle.tipo === 'PLAN' || itemDetalle.tipo === 'AMBOS' || itemDetalle.planDescripcion) && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Plan de Acción
@@ -1630,42 +1884,42 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Descripción</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {itemDetalle.planDescripcion || itemDetalle.gestion?.planDescripcion || causaEnEdicion?.causa?.planDescripcion || 'N/A'}
+                        {itemDetalle.planDescripcion || itemDetalle.gestion?.planDescripcion || causaDetalleView?.causa?.planDescripcion || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Detalle</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {itemDetalle.planDetalle || itemDetalle.gestion?.planDetalle || causaEnEdicion?.causa?.planDetalle || 'N/A'}
+                        {itemDetalle.planDetalle || itemDetalle.gestion?.planDetalle || causaDetalleView?.causa?.planDetalle || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Responsable</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || causaEnEdicion?.causa?.planResponsable || 'N/A'}
+                        {itemDetalle.planResponsable || itemDetalle.gestion?.planResponsable || causaDetalleView?.causa?.planResponsable || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Fecha Estimada</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || causaEnEdicion?.causa?.planFechaEstimada || 'N/A'}
+                        {itemDetalle.planFechaEstimada || itemDetalle.gestion?.planFechaEstimada || causaDetalleView?.causa?.planFechaEstimada || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Decisión</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {itemDetalle.planDecision || itemDetalle.gestion?.planDecision || causaEnEdicion?.causa?.planDecision || 'N/A'}
+                        {itemDetalle.planDecision || itemDetalle.gestion?.planDecision || causaDetalleView?.causa?.planDecision || 'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Estado</Typography>
                       <Chip
-                        label={itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaEnEdicion?.causa?.planEstado || 'N/A'}
+                        label={itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaDetalleView?.causa?.planEstado || 'N/A'}
                         size="small"
                         color={
-                          (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaEnEdicion?.causa?.planEstado || '').toLowerCase() === 'completado'
+                          (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'completado'
                             ? 'success'
-                            : (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaEnEdicion?.causa?.planEstado || '').toLowerCase() === 'en_progreso'
+                            : (itemDetalle.planEstado || itemDetalle.gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'en_progreso'
                             ? 'warning'
                             : 'default'
                         }
@@ -1697,22 +1951,16 @@ export default function ControlesYPlanesAccionPageNueva() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogDetailOpen(false)}>Cerrar</Button>
+          <Button onClick={() => { setDialogDetailOpen(false); setCausaDetalleView(null); }}>Cerrar</Button>
           <Button
             onClick={() => {
-              if (!causaEnEdicion) return;
-              const { riesgoId, causa } = causaEnEdicion as any;
-              // Cerrar el diálogo de detalle
+              if (!causaDetalleView) return;
+              const { riesgoId, causa } = causaDetalleView;
               setDialogDetailOpen(false);
-              // IMPORTANTE: NO establecer causaEnEdicion aquí para evitar que se abra el diálogo de "Clasificar Causa"
-              // setCausaEnEdicion(null); // Comentado para evitar que se abra el diálogo de clasificación
-              // Expandir el riesgo en la tabla
+              setCausaDetalleView(null);
               setRiesgosExpandidosResidual(pr => ({ ...pr, [riesgoId]: true }));
-              // Determinar el tipo (CONTROL o PLAN)
               const tipo = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
               setTipoClasificacion(tipo as any);
-              // Abrir el formulario de evaluación/edición del control directamente (NO el diálogo de clasificación)
-              // Usar un pequeño delay para asegurar que el diálogo se cierre primero
               setTimeout(() => {
                 handleEvaluarControl(riesgoId, causa);
               }, 100);
@@ -1725,9 +1973,10 @@ export default function ControlesYPlanesAccionPageNueva() {
           <Button
             color="error"
             onClick={async () => {
-              if (!causaEnEdicion) return;
-              await handleEliminarClasificacion(causaEnEdicion.riesgoId, causaEnEdicion.causa);
+              if (!causaDetalleView) return;
+              await handleEliminarClasificacion(causaDetalleView.riesgoId, causaDetalleView.causa);
               setDialogDetailOpen(false);
+              setCausaDetalleView(null);
             }}
           >
             Eliminar

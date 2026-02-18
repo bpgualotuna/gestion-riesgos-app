@@ -457,8 +457,14 @@ export default function DashboardSupervisorPage() {
   const metricsData = useMemo(() => {
     const todasIncidencias = incidenciasApi || [];
     const todasCausas = causasApi || [];
-    const todosControles = todasCausas.filter((c: any) => String(c.tipoGestion || '').toUpperCase() === 'CONTROL');
-    const todosPlanes = todasCausas.filter((c: any) => String(c.tipoGestion || '').toUpperCase() === 'PLAN');
+    const todosControles = todasCausas.filter((c: any) => {
+      const t = String(c.tipoGestion || '').toUpperCase();
+      return t === 'CONTROL' || t === 'AMBOS';
+    });
+    const todosPlanes = todasCausas.filter((c: any) => {
+      const t = String(c.tipoGestion || '').toUpperCase();
+      return t === 'PLAN' || t === 'AMBOS';
+    });
 
     // Filtrar según los filtros activos
     const incidenciasFiltradas = todasIncidencias.filter((inc: any) => {

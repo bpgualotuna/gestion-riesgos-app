@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Identificación y Calificación Page
  * Diseño de tres paneles: RIESGO, CAUSAS, IMPACTO
  */
@@ -52,6 +52,9 @@ import {
   ExpandLess as ExpandLessIcon,
   Assessment as AssessmentIcon,
   VerifiedUser as VerifiedIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  UnfoldMore as UnfoldMoreIcon,
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -492,6 +495,99 @@ export default function IdentificacionPage() {
   const [nivelesRiesgo, setNivelesRiesgo] = useState(DEFAULT_NIVELES_RIESGO);
   const [clasificacionesRiesgo, setClasificacionesRiesgo] = useState(DEFAULT_CLASIFICACIONES_RIESGO);
 
+  // Ordenamiento de la tabla de identificación y calificación
+  type RiesgoSortField = 'id' | 'descripcion' | 'tipo' | 'subtipo' | 'clasificacion' | 'estado';
+
+  const [sortConfigRiesgos, setSortConfigRiesgos] = useState<{
+    field: RiesgoSortField;
+    direction: 'asc' | 'desc';
+  }>({
+    field: 'id',
+    direction: 'asc',
+  });
+
+  const getCalificacionInherenteGlobal = (riesgo: any): number => {
+    const causasOrdenadas = [...(riesgo.causas || [])].sort((a: any, b: any) => {
+      const idA = Number(a.id) || 0;
+      const idB = Number(b.id) || 0;
+      return idA - idB;
+    });
+
+    const calificacionesInherentes = causasOrdenadas
+      .map((causa: any) => causa.calificacionInherentePorCausa)
+      .filter((cal: any) => cal !== undefined && cal !== null) as number[];
+
+    return calificacionesInherentes.length > 0 ? Math.max(...calificacionesInherentes) : 0;
+  };
+
+  const getRiesgoSortValue = (riesgo: any, field: RiesgoSortField) => {
+    switch (field) {
+      case 'id':
+        return riesgo.numeroIdentificacion || '';
+      case 'descripcion':
+        return riesgo.descripcionRiesgo || '';
+      case 'tipo': {
+        const tipoRiesgoObj = (tiposRiesgos || []).find((t: any) =>
+          t.nombre === riesgo.tipoRiesgo ||
+          t.codigo === riesgo.tipoRiesgo ||
+          String(t.id) === String(riesgo.tipoRiesgo)
+        );
+        return (tipoRiesgoObj?.nombre || tipoRiesgoObj?.codigo || riesgo.tipoRiesgo || '') as string;
+      }
+      case 'subtipo': {
+        const tipoRiesgoObj = (tiposRiesgos || []).find((t: any) =>
+          t.nombre === riesgo.tipoRiesgo ||
+          t.codigo === riesgo.tipoRiesgo ||
+          String(t.id) === String(riesgo.tipoRiesgo)
+        );
+        const subtipoObj = tipoRiesgoObj?.subtipos.find((s: any) =>
+          s.nombre === riesgo.subtipoRiesgo ||
+          s.codigo === riesgo.subtipoRiesgo ||
+          String(s.id) === String(riesgo.subtipoRiesgo)
+        );
+        return (subtipoObj?.nombre || subtipoObj?.codigo || riesgo.subtipoRiesgo || '') as string;
+      }
+      case 'clasificacion':
+        return getCalificacionInherenteGlobal(riesgo);
+      case 'estado':
+        return (riesgo.causas && riesgo.causas.length) || 0;
+      default:
+        return '';
+    }
+  };
+
+  const riesgosOrdenados = useMemo(() => {
+    const data = [...riesgos];
+
+    data.sort((a, b) => {
+      const aVal = getRiesgoSortValue(a, sortConfigRiesgos.field);
+      const bVal = getRiesgoSortValue(b, sortConfigRiesgos.field);
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfigRiesgos.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      const comp = aStr.localeCompare(bStr, 'es');
+      return sortConfigRiesgos.direction === 'asc' ? comp : -comp;
+    });
+
+    return data;
+  }, [riesgos, tiposRiesgos, sortConfigRiesgos]);
+
+  const handleSortRiesgos = (field: RiesgoSortField) => {
+    setSortConfigRiesgos((prev) => {
+      if (prev.field === field) {
+        return {
+          field,
+          direction: prev.direction === 'asc' ? 'desc' : 'asc',
+        };
+      }
+      return { field, direction: 'asc' };
+    });
+  };
+
   // Cargar riesgos desde API cuando cambia el proceso
   useEffect(() => {
     console.log('[IdentificacionPage] 🔄 Efecto de carga de riesgos:', {
@@ -764,7 +860,7 @@ export default function IdentificacionPage() {
   const crearNuevoRiesgo = (): RiesgoFormData => {
     const nuevoId = `riesgo-${Date.now()}`;
 
-    // Generar ID automático basado en la sigla de la GERENCIA del proceso
+    // Generar ID automático: siguiente número según riesgos existentes del mismo proceso (no reiniciar contador)
     let numeroIdentificacion = '';
 
     if (procesoSeleccionado) {
@@ -788,8 +884,22 @@ export default function IdentificacionPage() {
         gerenciaSigla = gerenciaNombre.toUpperCase().split(' ').map((s: string) => s[0]).join('').slice(0, 4);
       }
 
-      // Generar ID usando la sigla directamente (ya tenemos la sigla, no necesitamos buscarla)
-      numeroIdentificacion = generarIdConContador(gerenciaSigla || 'GEN');
+      const sigla = gerenciaSigla || 'GEN';
+
+      // Calcular el siguiente número a partir de los riesgos ya existentes del mismo proceso (no reiniciar)
+      const riesgosDelProceso = riesgos.filter(
+        (r: any) => String((r as any).procesoId ?? procesoSeleccionado?.id) === String(procesoSeleccionado?.id)
+      );
+      const numerosExistentes = riesgosDelProceso
+        .map((r: any) => {
+          const id = r.numeroIdentificacion || r.numero || '';
+          const match = String(id).match(/^(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter((n: number) => n > 0);
+      const maxNumero = numerosExistentes.length > 0 ? Math.max(...numerosExistentes) : 0;
+      const siguienteNumero = maxNumero + 1;
+      numeroIdentificacion = `${siguienteNumero}${sigla}`;
     }
 
     return {
@@ -905,9 +1015,10 @@ export default function IdentificacionPage() {
 
       const creado = await crearRiesgo(payload);
       showSuccess('Riesgo creado exitosamente');
+      // Recargar solo los riesgos del proceso seleccionado (crearRiesgo carga todos por defecto)
+      await cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
       // Seleccionar el riesgo recién creado para que otras páginas (Controles / Planes / Materializar) se sincronicen
       try { iniciarVer(creado as any); } catch (err) { /* noop */ }
-      // La lista se actualizará vía useEffect al cambiar riesgosApiData
     } catch (e) {
       console.error(e);
       showError('Error al crear riesgo');
@@ -1156,15 +1267,111 @@ export default function IdentificacionPage() {
               alignItems: 'center'
             }}>
               <Box />
-              <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">TIPO RIESGO</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">SUBTIPO</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={() => handleSortRiesgos('id')}
+              >
+                <Typography variant="caption" fontWeight={700} color="text.secondary">
+                  ID RIESGO
+                </Typography>
+                {sortConfigRiesgos.field === 'id' ? (
+                  sortConfigRiesgos.direction === 'asc' ? (
+                    <ArrowUpwardIcon fontSize="inherit" />
+                  ) : (
+                    <ArrowDownwardIcon fontSize="inherit" />
+                  )
+                ) : (
+                  <UnfoldMoreIcon fontSize="inherit" />
+                )}
+              </Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={() => handleSortRiesgos('descripcion')}
+              >
+                <Typography variant="caption" fontWeight={700} color="text.secondary">
+                  DESCRIPCIÓN DEL RIESGO
+                </Typography>
+                {sortConfigRiesgos.field === 'descripcion' ? (
+                  sortConfigRiesgos.direction === 'asc' ? (
+                    <ArrowUpwardIcon fontSize="inherit" />
+                  ) : (
+                    <ArrowDownwardIcon fontSize="inherit" />
+                  )
+                ) : (
+                  <UnfoldMoreIcon fontSize="inherit" />
+                )}
+              </Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={() => handleSortRiesgos('tipo')}
+              >
+                <Typography variant="caption" fontWeight={700} color="text.secondary">
+                  TIPO RIESGO
+                </Typography>
+                {sortConfigRiesgos.field === 'tipo' ? (
+                  sortConfigRiesgos.direction === 'asc' ? (
+                    <ArrowUpwardIcon fontSize="inherit" />
+                  ) : (
+                    <ArrowDownwardIcon fontSize="inherit" />
+                  )
+                ) : (
+                  <UnfoldMoreIcon fontSize="inherit" />
+                )}
+              </Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={() => handleSortRiesgos('subtipo')}
+              >
+                <Typography variant="caption" fontWeight={700} color="text.secondary">
+                  SUBTIPO
+                </Typography>
+                {sortConfigRiesgos.field === 'subtipo' ? (
+                  sortConfigRiesgos.direction === 'asc' ? (
+                    <ArrowUpwardIcon fontSize="inherit" />
+                  ) : (
+                    <ArrowDownwardIcon fontSize="inherit" />
+                  )
+                ) : (
+                  <UnfoldMoreIcon fontSize="inherit" />
+                )}
+              </Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={() => handleSortRiesgos('clasificacion')}
+              >
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">
+                  CLASIFICACIÓN
+                </Typography>
+                {sortConfigRiesgos.field === 'clasificacion' ? (
+                  sortConfigRiesgos.direction === 'asc' ? (
+                    <ArrowUpwardIcon fontSize="inherit" />
+                  ) : (
+                    <ArrowDownwardIcon fontSize="inherit" />
+                  )
+                ) : (
+                  <UnfoldMoreIcon fontSize="inherit" />
+                )}
+              </Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={() => handleSortRiesgos('estado')}
+              >
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">
+                  ESTADO
+                </Typography>
+                {sortConfigRiesgos.field === 'estado' ? (
+                  sortConfigRiesgos.direction === 'asc' ? (
+                    <ArrowUpwardIcon fontSize="inherit" />
+                  ) : (
+                    <ArrowDownwardIcon fontSize="inherit" />
+                  )
+                ) : (
+                  <UnfoldMoreIcon fontSize="inherit" />
+                )}
+              </Box>
               <Box />
             </Box>
-            {riesgos.map((riesgo) => {
+            {riesgosOrdenados.map((riesgo) => {
               const estaExpandido = riesgosExpandidos[riesgo.id] || false;
               const tipoRiesgoObj = (tiposRiesgos || []).find(t => 
                 t.nombre === riesgo.tipoRiesgo || 

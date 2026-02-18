@@ -18,8 +18,9 @@ import {
   DialogActions,
   Chip,
   Alert,
+  IconButton,
 } from '@mui/material';
-import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { GridColDef } from '@mui/x-data-grid';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { useNotification } from '../../hooks/useNotification';
@@ -67,6 +68,32 @@ export default function NormatividadPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedNormatividad, setSelectedNormatividad] = useState<Normatividad | null>(null);
+
+  const handleEditar = (e: React.MouseEvent, row: Normatividad) => {
+    e.stopPropagation();
+    setSelectedNormatividad(row);
+    setDialogOpen(true);
+  };
+
+  const handleEliminar = async (e: React.MouseEvent, row: Normatividad) => {
+    e.stopPropagation();
+    if (!procesoSeleccionado) return;
+    const updatedList = normatividades
+      .filter(n => n.id !== row.id)
+      .map((n, idx) => ({ ...n, numero: idx + 1 }));
+    try {
+      setNormatividades(updatedList);
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        normatividades: updatedList
+      }).unwrap();
+      showSuccess('Normatividad eliminada correctamente');
+    } catch (error) {
+      console.error(error);
+      setNormatividades(normatividades); // revert on error
+      showError('Error al eliminar normatividad');
+    }
+  };
 
   const columns: GridColDef[] = [
     {
@@ -132,6 +159,34 @@ export default function NormatividadPage() {
           color={params.value === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'error'}
         />
       ),
+    },
+    {
+      field: 'acciones',
+      headerName: 'Acciones',
+      width: 110,
+      sortable: false,
+      disableColumnMenu: true,
+      renderCell: (params) =>
+        !isReadOnly ? (
+          <Box sx={{ display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={(e) => handleEditar(e, params.row as Normatividad)}
+              title="Editar"
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => handleEliminar(e, params.row as Normatividad)}
+              title="Eliminar"
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        ) : null,
     },
   ];
 

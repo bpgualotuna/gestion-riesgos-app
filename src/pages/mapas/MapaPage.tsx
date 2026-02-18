@@ -885,7 +885,18 @@ export default function MapaPage() {
       }))
     });
     
-    if (riesgosCelda.length > 0) {
+    if (riesgosCelda.length === 1) {
+      // Si solo hay un riesgo en la celda, abrir directamente el detalle completo
+      const puntoUnico = riesgosCelda[0];
+      const riesgo = riesgosCompletos.find((r) => r.id === puntoUnico.riesgoId);
+      if (riesgo) {
+        setRiesgoSeleccionadoDetalle(riesgo);
+        setPuntoSeleccionadoDetalle(puntoUnico);
+        setTipoMapaDetalle(tipo);
+        setDialogoDetalleRiesgoAbierto(true);
+      }
+    } else if (riesgosCelda.length > 1) {
+      // Si hay varios riesgos, mostrar el resumen de la celda para que el usuario escoja
       setCeldaSeleccionada({ probabilidad: prob, impacto: imp });
       setDialogoResumenAbierto(true);
     } else {
@@ -1544,8 +1555,26 @@ export default function MapaPage() {
                     tipologiaRiesgo: riesgo?.tipologiaNivelI
                   });
                   
+                  const handleSeleccionarRiesgo = () => {
+                    if (riesgo) {
+                      setRiesgoSeleccionadoDetalle(riesgo);
+                      setPuntoSeleccionadoDetalle(punto);
+                      setTipoMapaDetalle(tipoMapaSeleccionado);
+                      setDialogoDetalleRiesgoAbierto(true);
+                      setDialogoResumenAbierto(false);
+                    }
+                  };
+                  
                   return (
-                    <Card key={punto.riesgoId} sx={{ mb: 2 }}>
+                    <Card
+                      key={punto.riesgoId}
+                      sx={{
+                        mb: 2,
+                        cursor: 'pointer',
+                        '&:hover': { boxShadow: 4, borderColor: 'primary.main' },
+                      }}
+                      onClick={handleSeleccionarRiesgo}
+                    >
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                           <Box>
