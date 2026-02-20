@@ -136,10 +136,7 @@ export default function DashboardSupervisorPage() {
 
   // Estadísticas
   const estadisticas = useMemo(() => {
-    let total = riesgosFiltrados.length;
-
-    // Si hay muy pocos datos, usar datos de ejemplo para mejor visualización
-    const usarDatosEjemplo = total < 5;
+    const total = riesgosFiltrados.length;
 
     // Riesgos por tipo de proceso
     const porTipoProceso: Record<string, number> = {
@@ -148,24 +145,17 @@ export default function DashboardSupervisorPage() {
       '03 Apoyo': 0,
     };
 
-    if (usarDatosEjemplo) {
-      porTipoProceso['01 Estratégico'] = 5;
-      porTipoProceso['02 Operacional'] = 7;
-      porTipoProceso['03 Apoyo'] = 3;
-      total = 15;
-    } else {
-      riesgosFiltrados.forEach((r: any) => {
-        const proceso = procesos.find((p: any) => p.id === r.procesoId);
-        const tipoProceso = (proceso?.tipoProceso || '').toLowerCase();
-        if (tipoProceso.includes('estratégico') || tipoProceso.includes('estrategico') || tipoProceso.includes('estrategia')) {
-          porTipoProceso['01 Estratégico']++;
-        } else if (tipoProceso.includes('operacional') || tipoProceso.includes('operativo') || tipoProceso.includes('operacion')) {
-          porTipoProceso['02 Operacional']++;
-        } else {
-          porTipoProceso['03 Apoyo']++;
-        }
-      });
-    }
+    riesgosFiltrados.forEach((r: any) => {
+      const proceso = procesos.find((p: any) => p.id === r.procesoId);
+      const tipoProceso = (proceso?.tipoProceso || '').toLowerCase();
+      if (tipoProceso.includes('estratégico') || tipoProceso.includes('estrategico') || tipoProceso.includes('estrategia')) {
+        porTipoProceso['01 Estratégico']++;
+      } else if (tipoProceso.includes('operacional') || tipoProceso.includes('operativo') || tipoProceso.includes('operacion')) {
+        porTipoProceso['02 Operacional']++;
+      } else {
+        porTipoProceso['03 Apoyo']++;
+      }
+    });
 
     // Eliminar tipos con 0
     Object.keys(porTipoProceso).forEach(key => {
@@ -177,43 +167,15 @@ export default function DashboardSupervisorPage() {
     // Riesgos por proceso
     const porProceso: Record<string, { nombre: string; count: number }> = {};
 
-    if (usarDatosEjemplo || riesgosFiltrados.length === 0) {
-      // Siempre usar datos de ejemplo si no hay datos o hay muy pocos
-      porProceso['1'] = { nombre: 'Gestión de Procesos', count: 22 };
-      porProceso['2'] = { nombre: 'Gestión de Talento Humano', count: 19 };
-      porProceso['3'] = { nombre: 'Gestión de Finanzas', count: 13 };
-      porProceso['4'] = { nombre: 'Ciberseguridad', count: 12 };
-      porProceso['5'] = { nombre: 'Direccionamiento Estratégico', count: 12 };
-      porProceso['6'] = { nombre: 'Gestión de TI', count: 11 };
-      porProceso['7'] = { nombre: 'Planificación Estratégica', count: 10 };
-      porProceso['8'] = { nombre: 'Gestión Comercial', count: 8 };
-      porProceso['9'] = { nombre: 'Compliance', count: 5 };
-      porProceso['10'] = { nombre: 'Gestión de Servicios', count: 3 };
-    } else {
-      riesgosFiltrados.forEach((r: any) => {
-        const proceso = procesos.find((p: any) => p.id === r.procesoId);
-        if (proceso) {
-          if (!porProceso[proceso.id]) {
-            porProceso[proceso.id] = { nombre: proceso.nombre, count: 0 };
-          }
-          porProceso[proceso.id].count++;
+    riesgosFiltrados.forEach((r: any) => {
+      const proceso = procesos.find((p: any) => p.id === r.procesoId);
+      if (proceso) {
+        if (!porProceso[proceso.id]) {
+          porProceso[proceso.id] = { nombre: proceso.nombre, count: 0 };
         }
-      });
-
-      // Si después de procesar no hay datos, usar datos de ejemplo
-      if (Object.keys(porProceso).length === 0) {
-        porProceso['1'] = { nombre: 'Gestión de Procesos', count: 22 };
-        porProceso['2'] = { nombre: 'Gestión de Talento Humano', count: 19 };
-        porProceso['3'] = { nombre: 'Gestión de Finanzas', count: 13 };
-        porProceso['4'] = { nombre: 'Ciberseguridad', count: 12 };
-        porProceso['5'] = { nombre: 'Direccionamiento Estratégico', count: 12 };
-        porProceso['6'] = { nombre: 'Gestión de TI', count: 11 };
-        porProceso['7'] = { nombre: 'Planificación Estratégica', count: 10 };
-        porProceso['8'] = { nombre: 'Gestión Comercial', count: 8 };
-        porProceso['9'] = { nombre: 'Compliance', count: 5 };
-        porProceso['10'] = { nombre: 'Gestión de Servicios', count: 3 };
+        porProceso[proceso.id].count++;
       }
-    }
+    });
 
     // Riesgos por tipología
     const porTipologia: Record<string, number> = {
@@ -223,33 +185,42 @@ export default function DashboardSupervisorPage() {
       '04 Cumplimiento': 0,
     };
 
-    if (usarDatosEjemplo) {
-      porTipologia['02 Operacional'] = 7;
-      porTipologia['03 Financiero'] = 3;
-      porTipologia['04 Cumplimiento'] = 3;
-      porTipologia['01 Estratégico'] = 2;
-    } else {
-      riesgosFiltrados.forEach((r: any) => {
-        const tipologiaNivelI = (r.tipologiaNivelI || '').toLowerCase();
-        if (tipologiaNivelI.includes('estratégico') || tipologiaNivelI.includes('estrategico') || tipologiaNivelI.includes('estrategia')) {
-          porTipologia['01 Estratégico']++;
-        } else if (tipologiaNivelI.includes('operacional') || tipologiaNivelI.includes('operativo') || tipologiaNivelI.includes('operacion')) {
-          porTipologia['02 Operacional']++;
-        } else if (tipologiaNivelI.includes('financiero') || tipologiaNivelI.includes('finanza')) {
-          porTipologia['03 Financiero']++;
-        } else if (tipologiaNivelI.includes('cumplimiento') || tipologiaNivelI.includes('compliance')) {
-          porTipologia['04 Cumplimiento']++;
-        } else {
-          porTipologia['02 Operacional']++;
-        }
-      });
-    }
+    riesgosFiltrados.forEach((r: any) => {
+      const tipologiaNivelI = (r.tipologiaNivelI || '').toLowerCase();
+      if (tipologiaNivelI.includes('estratégico') || tipologiaNivelI.includes('estrategico') || tipologiaNivelI.includes('estrategia')) {
+        porTipologia['01 Estratégico']++;
+      } else if (tipologiaNivelI.includes('operacional') || tipologiaNivelI.includes('operativo') || tipologiaNivelI.includes('operacion')) {
+        porTipologia['02 Operacional']++;
+      } else if (tipologiaNivelI.includes('financiero') || tipologiaNivelI.includes('finanza')) {
+        porTipologia['03 Financiero']++;
+      } else if (tipologiaNivelI.includes('cumplimiento') || tipologiaNivelI.includes('compliance')) {
+        porTipologia['04 Cumplimiento']++;
+      } else {
+        porTipologia['02 Operacional']++;
+      }
+    });
 
     // Eliminar tipos con 0
     Object.keys(porTipologia).forEach(key => {
       if (porTipologia[key] === 0) {
         delete porTipologia[key];
       }
+    });
+
+    // Calificaciones por nivel de riesgo (usando datos reales)
+    const porNivelRiesgo = { critico: 0, alto: 0, medio: 0, bajo: 0 };
+    riesgosFiltrados.forEach((r: any) => {
+      const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
+      let valor = 0;
+      if (punto) {
+        valor = punto.probabilidad * punto.impacto;
+      } else if (r.evaluacion?.riesgoInherente) {
+        valor = r.evaluacion.riesgoInherente;
+      }
+      if (valor >= UMBRALES_RIESGO.CRITICO) porNivelRiesgo.critico++;
+      else if (valor >= UMBRALES_RIESGO.ALTO) porNivelRiesgo.alto++;
+      else if (valor >= UMBRALES_RIESGO.MEDIO) porNivelRiesgo.medio++;
+      else if (valor >= UMBRALES_RIESGO.BAJO) porNivelRiesgo.bajo++;
     });
 
     // Origen de riesgos
@@ -259,21 +230,15 @@ export default function DashboardSupervisorPage() {
       'Otro': 0,
     };
 
-    if (usarDatosEjemplo) {
-      origen['Talleres internos'] = 10; // 66.7% de 15
-      origen['Auditoría HHI'] = 4; // 26.7% de 15
-      origen['Otro'] = 1; // 6.7% de 15
-    } else {
-      riesgosFiltrados.forEach((r: any) => {
-        if (r.tipologiaNivelI?.includes('Taller') || r.fuenteCausa?.includes('Taller')) {
-          origen['Talleres internos']++;
-        } else if (r.tipologiaNivelI?.includes('Auditoría') || r.fuenteCausa?.includes('Auditoría')) {
-          origen['Auditoría HHI']++;
-        } else {
-          origen['Otro']++;
-        }
-      });
-    }
+    riesgosFiltrados.forEach((r: any) => {
+      if (r.tipologiaNivelI?.includes('Taller') || r.fuenteCausa?.includes('Taller')) {
+        origen['Talleres internos']++;
+      } else if (r.tipologiaNivelI?.includes('Auditoría') || r.fuenteCausa?.includes('Auditoría')) {
+        origen['Auditoría HHI']++;
+      } else {
+        origen['Otro']++;
+      }
+    });
 
     // Riesgos fuera del apetito (>= 15)
     const fueraApetito = puntos.filter((p: any) => {
@@ -288,146 +253,20 @@ export default function DashboardSupervisorPage() {
       porTipologia,
       origen,
       fueraApetito: fueraApetito.length,
+      porNivelRiesgo,
     };
   }, [riesgosFiltrados, procesos, puntos]);
 
   // Preparar datos para tabla de resumen
   const filasTablaResumen = useMemo(() => {
-    // Si hay muy pocos datos, usar datos de ejemplo
-    if (riesgosFiltrados.length < 5) {
-      const datosEjemplo = [
-        {
-          id: 'ejemplo-1',
-          codigo: 'R001',
-          proceso: 'Direccionamiento Estratégico',
-          descripcion: 'Impacto económico, operacional y reputacional por perder los derechos de distribución de Oracle',
-          riesgoInherente: 20,
-          riesgoResidual: 16,
-          nivelRI: 'CRÍTICO',
-          nivelRR: 'ALTO',
-          colorRI: colors.risk.critical.main,
-          colorRR: colors.risk.high.main,
-        },
-        {
-          id: 'ejemplo-2',
-          codigo: 'R002',
-          proceso: 'Direccionamiento Estratégico',
-          descripcion: 'Imposibilidad de mantener la continuidad de las operaciones y su impacto en la reputación y las finanzas del negocio',
-          riesgoInherente: 18,
-          riesgoResidual: 14,
-          nivelRI: 'ALTO',
-          nivelRR: 'ALTO',
-          colorRI: colors.risk.high.main,
-          colorRR: colors.risk.high.main,
-        },
-        {
-          id: 'ejemplo-3',
-          codigo: 'R003',
-          proceso: 'Direccionamiento Estratégico',
-          descripcion: 'Pérdidas económicas y su impacto en las finanzas',
-          riesgoInherente: 15,
-          riesgoResidual: 12,
-          nivelRI: 'ALTO',
-          nivelRR: 'MEDIO',
-          colorRI: colors.risk.high.main,
-          colorRR: colors.risk.medium.main,
-        },
-        {
-          id: 'ejemplo-4',
-          codigo: 'R006',
-          proceso: 'Direccionamiento Estratégico',
-          descripcion: 'Impacto económico, operacional y de satisfacción de clientes por el incumplimiento de la dirección estratégica establecida para el área comercial',
-          riesgoInherente: 12,
-          riesgoResidual: 9,
-          nivelRI: 'MEDIO',
-          nivelRR: 'BAJO',
-          colorRI: colors.risk.medium.main,
-          colorRR: colors.risk.low.main,
-        },
-        {
-          id: 'ejemplo-5',
-          codigo: 'R007',
-          proceso: 'Direccionamiento Estratégico',
-          descripcion: 'Impacto económico por sub-utilizar o vender por debajo del punto de equilibrio la capacidad instalada de servicios',
-          riesgoInherente: 10,
-          riesgoResidual: 8,
-          nivelRI: 'MEDIO',
-          nivelRR: 'BAJO',
-          colorRI: colors.risk.medium.main,
-          colorRR: colors.risk.low.main,
-        },
-        {
-          id: 'ejemplo-6',
-          codigo: 'R008',
-          proceso: 'Direccionamiento Estratégico',
-          descripcion: 'Impacto económico por la entrada al mercado de empresas de tecnología con mayor capacidad financiera',
-          riesgoInherente: 8,
-          riesgoResidual: 6,
-          nivelRI: 'BAJO',
-          nivelRR: 'BAJO',
-          colorRI: colors.risk.low.main,
-          colorRR: colors.risk.low.main,
-        },
-        {
-          id: 'ejemplo-7',
-          codigo: 'R010',
-          proceso: 'Gestión de Procesos',
-          descripcion: 'Falta de actualización de procesos internos que afecta la eficiencia operacional',
-          riesgoInherente: 16,
-          riesgoResidual: 13,
-          nivelRI: 'ALTO',
-          nivelRR: 'MEDIO',
-          colorRI: colors.risk.high.main,
-          colorRR: colors.risk.medium.main,
-        },
-        {
-          id: 'ejemplo-8',
-          codigo: 'R015',
-          proceso: 'Gestión de Talento Humano',
-          descripcion: 'Rotación de personal clave que impacta la continuidad del negocio',
-          riesgoInherente: 14,
-          riesgoResidual: 11,
-          nivelRI: 'ALTO',
-          nivelRR: 'MEDIO',
-          colorRI: colors.risk.high.main,
-          colorRR: colors.risk.medium.main,
-        },
-        {
-          id: 'ejemplo-9',
-          codigo: 'R020',
-          proceso: 'Gestión de Finanzas',
-          descripcion: 'Fluctuaciones en los tipos de cambio que afectan la rentabilidad',
-          riesgoInherente: 11,
-          riesgoResidual: 9,
-          nivelRI: 'MEDIO',
-          nivelRR: 'BAJO',
-          colorRI: colors.risk.medium.main,
-          colorRR: colors.risk.low.main,
-        },
-        {
-          id: 'ejemplo-10',
-          codigo: 'R025',
-          proceso: 'Ciberseguridad',
-          descripcion: 'Vulnerabilidades en los sistemas de información que exponen datos sensibles',
-          riesgoInherente: 19,
-          riesgoResidual: 15,
-          nivelRI: 'ALTO',
-          nivelRR: 'ALTO',
-          colorRI: colors.risk.high.main,
-          colorRR: colors.risk.high.main,
-        },
-      ];
-      return datosEjemplo;
-    }
-
     return riesgosFiltrados.map((riesgo: any) => {
       const proceso = procesos.find((p: any) => p.id === riesgo.procesoId);
       // Formato de código: R001, R002, etc.
       const codigo = riesgo.numero ? `R${String(riesgo.numero).padStart(3, '0')}` : `${riesgo.numero || ''}${riesgo.siglaGerencia || ''}`;
-      const punto = puntos.find((p: any) => p.riesgoId === riesgo.id);
+      const punto = puntos.find((p: any) => String(p.riesgoId) === String(riesgo.id));
 
-      const riesgoInherente = punto ? punto.probabilidad * punto.impacto : 0;
-      const riesgoResidual = riesgoInherente * 0.8; // Aproximación
+      const riesgoInherente = punto ? punto.probabilidad * punto.impacto : (riesgo.evaluacion?.riesgoInherente || 0);
+      const riesgoResidual = riesgo.evaluacion?.riesgoResidual ?? Math.round(riesgoInherente * 0.8);
 
       const obtenerNivelRiesgo = (valor: number) => {
         if (valor >= 20) return { nivel: 'CRÍTICO', color: colors.risk.critical.main };
@@ -524,27 +363,17 @@ export default function DashboardSupervisorPage() {
       return true;
     });
 
-    // Estadísticas detalladas de controles por tipo
-    const controlesPorTipo = {
-      prevencion: controlesFiltrados.filter((c: any) => c.controlTipo === 'prevención').length,
-      deteccion: controlesFiltrados.filter((c: any) => c.controlTipo === 'detección').length,
-      correccion: controlesFiltrados.filter((c: any) => c.controlTipo === 'corrección').length,
-    };
-
-    // Estadísticas de controles por nivel de riesgo residual
-    const controlesPorNivelResidual = {
-      critico: controlesFiltrados.filter((c: any) => c.nivelRiesgoResidual === 'CRÍTICO').length,
-      alto: controlesFiltrados.filter((c: any) => c.nivelRiesgoResidual === 'ALTO').length,
-      medio: controlesFiltrados.filter((c: any) => c.nivelRiesgoResidual === 'MEDIO').length,
-      bajo: controlesFiltrados.filter((c: any) => c.nivelRiesgoResidual === 'BAJO').length,
-    };
-
     // Estadísticas detalladas de planes por estado
+    // Usar planesApi (que tiene campo 'estado' real) en lugar de causas (que no tienen 'planEstado')
+    const planesAccionParaEstado = (planesApi || []).filter((p: any) => {
+      if (filtroProceso !== 'all' && String(p.procesoId) !== String(filtroProceso)) return false;
+      return true;
+    });
     const planesPorEstado = {
-      pendiente: planesFiltrados.filter((p: any) => p.planEstado === 'pendiente').length,
-      en_progreso: planesFiltrados.filter((p: any) => p.planEstado === 'en_progreso').length,
-      completado: planesFiltrados.filter((p: any) => p.planEstado === 'completado').length,
-      cancelado: planesFiltrados.filter((p: any) => p.planEstado === 'cancelado').length,
+      pendiente: planesAccionParaEstado.filter((p: any) => p.estado?.toLowerCase() === 'pendiente').length,
+      en_progreso: planesAccionParaEstado.filter((p: any) => p.estado?.toLowerCase() === 'en progreso' || p.estado?.toLowerCase() === 'en_progreso').length,
+      completado: planesAccionParaEstado.filter((p: any) => p.estado?.toLowerCase() === 'completado').length,
+      cancelado: planesAccionParaEstado.filter((p: any) => p.estado?.toLowerCase() === 'cancelado').length,
     };
 
     const planesAccionFiltrados = (planesApi || []).filter((p: any) => {
@@ -586,13 +415,32 @@ export default function DashboardSupervisorPage() {
       })
     ];
 
+    // Distribución de causas por tipo de gestión (datos reales de CausaRiesgo)
+    const causasPorTipoGestion = {
+      control: controlesFiltrados.length,
+      plan: planesFiltrados.length,
+      ambos: todasCausas.filter((c: any) => String(c.tipoGestion || '').toUpperCase() === 'AMBOS').length,
+    };
+
+    // Riesgos por nivel de riesgo residual (usa evaluacion real del riesgo)
+    const riesgosPorNivelResidual = { critico: 0, alto: 0, medio: 0, bajo: 0, sinCalificar: 0 };
+    (riesgos || []).forEach((r: any) => {
+      if (filtroProceso !== 'all' && String(r.procesoId) !== String(filtroProceso)) return;
+      const nivelResidual = (r.evaluacion?.nivelRiesgoResidual || '').toUpperCase();
+      if (nivelResidual.includes('CR') || nivelResidual.includes('CRIT')) riesgosPorNivelResidual.critico++;
+      else if (nivelResidual.includes('ALTO')) riesgosPorNivelResidual.alto++;
+      else if (nivelResidual.includes('MEDIO')) riesgosPorNivelResidual.medio++;
+      else if (nivelResidual.includes('BAJO')) riesgosPorNivelResidual.bajo++;
+      else riesgosPorNivelResidual.sinCalificar++;
+    });
+
     return {
       totalIncidencias: incidenciasFiltradas.length,
       totalControles: controlesFiltrados.length,
       totalPlanes: planesFiltrados.length + planesAccionFiltrados.length,
       incidenciasAbiertas: incidenciasFiltradas.filter((inc: any) => inc.estado === 'abierta' || inc.estado === 'en_investigacion').length,
-      controlesPorTipo,
-      controlesPorNivelResidual,
+      causasPorTipoGestion,
+      riesgosPorNivelResidual,
       planesPorEstado,
       controlesFiltrados,
       planesFiltrados,
@@ -851,8 +699,8 @@ export default function DashboardSupervisorPage() {
                 {estadisticas.total}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip icon={<ErrorIcon sx={{ color: '#ffeb3b !important', fontSize: 14 }} />} label={`${Math.round(estadisticas.total * 0.15)} Críticos`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.7rem', height: 20 }} />
-                <Chip icon={<WarningIcon sx={{ color: '#ff9800 !important', fontSize: 14 }} />} label={`${Math.round(estadisticas.total * 0.25)} Altos`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.7rem', height: 20 }} />
+                <Chip icon={<ErrorIcon sx={{ color: '#ffeb3b !important', fontSize: 14 }} />} label={`${estadisticas.porNivelRiesgo.critico} Críticos`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.7rem', height: 20 }} />
+                <Chip icon={<WarningIcon sx={{ color: '#ff9800 !important', fontSize: 14 }} />} label={`${estadisticas.porNivelRiesgo.alto} Altos`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.7rem', height: 20 }} />
               </Box>
             </CardContent>
           </Card>
@@ -893,8 +741,7 @@ export default function DashboardSupervisorPage() {
                 {metricsData.totalControles}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                <Chip label={`Prev: ${metricsData.controlesPorTipo.prevencion}`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.65rem', height: 18 }} />
-                <Chip label={`Det: ${metricsData.controlesPorTipo.deteccion}`} size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.65rem', height: 18 }} />
+                <Chip label="Causas con control" size="small" sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontSize: '0.65rem', height: 18 }} />
               </Box>
             </CardContent>
           </Card>
@@ -1033,7 +880,7 @@ export default function DashboardSupervisorPage() {
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
-                  Distribución de Controles por Tipo
+                  Gestión de Causas por Tipo
                 </Typography>
                 <Chip
                   icon={<SecurityIcon sx={{ fontSize: 14 }} />}
@@ -1047,34 +894,37 @@ export default function DashboardSupervisorPage() {
                 />
               </Box>
               <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: 'Prevención', value: metricsData.controlesPorTipo.prevencion, color: '#4caf50' },
-                        { name: 'Detección', value: metricsData.controlesPorTipo.deteccion, color: '#2196f3' },
-                        { name: 'Corrección', value: metricsData.controlesPorTipo.correccion, color: '#ff9800' },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={(entry) => `${entry.name}: ${entry.value}`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {[
-                        { name: 'Prevención', value: metricsData.controlesPorTipo.prevencion, color: '#4caf50' },
-                        { name: 'Detección', value: metricsData.controlesPorTipo.deteccion, color: '#2196f3' },
-                        { name: 'Corrección', value: metricsData.controlesPorTipo.correccion, color: '#ff9800' },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const pieData = [
+                    { name: 'Control', value: metricsData.causasPorTipoGestion.control, color: '#4caf50' },
+                    { name: 'Plan', value: metricsData.causasPorTipoGestion.plan, color: '#2196f3' },
+                    { name: 'Ambos', value: metricsData.causasPorTipoGestion.ambos, color: '#ff9800' },
+                  ].filter(d => d.value > 0);
+                  return pieData.length === 0 ? (
+                    <Typography color="text.secondary">No hay causas con gestión asignada</Typography>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(entry) => `${entry.name}: ${entry.value}`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </Box>
             </CardContent>
           </Card>
@@ -1154,7 +1004,7 @@ export default function DashboardSupervisorPage() {
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 0, fontSize: '0.9rem', color: '#424242' }}>
-                  Efectividad de Controles por Nivel de Riesgo Residual
+                  Riesgos por Nivel de Riesgo Residual
                 </Typography>
                 <Chip
                   icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
@@ -1168,33 +1018,36 @@ export default function DashboardSupervisorPage() {
                 />
               </Box>
               <Box sx={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { nivel: 'Crítico', cantidad: metricsData.controlesPorNivelResidual.critico, color: '#d32f2f' },
-                      { nivel: 'Alto', cantidad: metricsData.controlesPorNivelResidual.alto, color: '#f57c00' },
-                      { nivel: 'Medio', cantidad: metricsData.controlesPorNivelResidual.medio, color: '#fbc02d' },
-                      { nivel: 'Bajo', cantidad: metricsData.controlesPorNivelResidual.bajo, color: '#388e3c' },
-                    ]}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="nivel" />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Legend />
-                    <Bar dataKey="cantidad" name="Controles" radius={[8, 8, 0, 0]}>
-                      {[
-                        { nivel: 'Crítico', cantidad: metricsData.controlesPorNivelResidual.critico, color: '#d32f2f' },
-                        { nivel: 'Alto', cantidad: metricsData.controlesPorNivelResidual.alto, color: '#f57c00' },
-                        { nivel: 'Medio', cantidad: metricsData.controlesPorNivelResidual.medio, color: '#fbc02d' },
-                        { nivel: 'Bajo', cantidad: metricsData.controlesPorNivelResidual.bajo, color: '#388e3c' },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const barData = [
+                    { nivel: 'Crítico', cantidad: metricsData.riesgosPorNivelResidual.critico, color: '#d32f2f' },
+                    { nivel: 'Alto', cantidad: metricsData.riesgosPorNivelResidual.alto, color: '#f57c00' },
+                    { nivel: 'Medio', cantidad: metricsData.riesgosPorNivelResidual.medio, color: '#fbc02d' },
+                    { nivel: 'Bajo', cantidad: metricsData.riesgosPorNivelResidual.bajo, color: '#388e3c' },
+                  ];
+                  const tieneData = barData.some(d => d.cantidad > 0);
+                  return !tieneData ? (
+                    <Typography color="text.secondary">No hay riesgos con nivel residual calculado</Typography>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={barData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="nivel" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="cantidad" name="Riesgos" radius={[8, 8, 0, 0]}>
+                          {barData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </Box>
             </CardContent>
           </Card>
@@ -1246,22 +1099,22 @@ export default function DashboardSupervisorPage() {
                         <ListItemText
                           primary={
                             <Typography variant="body2" fontWeight={600} sx={{ color: '#424242', lineHeight: 1.2, mb: 0.5 }}>
-                              {control.controlDescripcion || 'Sin descripción'}
+                              {control.descripcion || 'Sin descripción'}
                             </Typography>
                           }
                           secondary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                               <Chip
-                                label={control.controlTipo || 'N/A'}
+                                label={String(control.tipoGestion || 'N/A').toUpperCase()}
                                 size="small"
                                 sx={{
                                   height: 20, fontSize: '0.65rem',
-                                  backgroundColor: control.controlTipo === 'prevención' ? '#e8f5e9' : '#e3f2fd',
-                                  color: control.controlTipo === 'prevención' ? '#2e7d32' : '#1976d2'
+                                  backgroundColor: String(control.tipoGestion || '').toUpperCase() === 'CONTROL' ? '#e8f5e9' : '#e3f2fd',
+                                  color: String(control.tipoGestion || '').toUpperCase() === 'CONTROL' ? '#2e7d32' : '#1976d2'
                                 }}
                               />
                               <Typography variant="caption" sx={{ color: '#757575', fontSize: '0.7rem' }}>
-                                RR: {control.nivelRiesgoResidual}
+                                Fuente: {control.fuenteCausa || 'N/A'}
                               </Typography>
                             </Box>
                           }
@@ -1325,29 +1178,7 @@ export default function DashboardSupervisorPage() {
                       count: data.count,
                     }));
 
-                  // Completar hasta Top 10 con procesos de ejemplo si faltan
-                  if (filas.length < 10) {
-                    const procesosMock = [
-                      { id: 'mock-1', nombre: 'Gestión de Procesos', count: 22 },
-                      { id: 'mock-2', nombre: 'Gestión de Talento Humano', count: 19 },
-                      { id: 'mock-3', nombre: 'Gestión de Finanzas', count: 13 },
-                      { id: 'mock-4', nombre: 'Ciberseguridad', count: 12 },
-                      { id: 'mock-5', nombre: 'Direccionamiento Estratégico', count: 12 },
-                      { id: 'mock-6', nombre: 'Gestión de TI', count: 11 },
-                      { id: 'mock-7', nombre: 'Planificación Estratégica', count: 10 },
-                      { id: 'mock-8', nombre: 'Gestión Comercial', count: 8 },
-                      { id: 'mock-9', nombre: 'Compliance', count: 5 },
-                      { id: 'mock-10', nombre: 'Gestión de Servicios', count: 3 },
-                    ];
 
-                    const faltan = 10 - filas.length;
-                    filas = [
-                      ...filas,
-                      ...procesosMock
-                        .filter((mock) => !filas.some((f) => f.nombre === mock.nombre))
-                        .slice(0, faltan),
-                    ];
-                  }
 
                   if (filas.length === 0) {
                     return (

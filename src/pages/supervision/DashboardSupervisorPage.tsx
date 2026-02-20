@@ -354,10 +354,10 @@ export default function DashboardSupervisorPage() {
       // Usar numeroIdentificacion si existe, sino generar desde número y sigla del proceso
       const sigla = proceso?.sigla || riesgo.siglaGerencia || '';
       const codigo = riesgo.numeroIdentificacion || (riesgo.numero ? `${riesgo.numero}${sigla}` : `R${String(riesgo.numero || 0).padStart(3, '0')}`);
-      const punto = puntos.find((p: any) => p.riesgoId === riesgo.id);
+      const punto = puntos.find((p: any) => String(p.riesgoId) === String(riesgo.id));
 
-      const riesgoInherente = punto ? punto.probabilidad * punto.impacto : 0;
-      const riesgoResidual = riesgoInherente * 0.8; // Aproximación
+      const riesgoInherente = punto ? punto.probabilidad * punto.impacto : (riesgo.evaluacion?.riesgoInherente || 0);
+      const riesgoResidual = riesgo.evaluacion?.riesgoResidual ?? Math.round(riesgoInherente * 0.8);
 
       const obtenerNivelRiesgo = (valor: number) => {
         if (valor >= 20) return { nivel: 'CRÍTICO', color: colors.risk.critical.main };
@@ -385,55 +385,34 @@ export default function DashboardSupervisorPage() {
   }, [riesgosFiltrados, procesos, puntos]);
 
   // Filtrar planes de acción según riesgos filtrados (que ya respetan asignaciones)
+  // Incluye tanto planes preventivos (con riesgoId) como reactivos (con incidenciaId/procesoId)
   const planesFiltrados = useMemo(() => {
     if (!planesApi || planesApi.length === 0) {
-      console.log('[Dashboard] No hay planes en planesApi');
       return [];
     }
     
-    if (riesgosFiltrados.length === 0) {
-      console.log('[Dashboard] No hay riesgos filtrados, no se pueden filtrar planes');
+    if (riesgosFiltrados.length === 0 && procesos.length === 0) {
       return [];
     }
     
     const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
-    
-    // Debug: Log para verificar datos
-    console.log('[Dashboard] Planes API totales:', planesApi.length);
-    console.log('[Dashboard] Riesgos filtrados:', riesgosFiltrados.length);
-    console.log('[Dashboard] Riesgos IDs:', Array.from(riesgosIds).slice(0, 10));
-    console.log('[Dashboard] Primeros 3 planes API:', planesApi.slice(0, 3).map((p: any) => ({ 
-      id: p.id, 
-      riesgoId: p.riesgoId, 
-      descripcion: p.descripcion?.substring(0, 50) 
-    })));
+    const procesosIds = new Set(procesos.map((p: any) => String(p.id)));
     
     const filtrados = (planesApi || []).filter((plan: any) => {
-      // Filtrar planes que pertenecen a riesgos filtrados
-      // Nota: riesgoId puede ser null para planes reactivos (vinculados a incidencias)
-      if (!plan.riesgoId) {
-        return false; // Excluir planes sin riesgoId (pueden ser reactivos)
+      // Planes preventivos: filtrar por riesgoId
+      if (plan.riesgoId) {
+        return riesgosIds.has(String(plan.riesgoId));
       }
-      const planRiesgoId = String(plan.riesgoId);
-      const tieneRiesgo = riesgosIds.has(planRiesgoId);
-      if (!tieneRiesgo) {
-        console.log(`[Dashboard] Plan ${plan.id} con riesgoId ${planRiesgoId} no está en riesgos filtrados`);
+      // Planes reactivos (sin riesgoId): filtrar por procesoId del plan
+      // El backend ahora incluye procesoId desde la incidencia para planes reactivos
+      if (plan.procesoId) {
+        return procesosIds.has(String(plan.procesoId));
       }
-      return tieneRiesgo;
+      return false;
     });
     
-    console.log('[Dashboard] Planes filtrados:', filtrados.length);
-    if (filtrados.length === 0 && planesApi.length > 0) {
-      console.warn('[Dashboard] ⚠️ Hay planes pero ninguno coincide con riesgos filtrados');
-      console.log('[Dashboard] Ejemplo de planes sin coincidencia:', planesApi.slice(0, 3).map((p: any) => ({
-        planId: p.id,
-        planRiesgoId: p.riesgoId,
-        estaEnRiesgosFiltrados: riesgosIds.has(String(p.riesgoId))
-      })));
-    }
-    
     return filtrados;
-  }, [planesApi, riesgosFiltrados]);
+  }, [planesApi, riesgosFiltrados, procesos]);
 
   // Preparar datos para tabla de planes de acción - Usando servicio centralizado
   const planesAccion = useMemo(() => {
@@ -999,10 +978,27 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
+                      const procesosIds = new Set(procesos.map((p: any) => String(p.id)));
                       incidenciasData.forEach((inc: any) => {
-                        const riesgo = riesgosFiltrados.find((r: any) => r.id === inc.riesgoId);
-                        if (riesgo) {
-                          const procesoNombre = procesos.find((p: any) => p.id === riesgo.procesoId)?.nombre || 'Sin proceso';
+                        let procesoNombre: string | null = null;
+                        
+                        // Opción 1: Vincular por riesgoId → riesgo → proceso
+                        if (inc.riesgoId) {
+                          const riesgo = riesgosFiltrados.find((r: any) => String(r.id) === String(inc.riesgoId));
+                          if (riesgo) {
+                            procesoNombre = procesos.find((p: any) => String(p.id) === String(riesgo.procesoId))?.nombre || null;
+                          }
+                        }
+                        
+                        // Opción 2 (fallback): Usar procesoId directo de la incidencia
+                        if (!procesoNombre && inc.procesoId) {
+                          // Solo incluir si el proceso pertenece a los procesos filtrados/asignados
+                          if (procesosIds.has(String(inc.procesoId))) {
+                            procesoNombre = inc.proceso?.nombre || procesos.find((p: any) => String(p.id) === String(inc.procesoId))?.nombre || null;
+                          }
+                        }
+                        
+                        if (procesoNombre) {
                           if (!dataPorProceso[procesoNombre]) {
                             dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
                           }
@@ -1042,7 +1038,7 @@ export default function DashboardSupervisorPage() {
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                   Planes de Acción por Proceso
                 </Typography>
-                {riesgosFiltrados.length === 0 || planesFiltrados.length === 0 ? (
+                {planesFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
@@ -1050,20 +1046,15 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
-                      const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
                       
-                      // Filtrar planes que pertenecen a riesgos filtrados
+                      // Usar procesoNombre del backend (ya incluye tanto preventivos como reactivos)
                       planesFiltrados.forEach((p: any) => {
-                        if (riesgosIds.has(String(p.riesgoId))) {
-                          const riesgo = riesgosFiltrados.find((r: any) => String(r.id) === String(p.riesgoId));
-                          if (riesgo) {
-                            const procesoNombre = procesos.find((proc: any) => String(proc.id) === String(riesgo.procesoId))?.nombre || 'Sin proceso';
-                            if (!dataPorProceso[procesoNombre]) {
-                              dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
-                            }
-                            dataPorProceso[procesoNombre].cantidad++;
-                          }
+                        // procesoNombre viene precalculado del backend (desde riesgo.proceso o incidencia.proceso)
+                        const procesoNombre = p.procesoNombre || procesos.find((proc: any) => String(proc.id) === String(p.procesoId))?.nombre || 'Sin proceso';
+                        if (!dataPorProceso[procesoNombre]) {
+                          dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
                         }
+                        dataPorProceso[procesoNombre].cantidad++;
                       });
                       const chartData = Object.values(dataPorProceso);
                       return chartData.length === 0 ? (
@@ -1112,19 +1103,10 @@ export default function DashboardSupervisorPage() {
                         if (r.causas && Array.isArray(r.causas)) {
                           r.causas.forEach((causa: any) => {
                             const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
-                            // Verificar si la causa es un control
                             if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') {
                               dataPorProceso[procesoNombre].cantidad++;
                             }
-                            // También verificar si tiene puntajeTotal (indicador de control evaluado)
-                            else if (causa.puntajeTotal !== undefined && causa.puntajeTotal !== null) {
-                              dataPorProceso[procesoNombre].cantidad++;
-                            }
                           });
-                        }
-                        // También verificar controles directos del riesgo (si existen en la relación)
-                        if (r.controles && Array.isArray(r.controles)) {
-                          dataPorProceso[procesoNombre].cantidad += r.controles.length;
                         }
                       });
                       const chartData = Object.values(dataPorProceso);

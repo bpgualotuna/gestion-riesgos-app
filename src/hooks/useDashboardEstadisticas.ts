@@ -24,7 +24,7 @@ export const useDashboardEstadisticas = ({
         };
 
         riesgosFiltrados.forEach((r: any) => {
-            const proceso = procesos.find((p: any) => p.id === r.procesoId);
+            const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
             const tipoProceso = (proceso?.tipoProceso || '').toLowerCase();
             if (tipoProceso.includes('estratégico') || tipoProceso.includes('estrategico') || tipoProceso.includes('estrategia')) {
                 porTipoProceso['01 Estratégico']++;
@@ -98,7 +98,7 @@ export const useDashboardEstadisticas = ({
         
         // Calcular basado en puntos (evaluaciones)
         riesgosFiltrados.forEach((r: any) => {
-            const punto = puntos.find((p: any) => p.riesgoId === r.id);
+            const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
             if (punto) {
                 const valor = punto.probabilidad * punto.impacto;
                 if (valor >= UMBRALES_RIESGO.ALTO) { // Usando ALTO (15) como umbral fuera de apetito
@@ -133,14 +133,14 @@ export const useDashboardEstadisticas = ({
             } else if (punto) {
                 // Si hay punto pero sin nivel, calcular desde probabilidad e impacto
                 const valor = punto.probabilidad * punto.impacto;
-                // Aplicar umbrales: 15-25 CRÍTICO, 10-14 ALTO, 4-9 MEDIO, 1-3 BAJO
-                if (valor >= 15 && valor <= 25) {
+                // Aplicar umbrales usando constantes oficiales UMBRALES_RIESGO
+                if (valor >= UMBRALES_RIESGO.CRITICO) {
                     nivelRiesgo = 'Crítico';
-                } else if (valor >= 10 && valor <= 14) {
+                } else if (valor >= UMBRALES_RIESGO.ALTO) {
                     nivelRiesgo = 'Alto';
-                } else if (valor >= 4 && valor <= 9) {
+                } else if (valor >= UMBRALES_RIESGO.MEDIO) {
                     nivelRiesgo = 'Medio';
-                } else if (valor >= 1 && valor <= 3) {
+                } else if (valor >= UMBRALES_RIESGO.BAJO) {
                     nivelRiesgo = 'Bajo';
                 } else {
                     nivelRiesgo = 'Sin Calificar';
