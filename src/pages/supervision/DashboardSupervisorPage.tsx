@@ -967,9 +967,12 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Riesgos Materializados por Proceso
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Riesgo Inherente vs Residual por Proceso
+                  </Typography>
+                  <Chip label="Efectividad de controles" size="small" sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600, fontSize: '0.7rem' }} />
+                </Box>
                 {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
@@ -977,48 +980,56 @@ export default function DashboardSupervisorPage() {
                 ) : (
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
-                      const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
-                      const procesosIds = new Set(procesos.map((p: any) => String(p.id)));
-                      incidenciasData.forEach((inc: any) => {
-                        let procesoNombre: string | null = null;
-                        
-                        // Opción 1: Vincular por riesgoId → riesgo → proceso
-                        if (inc.riesgoId) {
-                          const riesgo = riesgosFiltrados.find((r: any) => String(r.id) === String(inc.riesgoId));
-                          if (riesgo) {
-                            procesoNombre = procesos.find((p: any) => String(p.id) === String(riesgo.procesoId))?.nombre || null;
-                          }
+                      const dataPorProceso: Record<string, { nombre: string; promedioInherente: number; promedioResidual: number; totalRiesgos: number }> = {};
+                      riesgosFiltrados.forEach((r: any) => {
+                        const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
+                        const procesoNombre = proceso?.nombre || 'Sin proceso';
+                        if (!dataPorProceso[procesoNombre]) {
+                          dataPorProceso[procesoNombre] = { nombre: procesoNombre, promedioInherente: 0, promedioResidual: 0, totalRiesgos: 0 };
                         }
-                        
-                        // Opción 2 (fallback): Usar procesoId directo de la incidencia
-                        if (!procesoNombre && inc.procesoId) {
-                          // Solo incluir si el proceso pertenece a los procesos filtrados/asignados
-                          if (procesosIds.has(String(inc.procesoId))) {
-                            procesoNombre = inc.proceso?.nombre || procesos.find((p: any) => String(p.id) === String(inc.procesoId))?.nombre || null;
-                          }
-                        }
-                        
-                        if (procesoNombre) {
-                          if (!dataPorProceso[procesoNombre]) {
-                            dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
-                          }
-                          dataPorProceso[procesoNombre].cantidad++;
-                        }
+                        const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
+                        const inherente = punto ? punto.probabilidad * punto.impacto : (r.evaluacion?.riesgoInherente || 0);
+                        const residual = r.evaluacion?.riesgoResidual ?? (punto ? (punto.probabilidadResidual || punto.probabilidad) * (punto.impactoResidual || punto.impacto) : Math.round(inherente * 0.8));
+                        dataPorProceso[procesoNombre].promedioInherente += inherente;
+                        dataPorProceso[procesoNombre].promedioResidual += residual;
+                        dataPorProceso[procesoNombre].totalRiesgos++;
                       });
-                      const chartData = Object.values(dataPorProceso);
+                      const chartData = Object.values(dataPorProceso).map(d => ({
+                        nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
+                        nombreCompleto: d.nombre,
+                        'R. Inherente': Number((d.promedioInherente / d.totalRiesgos).toFixed(1)),
+                        'R. Residual': Number((d.promedioResidual / d.totalRiesgos).toFixed(1)),
+                        totalRiesgos: d.totalRiesgos,
+                      })).sort((a, b) => b['R. Inherente'] - a['R. Inherente']);
                       return chartData.length === 0 ? (
                         <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography color="text.secondary">No hay riesgos materializados</Typography>
+                          <Typography color="text.secondary">No hay riesgos evaluados</Typography>
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="nombre" />
-                            <YAxis />
-                            <Tooltip />
+                          <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="nombre" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip content={({ active, payload, label }: any) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0]?.payload;
+                                const reduccion = data?.['R. Inherente'] > 0 ? ((1 - data?.['R. Residual'] / data?.['R. Inherente']) * 100).toFixed(0) : '0';
+                                return (
+                                  <Box sx={{ backgroundColor: 'white', p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                                    <Typography variant="subtitle2" fontWeight={700}>{data?.nombreCompleto || label}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#d32f2f' }}>Inherente: {data?.['R. Inherente']}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#2e7d32' }}>Residual: {data?.['R. Residual']}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#1976d2', fontWeight: 600 }}>Reducción: {reduccion}%</Typography>
+                                    <Typography variant="caption" color="text.secondary">{data?.totalRiesgos} riesgos</Typography>
+                                  </Box>
+                                );
+                              }
+                              return null;
+                            }} />
                             <Legend />
-                            <Bar dataKey="cantidad" name="Cantidad" fill="#ff9800" />
+                            <Bar dataKey="R. Inherente" fill="#d32f2f" radius={[4, 4, 0, 0]} barSize={24} />
+                            <Bar dataKey="R. Residual" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={24} />
                           </BarChart>
                         </ResponsiveContainer>
                       );
@@ -1035,41 +1046,77 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Planes de Acción por Proceso
-                </Typography>
-                {planesFiltrados.length === 0 ? (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Cobertura de Controles por Proceso
+                  </Typography>
+                  <Chip label="Gestión de causas" size="small" sx={{ backgroundColor: '#e3f2fd', color: '#1565c0', fontWeight: 600, fontSize: '0.7rem' }} />
+                </Box>
+                {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
-                      const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
-                      
-                      // Usar procesoNombre del backend (ya incluye tanto preventivos como reactivos)
-                      planesFiltrados.forEach((p: any) => {
-                        // procesoNombre viene precalculado del backend (desde riesgo.proceso o incidencia.proceso)
-                        const procesoNombre = p.procesoNombre || procesos.find((proc: any) => String(proc.id) === String(p.procesoId))?.nombre || 'Sin proceso';
+                      const dataPorProceso: Record<string, { nombre: string; conGestion: number; sinGestion: number; totalCausas: number }> = {};
+                      riesgosFiltrados.forEach((r: any) => {
+                        const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
+                        const procesoNombre = proceso?.nombre || 'Sin proceso';
                         if (!dataPorProceso[procesoNombre]) {
-                          dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
+                          dataPorProceso[procesoNombre] = { nombre: procesoNombre, conGestion: 0, sinGestion: 0, totalCausas: 0 };
                         }
-                        dataPorProceso[procesoNombre].cantidad++;
+                        if (r.causas && Array.isArray(r.causas)) {
+                          r.causas.forEach((causa: any) => {
+                            dataPorProceso[procesoNombre].totalCausas++;
+                            const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
+                            if (tipoGestion === 'CONTROL' || tipoGestion === 'PLAN' || tipoGestion === 'AMBOS') {
+                              dataPorProceso[procesoNombre].conGestion++;
+                            } else {
+                              dataPorProceso[procesoNombre].sinGestion++;
+                            }
+                          });
+                        }
                       });
-                      const chartData = Object.values(dataPorProceso);
+                      const chartData = Object.values(dataPorProceso)
+                        .filter(d => d.totalCausas > 0)
+                        .map(d => ({
+                          nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
+                          nombreCompleto: d.nombre,
+                          'Con gestión': d.conGestion,
+                          'Sin gestión': d.sinGestion,
+                          totalCausas: d.totalCausas,
+                          porcentaje: d.totalCausas > 0 ? Math.round((d.conGestion / d.totalCausas) * 100) : 0,
+                        }))
+                        .sort((a, b) => b.totalCausas - a.totalCausas);
                       return chartData.length === 0 ? (
                         <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography color="text.secondary">No hay planes de acción</Typography>
+                          <Typography color="text.secondary">No hay causas registradas</Typography>
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="nombre" />
-                            <YAxis />
-                            <Tooltip />
+                          <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="nombre" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip content={({ active, payload, label }: any) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0]?.payload;
+                                return (
+                                  <Box sx={{ backgroundColor: 'white', p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                                    <Typography variant="subtitle2" fontWeight={700}>{data?.nombreCompleto || label}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#1976d2' }}>Con gestión: {data?.['Con gestión']}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#ff9800' }}>Sin gestión: {data?.['Sin gestión']}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#2e7d32', fontWeight: 600 }}>Cobertura: {data?.porcentaje}%</Typography>
+                                    <Typography variant="caption" color="text.secondary">{data?.totalCausas} causas totales</Typography>
+                                  </Box>
+                                );
+                              }
+                              return null;
+                            }} />
                             <Legend />
-                            <Bar dataKey="cantidad" name="Cantidad" fill="#2196f3" />
+                            <Bar dataKey="Con gestión" stackId="a" fill="#1976d2" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="Sin gestión" stackId="a" fill="#ffb74d" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       );
