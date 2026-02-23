@@ -815,15 +815,88 @@ export default function DashboardSupervisorPage() {
                   Resumen Ejecutivo
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {kpis.riesgosCriticos > 0
-                    ? `Hay ${kpis.riesgosCriticos} riesgos criticos que requieren seguimiento inmediato.`
-                    : 'No hay riesgos criticos registrados en el periodo actual.'}
+                  Vista rápida de los principales indicadores del proceso seleccionado.
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip label={`Fuera de apetito: ${kpis.fueraApetito}`} color={kpis.fueraApetito > 0 ? 'warning' : 'success'} size="small" />
-                  <Chip label={`Procesos: ${kpis.totalProcesos}`} color="primary" size="small" />
-                  <Chip label={`Riesgos: ${kpis.totalRiesgos}`} color="secondary" size="small" />
-                </Box>
+                {/* Tarjetas compactas de KPIs dentro del resumen ejecutivo */}
+                <Grid2 container spacing={1.5}>
+                  {(() => {
+                    // Calcular conteos desde causas.tipoGestion
+                    let totalControles = 0;
+                    let totalPlanes = 0;
+                    let riesgosCriticos = 0;
+                    let riesgosAltos = 0;
+                    let riesgosMedios = 0;
+                    let riesgosBajos = 0;
+
+                    riesgosFiltrados.forEach((r: any) => {
+                      // Conteo de controles y planes desde causas
+                      if (r.causas && Array.isArray(r.causas)) {
+                        r.causas.forEach((causa: any) => {
+                          const tipo = String(causa.tipoGestion || '').toUpperCase();
+                          if (tipo === 'CONTROL' || tipo === 'AMBOS') totalControles++;
+                          if (tipo === 'PLAN' || tipo === 'AMBOS') totalPlanes++;
+                        });
+                      }
+                    });
+
+                    const metrics = [
+                      { label: 'Procesos', value: procesos.length, icon: <AccountTreeIcon sx={{ fontSize: 20 }} />, color: '#1565c0', bg: '#e3f2fd' },
+                      { label: 'Riesgos', value: riesgosFiltrados.length, icon: <WarningIcon sx={{ fontSize: 20 }} />, color: '#7b1fa2', bg: '#f3e5f5' },
+                      { label: 'Controles', value: totalControles, icon: <ShieldIcon sx={{ fontSize: 20 }} />, color: '#0277bd', bg: '#e1f5fe' },
+                      { label: 'Planes', value: totalPlanes, icon: <PlaylistAddCheckIcon sx={{ fontSize: 20 }} />, color: '#e65100', bg: '#fff3e0' },
+                    ];
+
+                    return metrics.map((m) => (
+                      <Grid2 key={m.label} xs={6} sm={3}>
+                        <Card
+                          sx={{
+                            height: '100%',
+                            borderLeft: `4px solid ${m.color}`,
+                            transition: 'all 0.15s',
+                            '&:hover': { boxShadow: `0 2px 12px ${m.color}20`, transform: 'translateY(-1px)' },
+                          }}
+                        >
+                          <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Box>
+                                <Typography variant="h5" fontWeight={800} sx={{ color: m.color, lineHeight: 1.2 }}>
+                                  {m.value}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem', lineHeight: 1 }}>
+                                  {m.label}
+                                </Typography>
+                              </Box>
+                              {m.icon && (
+                                <Box sx={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: '8px',
+                                  backgroundColor: m.bg,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: m.color,
+                                }}
+                                >
+                                  {m.icon}
+                                </Box>
+                              )}
+                              {!m.icon && (
+                                <Box sx={{
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: '50%',
+                                  backgroundColor: m.color,
+                                }}
+                                />
+                              )}
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid2>
+                    ));
+                  })()}
+                </Grid2>
               </CardContent>
             </Card>
           </Grid2>
@@ -855,98 +928,6 @@ export default function DashboardSupervisorPage() {
           </Grid2>
         </Grid2>
 
-        {/* Indicadores Clave — Compactos */}
-        <Grid2 container spacing={1.5} sx={{ mb: 3 }}>
-          {(() => {
-            // Calcular conteos desde causas.tipoGestion
-            let totalControles = 0;
-            let totalPlanes = 0;
-            let riesgosCriticos = 0;
-            let riesgosAltos = 0;
-            let riesgosMedios = 0;
-            let riesgosBajos = 0;
-
-            riesgosFiltrados.forEach((r: any) => {
-              // Conteo de controles y planes desde causas
-              if (r.causas && Array.isArray(r.causas)) {
-                r.causas.forEach((causa: any) => {
-                  const tipo = String(causa.tipoGestion || '').toUpperCase();
-                  if (tipo === 'CONTROL' || tipo === 'AMBOS') totalControles++;
-                  if (tipo === 'PLAN' || tipo === 'AMBOS') totalPlanes++;
-                });
-              }
-
-              // Clasificación por nivel de riesgo inherente
-              const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
-              const inherente = punto ? punto.probabilidad * punto.impacto : (r.evaluacion?.riesgoInherente || 0);
-              if (inherente >= 20) riesgosCriticos++;
-              else if (inherente >= 15) riesgosAltos++;
-              else if (inherente >= 10) riesgosMedios++;
-              else if (inherente >= 5) riesgosBajos++;
-            });
-
-            const metrics = [
-              { label: 'Procesos', value: procesos.length, icon: <AccountTreeIcon sx={{ fontSize: 20 }} />, color: '#1565c0', bg: '#e3f2fd' },
-              { label: 'Riesgos', value: riesgosFiltrados.length, icon: <WarningIcon sx={{ fontSize: 20 }} />, color: '#7b1fa2', bg: '#f3e5f5' },
-              { label: 'Controles', value: totalControles, icon: <ShieldIcon sx={{ fontSize: 20 }} />, color: '#0277bd', bg: '#e1f5fe' },
-              { label: 'Planes', value: totalPlanes, icon: <PlaylistAddCheckIcon sx={{ fontSize: 20 }} />, color: '#e65100', bg: '#fff3e0' },
-              { label: 'Crítico', value: riesgosCriticos, icon: <ReportProblemIcon sx={{ fontSize: 20 }} />, color: '#b71c1c', bg: '#ffebee' },
-              { label: 'Alto', value: riesgosAltos, color: '#e65100', bg: '#fff3e0' },
-              { label: 'Medio', value: riesgosMedios, color: '#f9a825', bg: '#fffde7' },
-              { label: 'Bajo', value: riesgosBajos, color: '#2e7d32', bg: '#e8f5e9' },
-            ];
-
-            return metrics.map((m, idx) => (
-              <Grid2 key={m.label} xs={6} sm={3} md={1.5}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    borderLeft: `4px solid ${m.color}`,
-                    transition: 'all 0.15s',
-                    '&:hover': { boxShadow: `0 2px 12px ${m.color}20`, transform: 'translateY(-1px)' },
-                  }}
-                >
-                  <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box>
-                        <Typography variant="h5" fontWeight={800} sx={{ color: m.color, lineHeight: 1.2 }}>
-                          {m.value}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem', lineHeight: 1 }}>
-                          {m.label}
-                        </Typography>
-                      </Box>
-                      {m.icon && (
-                        <Box sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '8px',
-                          backgroundColor: m.bg,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: m.color,
-                        }}>
-                          {m.icon}
-                        </Box>
-                      )}
-                      {!m.icon && (
-                        <Box sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: '50%',
-                          backgroundColor: m.color,
-                          flexShrink: 0,
-                        }} />
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid2>
-            ));
-          })()}
-        </Grid2>
-
         {/* Graficas adicionales */}
         <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
           <Grid2 xs={12} md={6}>
@@ -969,8 +950,15 @@ export default function DashboardSupervisorPage() {
                       console.log('[Dashboard] 📊 Riesgos filtrados:', riesgosFiltrados.length);
                       console.log('[Dashboard] 📊 Puntos del mapa:', puntos.length);
                       
-                      const dataNiveles = Object.entries(estadisticas.porNivelRiesgo || {})
-                        .filter(([name, value]) => value > 0 && name !== 'Sin Calificar')
+                      // Asegurar que todos los niveles aparezcan, incluso con 0
+                      const nivelesCompletos = {
+                        'Crítico': estadisticas.porNivelRiesgo?.['Crítico'] || 0,
+                        'Alto': estadisticas.porNivelRiesgo?.['Alto'] || 0,
+                        'Medio': estadisticas.porNivelRiesgo?.['Medio'] || 0,
+                        'Bajo': estadisticas.porNivelRiesgo?.['Bajo'] || 0,
+                      };
+                      
+                      const dataNiveles = Object.entries(nivelesCompletos)
                         .map(([name, value]) => ({
                           name,
                           value,

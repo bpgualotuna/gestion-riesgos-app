@@ -126,21 +126,27 @@ export const useDashboardEstadisticas = ({
             // Calcular valor numérico desde puntos o evaluación
             let valor = 0;
             if (punto && punto.probabilidad && punto.impacto) {
-                valor = punto.probabilidad * punto.impacto;
+                // Aplicar excepción 2x2 = 3.99
+                if (punto.probabilidad === 2 && punto.impacto === 2) {
+                    valor = 3.99;
+                } else {
+                    valor = punto.probabilidad * punto.impacto;
+                }
             } else if (r.evaluacion?.riesgoInherente) {
                 valor = r.evaluacion.riesgoInherente;
             }
 
-            // Clasificar usando umbrales oficiales
+            // Clasificar usando rangos correctos según Proceso_Calificacion_Inherente_Global.md:
+            // Crítico: 15-25, Alto: 10-14, Medio: 4-9, Bajo: 1-3 (incluye 3.99)
             if (valor <= 0) {
                 porNivelRiesgo['Sin Calificar']++;
-            } else if (valor >= UMBRALES_RIESGO.CRITICO) {
+            } else if (valor >= 15 && valor <= 25) {
                 porNivelRiesgo['Crítico']++;
-            } else if (valor >= UMBRALES_RIESGO.ALTO) {
+            } else if (valor >= 10 && valor <= 14) {
                 porNivelRiesgo['Alto']++;
-            } else if (valor >= UMBRALES_RIESGO.MEDIO) {
+            } else if (valor >= 4 && valor <= 9) {
                 porNivelRiesgo['Medio']++;
-            } else if (valor >= UMBRALES_RIESGO.BAJO) {
+            } else if ((valor >= 1 && valor <= 3) || valor === 3.99) {
                 porNivelRiesgo['Bajo']++;
             } else {
                 porNivelRiesgo['Sin Calificar']++;
