@@ -7,13 +7,12 @@ interface RiesgosPorProcesoCardProps {
 }
 
 const RiesgosPorProcesoCard: React.FC<RiesgosPorProcesoCardProps> = ({ datosReales }) => {
-    // Mostrar TODOS los procesos con riesgos, no solo top 10
+    // Mostrar TODOS los procesos, incluyendo los que tienen 0 riesgos
     const data = Object.entries(datosReales || {})
         .map(([name, value]) => ({
             name,
             value
         }))
-        .filter(item => item.value > 0) // Solo procesos con riesgos
         .sort((a, b) => b.value - a.value); // Ordenar por mayor cantidad de riesgos
 
     return (

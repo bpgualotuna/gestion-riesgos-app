@@ -30,6 +30,12 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  IconButton,
+  LinearProgress,
+  Collapse,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -44,6 +50,12 @@ import {
   Business as BusinessIcon,
   AccountTree as AccountTreeIcon,
   CheckCircle as CheckCircleIcon,
+  ExpandMore as ExpandMoreIcon,
+  UnfoldMore as UnfoldMoreIcon,
+  UnfoldLess as UnfoldLessIcon,
+  Shield as ShieldIcon,
+  PlaylistAddCheck as PlaylistAddCheckIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetEjesMapaQuery, useGetPlanesQuery, useGetIncidenciasEstadisticasQuery, useGetIncidenciasQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -75,6 +87,7 @@ export default function DashboardSupervisorPage() {
   const [filtroOrigen, setFiltroOrigen] = useState<string>('all');
   const [busqueda, setBusqueda] = useState('');
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
+  const [expandidosProcesos, setExpandidosProcesos] = useState<Record<string, boolean>>({});
 
   // Obtener datos
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, includeCausas: true });
@@ -981,6 +994,11 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; promedioInherente: number; promedioResidual: number; totalRiesgos: number }> = {};
+                      // Inicializar TODOS los procesos asignados con 0
+                      procesos.forEach((p: any) => {
+                        const nombre = p.nombre || 'Sin nombre';
+                        dataPorProceso[nombre] = { nombre, promedioInherente: 0, promedioResidual: 0, totalRiesgos: 0 };
+                      });
                       riesgosFiltrados.forEach((r: any) => {
                         const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
                         const procesoNombre = proceso?.nombre || 'Sin proceso';
@@ -997,8 +1015,8 @@ export default function DashboardSupervisorPage() {
                       const chartData = Object.values(dataPorProceso).map(d => ({
                         nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
                         nombreCompleto: d.nombre,
-                        'R. Inherente': Number((d.promedioInherente / d.totalRiesgos).toFixed(1)),
-                        'R. Residual': Number((d.promedioResidual / d.totalRiesgos).toFixed(1)),
+                        'R. Inherente': d.totalRiesgos > 0 ? Number((d.promedioInherente / d.totalRiesgos).toFixed(1)) : 0,
+                        'R. Residual': d.totalRiesgos > 0 ? Number((d.promedioResidual / d.totalRiesgos).toFixed(1)) : 0,
                         totalRiesgos: d.totalRiesgos,
                       })).sort((a, b) => b['R. Inherente'] - a['R. Inherente']);
                       return chartData.length === 0 ? (
@@ -1039,6 +1057,218 @@ export default function DashboardSupervisorPage() {
               </CardContent>
             </Card>
           </Grid2>
+
+          {/* Top 5 Riesgos Más Críticos */}
+          <Grid2 xs={12} md={6}>
+            <Card sx={{ height: '100%', minHeight: 350, maxHeight: 420 }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Top Riesgos Más Críticos
+                  </Typography>
+                  <Chip
+                    label="Atención prioritaria"
+                    size="small"
+                    sx={{ backgroundColor: '#fce4ec', color: '#c62828', fontWeight: 600, fontSize: '0.7rem' }}
+                  />
+                </Box>
+                {riesgosFiltrados.length === 0 ? (
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography color="text.secondary">No hay riesgos disponibles</Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', pr: 0.5 }}>
+                    {(() => {
+                      // Calcular puntaje inherente para cada riesgo y rankear
+                      const riesgosConPuntaje = riesgosFiltrados.map((r: any) => {
+                        const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
+                        const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
+                        const inherente = punto
+                          ? punto.probabilidad * punto.impacto
+                          : (r.evaluacion?.riesgoInherente || 0);
+                        const residual = r.evaluacion?.riesgoResidual ?? (punto
+                          ? (punto.probabilidadResidual || punto.probabilidad) * (punto.impactoResidual || punto.impacto)
+                          : inherente);
+                        const reduccion = inherente > 0 ? Math.round((1 - residual / inherente) * 100) : 0;
+
+                        // Contar causas gestionadas
+                        let causasTotales = 0;
+                        let causasGestionadas = 0;
+                        if (r.causas && Array.isArray(r.causas)) {
+                          causasTotales = r.causas.length;
+                          r.causas.forEach((causa: any) => {
+                            const tipo = String(causa.tipoGestion || '').toUpperCase();
+                            if (tipo === 'CONTROL' || tipo === 'PLAN' || tipo === 'AMBOS') causasGestionadas++;
+                          });
+                        }
+
+                        // Determinar nivel
+                        const getNivel = (val: number) => {
+                          if (val >= 15) return { label: 'Crítico', color: '#c62828', bg: '#ffebee' };
+                          if (val >= 10) return { label: 'Alto', color: '#e65100', bg: '#fff3e0' };
+                          if (val >= 5) return { label: 'Medio', color: '#f9a825', bg: '#fffde7' };
+                          if (val >= 1) return { label: 'Bajo', color: '#2e7d32', bg: '#e8f5e9' };
+                          return { label: 'N/A', color: '#9e9e9e', bg: '#f5f5f5' };
+                        };
+
+                        return {
+                          id: r.id,
+                          codigo: r.numeroIdentificacion || r.numero || `R-${r.id}`,
+                          descripcion: r.descripcion || 'Sin descripción',
+                          proceso: proceso?.nombre || 'Sin proceso',
+                          inherente,
+                          residual: Number(residual) || 0,
+                          reduccion,
+                          nivelInherente: getNivel(inherente),
+                          nivelResidual: getNivel(Number(residual) || 0),
+                          causasTotales,
+                          causasGestionadas,
+                        };
+                      })
+                      .filter(r => r.inherente > 0)
+                      .sort((a, b) => b.inherente - a.inherente)
+                      .slice(0, 5);
+
+                      if (riesgosConPuntaje.length === 0) {
+                        return (
+                          <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography color="text.secondary">No hay riesgos evaluados</Typography>
+                          </Box>
+                        );
+                      }
+
+                      return (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
+                          {riesgosConPuntaje.map((riesgo, idx) => (
+                            <Box
+                              key={riesgo.id}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'stretch',
+                                borderRadius: 2,
+                                border: '1px solid',
+                                borderColor: idx === 0 ? '#ef535040' : '#e0e0e0',
+                                overflow: 'hidden',
+                                transition: 'all 0.15s',
+                                '&:hover': { borderColor: '#1976d2', boxShadow: '0 2px 8px rgba(25,118,210,0.1)' },
+                              }}
+                            >
+                              {/* Severity bar lateral */}
+                              <Box sx={{
+                                width: 5,
+                                minHeight: '100%',
+                                backgroundColor: riesgo.nivelInherente.color,
+                                flexShrink: 0,
+                              }} />
+
+                              <Box sx={{ flex: 1, px: 2, py: 1.2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {/* Fila 1: Ranking + código + proceso */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      borderRadius: '50%',
+                                      backgroundColor: idx === 0 ? '#c62828' : idx === 1 ? '#e65100' : '#757575',
+                                      color: 'white',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 800,
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {idx + 1}
+                                  </Typography>
+                                  <Chip
+                                    label={riesgo.codigo}
+                                    size="small"
+                                    sx={{ fontWeight: 700, fontSize: '0.72rem', backgroundColor: '#e3f2fd', color: '#1565c0', height: 22 }}
+                                  />
+                                  <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
+                                    {riesgo.proceso}
+                                  </Typography>
+                                </Box>
+
+                                {/* Fila 2: Descripción truncada */}
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    fontSize: '0.78rem',
+                                    color: '#444',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    lineHeight: 1.3,
+                                  }}
+                                  title={riesgo.descripcion}
+                                >
+                                  {riesgo.descripcion}
+                                </Typography>
+
+                                {/* Fila 3: Niveles + reducción + causas */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                  <Chip
+                                    label={`Inh: ${riesgo.nivelInherente.label} (${riesgo.inherente})`}
+                                    size="small"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.68rem',
+                                      fontWeight: 600,
+                                      backgroundColor: riesgo.nivelInherente.bg,
+                                      color: riesgo.nivelInherente.color,
+                                      '.MuiChip-label': { px: 0.8 },
+                                    }}
+                                  />
+                                  <Typography variant="caption" color="text.secondary">→</Typography>
+                                  <Chip
+                                    label={`Res: ${riesgo.nivelResidual.label} (${riesgo.residual})`}
+                                    size="small"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.68rem',
+                                      fontWeight: 600,
+                                      backgroundColor: riesgo.nivelResidual.bg,
+                                      color: riesgo.nivelResidual.color,
+                                      '.MuiChip-label': { px: 0.8 },
+                                    }}
+                                  />
+
+                                  {/* Barra de reducción */}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
+                                    <Box sx={{ width: 40, height: 6, borderRadius: 3, backgroundColor: '#f0f0f0', overflow: 'hidden' }}>
+                                      <Box sx={{
+                                        width: `${Math.max(riesgo.reduccion, 0)}%`,
+                                        height: '100%',
+                                        backgroundColor: riesgo.reduccion >= 50 ? '#4caf50' : riesgo.reduccion >= 25 ? '#ff9800' : '#f44336',
+                                        borderRadius: 3,
+                                        transition: 'width 0.4s ease',
+                                      }} />
+                                    </Box>
+                                    <Typography
+                                      variant="caption"
+                                      fontWeight={700}
+                                      sx={{
+                                        fontSize: '0.7rem',
+                                        color: riesgo.reduccion >= 50 ? '#2e7d32' : riesgo.reduccion >= 25 ? '#e65100' : '#c62828',
+                                      }}
+                                    >
+                                      -{riesgo.reduccion}%
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            </Box>
+                          ))}
+                        </Box>
+                      );
+                    })()}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid2>
         </Grid2>
 
         {/* Segunda fila de gráficas */}
@@ -1060,6 +1290,11 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; conGestion: number; sinGestion: number; totalCausas: number }> = {};
+                      // Inicializar TODOS los procesos asignados con 0
+                      procesos.forEach((p: any) => {
+                        const nombre = p.nombre || 'Sin nombre';
+                        dataPorProceso[nombre] = { nombre, conGestion: 0, sinGestion: 0, totalCausas: 0 };
+                      });
                       riesgosFiltrados.forEach((r: any) => {
                         const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
                         const procesoNombre = proceso?.nombre || 'Sin proceso';
@@ -1079,7 +1314,6 @@ export default function DashboardSupervisorPage() {
                         }
                       });
                       const chartData = Object.values(dataPorProceso)
-                        .filter(d => d.totalCausas > 0)
                         .map(d => ({
                           nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
                           nombreCompleto: d.nombre,
@@ -1140,6 +1374,11 @@ export default function DashboardSupervisorPage() {
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
+                      // Inicializar TODOS los procesos asignados con 0
+                      procesos.forEach((p: any) => {
+                        const nombre = p.nombre || 'Sin nombre';
+                        dataPorProceso[nombre] = { nombre, cantidad: 0 };
+                      });
                       riesgosFiltrados.forEach((r: any) => {
                         const procesoNombre = procesos.find((p: any) => String(p.id) === String(r.procesoId))?.nombre || 'Sin proceso';
                         if (!dataPorProceso[procesoNombre]) {
@@ -1180,6 +1419,387 @@ export default function DashboardSupervisorPage() {
             </Card>
           </Grid2>
         </Grid2>
+
+        {/* Detalle de Riesgos por Proceso — Acordeones con Controles y Planes */}
+        {(() => {
+          // Agrupar riesgos por proceso con totales
+          const riesgosPorProcesoDetalle: Array<{
+            procesoNombre: string;
+            riesgos: any[];
+            totalControles: number;
+            totalPlanes: number;
+            totalCausas: number;
+          }> = [];
+
+          const riesgosAgrupadosMap: Record<string, any[]> = {};
+          procesos.forEach((p: any) => {
+            riesgosAgrupadosMap[p.nombre || 'Sin nombre'] = [];
+          });
+          riesgosFiltrados.forEach((r: any) => {
+            const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
+            const procesoNombre = proceso?.nombre || 'Sin proceso';
+            if (!riesgosAgrupadosMap[procesoNombre]) {
+              riesgosAgrupadosMap[procesoNombre] = [];
+            }
+            riesgosAgrupadosMap[procesoNombre].push(r);
+          });
+
+          Object.entries(riesgosAgrupadosMap).forEach(([procesoNombre, riesgosDelProc]) => {
+            let totalControles = 0;
+            let totalPlanes = 0;
+            let totalCausas = 0;
+            riesgosDelProc.forEach((r: any) => {
+              if (r.causas && Array.isArray(r.causas)) {
+                totalCausas += r.causas.length;
+                r.causas.forEach((causa: any) => {
+                  const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
+                  if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') totalControles++;
+                  if (tipoGestion === 'PLAN' || tipoGestion === 'AMBOS') totalPlanes++;
+                });
+              }
+            });
+            riesgosPorProcesoDetalle.push({ procesoNombre, riesgos: riesgosDelProc, totalControles, totalPlanes, totalCausas });
+          });
+
+          // Filtro por proceso para la sección de detalle
+          const [filtroDetalleProceso, setFiltroDetalleProceso] = [filtroProceso, setFiltroProceso];
+          const procesosFiltradosDetalle = filtroDetalleProceso === 'all'
+            ? riesgosPorProcesoDetalle
+            : riesgosPorProcesoDetalle.filter(p => {
+                const proc = procesos.find((pr: any) => String(pr.id) === filtroDetalleProceso);
+                return proc && p.procesoNombre === proc.nombre;
+              });
+
+          // Estado para acordeones expandidos
+          const expandidos = expandidosProcesos;
+          const setExpandidos = setExpandidosProcesos;
+          const todosExpandidos = procesosFiltradosDetalle.length > 0 && procesosFiltradosDetalle.every(p => expandidos[p.procesoNombre]);
+
+          const toggleExpandirTodos = () => {
+            if (todosExpandidos) {
+              setExpandidos({});
+            } else {
+              const nuevos: Record<string, boolean> = {};
+              procesosFiltradosDetalle.forEach(p => { nuevos[p.procesoNombre] = true; });
+              setExpandidos(nuevos);
+            }
+          };
+
+          const totalGlobalControles = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.totalControles, 0);
+          const totalGlobalPlanes = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.totalPlanes, 0);
+          const totalGlobalRiesgos = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.riesgos.length, 0);
+
+          return (
+            <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
+              <Grid2 xs={12}>
+                <Card sx={{ height: '100%' }}>
+                  <CardContent>
+                    {/* Header */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight={700}>
+                          Detalle de Riesgos por Proceso — Controles y Planes de Acción
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Haz clic en un proceso para ver el detalle de cada riesgo
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Chip
+                          icon={<ShieldIcon sx={{ fontSize: 16 }} />}
+                          label={`${totalGlobalControles} Controles`}
+                          size="small"
+                          sx={{ backgroundColor: '#1565c015', color: '#1565c0', fontWeight: 600, fontSize: '0.8rem', border: '1px solid #1565c030' }}
+                        />
+                        <Chip
+                          icon={<PlaylistAddCheckIcon sx={{ fontSize: 16 }} />}
+                          label={`${totalGlobalPlanes} Planes`}
+                          size="small"
+                          sx={{ backgroundColor: '#e6510015', color: '#e65100', fontWeight: 600, fontSize: '0.8rem', border: '1px solid #e6510030' }}
+                        />
+                        <Chip
+                          label={`${totalGlobalRiesgos} Riesgos`}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontWeight: 600, fontSize: '0.8rem' }}
+                        />
+                      </Box>
+                    </Box>
+
+                    {/* Toolbar: filtro + expandir/colapsar */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <FilterListIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                        <FormControl size="small" sx={{ minWidth: 220 }}>
+                          <InputLabel>Filtrar por proceso</InputLabel>
+                          <Select
+                            value={filtroDetalleProceso}
+                            label="Filtrar por proceso"
+                            onChange={(e) => setFiltroProceso(e.target.value)}
+                          >
+                            <MenuItem value="all">Todos los procesos</MenuItem>
+                            {procesos.map((p: any) => (
+                              <MenuItem key={p.id} value={String(p.id)}>{p.nombre}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                        onClick={toggleExpandirTodos}
+                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                      >
+                        {todosExpandidos ? 'Colapsar todos' : 'Expandir todos'}
+                      </Button>
+                    </Box>
+
+                    {/* Acordeones por proceso */}
+                    {procesosFiltradosDetalle.length === 0 ? (
+                      <Box sx={{ py: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">No hay procesos disponibles con el filtro actual</Typography>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {procesosFiltradosDetalle.map((procesoData) => {
+                          const isExpanded = expandidos[procesoData.procesoNombre] || false;
+                          const maxVal = Math.max(
+                            ...procesoData.riesgos.map((r: any) => {
+                              let c = 0, p = 0;
+                              (r.causas || []).forEach((causa: any) => {
+                                const t = String(causa.tipoGestion || '').toUpperCase();
+                                if (t === 'CONTROL' || t === 'AMBOS') c++;
+                                if (t === 'PLAN' || t === 'AMBOS') p++;
+                              });
+                              return Math.max(c, p);
+                            }),
+                            1
+                          );
+
+                          return (
+                            <Accordion
+                              key={procesoData.procesoNombre}
+                              expanded={isExpanded}
+                              onChange={() => setExpandidos(prev => ({ ...prev, [procesoData.procesoNombre]: !prev[procesoData.procesoNombre] }))}
+                              sx={{
+                                border: '1px solid',
+                                borderColor: isExpanded ? '#1565c040' : '#e0e0e0',
+                                borderRadius: '12px !important',
+                                '&:before': { display: 'none' },
+                                boxShadow: isExpanded ? '0 2px 12px rgba(21, 101, 192, 0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+                                transition: 'all 0.2s ease',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <AccordionSummary
+                                expandIcon={<ExpandMoreIcon />}
+                                sx={{
+                                  px: 2.5,
+                                  py: 0.5,
+                                  backgroundColor: isExpanded ? '#f8faff' : 'transparent',
+                                  '&:hover': { backgroundColor: '#f5f8ff' },
+                                  minHeight: 64,
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1, gap: 2 }}>
+                                  {/* Nombre proceso + riesgos count */}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
+                                    <AccountTreeIcon sx={{ color: '#1565c0', fontSize: 22 }} />
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.3 }} noWrap>
+                                        {procesoData.procesoNombre}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {procesoData.riesgos.length} riesgo{procesoData.riesgos.length !== 1 ? 's' : ''}
+                                        {procesoData.totalCausas > 0 && ` · ${procesoData.totalCausas} causas`}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+
+                                  {/* Chips resumen compactos */}
+                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
+                                    <Chip
+                                      icon={<ShieldIcon sx={{ fontSize: 14, color: '#1565c0 !important' }} />}
+                                      label={procesoData.totalControles}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: '#1565c012',
+                                        color: '#1565c0',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        height: 28,
+                                        minWidth: 56,
+                                        '.MuiChip-label': { px: 0.8 },
+                                      }}
+                                    />
+                                    <Chip
+                                      icon={<PlaylistAddCheckIcon sx={{ fontSize: 14, color: '#e65100 !important' }} />}
+                                      label={procesoData.totalPlanes}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: '#e6510012',
+                                        color: '#e65100',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        height: 28,
+                                        minWidth: 56,
+                                        '.MuiChip-label': { px: 0.8 },
+                                      }}
+                                    />
+                                  </Box>
+
+                                  {/* Mini barra de progreso visual */}
+                                  <Box sx={{ width: 120, flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
+                                    <Box sx={{ display: 'flex', gap: 0.3, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
+                                      <Box sx={{
+                                        width: `${procesoData.totalCausas > 0 ? (procesoData.totalControles / procesoData.totalCausas) * 100 : 0}%`,
+                                        backgroundColor: '#1976d2',
+                                        borderRadius: '4px 0 0 4px',
+                                        transition: 'width 0.3s ease',
+                                      }} />
+                                      <Box sx={{
+                                        width: `${procesoData.totalCausas > 0 ? (procesoData.totalPlanes / procesoData.totalCausas) * 100 : 0}%`,
+                                        backgroundColor: '#e65100',
+                                        borderRadius: '0 4px 4px 0',
+                                        transition: 'width 0.3s ease',
+                                      }} />
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              </AccordionSummary>
+
+                              <AccordionDetails sx={{ px: 2.5, pt: 0, pb: 2 }}>
+                                {procesoData.riesgos.length === 0 ? (
+                                  <Box sx={{ py: 2, textAlign: 'center' }}>
+                                    <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                      Sin riesgos identificados en este proceso
+                                    </Typography>
+                                  </Box>
+                                ) : (
+                                  <Box>
+                                    {/* Leyenda en el detalle */}
+                                    <Box sx={{ display: 'flex', gap: 2, mb: 1.5, px: 1 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Box sx={{ width: 12, height: 12, borderRadius: '3px', backgroundColor: '#1976d2' }} />
+                                        <Typography variant="caption" color="text.secondary">Controles</Typography>
+                                      </Box>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Box sx={{ width: 12, height: 12, borderRadius: '3px', backgroundColor: '#e65100' }} />
+                                        <Typography variant="caption" color="text.secondary">Planes de Acción</Typography>
+                                      </Box>
+                                    </Box>
+
+                                    {/* Riesgos individuales como filas con barras */}
+                                    {procesoData.riesgos.map((r: any, idx: number) => {
+                                      let controlesCount = 0;
+                                      let planesCount = 0;
+                                      (r.causas || []).forEach((causa: any) => {
+                                        const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
+                                        if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') controlesCount++;
+                                        if (tipoGestion === 'PLAN' || tipoGestion === 'AMBOS') planesCount++;
+                                      });
+                                      const codigo = r.numeroIdentificacion || r.numero || `R-${r.id}`;
+                                      const descripcionCorta = r.descripcion
+                                        ? (r.descripcion.length > 60 ? r.descripcion.substring(0, 58) + '...' : r.descripcion)
+                                        : 'Sin descripción';
+
+                                      return (
+                                        <Box
+                                          key={r.id}
+                                          sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 2,
+                                            py: 1.2,
+                                            px: 1.5,
+                                            borderRadius: 2,
+                                            backgroundColor: idx % 2 === 0 ? '#fafbfc' : 'transparent',
+                                            '&:hover': { backgroundColor: '#f0f4ff' },
+                                            transition: 'background 0.15s',
+                                          }}
+                                        >
+                                          {/* Código del riesgo */}
+                                          <Chip
+                                            label={codigo}
+                                            size="small"
+                                            sx={{
+                                              fontWeight: 700,
+                                              fontSize: '0.75rem',
+                                              backgroundColor: '#e3f2fd',
+                                              color: '#1565c0',
+                                              minWidth: 60,
+                                              height: 26,
+                                            }}
+                                          />
+
+                                          {/* Descripción */}
+                                          <Typography
+                                            variant="body2"
+                                            sx={{
+                                              flex: 1,
+                                              minWidth: 0,
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap',
+                                              color: '#333',
+                                              fontSize: '0.82rem',
+                                            }}
+                                            title={r.descripcion || ''}
+                                          >
+                                            {descripcionCorta}
+                                          </Typography>
+
+                                          {/* Barras visuales de Controles y Planes */}
+                                          <Box sx={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                                            {/* Barra controles */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                              <Box sx={{
+                                                height: 10,
+                                                width: `${maxVal > 0 ? Math.max((controlesCount / maxVal) * 100, controlesCount > 0 ? 8 : 0) : 0}%`,
+                                                backgroundColor: '#1976d2',
+                                                borderRadius: '0 5px 5px 0',
+                                                transition: 'width 0.4s cubic-bezier(.4,0,.2,1)',
+                                                minWidth: controlesCount > 0 ? 8 : 0,
+                                                maxWidth: '80%',
+                                              }} />
+                                              <Typography variant="caption" fontWeight={700} sx={{ color: '#1565c0', fontSize: '0.75rem', minWidth: 14 }}>
+                                                {controlesCount}
+                                              </Typography>
+                                            </Box>
+                                            {/* Barra planes */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                              <Box sx={{
+                                                height: 10,
+                                                width: `${maxVal > 0 ? Math.max((planesCount / maxVal) * 100, planesCount > 0 ? 8 : 0) : 0}%`,
+                                                backgroundColor: '#e65100',
+                                                borderRadius: '0 5px 5px 0',
+                                                transition: 'width 0.4s cubic-bezier(.4,0,.2,1)',
+                                                minWidth: planesCount > 0 ? 8 : 0,
+                                                maxWidth: '80%',
+                                              }} />
+                                              <Typography variant="caption" fontWeight={700} sx={{ color: '#e65100', fontSize: '0.75rem', minWidth: 14 }}>
+                                                {planesCount}
+                                              </Typography>
+                                            </Box>
+                                          </Box>
+                                        </Box>
+                                      );
+                                    })}
+                                  </Box>
+                                )}
+                              </AccordionDetails>
+                            </Accordion>
+                          );
+                        })}
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid2>
+            </Grid2>
+          );
+        })()}
 
         {/* Dialog para Riesgos Fuera del Apetito */}
         <Dialog

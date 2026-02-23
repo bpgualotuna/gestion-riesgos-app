@@ -188,6 +188,11 @@ export default function DashboardGerenteGeneralPage() {
                 <Box sx={{ width: '100%', height: 300 }}>
                   {(() => {
                     const dataPorProceso: Record<string, { nombre: string; promedioInherente: number; promedioResidual: number; totalRiesgos: number }> = {};
+                    // Inicializar TODOS los procesos con 0
+                    procesos.forEach((p: any) => {
+                      const nombre = p.nombre || 'Sin nombre';
+                      dataPorProceso[nombre] = { nombre, promedioInherente: 0, promedioResidual: 0, totalRiesgos: 0 };
+                    });
                     riesgos.forEach((r: any) => {
                       const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
                       const procesoNombre = proceso?.nombre || 'Sin proceso';
@@ -204,8 +209,8 @@ export default function DashboardGerenteGeneralPage() {
                     const chartData = Object.values(dataPorProceso).map(d => ({
                       nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
                       nombreCompleto: d.nombre,
-                      'R. Inherente': Number((d.promedioInherente / d.totalRiesgos).toFixed(1)),
-                      'R. Residual': Number((d.promedioResidual / d.totalRiesgos).toFixed(1)),
+                      'R. Inherente': d.totalRiesgos > 0 ? Number((d.promedioInherente / d.totalRiesgos).toFixed(1)) : 0,
+                      'R. Residual': d.totalRiesgos > 0 ? Number((d.promedioResidual / d.totalRiesgos).toFixed(1)) : 0,
                       totalRiesgos: d.totalRiesgos,
                     })).sort((a, b) => b['R. Inherente'] - a['R. Inherente']);
                     return chartData.length === 0 ? (
@@ -266,6 +271,11 @@ export default function DashboardGerenteGeneralPage() {
                 <Box sx={{ width: '100%', height: 300 }}>
                   {(() => {
                     const dataPorProceso: Record<string, { nombre: string; conGestion: number; sinGestion: number; totalCausas: number }> = {};
+                    // Inicializar TODOS los procesos con 0
+                    procesos.forEach((p: any) => {
+                      const nombre = p.nombre || 'Sin nombre';
+                      dataPorProceso[nombre] = { nombre, conGestion: 0, sinGestion: 0, totalCausas: 0 };
+                    });
                     riesgos.forEach((r: any) => {
                       const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
                       const procesoNombre = proceso?.nombre || 'Sin proceso';
@@ -285,7 +295,6 @@ export default function DashboardGerenteGeneralPage() {
                       }
                     });
                     const chartData = Object.values(dataPorProceso)
-                      .filter(d => d.totalCausas > 0)
                       .map(d => ({
                         nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
                         nombreCompleto: d.nombre,
@@ -350,8 +359,13 @@ export default function DashboardGerenteGeneralPage() {
                 <Box sx={{ width: '100%', height: 300 }}>
                   {(() => {
                     const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
+                    // Inicializar TODOS los procesos con 0
+                    procesos.forEach((p: any) => {
+                      const nombre = p.nombre || 'Sin nombre';
+                      dataPorProceso[nombre] = { nombre, cantidad: 0 };
+                    });
                     riesgos.forEach((r: any) => {
-                      const procesoNombre = procesos.find((p: any) => p.id === r.procesoId)?.nombre || 'Sin proceso';
+                      const procesoNombre = procesos.find((p: any) => String(p.id) === String(r.procesoId))?.nombre || 'Sin proceso';
                       if (!dataPorProceso[procesoNombre]) {
                         dataPorProceso[procesoNombre] = { nombre: procesoNombre, cantidad: 0 };
                       }

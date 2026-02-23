@@ -40,8 +40,12 @@ export const useDashboardEstadisticas = ({
             if (porTipoProceso[key] === 0) delete porTipoProceso[key];
         });
 
-        // 2. Riesgos por proceso
+        // 2. Riesgos por proceso - inicializar TODOS los procesos con 0
         const porProceso: Record<string, number> = {};
+        procesos.forEach((p: any) => {
+            const nombre = p.nombre || 'Sin nombre';
+            porProceso[nombre] = 0;
+        });
 
         riesgosFiltrados.forEach((r: any) => {
             const proceso = procesos.find((p: any) => String(p.id) === String(r.procesoId));
