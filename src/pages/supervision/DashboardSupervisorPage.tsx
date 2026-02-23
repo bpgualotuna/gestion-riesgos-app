@@ -855,59 +855,96 @@ export default function DashboardSupervisorPage() {
           </Grid2>
         </Grid2>
 
-        {/* Primera Fila: Estadísticas resumidas (sin duplicar información del header) */}
-        <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
-          {/* Card 1: Procesos con Riesgos (dinámico con filtros) */}
-          <Grid2 xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <BusinessCenterIcon color="primary" />
-                  <Typography variant="subtitle2" fontWeight={600}>Procesos con Riesgos</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700}>
-                  {Object.keys(estadisticas.porProceso || {}).length}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  En seguimiento (según filtros aplicados)
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
+        {/* Indicadores Clave — Compactos */}
+        <Grid2 container spacing={1.5} sx={{ mb: 3 }}>
+          {(() => {
+            // Calcular conteos desde causas.tipoGestion
+            let totalControles = 0;
+            let totalPlanes = 0;
+            let riesgosCriticos = 0;
+            let riesgosAltos = 0;
+            let riesgosMedios = 0;
+            let riesgosBajos = 0;
 
-          {/* Card 2: Riesgos fuera de apetito */}
-          <Grid2 xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ReportProblemIcon color="error" />
-                  <Typography variant="subtitle2" fontWeight={600}>Riesgos Fuera de Apetito</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700} color="error.main">
-                  {kpis.fueraApetito}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Calculados sobre los riesgos filtrados
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
+            riesgosFiltrados.forEach((r: any) => {
+              // Conteo de controles y planes desde causas
+              if (r.causas && Array.isArray(r.causas)) {
+                r.causas.forEach((causa: any) => {
+                  const tipo = String(causa.tipoGestion || '').toUpperCase();
+                  if (tipo === 'CONTROL' || tipo === 'AMBOS') totalControles++;
+                  if (tipo === 'PLAN' || tipo === 'AMBOS') totalPlanes++;
+                });
+              }
 
-          {/* Card 3: Planes de Acción activos */}
-          <Grid2 xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <AssignmentIcon color="success" />
-                  <Typography variant="subtitle2" fontWeight={600}>Planes de Acción</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight={700}>{planesFiltrados.length}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Total activos
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid2>
+              // Clasificación por nivel de riesgo inherente
+              const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
+              const inherente = punto ? punto.probabilidad * punto.impacto : (r.evaluacion?.riesgoInherente || 0);
+              if (inherente >= 20) riesgosCriticos++;
+              else if (inherente >= 15) riesgosAltos++;
+              else if (inherente >= 10) riesgosMedios++;
+              else if (inherente >= 5) riesgosBajos++;
+            });
+
+            const metrics = [
+              { label: 'Procesos', value: procesos.length, icon: <AccountTreeIcon sx={{ fontSize: 20 }} />, color: '#1565c0', bg: '#e3f2fd' },
+              { label: 'Riesgos', value: riesgosFiltrados.length, icon: <WarningIcon sx={{ fontSize: 20 }} />, color: '#7b1fa2', bg: '#f3e5f5' },
+              { label: 'Controles', value: totalControles, icon: <ShieldIcon sx={{ fontSize: 20 }} />, color: '#0277bd', bg: '#e1f5fe' },
+              { label: 'Planes', value: totalPlanes, icon: <PlaylistAddCheckIcon sx={{ fontSize: 20 }} />, color: '#e65100', bg: '#fff3e0' },
+              { label: 'Crítico', value: riesgosCriticos, icon: <ReportProblemIcon sx={{ fontSize: 20 }} />, color: '#b71c1c', bg: '#ffebee' },
+              { label: 'Alto', value: riesgosAltos, color: '#e65100', bg: '#fff3e0' },
+              { label: 'Medio', value: riesgosMedios, color: '#f9a825', bg: '#fffde7' },
+              { label: 'Bajo', value: riesgosBajos, color: '#2e7d32', bg: '#e8f5e9' },
+            ];
+
+            return metrics.map((m, idx) => (
+              <Grid2 key={m.label} xs={6} sm={3} md={1.5}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    borderLeft: `4px solid ${m.color}`,
+                    transition: 'all 0.15s',
+                    '&:hover': { boxShadow: `0 2px 12px ${m.color}20`, transform: 'translateY(-1px)' },
+                  }}
+                >
+                  <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h5" fontWeight={800} sx={{ color: m.color, lineHeight: 1.2 }}>
+                          {m.value}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem', lineHeight: 1 }}>
+                          {m.label}
+                        </Typography>
+                      </Box>
+                      {m.icon && (
+                        <Box sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '8px',
+                          backgroundColor: m.bg,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: m.color,
+                        }}>
+                          {m.icon}
+                        </Box>
+                      )}
+                      {!m.icon && (
+                        <Box sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          backgroundColor: m.color,
+                          flexShrink: 0,
+                        }} />
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid2>
+            ));
+          })()}
         </Grid2>
 
         {/* Graficas adicionales */}
@@ -933,7 +970,7 @@ export default function DashboardSupervisorPage() {
                       console.log('[Dashboard] 📊 Puntos del mapa:', puntos.length);
                       
                       const dataNiveles = Object.entries(estadisticas.porNivelRiesgo || {})
-                        .filter(([_, value]) => value > 0)
+                        .filter(([name, value]) => value > 0 && name !== 'Sin Calificar')
                         .map(([name, value]) => ({
                           name,
                           value,
@@ -991,7 +1028,7 @@ export default function DashboardSupervisorPage() {
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ width: '100%', height: 300 }}>
+                  <Box sx={{ width: '100%', height: Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; promedioInherente: number; promedioResidual: number; totalRiesgos: number }> = {};
                       // Inicializar TODOS los procesos asignados con 0
@@ -1013,7 +1050,7 @@ export default function DashboardSupervisorPage() {
                         dataPorProceso[procesoNombre].totalRiesgos++;
                       });
                       const chartData = Object.values(dataPorProceso).map(d => ({
-                        nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
+                        nombre: d.nombre,
                         nombreCompleto: d.nombre,
                         'R. Inherente': d.totalRiesgos > 0 ? Number((d.promedioInherente / d.totalRiesgos).toFixed(1)) : 0,
                         'R. Residual': d.totalRiesgos > 0 ? Number((d.promedioResidual / d.totalRiesgos).toFixed(1)) : 0,
@@ -1025,10 +1062,10 @@ export default function DashboardSupervisorPage() {
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                          <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="nombre" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
+                            <YAxis dataKey="nombre" type="category" tick={{ fontSize: 11 }} width={160} interval={0} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} />
                             <Tooltip content={({ active, payload, label }: any) => {
                               if (active && payload && payload.length) {
                                 const data = payload[0]?.payload;
@@ -1046,8 +1083,8 @@ export default function DashboardSupervisorPage() {
                               return null;
                             }} />
                             <Legend />
-                            <Bar dataKey="R. Inherente" fill="#d32f2f" radius={[4, 4, 0, 0]} barSize={24} />
-                            <Bar dataKey="R. Residual" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={24} />
+                            <Bar dataKey="R. Inherente" fill="#d32f2f" radius={[0, 4, 4, 0]} barSize={18} />
+                            <Bar dataKey="R. Residual" fill="#4caf50" radius={[0, 4, 4, 0]} barSize={18} />
                           </BarChart>
                         </ResponsiveContainer>
                       );
@@ -1287,7 +1324,7 @@ export default function DashboardSupervisorPage() {
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ width: '100%', height: 300 }}>
+                  <Box sx={{ width: '100%', height: Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; conGestion: number; sinGestion: number; totalCausas: number }> = {};
                       // Inicializar TODOS los procesos asignados con 0
@@ -1315,7 +1352,7 @@ export default function DashboardSupervisorPage() {
                       });
                       const chartData = Object.values(dataPorProceso)
                         .map(d => ({
-                          nombre: d.nombre.length > 18 ? d.nombre.substring(0, 16) + '...' : d.nombre,
+                          nombre: d.nombre,
                           nombreCompleto: d.nombre,
                           'Con gestión': d.conGestion,
                           'Sin gestión': d.sinGestion,
@@ -1329,10 +1366,10 @@ export default function DashboardSupervisorPage() {
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                          <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="nombre" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
+                            <YAxis dataKey="nombre" type="category" tick={{ fontSize: 11 }} width={160} interval={0} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} />
                             <Tooltip content={({ active, payload, label }: any) => {
                               if (active && payload && payload.length) {
                                 const data = payload[0]?.payload;
@@ -1350,7 +1387,7 @@ export default function DashboardSupervisorPage() {
                             }} />
                             <Legend />
                             <Bar dataKey="Con gestión" stackId="a" fill="#1976d2" radius={[0, 0, 0, 0]} />
-                            <Bar dataKey="Sin gestión" stackId="a" fill="#ffb74d" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="Sin gestión" stackId="a" fill="#ffb74d" radius={[0, 4, 4, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       );
@@ -1371,7 +1408,7 @@ export default function DashboardSupervisorPage() {
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ width: '100%', height: 300 }}>
+                  <Box sx={{ width: '100%', height: Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
                       // Inicializar TODOS los procesos asignados con 0
@@ -1402,13 +1439,13 @@ export default function DashboardSupervisorPage() {
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                          <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="nombre" />
-                            <YAxis />
+                            <YAxis dataKey="nombre" type="category" tick={{ fontSize: 11 }} width={160} interval={0} />
+                            <XAxis type="number" />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="cantidad" name="Cantidad" fill="#4caf50" />
+                            <Bar dataKey="cantidad" name="Cantidad" fill="#4caf50" radius={[0, 4, 4, 0]} barSize={20} />
                           </BarChart>
                         </ResponsiveContainer>
                       );
@@ -1461,26 +1498,17 @@ export default function DashboardSupervisorPage() {
             riesgosPorProcesoDetalle.push({ procesoNombre, riesgos: riesgosDelProc, totalControles, totalPlanes, totalCausas });
           });
 
-          // Filtro por proceso para la sección de detalle
-          const [filtroDetalleProceso, setFiltroDetalleProceso] = [filtroProceso, setFiltroProceso];
-          const procesosFiltradosDetalle = filtroDetalleProceso === 'all'
-            ? riesgosPorProcesoDetalle
-            : riesgosPorProcesoDetalle.filter(p => {
-                const proc = procesos.find((pr: any) => String(pr.id) === filtroDetalleProceso);
-                return proc && p.procesoNombre === proc.nombre;
-              });
-
           // Estado para acordeones expandidos
           const expandidos = expandidosProcesos;
           const setExpandidos = setExpandidosProcesos;
-          const todosExpandidos = procesosFiltradosDetalle.length > 0 && procesosFiltradosDetalle.every(p => expandidos[p.procesoNombre]);
+          const todosExpandidos = riesgosPorProcesoDetalle.length > 0 && riesgosPorProcesoDetalle.every(p => expandidos[p.procesoNombre]);
 
           const toggleExpandirTodos = () => {
             if (todosExpandidos) {
               setExpandidos({});
             } else {
               const nuevos: Record<string, boolean> = {};
-              procesosFiltradosDetalle.forEach(p => { nuevos[p.procesoNombre] = true; });
+              riesgosPorProcesoDetalle.forEach(p => { nuevos[p.procesoNombre] = true; });
               setExpandidos(nuevos);
             }
           };
@@ -1526,24 +1554,8 @@ export default function DashboardSupervisorPage() {
                       </Box>
                     </Box>
 
-                    {/* Toolbar: filtro + expandir/colapsar */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <FilterListIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        <FormControl size="small" sx={{ minWidth: 220 }}>
-                          <InputLabel>Filtrar por proceso</InputLabel>
-                          <Select
-                            value={filtroDetalleProceso}
-                            label="Filtrar por proceso"
-                            onChange={(e) => setFiltroProceso(e.target.value)}
-                          >
-                            <MenuItem value="all">Todos los procesos</MenuItem>
-                            {procesos.map((p: any) => (
-                              <MenuItem key={p.id} value={String(p.id)}>{p.nombre}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Box>
+                    {/* Toolbar: expandir/colapsar */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
                       <Button
                         size="small"
                         variant="outlined"
@@ -1556,13 +1568,13 @@ export default function DashboardSupervisorPage() {
                     </Box>
 
                     {/* Acordeones por proceso */}
-                    {procesosFiltradosDetalle.length === 0 ? (
+                    {riesgosPorProcesoDetalle.length === 0 ? (
                       <Box sx={{ py: 4, textAlign: 'center' }}>
-                        <Typography color="text.secondary">No hay procesos disponibles con el filtro actual</Typography>
+                        <Typography color="text.secondary">No hay procesos disponibles</Typography>
                       </Box>
                     ) : (
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {procesosFiltradosDetalle.map((procesoData) => {
+                        {riesgosPorProcesoDetalle.map((procesoData) => {
                           const isExpanded = expandidos[procesoData.procesoNombre] || false;
                           const maxVal = Math.max(
                             ...procesoData.riesgos.map((r: any) => {

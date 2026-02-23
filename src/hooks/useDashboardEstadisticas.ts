@@ -111,7 +111,7 @@ export const useDashboardEstadisticas = ({
             }
         });
 
-        // 6. Calificaciones por Nivel de Riesgo
+        // 6. Calificaciones por Nivel de Riesgo — SIEMPRE calcular desde probabilidad × impacto
         const porNivelRiesgo: Record<string, number> = {
             'Crítico': 0,
             'Alto': 0,
@@ -121,47 +121,26 @@ export const useDashboardEstadisticas = ({
         };
 
         riesgosFiltrados.forEach((r: any) => {
-            // Priorizar nivel desde puntos del mapa (más confiable)
             const punto = puntos.find((p: any) => String(p.riesgoId) === String(r.id));
-            let nivelRiesgo: string | null = null;
             
-            if (punto && punto.nivelRiesgo) {
-                // Usar nivel del punto del mapa directamente
-                nivelRiesgo = punto.nivelRiesgo;
-            } else if (r.evaluacion?.nivelRiesgo) {
-                // Si no hay punto, usar evaluación del riesgo
-                nivelRiesgo = r.evaluacion.nivelRiesgo;
-            } else if (r.nivelRiesgo) {
-                // Último recurso: nivel directo del riesgo
-                nivelRiesgo = r.nivelRiesgo;
-            } else if (punto) {
-                // Si hay punto pero sin nivel, calcular desde probabilidad e impacto
-                const valor = punto.probabilidad * punto.impacto;
-                // Aplicar umbrales usando constantes oficiales UMBRALES_RIESGO
-                if (valor >= UMBRALES_RIESGO.CRITICO) {
-                    nivelRiesgo = 'Crítico';
-                } else if (valor >= UMBRALES_RIESGO.ALTO) {
-                    nivelRiesgo = 'Alto';
-                } else if (valor >= UMBRALES_RIESGO.MEDIO) {
-                    nivelRiesgo = 'Medio';
-                } else if (valor >= UMBRALES_RIESGO.BAJO) {
-                    nivelRiesgo = 'Bajo';
-                } else {
-                    nivelRiesgo = 'Sin Calificar';
-                }
-            } else {
-                nivelRiesgo = 'Sin Calificar';
+            // Calcular valor numérico desde puntos o evaluación
+            let valor = 0;
+            if (punto && punto.probabilidad && punto.impacto) {
+                valor = punto.probabilidad * punto.impacto;
+            } else if (r.evaluacion?.riesgoInherente) {
+                valor = r.evaluacion.riesgoInherente;
             }
-            
-            // Normalizar nombre del nivel (manejar variaciones)
-            const nivelNormalizado = nivelRiesgo?.toLowerCase() || 'sin calificar';
-            if (nivelNormalizado.includes('crítico') || nivelNormalizado.includes('critico')) {
+
+            // Clasificar usando umbrales oficiales
+            if (valor <= 0) {
+                porNivelRiesgo['Sin Calificar']++;
+            } else if (valor >= UMBRALES_RIESGO.CRITICO) {
                 porNivelRiesgo['Crítico']++;
-            } else if (nivelNormalizado.includes('alto')) {
+            } else if (valor >= UMBRALES_RIESGO.ALTO) {
                 porNivelRiesgo['Alto']++;
-            } else if (nivelNormalizado.includes('medio')) {
+            } else if (valor >= UMBRALES_RIESGO.MEDIO) {
                 porNivelRiesgo['Medio']++;
-            } else if (nivelNormalizado.includes('bajo')) {
+            } else if (valor >= UMBRALES_RIESGO.BAJO) {
                 porNivelRiesgo['Bajo']++;
             } else {
                 porNivelRiesgo['Sin Calificar']++;
