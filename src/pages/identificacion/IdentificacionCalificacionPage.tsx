@@ -62,7 +62,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import api from '../../services/api';
 
-import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, riesgosApi, useGetRiesgosQuery } from '../../api/services/riesgosApi';
+import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, useCreateRiesgoMutation, riesgosApi, useGetRiesgosQuery } from '../../api/services/riesgosApi';
   import { useAppDispatch } from '../../app/hooks';
   // fuentes de causa: default vacío (backend/seed debe proveer en futuro)
 
@@ -246,7 +246,10 @@ function getFuenteLabel(fuentes: any, clave: any) {
 export default function IdentificacionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const { esDueñoProcesos } = useAuth();
-  const { riesgos: riesgosApiData, cargarRiesgos, crearRiesgo, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
+  const { riesgos: riesgosApiData, cargarRiesgos, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
+  
+  // OPTIMIZADO: Usar mutación de RTK Query para crear riesgos
+  const [createRiesgoMutation] = useCreateRiesgoMutation();
   
   // OPTIMIZADO: Paginación - Estado para controlar página actual
   const [currentPage, setCurrentPage] = useState(1);
@@ -1330,10 +1333,16 @@ export default function IdentificacionPage() {
       };
       
 
-      const creado = await crearRiesgo(payload);
+      // OPTIMIZADO: Usar mutación de RTK Query para crear el riesgo
+      const creado = await createRiesgoMutation(payload).unwrap();
       showSuccess('Riesgo creado exitosamente');
-      // Recargar solo los riesgos del proceso seleccionado (crearRiesgo carga todos por defecto)
+      
+      // OPTIMIZADO: Forzar refetch inmediato de la lista de riesgos para que aparezca el nuevo riesgo
+      await refetchRiesgosRTK();
+      
+      // También recargar del contexto para sincronizar con otras páginas
       await cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
+      
       // Seleccionar el riesgo recién creado para que otras páginas (Controles / Planes / Materializar) se sincronicen
       try { iniciarVer(creado as any); } catch (err) { /* noop */ }
     } catch (e) {

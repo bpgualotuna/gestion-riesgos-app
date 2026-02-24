@@ -140,14 +140,23 @@ export default function UsuariosPage() {
         return result;
     };
 
+    // OPTIMIZADO: Mapear usuarios para incluir cargoNombre desde el objeto cargo anidado del backend
+    const usuariosMapeados = useMemo(() => {
+        return (usuariosData as any[]).map((u: any) => ({
+            ...u,
+            cargoNombre: u.cargo?.nombre || u.cargoNombre || null,
+            cargoId: u.cargoId || u.cargo?.id || null
+        }));
+    }, [usuariosData]);
+
     // Filtered data
     const filteredUsuarios = useMemo(() => {
-        return (usuariosData as Usuario[]).filter(u =>
+        return usuariosMapeados.filter((u: any) =>
             u.nombre.toLowerCase().includes(searchUsuarios.toLowerCase()) ||
             (u.email && u.email.toLowerCase().includes(searchUsuarios.toLowerCase())) ||
             (u.cargoNombre && u.cargoNombre.toLowerCase().includes(searchUsuarios.toLowerCase()))
         );
-    }, [usuariosData, searchUsuarios]);
+    }, [usuariosMapeados, searchUsuarios]);
 
     const filteredCargos = useMemo(() => {
         return (cargosData as Cargo[]).filter(c =>

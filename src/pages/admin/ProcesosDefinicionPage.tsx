@@ -107,7 +107,7 @@ export default function ProcesosDefinicionPage() {
     const [editingTipo, setEditingTipo] = useState<any | null>(null);
     const [tipoDetailDialogOpen, setTipoDetailDialogOpen] = useState(false);
     const [selectedTipoDetail, setSelectedTipoDetail] = useState<any | null>(null);
-    const [formData, setFormData] = useState<Partial<Proceso>>({
+    const [formData, setFormData] = useState<Partial<Proceso & { sigla?: string }>>({
         nombre: '',
         descripcion: '',
         vicepresidencia: '',
@@ -117,6 +117,7 @@ export default function ProcesosDefinicionPage() {
         areaId: '',
         areaNombre: '',
         responsableId: '',
+        sigla: '',
         activo: true,
     });
     const [tipoFormData, setTipoFormData] = useState<any>({
@@ -162,6 +163,7 @@ export default function ProcesosDefinicionPage() {
                 areaId: proceso.areaId,
                 areaNombre: proceso.areaNombre,
                 responsableId: proceso.responsableId || (proceso as any).responsable?.id,
+                sigla: (proceso as any).sigla || '',
                 activo: proceso.activo,
             });
         } else {
@@ -176,6 +178,7 @@ export default function ProcesosDefinicionPage() {
                 areaId: '',
                 areaNombre: '',
                 responsableId: '',
+                sigla: '',
                 activo: true,
             });
         }
@@ -285,6 +288,15 @@ export default function ProcesosDefinicionPage() {
     const columns: GridColDef[] = [
         { field: 'id', headerName: 'ID', width: 100 },
         { field: 'nombre', headerName: 'Nombre', flex: 1 },
+        { 
+            field: 'sigla', 
+            headerName: 'Sigla', 
+            width: 100,
+            valueGetter: (value: any, row: any) => {
+                const data = row || value?.row || value;
+                return data?.sigla || '-';
+            }
+        },
         { field: 'descripcion', headerName: 'Descripción', flex: 1.5 },
         {
             field: 'tipoProceso',
@@ -587,6 +599,16 @@ export default function ProcesosDefinicionPage() {
                                 fullWidth
                             />
                         </Grid2>
+                        <Grid2 xs={12} md={6}>
+                            <TextField
+                                label="Sigla del Proceso"
+                                fullWidth
+                                value={formData.sigla || ''}
+                                onChange={(e) => setFormData({ ...formData, sigla: e.target.value.toUpperCase().trim() })}
+                                inputProps={{ maxLength: 4 }}
+                                helperText="Usada para identificar riesgos (ej: 'PF' para Planificación Financiera, 'GTH' para Gestión de Talento Humano)"
+                            />
+                        </Grid2>
                         <Grid2 xs={12}>
                             <FormControlLabel
                                 control={
@@ -646,6 +668,12 @@ export default function ProcesosDefinicionPage() {
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Nombre</Typography>
                                 <Typography variant="body1">{selectedProcessDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Sigla del Proceso</Typography>
+                                <Typography variant="body1" fontWeight={600}>
+                                    {(selectedProcessDetail as any).sigla || '-'}
+                                </Typography>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Descripción</Typography>
