@@ -22,6 +22,7 @@ import {
     Paper,
     InputAdornment,
     IconButton,
+    Chip,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -37,12 +38,14 @@ import {
     Close as CloseIcon,
     Visibility,
     VisibilityOff,
+    Security as SecurityIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Usuario, Cargo, Gerencia } from '../../types';
 import {
     useGetUsuariosQuery, useCreateUsuarioMutation, useUpdateUsuarioMutation, useDeleteUsuarioMutation,
+    useGetRolesQuery, useCreateRoleMutation, useUpdateRoleMutation, useDeleteRoleMutation,
     useGetCargosQuery, useCreateCargoMutation, useUpdateCargoMutation, useDeleteCargoMutation,
     useGetGerenciasQuery, useCreateGerenciaMutation, useUpdateGerenciaMutation, useDeleteGerenciaMutation
 } from '../../api/services/riesgosApi';
@@ -84,6 +87,7 @@ export default function UsuariosPage() {
 
     // Queries
     const { data: usuariosData = [], isLoading: loadingUsuarios, refetch: refetchUsuarios } = useGetUsuariosQuery();
+    const { data: rolesData = [], isLoading: loadingRoles, refetch: refetchRoles } = useGetRolesQuery();
     const { data: cargosData = [], isLoading: loadingCargos, refetch: refetchCargos } = useGetCargosQuery();
     const { data: gerenciasData = [], isLoading: loadingGerencias, refetch: refetchGerencias } = useGetGerenciasQuery();
 
@@ -91,6 +95,9 @@ export default function UsuariosPage() {
     const [createUsuario] = useCreateUsuarioMutation();
     const [updateUsuario] = useUpdateUsuarioMutation();
     const [deleteUsuario] = useDeleteUsuarioMutation();
+    const [createRole] = useCreateRoleMutation();
+    const [updateRole] = useUpdateRoleMutation();
+    const [deleteRole] = useDeleteRoleMutation();
     const [createCargo] = useCreateCargoMutation();
     const [updateCargo] = useUpdateCargoMutation();
     const [deleteCargo] = useDeleteCargoMutation();
@@ -99,6 +106,7 @@ export default function UsuariosPage() {
     const [deleteGerencia] = useDeleteGerenciaMutation();
 
     const [searchUsuarios, setSearchUsuarios] = useState('');
+    const [searchRoles, setSearchRoles] = useState('');
     const [searchCargos, setSearchCargos] = useState('');
     const [searchGerencias, setSearchGerencias] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,20 +117,34 @@ export default function UsuariosPage() {
     const [editingCargo, setEditingCargo] = useState<Cargo | null>(null);
     const [cargoDetailDialogOpen, setCargoDetailDialogOpen] = useState(false);
     const [selectedCargoDetail, setSelectedCargoDetail] = useState<Cargo | null>(null);
+    const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+    const [editingRole, setEditingRole] = useState<any | null>(null);
+    const [roleDetailDialogOpen, setRoleDetailDialogOpen] = useState(false);
+    const [selectedRoleDetail, setSelectedRoleDetail] = useState<any | null>(null);
     const [gerenciaDialogOpen, setGerenciaDialogOpen] = useState(false);
     const [editingGerencia, setEditingGerencia] = useState<Gerencia | null>(null);
     const [gerenciaDetailDialogOpen, setGerenciaDetailDialogOpen] = useState(false);
     const [selectedGerenciaDetail, setSelectedGerenciaDetail] = useState<Gerencia | null>(null);
-    const [formData, setFormData] = useState<Partial<Usuario>>({
+    const [formData, setFormData] = useState<Partial<Usuario & { roleId?: string | number }>>({
         nombre: '',
         email: '',
-        role: 'supervisor',
+        roleId: '',
         activo: true,
         cargoId: '',
     });
     const [cargoFormData, setCargoFormData] = useState<any>({
         nombre: '',
         descripcion: '',
+    });
+    const [roleFormData, setRoleFormData] = useState<any>({
+        codigo: '',
+        nombre: '',
+        descripcion: '',
+        permisos: { 
+            visualizar: true,
+            editar: false
+        },
+        activo: true
     });
     const [gerenciaFormData, setGerenciaFormData] = useState<any>({
         nombre: '',
@@ -140,12 +162,15 @@ export default function UsuariosPage() {
         return result;
     };
 
-    // OPTIMIZADO: Mapear usuarios para incluir cargoNombre desde el objeto cargo anidado del backend
+    // OPTIMIZADO: Mapear usuarios para incluir cargoNombre y roleCodigo desde objetos anidados del backend
     const usuariosMapeados = useMemo(() => {
         return (usuariosData as any[]).map((u: any) => ({
             ...u,
             cargoNombre: u.cargo?.nombre || u.cargoNombre || null,
-            cargoId: u.cargoId || u.cargo?.id || null
+            cargoId: u.cargoId || u.cargo?.id || null,
+            role: u.role?.codigo || u.role || null,
+            roleId: u.roleId || u.role?.id || null,
+            roleNombre: u.role?.nombre || null
         }));
     }, [usuariosData]);
 
@@ -157,6 +182,14 @@ export default function UsuariosPage() {
             (u.cargoNombre && u.cargoNombre.toLowerCase().includes(searchUsuarios.toLowerCase()))
         );
     }, [usuariosMapeados, searchUsuarios]);
+
+    const filteredRoles = useMemo(() => {
+        return (rolesData as any[]).filter(r =>
+            r.nombre.toLowerCase().includes(searchRoles.toLowerCase()) ||
+            (r.codigo && r.codigo.toLowerCase().includes(searchRoles.toLowerCase())) ||
+            (r.descripcion && r.descripcion.toLowerCase().includes(searchRoles.toLowerCase()))
+        );
+    }, [rolesData, searchRoles]);
 
     const filteredCargos = useMemo(() => {
         return (cargosData as Cargo[]).filter(c =>
@@ -186,20 +219,23 @@ export default function UsuariosPage() {
     const handleOpenDialog = (usuario?: Usuario) => {
         if (usuario) {
             setEditingUsuario(usuario);
+            const usuarioMapeado = usuariosMapeados.find((u: any) => u.id === usuario.id);
             setFormData({
                 nombre: usuario.nombre,
                 email: usuario.email || '',
-                role: usuario.role,
+                roleId: (usuarioMapeado as any)?.roleId || (usuario as any).roleId || '',
                 activo: usuario.activo,
                 cargoId: usuario.cargoId || '',
                 password: usuario.password || '',
             });
         } else {
             setEditingUsuario(null);
+            // Obtener el primer rol disponible como default (o supervisor si existe)
+            const defaultRole = rolesData.find((r: any) => r.codigo === 'supervisor') || rolesData[0];
             setFormData({
                 nombre: '',
                 email: '',
-                role: 'supervisor',
+                roleId: defaultRole?.id || '',
                 activo: true,
                 cargoId: '',
                 password: '',
@@ -223,6 +259,97 @@ export default function UsuariosPage() {
         setDetailDialogOpen(false);
         setSelectedUserDetail(null);
         setShowPassword(false);
+    };
+
+    const handleOpenRoleDialog = (role?: any) => {
+        if (role) {
+            setEditingRole(role);
+            const permisosExistentes = role.permisos || {};
+            setRoleFormData({
+                codigo: role.codigo || '',
+                nombre: role.nombre || '',
+                descripcion: role.descripcion || '',
+                permisos: {
+                    visualizar: permisosExistentes.visualizar !== false,
+                    editar: permisosExistentes.editar || false
+                },
+                activo: role.activo !== undefined ? role.activo : true
+            });
+        } else {
+            setEditingRole(null);
+            setRoleFormData({
+                codigo: '',
+                nombre: '',
+                descripcion: '',
+                permisos: { 
+                    visualizar: true,
+                    editar: false
+                },
+                activo: true
+            });
+        }
+        setRoleDialogOpen(true);
+    };
+
+    const handleCloseRoleDialog = () => {
+        setRoleDialogOpen(false);
+        setEditingRole(null);
+    };
+
+    const handleOpenRoleDetailDialog = (role: any) => {
+        setSelectedRoleDetail(role);
+        setRoleDetailDialogOpen(true);
+    };
+
+    const handleCloseRoleDetailDialog = () => {
+        setRoleDetailDialogOpen(false);
+        setSelectedRoleDetail(null);
+    };
+
+    const handleSaveRole = async () => {
+        if (!roleFormData.codigo || !roleFormData.nombre) {
+            showError('El código y nombre son requeridos');
+            return;
+        }
+
+        try {
+            // Si tiene permiso de editar, automáticamente incluir crear y eliminar
+            const permisosParaGuardar = {
+                visualizar: roleFormData.permisos?.visualizar !== false,
+                editar: roleFormData.permisos?.editar || false,
+                crear: roleFormData.permisos?.editar || false, // Si puede editar, puede crear
+                eliminar: roleFormData.permisos?.editar || false // Si puede editar, puede eliminar
+            };
+
+            const roleDataToSave = {
+                ...roleFormData,
+                permisos: permisosParaGuardar
+            };
+
+            if (editingRole) {
+                await updateRole({ id: editingRole.id, ...roleDataToSave }).unwrap();
+                showSuccess('Rol actualizado correctamente');
+            } else {
+                await createRole(roleDataToSave).unwrap();
+                showSuccess('Rol creado correctamente');
+            }
+            handleCloseRoleDialog();
+        } catch (error) {
+            console.error('Error saving role:', error);
+            showError('Error al guardar el rol');
+        }
+    };
+
+    const handleDeleteRole = async (id: string | number) => {
+        if (window.confirm('¿Está seguro de eliminar este rol?')) {
+            try {
+                await deleteRole(id as any).unwrap();
+                showSuccess('Rol eliminado correctamente');
+            } catch (error: any) {
+                const errorMsg = error?.data?.error || 'Error al eliminar el rol';
+                showError(errorMsg);
+            }
+        }
     };
 
     const handleOpenCargoDialog = (cargo?: Cargo) => {
@@ -488,6 +615,13 @@ export default function UsuariosPage() {
                         id="usuario-tab-2"
                         aria-controls="usuario-tabpanel-2"
                     />
+                    <Tab
+                        icon={<SecurityIcon sx={{ fontSize: 24 }} />}
+                        iconPosition="top"
+                        label="Roles y Permisos"
+                        id="usuario-tab-3"
+                        aria-controls="usuario-tabpanel-3"
+                    />
                 </Tabs>
 
                 {/* TAB 0: USUARIOS */}
@@ -517,6 +651,106 @@ export default function UsuariosPage() {
                             columns={columns}
                             getRowId={(row) => row.id}
                             onRowClick={(params) => handleOpenUserDetailDialog(params.row)}
+                        />
+                    </Box>
+                </TabPanel>
+
+                {/* TAB 3: ROLES Y PERMISOS */}
+                <TabPanel value={currentTab} index={3}>
+                    <Box sx={{ p: 3 }}>
+                        <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', justifyContent: 'space-between' }}>
+                            <TextField
+                                size="small"
+                                placeholder="Buscar roles..."
+                                value={searchRoles}
+                                onChange={(e) => setSearchRoles(e.target.value)}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ color: 'text.secondary' }} />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                                sx={{ flex: 1, maxWidth: '300px' }}
+                            />
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenRoleDialog()}>
+                                Nuevo Rol
+                            </Button>
+                        </Box>
+                        <AppDataGrid
+                            rows={filteredRoles}
+                            columns={[
+                                { field: 'id', headerName: 'ID', width: 80 },
+                                { field: 'codigo', headerName: 'Código', flex: 0.8 },
+                                { field: 'nombre', headerName: 'Nombre', flex: 1 },
+                                { field: 'descripcion', headerName: 'Descripción', flex: 1.5 },
+                                {
+                                    field: 'permisos',
+                                    headerName: 'Permisos',
+                                    flex: 1.2,
+                                    renderCell: (params) => {
+                                        const permisos = params.value || {};
+                                        const permisosList = [];
+                                        if (permisos.visualizar) permisosList.push('Visualizar');
+                                        if (permisos.editar) permisosList.push('Editar');
+                                        return (
+                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                                {permisosList.length > 0 ? (
+                                                    permisosList.map((p, idx) => (
+                                                        <Chip 
+                                                            key={idx} 
+                                                            label={p} 
+                                                            size="small" 
+                                                            sx={{ 
+                                                                fontSize: '0.7rem', 
+                                                                height: 20,
+                                                                bgcolor: p === 'Editar' ? '#e3f2fd' : '#f5f5f5'
+                                                            }} 
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                                        Sin permisos
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        );
+                                    }
+                                },
+                                {
+                                    field: 'activo',
+                                    headerName: 'Activo',
+                                    width: 100,
+                                    renderCell: (params) => (
+                                        params.value ? (
+                                            <CheckCircleIcon sx={{ color: '#4caf50', fontSize: 24 }} />
+                                        ) : (
+                                            <CloseIcon sx={{ color: '#f44336', fontSize: 24 }} />
+                                        )
+                                    )
+                                },
+                                {
+                                    field: 'actions',
+                                    type: 'actions',
+                                    headerName: 'Acciones',
+                                    width: 150,
+                                    getActions: (params) => [
+                                        <GridActionsCellItem
+                                            icon={<EditIcon sx={{ color: '#2196f3' }} />}
+                                            label="Editar"
+                                            onClick={() => handleOpenRoleDialog(params.row)}
+                                        />,
+                                        <GridActionsCellItem
+                                            icon={<DeleteIcon sx={{ color: '#f44336' }} />}
+                                            label="Eliminar"
+                                            onClick={() => handleDeleteRole(params.row.id)}
+                                        />,
+                                    ],
+                                },
+                            ]}
+                            getRowId={(row) => row.id}
+                            onRowClick={(params) => handleOpenRoleDetailDialog(params.row)}
+                            loading={loadingRoles}
                         />
                     </Box>
                 </TabPanel>
@@ -692,21 +926,13 @@ export default function UsuariosPage() {
                             fullWidth
                         />
                         <Autocomplete
-                            options={['admin', 'manager', 'analyst', 'dueño_procesos', 'director_procesos']}
-                            getOptionLabel={(option) => {
-                                const roles: Record<string, string> = {
-                                    'admin': 'Administrador',
-                                    'manager': 'Gerente',
-                                    'analyst': 'Analista',
-                                    'dueño_procesos': 'Dueño del Proceso',
-                                    'director_procesos': 'Director de Procesos'
-                                };
-                                return roles[option] || option;
-                            }}
-                            value={formData.role || ''}
-                            onChange={(_e, newValue) => setFormData({ ...formData, role: newValue as any })}
-                            renderInput={(params) => <TextField {...params} label="Rol" variant="outlined" />}
+                            options={rolesData}
+                            getOptionLabel={(option: any) => option.nombre || option.codigo || ''}
+                            value={rolesData.find((r: any) => String(r.id) === String(formData.roleId)) || null}
+                            onChange={(_e, newValue) => setFormData({ ...formData, roleId: newValue?.id || '' })}
+                            renderInput={(params) => <TextField {...params} label="Rol" variant="outlined" required />}
                             fullWidth
+                            loading={loadingRoles}
                         />
                         <FormControlLabel
                             control={
@@ -722,6 +948,100 @@ export default function UsuariosPage() {
                 <DialogActions>
                     <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>Cancelar</Button>
                     <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={roleDialogOpen} onClose={handleCloseRoleDialog} maxWidth="md" fullWidth>
+                <DialogTitle>{editingRole ? 'Editar Rol' : 'Nuevo Rol'}</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                        <TextField
+                            label="Código"
+                            fullWidth
+                            value={roleFormData.codigo}
+                            onChange={(e) => setRoleFormData({ ...roleFormData, codigo: e.target.value.toLowerCase().trim() })}
+                            required
+                            helperText="Código único del rol (ej: 'admin', 'gerente', 'supervisor', 'dueño_procesos')"
+                            inputProps={{ maxLength: 50 }}
+                        />
+                        <TextField
+                            label="Nombre"
+                            fullWidth
+                            value={roleFormData.nombre}
+                            onChange={(e) => setRoleFormData({ ...roleFormData, nombre: e.target.value })}
+                            required
+                            helperText="Nombre descriptivo del rol (ej: 'Administrador', 'Gerente', 'Supervisor de Riesgos')"
+                        />
+                        <TextField
+                            label="Descripción"
+                            fullWidth
+                            multiline
+                            rows={2}
+                            value={roleFormData.descripcion}
+                            onChange={(e) => setRoleFormData({ ...roleFormData, descripcion: e.target.value })}
+                        />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>Permisos del Rol</Typography>
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={roleFormData.permisos?.visualizar !== false}
+                                            onChange={(e) => setRoleFormData({
+                                                ...roleFormData,
+                                                permisos: { ...roleFormData.permisos, visualizar: e.target.checked }
+                                            })}
+                                        />
+                                    }
+                                    label="Visualizar"
+                                />
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={roleFormData.permisos?.editar || false}
+                                            onChange={(e) => {
+                                                const editar = e.target.checked;
+                                                setRoleFormData({
+                                                    ...roleFormData,
+                                                    permisos: { 
+                                                        visualizar: true, // Si puede editar, también puede visualizar
+                                                        editar: editar
+                                                    }
+                                                });
+                                            }}
+                                        />
+                                    }
+                                    label="Editar (incluye crear y eliminar)"
+                                />
+                            </Box>
+                            
+                            {roleFormData.permisos?.editar && (
+                                <Alert severity="info" sx={{ mt: 1 }}>
+                                    El permiso "Editar" incluye automáticamente las capacidades de crear y eliminar registros.
+                                </Alert>
+                            )}
+                            
+                            {roleFormData.codigo === 'gerente' && (
+                                <Alert severity="info" sx={{ mt: 1 }}>
+                                    El rol "Gerente" puede seleccionar entre dos perfiles: "Dueño de Procesos" o "Supervisor" al iniciar sesión.
+                                </Alert>
+                            )}
+                        </Box>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={roleFormData.activo}
+                                    onChange={(e) => setRoleFormData({ ...roleFormData, activo: e.target.checked })}
+                                />
+                            }
+                            label="Activo"
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseRoleDialog} startIcon={<CancelIcon />}>Cancelar</Button>
+                    <Button onClick={handleSaveRole} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
@@ -907,6 +1227,62 @@ export default function UsuariosPage() {
                     <Button onClick={() => {
                         handleOpenGerenciaDialog(selectedGerenciaDetail!);
                         handleCloseGerenciaDetailDialog();
+                    }} variant="contained" startIcon={<EditIcon />}>
+                        Editar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* MODAL DE DETALLE DEL ROL */}
+            <Dialog open={roleDetailDialogOpen} onClose={handleCloseRoleDetailDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Información del Rol</DialogTitle>
+                <DialogContent>
+                    {selectedRoleDetail && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">ID</Typography>
+                                <Typography variant="body1">{selectedRoleDetail.id}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Código</Typography>
+                                <Typography variant="body1">{selectedRoleDetail.codigo}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Nombre</Typography>
+                                <Typography variant="body1">{selectedRoleDetail.nombre}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Descripción</Typography>
+                                <Typography variant="body1">{selectedRoleDetail.descripcion || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Permisos</Typography>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                                    {selectedRoleDetail.permisos?.visualizar && (
+                                        <Chip label="Visualizar" size="small" sx={{ bgcolor: '#f5f5f5' }} />
+                                    )}
+                                    {selectedRoleDetail.permisos?.editar && (
+                                        <Chip label="Editar (incluye crear y eliminar)" size="small" sx={{ bgcolor: '#e3f2fd' }} />
+                                    )}
+                                    {!selectedRoleDetail.permisos?.visualizar && !selectedRoleDetail.permisos?.editar && (
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                            Sin permisos
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Estado</Typography>
+                                <Typography variant="body1">{selectedRoleDetail.activo ? 'Activo' : 'Inactivo'}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseRoleDetailDialog}>Cerrar</Button>
+                    <Button onClick={() => {
+                        handleOpenRoleDialog(selectedRoleDetail);
+                        handleCloseRoleDetailDialog();
                     }} variant="contained" startIcon={<EditIcon />}>
                         Editar
                     </Button>

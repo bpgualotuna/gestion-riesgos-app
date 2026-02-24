@@ -23,7 +23,7 @@ export default function RoleGuard({
   fallbackPath = '/',
   showLoading = true,
 }: RoleGuardProps) {
-  const { user, isLoading, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneral } = useAuth();
+  const { user, isLoading, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerente } = useAuth();
   const location = useLocation();
 
   if (isLoading && showLoading) {
@@ -60,7 +60,7 @@ export default function RoleGuard({
     admin: 'admin',
     dueño_procesos: 'dueño_procesos',
     supervisor: 'supervisor',
-    gerente_general: 'gerente_general',
+    gerente: 'gerente',
   };
 
   const userRole = user.role;
@@ -78,8 +78,8 @@ export default function RoleGuard({
           return esDueñoProcesos;
         case 'supervisor':
           return esSupervisorRiesgos;
-        case 'gerente_general':
-          return esGerenteGeneral;
+        case 'gerente':
+          return esGerente;
         default:
           return userRole === role;
       }
@@ -94,8 +94,8 @@ export default function RoleGuard({
           return esDueñoProcesos;
         case 'supervisor':
           return esSupervisorRiesgos;
-        case 'gerente_general':
-          return esGerenteGeneral;
+        case 'gerente':
+          return esGerente;
         default:
           return userRole === role;
       }
@@ -113,7 +113,7 @@ export default function RoleGuard({
         redirectPath = ROUTES.DASHBOARD;
       } else if (esSupervisorRiesgos) {
         redirectPath = ROUTES.DASHBOARD_SUPERVISOR;
-      } else if (esGerenteGeneral) {
+      } else if (esGerente) {
         redirectPath = ROUTES.DASHBOARD_GERENTE_GENERAL;
       }
     }

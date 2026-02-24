@@ -36,6 +36,7 @@ import {
   Tabs,
   Tab,
   Collapse,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -120,7 +121,7 @@ interface Incidencia {
 }
 
 export default function MaterializarRiesgosPage() {
-  const { esAdmin, esDueñoProcesos } = useAuth();
+  const { esAdmin, esDueñoProcesos, esSupervisorRiesgos } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
@@ -131,6 +132,15 @@ export default function MaterializarRiesgosPage() {
   // OPTIMIZADO: Removido datosFormulario no usado
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
+  // Proceso usado para consultas en esta página (evita usar selecciones previas)
+  const [procesoFiltroId, setProcesoFiltroId] = useState<string | null>(null);
+  // Deferir la carga de datos hasta después del primer render para que la navegación sea instantánea
+  const [deferLoad, setDeferLoad] = useState(false);
+
+  useEffect(() => {
+    // Activar carga de datos después del primer pintado
+    setDeferLoad(true);
+  }, []);
 
   // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
   if (esDueñoProcesos && !procesoSeleccionado?.id) {
@@ -147,13 +157,26 @@ export default function MaterializarRiesgosPage() {
     );
   }
 
+  // Determinar proceso a usar para las consultas
+  // - Dueño de Proceso: siempre usa el proceso del header (no ve filtro)
+  // - Supervisor/Admin: usan solo el proceso seleccionado en el filtro local
+  const procesoIdConsulta =
+    esDueñoProcesos && procesoSeleccionado?.id
+      ? String(procesoSeleccionado.id)
+      : (esAdmin || esSupervisorRiesgos)
+        ? procesoFiltroId
+        : null;
+
   // OPTIMIZADO: Agregar caché para incidencias
-  const { data: incidenciasApi = [] } = useGetIncidenciasQuery(
+  const { data: incidenciasApi = [], isLoading: isLoadingIncidencias } = useGetIncidenciasQuery(
     {
-      procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
+      procesoId: procesoIdConsulta || undefined,
     },
     {
-      skip: !procesoSeleccionado?.id,
+      // No hacer petición hasta que:
+      // 1) Hay procesoIdConsulta, y
+      // 2) Hay pasado al menos un render (deferLoad)
+      skip: !deferLoad || !procesoIdConsulta,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
       refetchOnReconnect: false,
@@ -215,14 +238,15 @@ export default function MaterializarRiesgosPage() {
   }, [impactosApi]);
   
   // OPTIMIZADO: Agregar caché y optimizaciones
-  const { data: riesgosResponse, refetch: refetchRiesgos } = useGetRiesgosQuery(
-    { 
-      procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
+  const { data: riesgosResponse, isLoading: isLoadingRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery(
+    {
+      procesoId: procesoIdConsulta || undefined,
       includeCausas: true,
-      pageSize: 100 // Máximo permitido por backend
+      pageSize: 20 // Limitar a 20 riesgos por proceso para evitar bloqueos
     },
     {
-      skip: !procesoSeleccionado?.id, // Skip si no hay proceso
+      // Igual que incidencias: solo cargar cuando ya estemos dentro de la página
+      skip: !deferLoad || !procesoIdConsulta,
       refetchOnMountOrArgChange: false, // No refetch si ya está en caché
       refetchOnFocus: false,
       refetchOnReconnect: false,
@@ -238,9 +262,14 @@ export default function MaterializarRiesgosPage() {
   const { riesgoSeleccionado } = useRiesgo();
 
   const riesgosDelProceso = useMemo(() => {
-    if (!procesoSeleccionado?.id) return [];
-    return riesgosData;
-  }, [riesgosData, procesoSeleccionado?.id]);
+    if (!procesoIdConsulta) return [];
+    // Limitar cantidad de riesgos mostrados para que la UI se mantenga fluida
+    return (riesgosData || []).slice(0, 20);
+  }, [riesgosData, procesoIdConsulta]);
+
+  // Estado de carga combinado (solo cuando hay proceso seleccionado)
+  const isLoadingData =
+    !!procesoIdConsulta && (isLoadingIncidencias || isLoadingRiesgos);
 
   // OPTIMIZADO: Usar startTransition y evitar ejecuciones innecesarias
   const prevRiesgoSeleccionadoRef = useRef<string | null>(null);
@@ -264,9 +293,9 @@ export default function MaterializarRiesgosPage() {
 
   // OPTIMIZADO: Filtrar incidencias por proceso y crear Maps para búsquedas O(1)
   const incidenciasFiltradas = useMemo(() => {
-    if (!procesoSeleccionado?.id) return [];
-    return incidenciasLocal.filter((inc) => String(inc.procesoId) === String(procesoSeleccionado.id));
-  }, [incidenciasLocal, procesoSeleccionado?.id]);
+    if (!procesoIdConsulta) return [];
+    return incidenciasLocal.filter((inc) => String(inc.procesoId) === String(procesoIdConsulta));
+  }, [incidenciasLocal, procesoIdConsulta]);
 
   // OPTIMIZADO: Crear Map de incidencias por riesgoId para búsquedas O(1)
   const incidenciasPorRiesgo = useMemo(() => {
@@ -489,7 +518,16 @@ export default function MaterializarRiesgosPage() {
     <AppPageLayout
       title="Materialización de Riesgos"
       description="Gestión y registro de eventos donde los riesgos se han materializado."
-      topContent={<FiltroProcesoSupervisor />}
+      topContent={
+        // Solo mostrar filtro de proceso para Supervisor/Admin.
+        // Dueño de Proceso usa exclusivamente el proceso del header.
+        (esAdmin || esSupervisorRiesgos) ? (
+          <FiltroProcesoSupervisor
+            soloSupervisores={false}
+            onProcesoSeleccionado={(proceso) => setProcesoFiltroId(String(proceso.id))}
+          />
+        ) : null
+      }
       alert={
         isReadOnly && (
           <Alert severity="info" sx={{ borderRadius: 2 }}>
@@ -498,7 +536,6 @@ export default function MaterializarRiesgosPage() {
         )
       }
     >
-
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabValue} onChange={(_, v) => startTransition(() => setTabValue(v))}>
           <Tab
@@ -520,7 +557,11 @@ export default function MaterializarRiesgosPage() {
       {/* OPTIMIZADO: Solo renderizar cuando el tab está activo */}
       {tabValue === 0 && (
         <Box>
-          {riesgosDelProceso.length === 0 ? (
+          {isLoadingData ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : riesgosDelProceso.length === 0 ? (
             <Alert severity="info" sx={{ mt: 2 }}>No hay riesgos asociados a este proceso.</Alert>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

@@ -87,7 +87,7 @@ export const router = createBrowserRouter([
     path: ROUTES.MODO_GERENTE_GENERAL,
     element: (
       <ProtectedRoute>
-        <RoleGuard allowedRoles={['gerente_general']}>
+        <RoleGuard allowedRoles={['gerente']}>
           <ModoGerenteGeneralSelector />
         </RoleGuard>
       </ProtectedRoute>
@@ -125,7 +125,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.IDENTIFICACION,
         element: (
-          <RoleGuard allowedRoles={['dueño_procesos', 'gerente_general']}>
+          <RoleGuard allowedRoles={['dueño_procesos', 'gerente', 'supervisor']}>
             <LazyRoute component={IdentificacionCalificacionPage} />
           </RoleGuard>
         ),
@@ -265,7 +265,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.SUPERVISION,
         element: (
-          <RoleGuard allowedRoles={['supervisor', 'gerente_general']}>
+          <RoleGuard allowedRoles={['supervisor', 'gerente']}>
             <LazyRoute component={SupervisionPage} />
           </RoleGuard>
         ),
@@ -273,7 +273,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.RESUMEN_DIRECTOR,
         element: (
-          <RoleGuard allowedRoles={['supervisor', 'gerente_general']}>
+          <RoleGuard allowedRoles={['supervisor', 'gerente']}>
             <LazyRoute component={ResumenDirectorPage} />
           </RoleGuard>
         ),
@@ -281,7 +281,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.DASHBOARD_SUPERVISOR,
         element: (
-          <RoleGuard allowedRoles={['supervisor', 'gerente_general']}>
+          <RoleGuard allowedRoles={['supervisor', 'gerente']}>
             <LazyRoute component={DashboardSupervisorPage} />
           </RoleGuard>
         ),
@@ -305,7 +305,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.PROCESOS_GERENTE_GENERAL,
         element: (
-          <RoleGuard allowedRoles={['gerente_general']}>
+          <RoleGuard allowedRoles={['gerente']}>
             <LazyRoute component={ProcesosGerenteGeneralPage} />
           </RoleGuard>
         ),
@@ -313,7 +313,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.DASHBOARD_GERENTE_GENERAL,
         element: (
-          <RoleGuard allowedRoles={['gerente_general']}>
+          <RoleGuard allowedRoles={['gerente']}>
             <LazyRoute component={DashboardGerenteGeneralPage} />
           </RoleGuard>
         ),

@@ -54,11 +54,12 @@ export default function LoginPage() {
                 navigate(ROUTES.ADMINISTRACION);
                 return;
             }
-            if (userData?.role === 'supervisor_riesgos') {
+            if (userData?.role === 'supervisor') {
                 navigate(ROUTES.DASHBOARD_SUPERVISOR);
                 return;
             }
-            if (userData?.role === 'gerente_general') {
+            if (userData?.role === 'gerente') {
+                // Los gerentes deben seleccionar su modo de acceso
                 navigate(ROUTES.MODO_GERENTE_GENERAL);
                 return;
             }

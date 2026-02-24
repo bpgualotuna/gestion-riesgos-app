@@ -20,22 +20,44 @@ export interface Impactos {
 
 /**
  * Calcula el impacto global ponderado
- * Fórmula actualizada según documento de diseño
+ * Fórmula: nivel * porcentaje (en decimal), sumar todos, redondear a entero
+ * 
+ * @param impactos - Niveles de impacto (1-5) para cada dimensión
+ * @param pesos - Porcentajes configurados (opcional, si no se proporciona usa PESOS_IMPACTO por defecto)
+ *                Formato: { key: string, porcentaje: number }[] donde porcentaje está en formato 0-100
  */
-export function calcularImpactoGlobal(impactos: Impactos): number {
+export function calcularImpactoGlobal(
+  impactos: Impactos,
+  pesos?: Array<{ key: string; porcentaje: number }>
+): number {
+  // Si se proporcionan pesos desde la BD, usarlos; sino usar los hardcodeados
+  let pesosUsar: Record<string, number>;
+  
+  if (pesos && pesos.length > 0) {
+    // Convertir porcentajes (0-100) a decimales (0-1)
+    pesosUsar = {};
+    pesos.forEach(p => {
+      pesosUsar[p.key] = p.porcentaje / 100;
+    });
+  } else {
+    // Usar pesos hardcodeados como fallback
+    pesosUsar = PESOS_IMPACTO as Record<string, number>;
+  }
+  
+  // Calcular: nivel * porcentaje_decimal para cada impacto, luego sumar
   const impactoGlobal =
-    (impactos.personas || 1) * PESOS_IMPACTO.personas +
-    (impactos.legal || 1) * PESOS_IMPACTO.legal +
-    (impactos.ambiental || 1) * PESOS_IMPACTO.ambiental +
-    (impactos.procesos || 1) * PESOS_IMPACTO.procesos +
-    (impactos.reputacion || 1) * PESOS_IMPACTO.reputacion +
-    (impactos.economico || 1) * PESOS_IMPACTO.economico +
-    (impactos.confidencialidadSGSI || 1) * PESOS_IMPACTO.confidencialidadSGSI +
-    (impactos.disponibilidadSGSI || 1) * PESOS_IMPACTO.disponibilidadSGSI +
-    (impactos.integridadSGSI || 1) * PESOS_IMPACTO.integridadSGSI;
+    (impactos.personas || 1) * (pesosUsar.personas || 0) +
+    (impactos.legal || 1) * (pesosUsar.legal || 0) +
+    (impactos.ambiental || 1) * (pesosUsar.ambiental || 0) +
+    (impactos.procesos || 1) * (pesosUsar.procesos || 0) +
+    (impactos.reputacion || 1) * (pesosUsar.reputacion || 0) +
+    (impactos.economico || 1) * (pesosUsar.economico || 0) +
+    (impactos.confidencialidadSGSI || 1) * (pesosUsar.confidencialidadSGSI || 0) +
+    (impactos.disponibilidadSGSI || 1) * (pesosUsar.disponibilidadSGSI || 0) +
+    (impactos.integridadSGSI || 1) * (pesosUsar.integridadSGSI || 0);
 
-  // Redondear a entero (al entero más cercano)
-  return Math.round(impactoGlobal);
+  // Redondear hacia arriba (Math.ceil) - igual que en el backend
+  return Math.ceil(impactoGlobal);
 }
 
 /**

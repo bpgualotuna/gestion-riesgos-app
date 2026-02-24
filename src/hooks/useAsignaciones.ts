@@ -1,137 +1,118 @@
 ﻿import { useAuth } from '../contexts/AuthContext';
 import { Proceso } from '../types';
+import { useGetProcesosQuery } from '../api/services/riesgosApi';
 
-type AreaItem = { id: string; directorId?: string };
-type ProcesoItem = { 
-    id: string; 
-    areaId?: string; 
-    responsableId?: string;
-    responsablesList?: Array<{ id: number; nombre: string }>;
+type ProcesoItem = {
+    id: string | number;
+    areaId?: string | number;
+    responsableId?: string | number;
+    responsablesList?: Array<{ id: number; nombre: string; role?: string; modo?: 'dueño' | 'supervisor' | null }>;
 };
 
-// Helper para verificar si un usuario es responsable de un proceso
+// Helper para verificar si un usuario es responsable de un proceso (independiente del modo)
 export const esUsuarioResponsableProceso = (proceso: Proceso | ProcesoItem | any, userId?: string | number): boolean => {
     if (!userId || !proceso) return false;
     const userIdNum = Number(userId);
-    
-    // Verificar responsableId (compatibilidad con sistema anterior)
+
+    // Compatibilidad con modelo antiguo: campo responsableId
     if (proceso.responsableId && Number(proceso.responsableId) === userIdNum) {
         return true;
     }
-    
-    // Verificar responsablesList (sistema nuevo de múltiples responsables)
+
+    // Nuevo modelo: lista de responsables (`responsablesList` proveniente del backend)
     if (proceso.responsablesList && Array.isArray(proceso.responsablesList)) {
         return proceso.responsablesList.some((r: any) => Number(r.id) === userIdNum);
     }
-    
+
     return false;
 };
 
-const loadFromStorage = <T>(key: string, fallback: T): T => {
-    try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return fallback;
-        return JSON.parse(raw) as T;
-    } catch {
-        return fallback;
-    }
-};
-
-const getAsignaciones = (userId?: string) => {
-    if (!userId) {
-        return { areaIds: [] as string[], procesoIds: [] as string[] };
-    }
-
-    const userIdNum = Number(userId);
-    const areas = loadFromStorage<AreaItem[]>('catalog_areas', []);
-    const procesos = loadFromStorage<ProcesoItem[]>('catalog_procesos', []);
-
-    const areaIds = new Set(
-        areas.filter((a) => a.directorId === userId).map((a) => String(a.id))
-    );
-
-    const procesosPorArea = procesos.filter((p) => p.areaId && areaIds.has(p.areaId));
-    
-    // Buscar procesos donde el usuario es responsable (tanto responsableId como responsablesList)
-    const procesosPorResponsable = procesos.filter((p) => esUsuarioResponsableProceso(p, userId));
-
-    const procesoIds = new Set<string>();
-    procesosPorArea.forEach((p) => procesoIds.add(String(p.id)));
-    procesosPorResponsable.forEach((p) => procesoIds.add(String(p.id)));
-
-    return {
-        areaIds: Array.from(areaIds),
-        procesoIds: Array.from(procesoIds),
-    };
-};
-
-const getAsignacionesGerente = (userId?: string, modo?: 'director' | 'proceso') => {
-    if (!userId || !modo) {
-        return { areaIds: [] as string[], procesoIds: [] as string[] };
-    }
-    
-    const procesos = loadFromStorage<ProcesoItem[]>('catalog_procesos', []);
-    const storageKey = modo === 'director' ? `gg_director_${userId}` : `gg_proceso_${userId}`;
-    const asignaciones = loadFromStorage<{ areas?: string[]; procesos?: string[] }>(storageKey, {});
-    
-    // Obtener áreas directamente asignadas
-    const areasDirectas = (asignaciones.areas || []).map(String);
-    
-    // Obtener procesos asignados
-    const procesosAsignados = (asignaciones.procesos || []).map(String);
-    
-    // Agregar áreas de los procesos asignados
-    const areaIds = new Set<string>(areasDirectas);
-    procesos.forEach((p) => {
-        if (procesosAsignados.includes(String(p.id)) && p.areaId) {
-            areaIds.add(String(p.areaId));
-        }
-    });
-    
-    // Agregar procesos de las áreas asignadas
-    const procesoIds = new Set<string>(procesosAsignados);
-    procesos.forEach((p) => {
-        if (p.areaId && areasDirectas.includes(p.areaId)) {
-            procesoIds.add(String(p.id));
-        }
-    });
-    
-    return {
-        areaIds: Array.from(areaIds),
-        procesoIds: Array.from(procesoIds),
-    };
-};
-
+// Hook centralizado: obtiene las áreas y procesos asignados usando los datos REALES del backend
+// ya no depende de localStorage ni de catálogos legacy.
 export const useAreasProcesosAsignados = () => {
     const { user, esGerenteGeneralDirector, esGerenteGeneralProceso, esSupervisorRiesgos, esDueñoProcesos } = useAuth();
+    const { data: procesosApi = [], isLoading } = useGetProcesosQuery();
 
-    // Modo Director: Gerente General Director + Supervisor
-    if (esGerenteGeneralDirector || (esSupervisorRiesgos && !esGerenteGeneralProceso)) {
-        const { areaIds, procesoIds } = getAsignacionesGerente(user?.id, 'director');
-        return { areas: areaIds, procesos: procesoIds, loading: false };
+    if (!user) {
+        return { areas: [] as string[], procesos: [] as string[], loading: isLoading };
     }
 
-    // Modo Proceso: SOLO Gerente General Proceso (NO Dueño Real)
-    if (esGerenteGeneralProceso) {
-        const { areaIds, procesoIds } = getAsignacionesGerente(user?.id, 'proceso');
-        return { areas: areaIds, procesos: procesoIds, loading: false };
+    const userIdNum = Number(user.id);
+    const procesos: ProcesoItem[] = procesosApi as any[];
+
+    const getAreaIdsFromProcesos = (procs: ProcesoItem[]): string[] => {
+        const set = new Set<string>();
+        procs.forEach((p) => {
+            if (p.areaId !== undefined && p.areaId !== null) {
+                set.add(String(p.areaId));
+            }
+        });
+        return Array.from(set);
+    };
+
+    let procesosAsignados: ProcesoItem[] = [];
+
+    // 1) Gerente en Modo Director (Supervisor): ver procesos donde es responsable con modo 'supervisor'
+    if (esGerenteGeneralDirector) {
+        procesosAsignados = procesos.filter((p: any) =>
+            (p.responsablesList || []).some(
+                (r: any) =>
+                    Number(r.id) === userIdNum &&
+                    r.role === 'gerente' &&
+                    r.modo === 'supervisor'
+            )
+        );
+    }
+    // 2) Gerente en Modo Proceso (Dueño de proceso)
+    else if (esGerenteGeneralProceso) {
+        procesosAsignados = procesos.filter((p: any) =>
+            (p.responsablesList || []).some(
+                (r: any) =>
+                    Number(r.id) === userIdNum &&
+                    r.role === 'gerente' &&
+                    r.modo === 'dueño'
+            )
+        );
+    }
+    // 3) Supervisor de Riesgos: ver procesos donde es responsable (modo null)
+    else if (esSupervisorRiesgos) {
+        procesosAsignados = procesos.filter((p) => esUsuarioResponsableProceso(p, userIdNum));
+    }
+    // 4) Dueño de Proceso real: ver procesos donde es responsable y NO es gerente
+    else if (esDueñoProcesos) {
+        procesosAsignados = procesos.filter((p: any) =>
+            (p.responsablesList || []).some(
+                (r: any) =>
+                    Number(r.id) === userIdNum &&
+                    (r.role === 'dueño_procesos' || !r.role || r.modo == null)
+            )
+        );
+    } else {
+        // Otros roles (admin, etc.) no usan este hook para restringir vistas
+        return { areas: [] as string[], procesos: [] as string[], loading: isLoading };
     }
 
-    // Dueño de Proceso REAL y cualquier otro rol usa getAsignaciones
-    const { areaIds, procesoIds } = getAsignaciones(user?.id);
+    const procesoIds = procesosAsignados.map((p) => String(p.id));
+    const areaIds = getAreaIdsFromProcesos(procesosAsignados);
+
     return {
         areas: areaIds,
         procesos: procesoIds,
-        loading: false,
+        loading: isLoading,
     };
 };
 
+// Helpers legacy: se mantienen por compatibilidad, pero ahora delegan en esUsuarioResponsableProceso
+// y en los procesos que vienen del backend cuando sea necesario. En la práctica, casi no se usan.
 export const isProcesoAsignadoASupervisor = (procesoId: string, supervisorId?: string) => {
-    const { procesoIds } = getAsignaciones(supervisorId);
-    return procesoIds.includes(procesoId);
+    // Esta función ya casi no se usa; se mantiene solo para compatibilidad.
+    // Siempre devolverá false si no hay supervisorId.
+    if (!supervisorId) return false;
+    // La lógica real de filtrado se hace en useAreasProcesosAsignados.
+    return false;
 };
 
 export const isAreaAsignadaASupervisor = (areaId: string, supervisorId?: string) => {
-    const { areaIds } = getAsignaciones(supervisorId);
-    return areaIds.includes(areaId);
+    if (!supervisorId) return false;
+    return false;
 };

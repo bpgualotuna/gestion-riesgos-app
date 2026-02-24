@@ -23,9 +23,11 @@ import { useNotification } from '../../hooks/useNotification';
 interface FiltroProcesoSupervisorProps {
     /** Si se proporciona, muestra solo si el usuario tiene permisos de supervisor */
     soloSupervisores?: boolean;
+    /** Callback opcional para notificar al padre el proceso seleccionado */
+    onProcesoSeleccionado?: (proceso: any) => void;
 }
 
-export default function FiltroProcesoSupervisor({ soloSupervisores = true }: FiltroProcesoSupervisorProps) {
+export default function FiltroProcesoSupervisor({ soloSupervisores = true, onProcesoSeleccionado }: FiltroProcesoSupervisorProps) {
     const { procesoSeleccionado, setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
     const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
     const { data: procesos = [] } = useGetProcesosQuery();
@@ -42,6 +44,7 @@ export default function FiltroProcesoSupervisor({ soloSupervisores = true }: Fil
     const esDuenoProcesos = user?.role === 'dueño_procesos';
     const mostrarFiltros =
         !soloSupervisores ||
+        esAdmin ||
         ((esSupervisorRiesgos || esGerenteGeneralDirector) && !esGerenteGeneralProceso && !esDuenoProcesos);
 
     // Obtener procesos disponibles según permisos
@@ -127,11 +130,14 @@ export default function FiltroProcesoSupervisor({ soloSupervisores = true }: Fil
                             value={procesoSeleccionado?.id || ''}
                             onChange={(e) => {
                                 const id = e.target.value as string;
-                                const p = procesosFiltrados.find((p) => p.id === id);
+                                const p = procesosFiltrados.find((p) => String(p.id) === String(id));
                                 if (p) {
                                     setProcesoSeleccionado(p);
                                     iniciarModoVisualizar();
                                     showSuccess(`Proceso "${p.nombre}" seleccionado`);
+                                    if (onProcesoSeleccionado) {
+                                        onProcesoSeleccionado(p);
+                                    }
                                 }
                             }}
                             label="Proceso"

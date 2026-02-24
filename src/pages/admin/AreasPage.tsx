@@ -75,25 +75,48 @@ export default function AreasPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
     const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
-    const { data: usuarios = [] } = useGetUsuariosQuery();
+    const { data: usuariosData = [] } = useGetUsuariosQuery();
     const { data: procesosData = [] } = useGetProcesosQuery();
     const [procesos, setProcesos] = useState<Proceso[]>([]);
 
+    // Mapear usuarios para incluir role como string (codigo) desde el objeto anidado del backend
+    const usuarios = useMemo(() => {
+        const mapped = (usuariosData as any[]).map((u: any) => ({
+            ...u,
+            role: u.role?.codigo || u.role || 'sin_rol',
+            roleId: u.roleId || u.role?.id || null,
+            roleNombre: u.role?.nombre || 'Sin rol asignado'
+        }));
+        console.log('[AreasPage] Total usuarios recibidos:', usuariosData.length);
+        console.log('[AreasPage] Total usuarios mapeados:', mapped.length);
+        return mapped;
+    }, [usuariosData]);
+
     // Estado para rastrear responsables seleccionados localmente (antes de guardar)
-    const [responsablesSeleccionados, setResponsablesSeleccionados] = useState<Record<string, number[]>>({});
+    // Formato: { procesoId: [{ usuarioId, modo? }] }
+    const [responsablesSeleccionados, setResponsablesSeleccionados] = useState<Record<string, Array<{ usuarioId: number; modo?: 'dueño' | 'supervisor' | null }>>>({});
     
     // Cargar responsables de todos los procesos al inicio
     useEffect(() => {
-        if (procesosData.length > 0) {
-            setProcesos(procesosData);
-            // Inicializar responsablesSeleccionados con los responsables existentes
-            const responsablesIniciales: Record<string, number[]> = {};
+        // Siempre actualizar procesos, incluso si está vacío (para limpiar estado anterior)
+        setProcesos(procesosData || []);
+        
+        if (procesosData && procesosData.length > 0) {
+            // Inicializar responsablesSeleccionados con los responsables existentes (incluyendo modo)
+            const responsablesIniciales: Record<string, Array<{ usuarioId: number; modo?: 'dueño' | 'supervisor' | null }>> = {};
             procesosData.forEach((p: any) => {
                 if (p.responsablesList && p.responsablesList.length > 0) {
-                    responsablesIniciales[String(p.id)] = p.responsablesList.map((r: any) => r.id);
+                    // Cargar desde responsablesList que ahora incluye modo
+                    responsablesIniciales[String(p.id)] = p.responsablesList.map((r: any) => ({
+                        usuarioId: r.id,
+                        modo: r.modo || null
+                    }));
                 }
             });
             setResponsablesSeleccionados(responsablesIniciales);
+        } else {
+            // Si no hay procesos, limpiar responsables
+            setResponsablesSeleccionados({});
         }
     }, [procesosData]);
 
@@ -119,18 +142,19 @@ export default function AreasPage() {
     const [assignmentSubTab, setAssignmentSubTab] = useState(0); // 0: Director, 1: Proceso
     const [filtroRol, setFiltroRol] = useState<string>('all');
 
-    // Detectar si el usuario seleccionado es Gerente General
-    const esGerenteGeneral = selectedUserForAssignment?.role === 'gerente_general';
-
-    const getGerenteStorageKey = (modo: 'director' | 'proceso') => {
-        if (!selectedUserForAssignment) return `gg_${modo}_unknown`;
-        return `gg_${modo}_${selectedUserForAssignment.id}`;
-    };
+    // Detectar si el usuario seleccionado es Gerente (ya no se usa localStorage, solo para UI)
+    const esGerenteGeneral = selectedUserForAssignment?.role === 'gerente';
 
     // Filtrar usuarios por rol
     const usuariosFiltrados = useMemo(() => {
-        if (filtroRol === 'all') return usuarios;
-        return usuarios.filter(u => u.role === filtroRol);
+        let filtered;
+        if (filtroRol === 'all') {
+            filtered = usuarios;
+        } else {
+            filtered = usuarios.filter((u: any) => u.role === filtroRol);
+        }
+        console.log('[AreasPage] Filtro rol:', filtroRol, 'Total usuarios:', usuarios.length, 'Usuarios filtrados:', filtered.length);
+        return filtered;
     }, [usuarios, filtroRol]);
 
     // Mutations
@@ -275,120 +299,121 @@ export default function AreasPage() {
     const handleProcessToggle = (procesoId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
-        // Para Gerente General, guardar asignaciones separadas según el modo (localStorage)
-        if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const currentAssignments = currentData.procesos || [];
-
-            if (isChecked) {
-                if (!currentAssignments.includes(String(procesoId))) {
-                    currentAssignments.push(String(procesoId));
-                }
+        // Usar sistema de múltiples responsables para todos los usuarios (guardado en base de datos)
+        const procesoIdStr = String(procesoId);
+        const usuarioId = selectedUserForAssignment.id;
+        const esGerente = selectedUserForAssignment.role === 'gerente';
+        
+        // Determinar el modo automáticamente según la pestaña activa:
+        // - assignmentSubTab === 0 (Modo Director) = 'supervisor'
+        // - assignmentSubTab === 1 (Modo Proceso) = 'dueño'
+        const modoAutomatico: 'dueño' | 'supervisor' | null = esGerente 
+            ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
+            : null;
+        
+        // Obtener responsables actuales del proceso (o inicializar)
+        const responsablesActuales = responsablesSeleccionados[procesoIdStr] || [];
+        
+        let nuevosResponsables: Array<{ usuarioId: number; modo?: 'dueño' | 'supervisor' | null }>;
+        if (isChecked) {
+            // Agregar el usuario si no está ya en la lista con el modo correcto
+            // Esto permite que un gerente tenga el mismo proceso en ambos modos (supervisor y dueño)
+            const yaExisteConEsteModo = responsablesActuales.find(r => 
+                r.usuarioId === usuarioId && r.modo === modoAutomatico
+            );
+            if (!yaExisteConEsteModo) {
+                nuevosResponsables = [
+                    ...responsablesActuales,
+                    { 
+                        usuarioId,
+                        modo: modoAutomatico
+                    }
+                ];
             } else {
-                const index = currentAssignments.indexOf(String(procesoId));
-                if (index > -1) {
-                    currentAssignments.splice(index, 1);
-                }
+                // Ya existe con este modo, no hacer nada
+                nuevosResponsables = responsablesActuales;
             }
-
-            currentData.procesos = currentAssignments;
-            localStorage.setItem(storageKey, JSON.stringify(currentData));
-            // Force re-render
-            setProcesos([...procesos]);
         } else {
-            // Usuario normal - usar sistema de múltiples responsables
-            const procesoIdStr = String(procesoId);
-            const usuarioId = selectedUserForAssignment.id;
-            
-            // Obtener responsables actuales del proceso (o inicializar)
-            const responsablesActuales = responsablesSeleccionados[procesoIdStr] || [];
-            
-            let nuevosResponsables: number[];
-            if (isChecked) {
-                // Agregar el usuario si no está ya en la lista
-                if (!responsablesActuales.includes(usuarioId)) {
-                    nuevosResponsables = [...responsablesActuales, usuarioId];
-                } else {
-                    nuevosResponsables = responsablesActuales;
-                }
-            } else {
-                // Remover el usuario de la lista
-                nuevosResponsables = responsablesActuales.filter(id => id !== usuarioId);
-            }
-            
-            // Actualizar el estado local
-            setResponsablesSeleccionados({
-                ...responsablesSeleccionados,
-                [procesoIdStr]: nuevosResponsables
-            });
+            // Remover el usuario de la lista solo si el modo coincide con la pestaña actual
+            // Esto permite que un gerente tenga el mismo proceso en ambos modos
+            nuevosResponsables = responsablesActuales.filter(r => 
+                !(r.usuarioId === usuarioId && r.modo === modoAutomatico)
+            );
         }
+        
+        // Actualizar el estado local
+        setResponsablesSeleccionados({
+            ...responsablesSeleccionados,
+            [procesoIdStr]: nuevosResponsables
+        });
     };
 
     const handleAreaToggle = (areaId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
-        // Para Gerente General, guardar el área directamente
-        if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const currentAreas = currentData.areas || [];
-
+        // Agregar/remover como responsable de todos los procesos del área (guardado en base de datos)
+        const procesosDelArea = procesos.filter(p => String(p.areaId) === String(areaId));
+        const usuarioId = selectedUserForAssignment.id;
+        const esGerente = selectedUserForAssignment.role === 'gerente';
+        
+        // Determinar el modo automáticamente según la pestaña activa
+        // Modo Director (0) = supervisor, Modo Proceso (1) = dueño
+        const modoAutomatico: 'dueño' | 'supervisor' | null = esGerente 
+            ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
+            : null;
+        
+        const nuevosResponsables = { ...responsablesSeleccionados };
+        
+        procesosDelArea.forEach(proceso => {
+            const procesoIdStr = String(proceso.id);
+            const responsablesActuales = nuevosResponsables[procesoIdStr] || [];
+            
             if (isChecked) {
-                if (!currentAreas.includes(String(areaId))) {
-                    currentAreas.push(String(areaId));
+                // Agregar el usuario si no está ya en la lista con el modo correcto
+                const yaExiste = responsablesActuales.find(r => 
+                    r.usuarioId === usuarioId && r.modo === modoAutomatico
+                );
+                if (!yaExiste) {
+                    nuevosResponsables[procesoIdStr] = [
+                        ...responsablesActuales,
+                        { 
+                            usuarioId,
+                            modo: modoAutomatico
+                        }
+                    ];
                 }
             } else {
-                const index = currentAreas.indexOf(String(areaId));
-                if (index > -1) {
-                    currentAreas.splice(index, 1);
-                }
+                // Remover el usuario solo si el modo coincide con la pestaña actual
+                nuevosResponsables[procesoIdStr] = responsablesActuales.filter(r => 
+                    !(r.usuarioId === usuarioId && r.modo === modoAutomatico)
+                );
             }
-
-            currentData.areas = currentAreas;
-            localStorage.setItem(storageKey, JSON.stringify(currentData));
-            // Force re-render
-            setProcesos([...procesos]);
-        } else {
-            // Usuario normal - agregar/remover como responsable de todos los procesos del área
-            const procesosDelArea = procesos.filter(p => String(p.areaId) === String(areaId));
-            const usuarioId = selectedUserForAssignment.id;
-            
-            const nuevosResponsables = { ...responsablesSeleccionados };
-            
-            procesosDelArea.forEach(proceso => {
-                const procesoIdStr = String(proceso.id);
-                const responsablesActuales = nuevosResponsables[procesoIdStr] || [];
-                
-                if (isChecked) {
-                    // Agregar el usuario si no está ya en la lista
-                    if (!responsablesActuales.includes(usuarioId)) {
-                        nuevosResponsables[procesoIdStr] = [...responsablesActuales, usuarioId];
-                    }
-                } else {
-                    // Remover el usuario de la lista
-                    nuevosResponsables[procesoIdStr] = responsablesActuales.filter(id => id !== usuarioId);
-                }
-            });
-            
-            setResponsablesSeleccionados(nuevosResponsables);
-        }
+        });
+        
+        setResponsablesSeleccionados(nuevosResponsables);
     };
 
     const saveAssignments = async () => {
         try {
-            // Para Gerente General, las asignaciones ya están en localStorage
-            if (esGerenteGeneral) {
-                showSuccess('Asignaciones guardadas correctamente (localStorage)');
-                return;
-            }
-            
-            // Para usuarios normales, usar el sistema de múltiples responsables
-            // Guardar responsables para cada proceso que tenga cambios
-            const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsablesIds]) => {
+            // Guardar responsables para cada proceso que tenga cambios en la base de datos
+            const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsables]) => {
+                // Asegurar que los gerentes tengan un modo válido antes de enviar
+                const responsablesConModo = responsables.map(r => {
+                    const usuario = usuarios.find(u => u.id === r.usuarioId);
+                    const esGerente = usuario?.role === 'gerente';
+                    
+                    // Si es gerente y no tiene modo, usar 'dueño' por defecto
+                    const modoFinal = esGerente && !r.modo ? 'dueño' : (r.modo || null);
+                    
+                    return {
+                        usuarioId: r.usuarioId,
+                        modo: modoFinal
+                    };
+                });
+                
                 await updateResponsables({
                     procesoId,
-                    responsablesIds
+                    responsables: responsablesConModo
                 }).unwrap();
             });
             
@@ -400,49 +425,34 @@ export default function AreasPage() {
             // Refrescar los procesos para obtener los responsables actualizados
             // (esto se hace automáticamente por invalidatesTags)
             
-            showSuccess('Asignaciones guardadas correctamente');
-        } catch (error) {
+            showSuccess('Asignaciones guardadas correctamente en la base de datos');
+        } catch (error: any) {
             console.error('Error al guardar asignaciones:', error);
-            showError('Error al guardar asignaciones');
+            const errorMessage = error?.data?.error || error?.message || 'Error al guardar asignaciones';
+            showError(errorMessage);
         }
     };
 
-    // Calculate derived states for checkboxes
+    // Calculate derived states for checkboxes (desde base de datos)
     const getAreaState = (areaId: string | number) => {
         if (!selectedUserForAssignment) return { checked: false, indeterminate: false };
         const areaProcesos = procesos.filter(p => String(p.areaId) === String(areaId));
         if (areaProcesos.length === 0) return { checked: false, indeterminate: false };
 
-        if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const areasAsignadas = currentData.areas || [];
-            const procesosAsignados = currentData.procesos || [];
+        // Determinar el modo según la pestaña activa para gerentes
+        const esGerente = selectedUserForAssignment.role === 'gerente';
+        const modoEsperado: 'dueño' | 'supervisor' | null = esGerente 
+            ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
+            : null;
 
-            // Si el área está asignada directamente, todos los procesos están checked
-            if (areasAsignadas.includes(String(areaId))) {
-                return { checked: true, indeterminate: false };
-            }
-
-            // Si no, verificar procesos individuales
-            const allOwned = areaProcesos.every(p => procesosAsignados.includes(String(p.id)));
-            const someOwned = areaProcesos.some(p => procesosAsignados.includes(String(p.id)));
-            return {
-                checked: allOwned,
-                indeterminate: someOwned && !allOwned
-            };
-        }
-
-        // Para usuarios normales, verificar si están en la lista de responsables
+        // Verificar si el usuario es responsable de todos los procesos del área con el modo correcto
         const usuarioId = selectedUserForAssignment.id;
-        const allOwned = areaProcesos.every(p => {
-            const responsables = responsablesSeleccionados[String(p.id)] || [];
-            return responsables.includes(usuarioId);
-        });
-        const someOwned = areaProcesos.some(p => {
-            const responsables = responsablesSeleccionados[String(p.id)] || [];
-            return responsables.includes(usuarioId);
-        });
+        const allOwned = areaProcesos.every(p => 
+            isProcesoResponsable(p.id, usuarioId, modoEsperado)
+        );
+        const someOwned = areaProcesos.some(p => 
+            isProcesoResponsable(p.id, usuarioId, modoEsperado)
+        );
 
         return {
             checked: allOwned,
@@ -450,19 +460,26 @@ export default function AreasPage() {
         };
     };
     
-    // Verificar si un proceso tiene a un usuario como responsable
-    const isProcesoResponsable = (procesoId: string | number, usuarioId: number) => {
-        if (esGerenteGeneral) {
-            const storageKey = getGerenteStorageKey(assignmentSubTab === 0 ? 'director' : 'proceso');
-            const currentData = JSON.parse(localStorage.getItem(storageKey) || '{"areas":[], "procesos": []}');
-            const areasAsignadas = currentData.areas || [];
-            const procesosAsignados = currentData.procesos || [];
-            const proceso = procesos.find(p => String(p.id) === String(procesoId));
-            return procesosAsignados.includes(String(procesoId)) || (proceso && areasAsignadas.includes(String(proceso.areaId)));
+    // Verificar si un proceso tiene a un usuario como responsable (desde base de datos)
+    // Si se especifica modoEsperado, solo verifica ese modo específico (para gerentes)
+    const isProcesoResponsable = (procesoId: string | number, usuarioId: number, modoEsperado?: 'dueño' | 'supervisor' | null): boolean => {
+        const responsables = responsablesSeleccionados[String(procesoId)] || [];
+        
+        // Si se especifica un modo esperado (para gerentes), verificar que coincida
+        if (modoEsperado !== undefined) {
+            return responsables.some(r => 
+                r.usuarioId === usuarioId && r.modo === modoEsperado
+            );
         }
         
+        // Si no se especifica modo, verificar si existe (para usuarios no gerentes)
+        return responsables.some(r => r.usuarioId === usuarioId);
+    };
+    
+    const getModoProceso = (procesoId: string | number, usuarioId: number): 'dueño' | 'supervisor' | null => {
         const responsables = responsablesSeleccionados[String(procesoId)] || [];
-        return responsables.includes(usuarioId);
+        const responsable = responsables.find(r => r.usuarioId === usuarioId);
+        return responsable?.modo || null;
     };
     
     // Obtener todos los responsables de un proceso para mostrarlos
@@ -474,14 +491,26 @@ export default function AreasPage() {
         const responsablesApi = (proceso as any).responsablesList || [];
         const responsablesLocal = responsablesSeleccionados[String(procesoId)] || [];
         
-        // Combinar ambos y eliminar duplicados
-        const todosResponsables = new Set([...responsablesApi.map((r: any) => r.id), ...responsablesLocal]);
-        return Array.from(todosResponsables).map(id => {
-            const responsableApi = responsablesApi.find((r: any) => r.id === id);
-            if (responsableApi) return responsableApi;
-            const usuario = usuarios.find(u => u.id === id);
-            return usuario ? { id: usuario.id, nombre: usuario.nombre, email: usuario.email, role: usuario.role } : null;
-        }).filter(Boolean);
+        // Combinar ambos y eliminar duplicados, priorizando el estado local
+        const responsablesMap = new Map<number, any>();
+        
+        // Primero agregar los de la API
+        responsablesApi.forEach((r: any) => {
+            responsablesMap.set(r.id, { ...r, modo: r.modo || null });
+        });
+        
+        // Luego sobrescribir con los del estado local (que tienen prioridad)
+        responsablesLocal.forEach(r => {
+            const responsableApi = responsablesMap.get(r.usuarioId);
+            responsablesMap.set(r.usuarioId, {
+                id: r.usuarioId,
+                nombre: responsableApi?.nombre || usuarios.find(u => u.id === r.usuarioId)?.nombre || 'Usuario',
+                email: responsableApi?.email || usuarios.find(u => u.id === r.usuarioId)?.email,
+                modo: r.modo || responsableApi?.modo || null
+            });
+        });
+        
+        return Array.from(responsablesMap.values());
     };
 
     return (
@@ -569,7 +598,7 @@ export default function AreasPage() {
                                 >
                                     <MenuItem value="all">Todos los roles</MenuItem>
                                     <MenuItem value="admin">Administrador</MenuItem>
-                                    <MenuItem value="gerente_general">Gerente General</MenuItem>
+                                    <MenuItem value="gerente">Gerente</MenuItem>
                                     <MenuItem value="supervisor">Supervisor de Riesgos</MenuItem>
                                     <MenuItem value="dueño_procesos">Dueño de Procesos</MenuItem>
                                 </Select>
@@ -578,10 +607,14 @@ export default function AreasPage() {
                             <Autocomplete
                                 fullWidth
                                 options={usuariosFiltrados}
-                                getOptionLabel={(option) => `${option.nombre} (${option.role})`}
+                                getOptionLabel={(option: any) => {
+                                    const roleNombre = option.roleNombre || option.role || 'Sin rol';
+                                    return `${option.nombre} (${roleNombre})`;
+                                }}
                                 value={selectedUserForAssignment}
                                 onChange={(_e, newValue) => setSelectedUserForAssignment(newValue)}
                                 renderInput={(params) => <TextField {...params} label="Seleccione Usuario a Configurar" variant="outlined" />}
+                                isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
                             />
                         </Box>
 
@@ -621,12 +654,12 @@ export default function AreasPage() {
                                 )}
                                 {esGerenteGeneral && assignmentSubTab === 0 && (
                                     <Alert severity="warning" sx={{ mb: 2 }}>
-                                        <strong>Modo Director:</strong> Procesos visibles cuando el usuario seleccione "Dashboard Gerencial".
+                                        <strong>Modo Director (Supervisor):</strong> Los procesos seleccionados se asignarán automáticamente como <strong>Supervisor</strong>. El gerente actuará como supervisor de estos procesos cuando seleccione "Dashboard Gerencial".
                                     </Alert>
                                 )}
                                 {esGerenteGeneral && assignmentSubTab === 1 && (
                                     <Alert severity="success" sx={{ mb: 2 }}>
-                                        <strong>Modo Proceso:</strong> Procesos visibles cuando el usuario seleccione "Vista de Procesos".
+                                        <strong>Modo Proceso (Dueño):</strong> Los procesos seleccionados se asignarán automáticamente como <strong>Dueño de Proceso</strong>. El gerente actuará como dueño de estos procesos cuando seleccione "Vista de Procesos".
                                     </Alert>
                                 )}
 
@@ -671,12 +704,19 @@ export default function AreasPage() {
                                                     {areaProcesses.length > 0 ? (
                                                         <Box sx={{ pl: 4 }}>
                                                             {areaProcesses.map(proceso => {
-                                                                const isOwned = isProcesoResponsable(proceso.id, selectedUserForAssignment.id);
+                                                                // Determinar el modo esperado según la pestaña activa
+                                                                const esGerente = selectedUserForAssignment.role === 'gerente';
+                                                                const modoEsperado: 'dueño' | 'supervisor' | null = esGerente 
+                                                                    ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
+                                                                    : null;
+                                                                
+                                                                // Verificar si el proceso está asignado con el modo correcto
+                                                                const isOwned = isProcesoResponsable(proceso.id, selectedUserForAssignment.id, modoEsperado);
                                                                 const responsablesProceso = getResponsablesProceso(proceso.id);
                                                                 
                                                                 return (
                                                                     <Box key={proceso.id} sx={{ display: 'flex', flexDirection: 'column', py: 0.5 }}>
-                                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                                         <FormControlLabel
                                                                             control={
                                                                                 <Checkbox
@@ -686,6 +726,14 @@ export default function AreasPage() {
                                                                             }
                                                                             label={proceso.nombre}
                                                                         />
+                                                                        {esGerente && isOwned && (
+                                                                            <Chip 
+                                                                                label={modoEsperado === 'supervisor' ? 'Supervisor' : 'Dueño'} 
+                                                                                size="small" 
+                                                                                color={modoEsperado === 'supervisor' ? 'warning' : 'primary'}
+                                                                                variant="outlined"
+                                                                            />
+                                                                        )}
                                                                         </Box>
                                                                         {/* Mostrar todos los responsables actuales del proceso */}
                                                                         {responsablesProceso.length > 0 && (
@@ -693,16 +741,21 @@ export default function AreasPage() {
                                                                                 <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                                                                                     Responsables:
                                                                                 </Typography>
-                                                                                {responsablesProceso.map((resp: any) => (
-                                                                            <Chip
-                                                                                        key={resp.id}
-                                                                                        label={resp.nombre}
-                                                                                size="small"
-                                                                                variant="outlined"
-                                                                                        color={resp.id === selectedUserForAssignment.id ? "primary" : "default"}
-                                                                                        sx={{ fontSize: '0.7rem' }}
-                                                                            />
-                                                                                ))}
+                                                                                {responsablesProceso.map((resp: any) => {
+                                                                                    const usuario = usuarios.find(u => u.id === resp.id);
+                                                                                    const esGerenteResp = usuario?.role === 'gerente';
+                                                                                    const modoLabel = esGerenteResp && resp.modo ? ` (${resp.modo === 'dueño' ? 'Dueño' : 'Supervisor'})` : '';
+                                                                                    return (
+                                                                                        <Chip
+                                                                                            key={resp.id}
+                                                                                            label={`${resp.nombre}${modoLabel}`}
+                                                                                            size="small"
+                                                                                            variant="outlined"
+                                                                                            color={resp.id === selectedUserForAssignment.id ? "primary" : "default"}
+                                                                                            sx={{ fontSize: '0.7rem' }}
+                                                                                        />
+                                                                                    );
+                                                                                })}
                                                                             </Box>
                                                                         )}
                                                                     </Box>

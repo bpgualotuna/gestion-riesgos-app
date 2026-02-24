@@ -4,9 +4,9 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-// User roles
-export type UserRole = 'admin' | 'dueño_procesos' | 'supervisor' | 'gerente_general';
-export type GerenteGeneralModo = 'director' | 'proceso';
+// User roles - Solo 4 roles permitidos
+export type UserRole = 'admin' | 'dueño_procesos' | 'gerente' | 'supervisor';
+export type GerenteModo = 'dueño' | 'supervisor';
 
 // User interface
 export interface User {
@@ -20,6 +20,7 @@ export interface User {
   phone?: string;
   position: string;
   esDuenoProcesos?: boolean; // Indica si es dueño de procesos
+  gerenteMode?: GerenteModo | null; // Modo seleccionado por el gerente
 }
 
 // Hardcoded users database removed in favor of mockData
@@ -32,11 +33,11 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   isLoading: boolean;
-  gerenteGeneralMode: GerenteGeneralModo | null;
-  setGerenteGeneralMode: (mode: GerenteGeneralModo | null) => void;
-  esGerenteGeneral: boolean;
-  esGerenteGeneralDirector: boolean;
-  esGerenteGeneralProceso: boolean;
+  gerenteMode: GerenteModo | null;
+  setGerenteMode: (mode: GerenteModo | null) => void;
+  esGerente: boolean;
+  esGerenteDueño: boolean;
+  esGerenteSupervisor: boolean;
   esDuenoProcesos: boolean; // Helper para verificar si es dueño de procesos
   esDueñoProcesos: boolean; // Alias for compatibility
   esAdmin: boolean; // Helper para verificar si es admin
@@ -55,7 +56,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [gerenteGeneralMode, setGerenteGeneralModeState] = useState<GerenteGeneralModo | null>(null);
+  const [gerenteMode, setGerenteModeState] = useState<GerenteModo | null>(null);
 
   // Login function
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
@@ -84,8 +85,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         setUser(contextUser);
-        if (contextUser.role === 'gerente_general') {
-          setGerenteGeneralModeState(null);
+        if (contextUser.role === 'gerente') {
+          setGerenteModeState(null);
         }
         return { success: true, user: contextUser };
       } else {
@@ -100,16 +101,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Logout function
   const logout = () => {
     setUser(null);
-    setGerenteGeneralModeState(null);
+    setGerenteModeState(null);
   };
 
-  const setGerenteGeneralMode = (mode: GerenteGeneralModo | null) => {
-    setGerenteGeneralModeState(mode);
+  const setGerenteMode = (mode: GerenteModo | null) => {
+    setGerenteModeState(mode);
   };
 
-  const esGerenteGeneral = user?.role === 'gerente_general';
-  const esGerenteGeneralDirector = esGerenteGeneral && gerenteGeneralMode === 'director';
-  const esGerenteGeneralProceso = esGerenteGeneral && gerenteGeneralMode === 'proceso';
+  const esGerente = user?.role === 'gerente';
+  const esGerenteDueño = esGerente && gerenteMode === 'dueño';
+  const esGerenteSupervisor = esGerente && gerenteMode === 'supervisor';
 
   const value: AuthContextType = {
     user,
@@ -117,17 +118,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     isLoading,
-    gerenteGeneralMode,
-    setGerenteGeneralMode,
-    esGerenteGeneral,
-    esGerenteGeneralDirector,
-    esGerenteGeneralProceso,
-    esDuenoProcesos: user?.role === 'dueño_procesos' || esGerenteGeneralProceso,
-    esDueñoProcesos: user?.role === 'dueño_procesos' || esGerenteGeneralProceso,
+    gerenteMode,
+    setGerenteMode,
+    esGerente,
+    esGerenteDueño,
+    esGerenteSupervisor,
+    esDuenoProcesos: user?.role === 'dueño_procesos' || esGerenteDueño,
+    esDueñoProcesos: user?.role === 'dueño_procesos' || esGerenteDueño,
     esAdmin: user?.role === 'admin',
-    esSupervisorRiesgos: user?.role === 'supervisor' || esGerenteGeneralDirector,
-    esDirectorProcesos: user?.role === 'supervisor' || esGerenteGeneralDirector,
-    esAuditoria: user?.role === 'gerente_general' && !gerenteGeneralMode, // Por ahora el GG en modo vista es lo más cercano a auditor
+    esSupervisorRiesgos: user?.role === 'supervisor' || esGerenteSupervisor,
+    esDirectorProcesos: user?.role === 'supervisor' || esGerenteSupervisor,
+    esAuditoria: false, // Ya no hay modo auditor
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

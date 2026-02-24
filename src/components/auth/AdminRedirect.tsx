@@ -9,7 +9,7 @@ import { ROUTES } from '../../utils/constants';
 import { Box, CircularProgress, Typography } from '@mui/material';
 
 const AdminRedirect = () => {
-    const { user, isLoading, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneral } = useAuth();
+    const { user, isLoading, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerente, gerenteMode } = useAuth();
 
     if (isLoading) {
         return (
@@ -40,8 +40,18 @@ const AdminRedirect = () => {
         return <Navigate to={ROUTES.ADMINISTRACION} replace />;
     }
 
-    if (esGerenteGeneral) {
-        return <Navigate to={ROUTES.DASHBOARD_GERENTE_GENERAL} replace />;
+    // Si es gerente y no ha seleccionado modo, redirigir a selección de modo
+    if (esGerente && !gerenteMode) {
+        return <Navigate to={ROUTES.MODO_GERENTE_GENERAL} replace />;
+    }
+    
+    // Si es gerente y ya tiene modo seleccionado, redirigir según el modo
+    if (esGerente && gerenteMode === 'supervisor') {
+        return <Navigate to={ROUTES.DASHBOARD_SUPERVISOR} replace />;
+    }
+    
+    if (esGerente && gerenteMode === 'dueño') {
+        return <Navigate to={ROUTES.DASHBOARD} replace />;
     }
 
     if (esSupervisorRiesgos) {

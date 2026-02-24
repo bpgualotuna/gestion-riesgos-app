@@ -107,8 +107,9 @@ export default function DofaPage() {
     if (esSupervisorRiesgos && user) {
       if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
       return procesos.filter((p: any) => {
-        if (procesosAsignados.includes(p.id)) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
+        // Comparar siempre como string para evitar problemas número/string
+        if (procesosAsignados.includes(String(p.id))) return true;
+        if (p.areaId && areasAsignadas.includes(String(p.areaId))) return true;
         return false;
       });
     }
@@ -375,7 +376,11 @@ export default function DofaPage() {
   }
 
   // Si es supervisor/gerente director y tiene proceso seleccionado, verificar que sea uno de sus procesos
-  if ((esSupervisorRiesgos || esGerenteGeneralDirector) && procesoSeleccionado && !procesosVisibles.find((p) => p.id === procesoSeleccionado.id)) {
+  if (
+    (esSupervisorRiesgos || esGerenteGeneralDirector) &&
+    procesoSeleccionado &&
+    !procesosVisibles.find((p: any) => String(p.id) === String(procesoSeleccionado.id))
+  ) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="warning">

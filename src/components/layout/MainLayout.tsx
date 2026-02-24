@@ -191,8 +191,14 @@ export default function MainLayout() {
     esGerenteGeneral,
     esGerenteGeneralDirector,
     esGerenteGeneralProceso,
+    managerMode,
+    setManagerMode,
+    esManager,
+    esManagerDueño,
+    esManagerSupervisor,
   } = useAuth();
   const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
+  const [modoManagerDialogOpen, setModoManagerDialogOpen] = useState(false);
 
   // Obtener asignaciones del supervisor/dueño de procesos
   const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
@@ -205,6 +211,11 @@ export default function MainLayout() {
       if (gerenteGeneralMode === 'director') return 'Gerente General (Director)';
       if (gerenteGeneralMode === 'proceso') return 'Gerente General (Proceso)';
       return 'Gerente General';
+    }
+    if (user?.role === 'manager') {
+      if (managerMode === 'dueño') return 'Gerente (Dueño)';
+      if (managerMode === 'supervisor') return 'Gerente (Supervisor)';
+      return 'Gerente';
     }
     if (esDueñoProcesos) return 'Dueño del Proceso';
     if (esSupervisorRiesgos) return 'Supervisor de Riesgos';
@@ -227,6 +238,14 @@ export default function MainLayout() {
       setModoGerenteDialogOpen(false);
     }
   }, [esGerenteGeneral, gerenteGeneralMode]);
+
+  useEffect(() => {
+    if (esManager && !managerMode) {
+      setModoManagerDialogOpen(true);
+    } else {
+      setModoManagerDialogOpen(false);
+    }
+  }, [esManager, managerMode]);
   const { data: procesos = [] } = useGetProcesosQuery();
   const { showSuccess, showError } = useNotification();
 
@@ -723,6 +742,10 @@ export default function MainLayout() {
                   const allowedMenus = ['Dashboard', 'Procesos'];
                   return allowedMenus.includes(item.text);
                 }
+                if (esManager && !managerMode) {
+                  const allowedMenus = ['Dashboard', 'Procesos'];
+                  return allowedMenus.includes(item.text);
+                }
                 return true;
               })
               .map((item) => (
@@ -752,6 +775,32 @@ export default function MainLayout() {
           </Button>
           <Button variant="contained" onClick={() => handleSelectGerenteMode('proceso')}>
             Entrar como Usuario de Proceso
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={modoManagerDialogOpen} maxWidth="xs" fullWidth>
+        <DialogTitle>Selecciona tu perfil de acceso</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Puedes entrar como Dueño del Proceso (gestionar procesos y riesgos asignados) o como Supervisor de Riesgos
+            (revisar y validar procesos y riesgos).
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => {
+            setManagerMode('supervisor');
+            setModoManagerDialogOpen(false);
+            navigate(ROUTES.DASHBOARD_SUPERVISOR);
+          }}>
+            Entrar como Supervisor
+          </Button>
+          <Button variant="contained" onClick={() => {
+            setManagerMode('dueño');
+            setModoManagerDialogOpen(false);
+            navigate(ROUTES.DASHBOARD);
+          }}>
+            Entrar como Dueño
           </Button>
         </DialogActions>
       </Dialog>

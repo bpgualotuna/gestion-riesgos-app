@@ -1,22 +1,26 @@
-﻿
+/**
+ * Modo Manager Selector
+ * Permite al usuario con rol "manager" seleccionar entre modo "dueño" y "supervisor"
+ */
+
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
 import { Box, Typography, Card, CardContent, CardActionArea } from '@mui/material';
-import { Dashboard as DashboardIcon, AccountTree as ProcessIcon } from '@mui/icons-material';
+import { Person as PersonIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 
-const ModoGerenteGeneralSelector = () => {
-    const { user, esGerente, setGerenteMode } = useAuth();
+const ModoManagerSelector = () => {
+    const { user, esManager, setManagerMode } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!esGerente) {
+        if (!esManager) {
             navigate(ROUTES.DASHBOARD);
         }
-    }, [esGerente, navigate]);
+    }, [esManager, navigate]);
 
-    if (!esGerente) return null;
+    if (!esManager) return null;
 
     return (
         <Box 
@@ -49,7 +53,7 @@ const ModoGerenteGeneralSelector = () => {
                         fontWeight: 400
                     }}
                 >
-                    Seleccione el modo de visualización:
+                    Seleccione el perfil de acceso:
                 </Typography>
             </Box>
 
@@ -68,8 +72,8 @@ const ModoGerenteGeneralSelector = () => {
                 >
                     <CardActionArea
                         onClick={() => {
-                            setGerenteMode('supervisor');
-                            navigate(ROUTES.DASHBOARD_SUPERVISOR);
+                            setManagerMode('dueño');
+                            navigate(ROUTES.DASHBOARD);
                         }}
                     >
                         <CardContent sx={{ p: 4, textAlign: 'center' }}>
@@ -86,26 +90,26 @@ const ModoGerenteGeneralSelector = () => {
                                     boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
                                 }}
                             >
-                                <DashboardIcon sx={{ fontSize: 40, color: 'white' }} />
+                                <PersonIcon sx={{ fontSize: 40, color: 'white' }} />
                             </Box>
                             <Typography 
-                                variant="h5" 
+                                variant="h5"
                                 sx={{ 
                                     fontWeight: 600,
-                                    mb: 1.5,
-                                    color: '#2c3e50'
+                                    mb: 1,
+                                    color: '#333'
                                 }}
                             >
-                                Modo Supervisor
+                                Dueño del Proceso
                             </Typography>
                             <Typography 
-                                variant="body2" 
+                                variant="body2"
                                 sx={{ 
                                     color: 'text.secondary',
                                     lineHeight: 1.6
                                 }}
                             >
-                                Vista completa de estadísticas, métricas y análisis de riesgos de toda la organización
+                                Acceso completo para gestionar procesos y riesgos asignados
                             </Typography>
                         </CardContent>
                     </CardActionArea>
@@ -125,8 +129,8 @@ const ModoGerenteGeneralSelector = () => {
                 >
                     <CardActionArea
                         onClick={() => {
-                            setGerenteMode('dueño');
-                            navigate(ROUTES.DASHBOARD);
+                            setManagerMode('supervisor');
+                            navigate(ROUTES.DASHBOARD_SUPERVISOR);
                         }}
                     >
                         <CardContent sx={{ p: 4, textAlign: 'center' }}>
@@ -143,26 +147,26 @@ const ModoGerenteGeneralSelector = () => {
                                     boxShadow: '0 4px 12px rgba(240, 147, 251, 0.4)'
                                 }}
                             >
-                                <ProcessIcon sx={{ fontSize: 40, color: 'white' }} />
+                                <VisibilityIcon sx={{ fontSize: 40, color: 'white' }} />
                             </Box>
                             <Typography 
-                                variant="h5" 
+                                variant="h5"
                                 sx={{ 
                                     fontWeight: 600,
-                                    mb: 1.5,
-                                    color: '#2c3e50'
+                                    mb: 1,
+                                    color: '#333'
                                 }}
                             >
-                                Modo Dueño de Procesos
+                                Supervisor de Riesgos
                             </Typography>
                             <Typography 
-                                variant="body2" 
+                                variant="body2"
                                 sx={{ 
                                     color: 'text.secondary',
                                     lineHeight: 1.6
                                 }}
                             >
-                                Gestión detallada de tus procesos asignados como responsable
+                                Acceso de supervisión para revisar y validar procesos y riesgos
                             </Typography>
                         </CardContent>
                     </CardActionArea>
@@ -172,4 +176,5 @@ const ModoGerenteGeneralSelector = () => {
     );
 };
 
-export default ModoGerenteGeneralSelector;
+export default ModoManagerSelector;
+

@@ -17,6 +17,7 @@ import {
     TextField,
     Paper,
     InputAdornment,
+    CircularProgress,
 } from '@mui/material';
 import {
     Assessment as AssessmentIcon,
@@ -162,6 +163,10 @@ export default function ParametrosCalificacionPage() {
     const [formulas, setFormulas] = useState<any[]>([]);
     const [pesoDialogOpen, setPesoDialogOpen] = useState(false);
     const [pesoEditing, setPesoEditing] = useState<{ key: string; label: string; porcentaje: number } | null>(null);
+    const [recalculandoModalOpen, setRecalculandoModalOpen] = useState(false);
+
+    // Estado para pestaña de pruebas de calificación de impacto
+    const [testImpactos, setTestImpactos] = useState<Array<{ key: string; label: string; nivel: number }>>([]);
     
     // Obtener pesos de impacto desde la base de datos
     const { data: impactoPesosApi = [], refetch: refetchPesos } = useGetPesosImpactoQuery();
@@ -199,6 +204,35 @@ export default function ParametrosCalificacionPage() {
     }, [impactoPesosApi]);
 
     const totalPeso = impactoPesos.reduce((acc: number, item: any) => acc + (Number(item.porcentaje) || 0), 0);
+
+    // Sincronizar testImpactos cuando cambien los pesos (claves/labels)
+    useEffect(() => {
+        if (impactoPesos.length > 0) {
+            setTestImpactos(impactoPesos.map((p: any) => ({
+                key: p.key,
+                label: p.label,
+                nivel: 1, // nivel por defecto
+            })));
+        }
+    }, [impactoPesos]);
+
+    // Calcular resultado de prueba de impacto global usando mismos pesos que backend
+    const testResultadoImpacto = useMemo(() => {
+        if (!impactoPesos || impactoPesos.length === 0 || testImpactos.length === 0) return null;
+
+        const pesosMap = new Map<string, number>(
+            impactoPesos.map((p: any) => [p.key, (Number(p.porcentaje) || 0) / 100])
+        );
+
+        const total = testImpactos.reduce((acc, item) => {
+            const peso = pesosMap.get(item.key) ?? 0;
+            const nivel = Number(item.nivel) || 1;
+            return acc + nivel * peso;
+        }, 0);
+
+        // Redondear hacia arriba (como en backend)
+        return Math.ceil(total);
+    }, [impactoPesos, testImpactos]);
 
     // Queries - MUST be declared before useMemo that uses them
     const { data: origenesApi = [] } = useGetOrigenesQuery();
@@ -766,6 +800,7 @@ export default function ParametrosCalificacionPage() {
                         >
                             <Tab label="Pesos de Impacto" />
                             <Tab label="Fórmulas" />
+                            <Tab label="Pruebas" />
                         </Tabs>
                     </Box>
 
@@ -841,6 +876,91 @@ export default function ParametrosCalificacionPage() {
                                 setFormulas((prev) => prev.filter((f) => f.id !== id));
                             }}
                         />
+                    </TabPanel>
+
+                    {/* Pestaña de pruebas de calificación de impacto */}
+                    <TabPanel value={subTabValue[3]} index={2}>
+                        <Box>
+                            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+                                Pruebas de Calificación de Impacto
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                Seleccione un nivel (1 a 5) para cada dimensión de impacto. El sistema multiplica
+                                cada nivel por su porcentaje configurado, suma todos los resultados y aplica
+                                redondeo hacia arriba para obtener la <strong>Calificación Global de Impacto</strong>,
+                                exactamente igual que en el cálculo real.
+                            </Typography>
+
+                            <Paper sx={{ p: 2, mb: 3 }}>
+                                {testImpactos.map((item) => {
+                                    const peso = impactoPesos.find((p: any) => p.key === item.key)?.porcentaje ?? 0;
+                                    return (
+                                        <Box
+                                            key={item.key}
+                                            sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                mb: 1.5,
+                                                gap: 2,
+                                            }}
+                                        >
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                                    {item.label}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    Peso configurado: {peso}%
+                                                </Typography>
+                                            </Box>
+                                            <FormControl size="small" sx={{ minWidth: 140 }}>
+                                                <InputLabel>Nivel (1-5)</InputLabel>
+                                                <Select
+                                                    label="Nivel (1-5)"
+                                                    value={item.nivel}
+                                                    onChange={(e) => {
+                                                        const nivel = Number(e.target.value) || 1;
+                                                        setTestImpactos((prev) =>
+                                                            prev.map((ti) =>
+                                                                ti.key === item.key ? { ...ti, nivel } : ti
+                                                            )
+                                                        );
+                                                    }}
+                                                >
+                                                    {[1, 2, 3, 4, 5].map((n) => (
+                                                        <MenuItem key={n} value={n}>
+                                                            {n}
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                        </Box>
+                                    );
+                                })}
+                            </Paper>
+
+                            <Box
+                                sx={{
+                                    p: 3,
+                                    borderRadius: 2,
+                                    border: '2px solid #1976d2',
+                                    bgcolor: '#e3f2fd',
+                                    textAlign: 'center',
+                                }}
+                            >
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                                    Resultado de la prueba
+                                </Typography>
+                                <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#1976d2', mb: 1 }}>
+                                    {testResultadoImpacto ?? '-'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Este valor debe coincidir con la <strong>Calificación Global de Impacto</strong> que
+                                    se ve en las pantallas de Identificación y Evaluación cuando se usan los mismos
+                                    niveles de impacto.
+                                </Typography>
+                            </Box>
+                        </Box>
                     </TabPanel>
                 </TabPanel>
             </Box>
@@ -928,6 +1048,12 @@ export default function ParametrosCalificacionPage() {
                             const next = impactoPesos.map((p) => (p.key === pesoEditing.key ? { ...p, porcentaje: pesoEditing.porcentaje } : p));
                             setImpactoPesos(next);
                             
+                            // Cerrar el diálogo de edición
+                            setPesoDialogOpen(false);
+                            
+                            // Mostrar modal de recálculo
+                            setRecalculandoModalOpen(true);
+                            
                             // Guardar en base de datos
                             try {
                                 await updatePesosImpacto(next.map((p) => ({
@@ -935,17 +1061,46 @@ export default function ParametrosCalificacionPage() {
                                     label: p.label,
                                     porcentaje: p.porcentaje,
                                 }))).unwrap();
+                                
+                                // Esperar un poco para que el backend inicie el recálculo
+                                // Luego esperar un tiempo razonable para que termine
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                
+                                // Refrescar datos
                                 refetchPesos();
+                                
+                                // Cerrar modal después de un tiempo adicional
+                                setTimeout(() => {
+                                    setRecalculandoModalOpen(false);
+                                }, 1000);
                             } catch (error) {
                                 console.error('Error al guardar pesos de impacto:', error);
+                                setRecalculandoModalOpen(false);
                             }
-                            
-                            setPesoDialogOpen(false);
                         }}
                     >
                         Guardar
                     </Button>
                 </DialogActions>
+            </Dialog>
+
+            {/* Modal de recálculo en progreso */}
+            <Dialog 
+                open={recalculandoModalOpen} 
+                onClose={() => {}} // No permitir cerrar mientras recalcula
+                maxWidth="sm" 
+                fullWidth
+                disableEscapeKeyDown
+            >
+                <DialogContent sx={{ textAlign: 'center', py: 4 }}>
+                    <CircularProgress size={60} sx={{ mb: 3 }} />
+                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        Recalculando Calificaciones
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Por favor espere, se están recalculando las calificaciones inherentes y el impacto global de todos los riesgos...
+                    </Typography>
+                </DialogContent>
             </Dialog>
 
         </AppPageLayout >

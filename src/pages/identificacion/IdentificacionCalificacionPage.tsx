@@ -170,6 +170,7 @@ import {
   useGetGerenciasQuery,
   useGetVicepresidenciasQuery,
   useGetConfiguracionesQuery,
+  useGetPesosImpactoQuery,
 } from '../../api/services/riesgosApi';
 
 
@@ -245,7 +246,7 @@ function getFuenteLabel(fuentes: any, clave: any) {
 
 export default function IdentificacionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
-  const { esDueñoProcesos } = useAuth();
+  const { esDueñoProcesos, esSupervisorRiesgos } = useAuth();
   const { riesgos: riesgosApiData, cargarRiesgos, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
   
   // OPTIMIZADO: Usar mutación de RTK Query para crear riesgos
@@ -259,13 +260,18 @@ export default function IdentificacionPage() {
   // IMPORTANTE: Las causas son necesarias para calcular la clasificación, así que siempre las incluimos
   const { data: riesgosRTKData, isLoading: isLoadingRiesgosRTK, refetch: refetchRiesgosRTK } = useGetRiesgosQuery(
     {
-      procesoId: procesoSeleccionado?.id && esDueñoProcesos ? procesoSeleccionado.id : undefined,
+      // Para Dueño de Proceso y Supervisor, filtrar SIEMPRE por proceso seleccionado
+      procesoId:
+        procesoSeleccionado?.id && (esDueñoProcesos || esSupervisorRiesgos)
+          ? procesoSeleccionado.id
+          : undefined,
       includeCausas: true, // Necesario para calcular clasificación inherente global
       page: currentPage,
       pageSize: pageSize
     },
     {
-      skip: esDueñoProcesos && !procesoSeleccionado?.id, // Skip si es dueño y no hay proceso
+      // Skip la consulta si el rol requiere proceso y aún no se ha seleccionado
+      skip: (esDueñoProcesos || esSupervisorRiesgos) && !procesoSeleccionado?.id,
       refetchOnMountOrArgChange: false, // OPTIMIZADO: No refetch si ya está en caché
       refetchOnFocus: false, // OPTIMIZADO: No refetch al enfocar ventana
       refetchOnReconnect: false, // OPTIMIZADO: No refetch al reconectar
@@ -314,30 +320,16 @@ export default function IdentificacionPage() {
   const { data: gerenciasApi, isLoading: isLoadingGerencias } = useGetGerenciasQuery(undefined, catalogQueryOptions);
   const { data: vicepresidenciasApi, isLoading: isLoadingVicepresidencias } = useGetVicepresidenciasQuery(undefined, catalogQueryOptions);
   const { data: configuracionesApi, isLoading: isLoadingConfiguraciones } = useGetConfiguracionesQuery(undefined, catalogQueryOptions);
+  const { data: pesosImpactoApi = [] } = useGetPesosImpactoQuery(undefined, catalogQueryOptions);
 
   // Determinar si alguna query crítica está cargando (solo las esenciales para mostrar la UI)
   const isLoadingCatalogos = isLoadingTipos || isLoadingFrecuencias || isLoadingImpactos || isLoadingNiveles;
   const isLoadingData = isLoadingRiesgosRTK || (isLoadingCatalogos && !tiposRiesgosApi && !frecuenciasApi && !impactosApi && !nivelesRiesgoApi);
-
-  // Dueño de Proceso: requiere tener un proceso seleccionado desde el header
-  if (esDueñoProcesos && !procesoSeleccionado?.id) {
-    return (
-      <AppPageLayout
-        title="Identificación y Calificación Inherente"
-        description="Identifique y califique el riesgo inherente de su proceso basándose en su frecuencia e impacto."
-        topContent={null}
-      >
-        <Box sx={{ p: 3 }}>
-          <Alert severity="info">
-            Por favor selecciona un proceso en el encabezado para gestionar sus riesgos.
-          </Alert>
-        </Box>
-      </AppPageLayout>
-    );
-  }
+  const requiereProcesoYNoSeleccionado = esDueñoProcesos && !procesoSeleccionado?.id;
 
   // Helper para normalizar riesgos cargados - asegurar que causas tengan calificaciones
   // Función para calcular calificación global impacto (memoizada)
+  // Usa los pesos configurados en la BD: nivel * porcentaje_decimal, sumar todos, redondear
   const calcularCalificacionGlobalImpacto = useCallback((impactos: RiesgoFormData['impactos']): number => {
     return calcularImpactoGlobal({
       personas: impactos.personas || 1,
@@ -349,8 +341,8 @@ export default function IdentificacionPage() {
       confidencialidadSGSI: impactos.confidencialidadSGSI || 1,
       disponibilidadSGSI: impactos.disponibilidadSGSI || 1,
       integridadSGSI: impactos.integridadSGSI || 1,
-    });
-  }, []);
+    }, pesosImpactoApi);
+  }, [pesosImpactoApi]);
 
   // Helper para obtener etiqueta de fuente a partir del catálogo que puede ser array u objeto
   const getFuenteLabel = (fuentes: any, clave: any) => {
@@ -436,7 +428,7 @@ export default function IdentificacionPage() {
         // Si no hay causas, establecer calificación inherente global a 0
         const evaluacionUpdate: any = {
           riesgoInherente: 0,
-          nivelRiesgo: 'Sin Calificar'
+          nivelRiesgo: 'SIN CALIFICAR'
         };
         await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
         return;
@@ -567,7 +559,7 @@ export default function IdentificacionPage() {
       // IMPORTANTE: El backend espera Int para riesgoInherente, así que redondeamos
       const evaluacionUpdate: any = {
         riesgoInherente: Math.round(calificacionInherenteGlobal), // Redondear a entero para el backend
-        nivelRiesgo: nivelRiesgo || 'Sin Calificar',
+        nivelRiesgo: nivelRiesgo || 'SIN CALIFICAR',
         probabilidad: mejorProb,
         impactoGlobal: mejorImp
       };
@@ -1280,7 +1272,7 @@ export default function IdentificacionPage() {
         personas: 1, legal: 1, ambiental: 1, procesos: 1,
         reputacion: 1, economico: 1
       };
-      const impactoGlobal = calcularImpactoGlobal(impactosIniciales);
+      const impactoGlobal = calcularImpactoGlobal(impactosIniciales, pesosImpactoApi);
       const impactoMaximo = 1; 
       const probabilidad = 1; 
       const riesgoInherente = calcularRiesgoInherente(impactoMaximo, probabilidad);
@@ -1592,28 +1584,12 @@ export default function IdentificacionPage() {
         </Button>
       }
     >
-      {/* Indicador de carga global */}
-      {isLoadingData && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            bgcolor: 'rgba(255, 255, 255, 0.8)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            backdropFilter: 'blur(2px)',
-          }}
-        >
-          <CircularProgress size={60} thickness={4} sx={{ mb: 2 }} />
-          <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-            Cargando datos...
-          </Typography>
+      {/* Mensaje para dueño de proceso sin proceso seleccionado */}
+      {requiereProcesoYNoSeleccionado && (
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info">
+            Por favor selecciona un proceso en el encabezado para gestionar sus riesgos.
+          </Alert>
         </Box>
       )}
 
@@ -1863,7 +1839,7 @@ export default function IdentificacionPage() {
                             
                             // Calcular impacto global desde los impactos del riesgo
                             const impactos = riesgo.impactos || {};
-                            const calificacionGlobalImpacto = calcularImpactoGlobal(impactos);
+                            const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
                             
                             // Calcular calificación inherente por causa
                             const calificacion = calcularCalificacionInherentePorCausaSync(
@@ -1878,14 +1854,37 @@ export default function IdentificacionPage() {
                           }
                         }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
                         
-                        const calificacionInherenteGlobal = calificacionesInherentes.length > 0
+                        let calificacionInherenteGlobal = calificacionesInherentes.length > 0
                           ? Math.max(...calificacionesInherentes)
                           : 0;
                         
+                        // Intentar recalcular si hay causas pero calificación es 0
+                        if (calificacionInherenteGlobal === 0 && riesgo.causas && riesgo.causas.length > 0) {
+                          try {
+                            const causasRecalculadas = riesgo.causas.map(causa => {
+                              if (causa.calificacionInherentePorCausa !== undefined && causa.calificacionInherentePorCausa !== null && causa.calificacionInherentePorCausa > 0) {
+                                return causa.calificacionInherentePorCausa;
+                              }
+                              
+                              // Calcular si no existe
+                              const pesoFrecuencia = obtenerPesoFrecuencia(causa.frecuencia, frecuenciasApi || []);
+                              const impactos = riesgo.impactos || {};
+                              const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
+                              return calcularCalificacionInherentePorCausaSync(pesoFrecuencia, calificacionGlobalImpacto);
+                            }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
+                            
+                            if (causasRecalculadas.length > 0) {
+                              calificacionInherenteGlobal = Math.max(...causasRecalculadas);
+                            }
+                          } catch (error) {
+                            console.error(`[IdentificacionPage] Error al recalcular calificación para riesgo ${riesgo.id}:`, error);
+                          }
+                        }
+                        
                         // Determinar nivel y color usando servicio centralizado
-                        let nivel = 'Sin Calificar';
-                        let color = '#666';
-                        let bgColor = '#f5f5f5';
+                        let nivel = 'SIN CALIFICAR';
+                        let color = '#ffffff'; // Texto blanco para mejor visibilidad
+                        let bgColor = '#9e9e9e'; // Fondo gris oscuro para contraste
                         
                         if (calificacionInherenteGlobal > 0) {
                           try {
@@ -1920,8 +1919,11 @@ export default function IdentificacionPage() {
                             }
                           } catch (error) {
                             console.error('Error al determinar nivel de riesgo:', error);
-                            // Mantener valores por defecto
+                            // Mantener valores por defecto para "SIN CALIFICAR"
                           }
+                        } else if (riesgo.causas && riesgo.causas.length > 0) {
+                          // Si hay causas pero calificación es 0, loggear advertencia
+                          console.warn(`[IdentificacionPage] ⚠️ Riesgo ${riesgo.id} tiene ${riesgo.causas.length} causas pero calificación es 0`);
                         }
                         
                         return (
@@ -2130,14 +2132,14 @@ export default function IdentificacionPage() {
                           } catch (error) {
                             console.error('Error al determinar nivel de riesgo:', error);
                             // Último fallback: usar configuración por defecto
-                            return { nivel: 'Sin Calificar', color: '#666', bgColor: '#f5f5f5' };
+                            return { nivel: 'SIN CALIFICAR', color: '#ffffff', bgColor: '#9e9e9e' };
                           }
                         };
 
                         // Solo calcular nivel si hay una calificación válida (> 0)
                         const nivelInfo = calificacionInherenteGlobal > 0 
                           ? getNivelRiesgoSync(calificacionInherenteGlobal)
-                          : { nivel: 'Sin Calificar', color: '#666', bgColor: '#f5f5f5' };
+                          : { nivel: 'SIN CALIFICAR', color: '#ffffff', bgColor: '#9e9e9e' };
                         
                         // Solo loggear si hay una calificación válida para evitar spam en consola
                         if (calificacionInherenteGlobal > 0) {

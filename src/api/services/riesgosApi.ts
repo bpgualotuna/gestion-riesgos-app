@@ -53,7 +53,7 @@ const baseQueryWithLogging = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery: baseQueryWithLogging,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
   // OPTIMIZADO: Caché global más agresivo para mejor rendimiento
   keepUnusedDataFor: 600, // 10 minutos de caché global
   endpoints: (builder) => ({
@@ -137,11 +137,11 @@ export const riesgosApi = createApi({
       invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
     }),
 
-    updateResponsablesProceso: builder.mutation<any[], { procesoId: string; responsablesIds: number[] }>({
-      query: ({ procesoId, responsablesIds }) => ({
+    updateResponsablesProceso: builder.mutation<any[], { procesoId: string; responsablesIds?: number[]; responsables?: Array<{ usuarioId: number; modo?: 'dueño' | 'supervisor' | null }> }>({
+      query: ({ procesoId, responsablesIds, responsables }) => ({
         url: `procesos/${procesoId}/responsables`,
         method: 'PUT',
-        body: { responsablesIds },
+        body: responsables ? { responsables } : { responsablesIds },
       }),
       invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
     }),
@@ -1061,6 +1061,45 @@ export const riesgosApi = createApi({
     }),
 
     // ============================================
+    // ROLES
+    // ============================================
+    getRoles: builder.query<any[], void>({
+      query: () => 'roles',
+      providesTags: ['Role'],
+    }),
+
+    getRoleById: builder.query<any, string>({
+      query: (id) => `roles/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'Role', id }],
+    }),
+
+    createRole: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'roles',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Role'],
+    }),
+
+    updateRole: builder.mutation<any, any & { id: string }>({
+      query: ({ id, ...body }) => ({
+        url: `roles/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Role', id }, 'Role'],
+    }),
+
+    deleteRole: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `roles/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Role'],
+    }),
+
+    // ============================================
     // CARGOS
     // ============================================
     getCargos: builder.query<any[], void>({
@@ -1375,6 +1414,12 @@ export const {
   useCreateUsuarioMutation,
   useUpdateUsuarioMutation,
   useDeleteUsuarioMutation,
+  // Roles
+  useGetRolesQuery,
+  useGetRoleByIdQuery,
+  useCreateRoleMutation,
+  useUpdateRoleMutation,
+  useDeleteRoleMutation,
   // Cargos
   useGetCargosQuery,
   useCreateCargoMutation,
