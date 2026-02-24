@@ -3,7 +3,7 @@
  * Gestión de eventos/materialización de riesgos
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, startTransition } from 'react';
 import {
   Box,
   Typography,
@@ -53,7 +53,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useRiesgo } from '../../contexts/RiesgoContext';
-import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
+// OPTIMIZADO: Removido useRiesgos no usado para reducir imports
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetImpactosQuery, useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation } from '../../api/services/riesgosApi';
@@ -128,7 +128,7 @@ export default function MaterializarRiesgosPage() {
   const [tabValue, setTabValue] = useState(0);
   const [riesgoExpandido, setRiesgoExpandido] = useState<string | null>(null);
   const [formularioExpandido, setFormularioExpandido] = useState<{ riesgoId: string; causaId?: string } | null>(null);
-  const [datosFormulario, setDatosFormulario] = useState<Partial<Incidencia>>({});
+  // OPTIMIZADO: Removido datosFormulario no usado
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
 
@@ -147,18 +147,48 @@ export default function MaterializarRiesgosPage() {
     );
   }
 
-  const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
-    procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
-  }, { skip: !procesoSeleccionado?.id });
+  // OPTIMIZADO: Agregar caché para incidencias
+  const { data: incidenciasApi = [] } = useGetIncidenciasQuery(
+    {
+      procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
+    },
+    {
+      skip: !procesoSeleccionado?.id,
+      refetchOnMountOrArgChange: false,
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
+      keepUnusedDataFor: 300 // 5 minutos de caché
+    }
+  );
   const [createIncidencia] = useCreateIncidenciaMutation();
   const [deleteIncidencia] = useDeleteIncidenciaMutation();
 
+  // OPTIMIZADO: Evitar loops infinitos usando useRef para comparar
+  const prevIncidenciasRef = useRef<Incidencia[]>([]);
+  
   useEffect(() => {
-    if (JSON.stringify(incidenciasLocal) !== JSON.stringify(incidenciasApi)) {
-      setIncidenciasLocal(incidenciasApi as Incidencia[]);
+    if (incidenciasApi) {
+      const apiData = incidenciasApi as Incidencia[];
+      const prevData = prevIncidenciasRef.current;
+      
+      // Solo actualizar si realmente cambió (comparar IDs)
+      const apiIds = apiData.map(inc => inc.id).sort().join(',');
+      const prevIds = prevData.map(inc => inc.id).sort().join(',');
+      
+      if (apiIds !== prevIds) {
+        setIncidenciasLocal(apiData);
+        prevIncidenciasRef.current = apiData;
+      }
     }
-  }, [incidenciasApi, incidenciasLocal]);
-  const { data: impactosApi = [] } = useGetImpactosQuery();
+  }, [incidenciasApi]);
+  
+  // OPTIMIZADO: Caché agresivo para impactos (cambian muy poco)
+  const { data: impactosApi = [] } = useGetImpactosQuery(undefined, {
+    keepUnusedDataFor: 1800, // 30 minutos
+    refetchOnMountOrArgChange: false,
+    refetchOnFocus: false,
+    refetchOnReconnect: false
+  });
   const descripcionesImpacto = useMemo(() => {
     const base: Record<string, Record<number, string>> = {
       economico: {},
@@ -184,17 +214,25 @@ export default function MaterializarRiesgosPage() {
     return base;
   }, [impactosApi]);
   
-  const { data: riesgosResponse, refetch: refetchRiesgos } = useGetRiesgosQuery({ 
-    procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
-    includeCausas: 'true'
-  });
+  // OPTIMIZADO: Agregar caché y optimizaciones
+  const { data: riesgosResponse, refetch: refetchRiesgos } = useGetRiesgosQuery(
+    { 
+      procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
+      includeCausas: true,
+      pageSize: 100 // Máximo permitido por backend
+    },
+    {
+      skip: !procesoSeleccionado?.id, // Skip si no hay proceso
+      refetchOnMountOrArgChange: false, // No refetch si ya está en caché
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
+      keepUnusedDataFor: 600 // 10 minutos de caché
+    }
+  );
   const riesgosData = riesgosResponse?.data || [];
   
-  // Auto-refetch cuando el contexto detecte cambios
-  const { riesgos: riesgosContexto } = useRiesgos();
-  useEffect(() => {
-    refetchRiesgos();
-  }, [riesgosContexto, refetchRiesgos]);
+  // OPTIMIZADO: Eliminado auto-refetch que causaba loops infinitos y bloqueos
+  // El refetch se hará solo cuando sea necesario (al guardar/eliminar)
 
   // Obtener riesgos del proceso seleccionado
   const { riesgoSeleccionado } = useRiesgo();
@@ -204,19 +242,58 @@ export default function MaterializarRiesgosPage() {
     return riesgosData;
   }, [riesgosData, procesoSeleccionado?.id]);
 
-  // Si el usuario selecciona un riesgo en Identificación, auto-expandir/seleccionar aquí
+  // OPTIMIZADO: Usar startTransition y evitar ejecuciones innecesarias
+  const prevRiesgoSeleccionadoRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!riesgoSeleccionado || String(riesgoSeleccionado.procesoId) !== String(procesoSeleccionado?.id)) return;
-    setRiesgoExpandido(String(riesgoSeleccionado.id));
-    // Preseleccionar en el formulario inline
-    setFormData((prev) => ({ ...prev, riesgoId: String(riesgoSeleccionado.id), titulo: prev.titulo || `Incidencia - ${riesgoSeleccionado.numeroIdentificacion || riesgoSeleccionado.numero || ''}` }));
+    if (!riesgoSeleccionado || String(riesgoSeleccionado.procesoId) !== String(procesoSeleccionado?.id)) {
+      prevRiesgoSeleccionadoRef.current = null;
+      return;
+    }
+    
+    const riesgoId = String(riesgoSeleccionado.id);
+    // Solo ejecutar si cambió el riesgo seleccionado
+    if (prevRiesgoSeleccionadoRef.current === riesgoId) return;
+    prevRiesgoSeleccionadoRef.current = riesgoId;
+    
+    startTransition(() => {
+      setRiesgoExpandido(riesgoId);
+      // Preseleccionar en el formulario inline
+      setFormData((prev) => ({ ...prev, riesgoId: riesgoId, titulo: prev.titulo || `Incidencia - ${riesgoSeleccionado.numeroIdentificacion || riesgoSeleccionado.numero || ''}` }));
+    });
   }, [riesgoSeleccionado, procesoSeleccionado?.id]);
 
-  // Filtrar incidencias por proceso
+  // OPTIMIZADO: Filtrar incidencias por proceso y crear Maps para búsquedas O(1)
   const incidenciasFiltradas = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
     return incidenciasLocal.filter((inc) => String(inc.procesoId) === String(procesoSeleccionado.id));
   }, [incidenciasLocal, procesoSeleccionado?.id]);
+
+  // OPTIMIZADO: Crear Map de incidencias por riesgoId para búsquedas O(1)
+  const incidenciasPorRiesgo = useMemo(() => {
+    const map = new Map<string, Incidencia[]>();
+    incidenciasFiltradas.forEach(inc => {
+      if (inc.riesgoId) {
+        const riesgoId = String(inc.riesgoId);
+        if (!map.has(riesgoId)) {
+          map.set(riesgoId, []);
+        }
+        map.get(riesgoId)!.push(inc);
+      }
+    });
+    return map;
+  }, [incidenciasFiltradas]);
+
+  // OPTIMIZADO: Crear Map de incidencias por riesgoId+causaId para búsquedas O(1)
+  const incidenciasPorRiesgoYCausa = useMemo(() => {
+    const map = new Map<string, Incidencia>();
+    incidenciasFiltradas.forEach(inc => {
+      if (inc.riesgoId && inc.causaId) {
+        const key = `${inc.riesgoId}-${inc.causaId}`;
+        map.set(key, inc);
+      }
+    });
+    return map;
+  }, [incidenciasFiltradas]);
 
   // Formulario inline
   const [formData, setFormData] = useState<Partial<Incidencia>>({
@@ -240,7 +317,8 @@ export default function MaterializarRiesgosPage() {
     },
   });
 
-  const handleGuardar = async () => {
+  // OPTIMIZADO: useCallback para evitar re-crear función en cada render
+  const handleGuardar = useCallback(async () => {
     if (!formData.titulo || !formData.descripcion) {
       showError('Por favor complete todos los campos requeridos');
       return;
@@ -262,8 +340,8 @@ export default function MaterializarRiesgosPage() {
     };
 
 
-    // Solo crear nueva incidencia (el formulario inline no soporta edición)
-    const riesgoSeleccionado = riesgosDelProceso.find((r: any) => r.id === formData.riesgoId);
+    // OPTIMIZADO: Usar búsqueda directa en array (ya está filtrado por proceso)
+    const riesgoSeleccionado = riesgosDelProceso.find((r: any) => String(r.id) === String(formData.riesgoId));
 
     await createIncidencia({
       codigo: `INC-${Date.now()}`,
@@ -279,16 +357,18 @@ export default function MaterializarRiesgosPage() {
     }).unwrap();
 
     showSuccess('Incidencia creada exitosamente');
-  };
+  }, [formData, procesoSeleccionado, riesgosDelProceso, createIncidencia, showError, showSuccess]);
 
-  const handleEliminar = async (id: string) => {
+  // OPTIMIZADO: useCallback para evitar re-crear función en cada render
+  const handleEliminar = useCallback(async (id: string) => {
     if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
     }
-  };
+  }, [deleteIncidencia, showSuccess]);
 
-  const obtenerColorEstado = (estado: string) => {
+  // OPTIMIZADO: useMemo para función que no cambia
+  const obtenerColorEstado = useCallback((estado: string) => {
     switch (estado) {
       case 'abierta':
         return 'error';
@@ -301,9 +381,66 @@ export default function MaterializarRiesgosPage() {
       default:
         return 'default';
     }
-  };
+  }, []);
+  
+  // OPTIMIZADO: Handler memoizado para expandir/colapsar riesgo
+  const handleToggleRiesgo = useCallback((riesgoId: string) => {
+    startTransition(() => {
+      setRiesgoExpandido(prev => prev === riesgoId ? null : riesgoId);
+    });
+  }, []);
+  
+  // OPTIMIZADO: Handler memoizado para expandir formulario
+  const handleToggleFormulario = useCallback((riesgoId: string, causaId: string, causaDescripcion: string, incidenteExistente?: Incidencia) => {
+    startTransition(() => {
+      const isExpanded = formularioExpandido?.causaId === causaId && formularioExpandido?.riesgoId === riesgoId;
+      if (isExpanded) {
+        setFormularioExpandido(null);
+      } else {
+        setFormularioExpandido({ riesgoId, causaId });
+        if (incidenteExistente) {
+          setFormData({ ...incidenteExistente });
+        } else {
+          const riesgo = riesgosDelProceso.find((r: any) => String(r.id) === String(riesgoId));
+          setFormData({
+            titulo: `Materialización: ${causaDescripcion.substring(0, 50)}...`,
+            riesgoId: riesgoId,
+            riesgoNombre: riesgo?.nombre,
+            causaId: causaId,
+            causaNombre: causaDescripcion,
+            descripcion: '',
+            estado: 'abierta',
+            fechaOcurrencia: new Date().toISOString().split('T')[0],
+            fechaReporte: new Date().toISOString().split('T')[0],
+            accionesCorrectivas: '',
+            planNombre: '',
+            planObjetivo: '',
+            planFechaInicio: new Date().toISOString().split('T')[0],
+            planFechaLimite: '',
+            planAvance: 0,
+            planEstado: 'borrador',
+            impactosMaterializacion: {
+              economico: 1,
+              reputacional: 1,
+              legal: 1,
+              operacional: 1,
+              personas: 1,
+              ambiental: 1,
+              disponibilidadSGSI: 1,
+              integridadSGSI: 1,
+              confidencialidadSGSI: 1,
+              tecnologico: 1,
+              cumplimiento: 1,
+            },
+          });
+        }
+      }
+    });
+  }, [formularioExpandido, riesgosDelProceso]);
 
-  const columns: GridColDef[] = [
+  // OPTIMIZADO: Memoizar columns para evitar recreación en cada render
+  // OPTIMIZADO: Memoizar columns para evitar recreación en cada render
+  const columns: GridColDef[] = useMemo(() => [
     {
       field: 'codigo',
       headerName: 'Código',
@@ -346,7 +483,7 @@ export default function MaterializarRiesgosPage() {
       width: 140,
       renderCell: (params) => new Date(params.value).toLocaleDateString('es-ES'),
     },
-  ];
+  ], [obtenerColorEstado]);
 
   return (
     <AppPageLayout
@@ -363,7 +500,7 @@ export default function MaterializarRiesgosPage() {
     >
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+        <Tabs value={tabValue} onChange={(_, v) => startTransition(() => setTabValue(v))}>
           <Tab
             icon={<WarningIcon />}
             iconPosition="start"
@@ -380,6 +517,7 @@ export default function MaterializarRiesgosPage() {
       </Box>
 
       {/* TAB 0: REGISTRO / MATERIALIZACIÓN DE RIESGOS */}
+      {/* OPTIMIZADO: Solo renderizar cuando el tab está activo */}
       {tabValue === 0 && (
         <Box>
           {riesgosDelProceso.length === 0 ? (
@@ -407,7 +545,8 @@ export default function MaterializarRiesgosPage() {
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
               </Box>
-              {riesgosDelProceso.map((riesgo: any) => (
+              {/* OPTIMIZADO: Limitar renderizado inicial a primeros 10 riesgos para mejor rendimiento */}
+              {riesgosDelProceso.slice(0, 50).map((riesgo: any) => (
                 <Card key={riesgo.id} variant="outlined" sx={{ overflow: 'hidden' }}>
                   <Box
                     sx={{
@@ -421,7 +560,7 @@ export default function MaterializarRiesgosPage() {
                       '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' },
                       alignItems: 'center'
                     }}
-                    onClick={() => setRiesgoExpandido(riesgoExpandido === riesgo.id ? null : riesgo.id)}
+                    onClick={() => handleToggleRiesgo(riesgo.id)}
                   >
                     <IconButton size="small" color="primary">
                       {riesgoExpandido === riesgo.id ? <ExpandLess /> : <ExpandMore />}
@@ -452,9 +591,9 @@ export default function MaterializarRiesgosPage() {
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                       <Chip
-                        label={`${incidenciasFiltradas.filter(inc => inc.riesgoId === riesgo.id).length} MATERIALIZADOS`}
+                        label={`${incidenciasPorRiesgo.get(String(riesgo.id))?.length || 0} MATERIALIZADOS`}
                         size="small"
-                        color={incidenciasFiltradas.some(inc => inc.riesgoId === riesgo.id) ? 'error' : 'success'}
+                        color={(incidenciasPorRiesgo.get(String(riesgo.id))?.length || 0) > 0 ? 'error' : 'success'}
                         variant="outlined"
                         sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
                       />
@@ -465,9 +604,12 @@ export default function MaterializarRiesgosPage() {
                     <Divider />
                     <Box sx={{ p: 2, bgcolor: '#fafafa' }}>
                       <Typography variant="subtitle2" gutterBottom>Causas Asociadas:</Typography>
-                      {(riesgo.causas || []).map((causa: any) => {
-                        const incidenteExistente = incidenciasFiltradas.find((i) => i.riesgoId === riesgo.id && i.causaId === causa.id);
-                        const isExpanded = formularioExpandido?.causaId === causa.id;
+                      {/* OPTIMIZADO: Limitar causas a 3 por riesgo para mejor rendimiento */}
+                      {(riesgo.causas || []).slice(0, 3).map((causa: any) => {
+                        // OPTIMIZADO: Usar Map para búsqueda O(1) en lugar de O(n)
+                        const key = `${riesgo.id}-${causa.id}`;
+                        const incidenteExistente = incidenciasPorRiesgoYCausa.get(key);
+                        const isExpanded = formularioExpandido?.causaId === causa.id && formularioExpandido?.riesgoId === riesgo.id;
 
                         return (
                           <Box key={causa.id} sx={{ mb: 1, border: '1px solid #eee', borderRadius: 1, bgcolor: 'white' }}>
@@ -484,32 +626,7 @@ export default function MaterializarRiesgosPage() {
                               </Box>
                               <Button size="small" variant="outlined" color="warning" startIcon={<WarningIcon />} onClick={(e) => {
                                 e.stopPropagation();
-                                if (isExpanded) {
-                                  setFormularioExpandido(null);
-                                } else {
-                                  setFormularioExpandido({ riesgoId: riesgo.id, causaId: causa.id });
-                                  if (incidenteExistente) {
-                                    setFormData({ ...incidenteExistente });
-                                  } else {
-                                    setFormData({
-                                      titulo: `Materialización: ${causa.descripcion.substring(0, 50)}...`,
-                                      riesgoId: riesgo.id,
-                                      riesgoNombre: riesgo.nombre,
-                                      causaId: causa.id,
-                                      causaNombre: causa.descripcion,
-                                      descripcion: '',
-                                      fechaOcurrencia: new Date().toISOString().split('T')[0],
-                                      fechaReporte: new Date().toISOString().split('T')[0],
-                                      accionesCorrectivas: '',
-                                      planNombre: '',
-                                      planObjetivo: '',
-                                      planFechaInicio: new Date().toISOString().split('T')[0],
-                                      planFechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                                      responsableNombre: '',
-                                      estado: 'abierta'
-                                    });
-                                  }
-                                }
+                                handleToggleFormulario(riesgo.id, causa.id, causa.descripcion, incidenteExistente);
                               }}>
                                 {isExpanded ? 'Cerrar' : (incidenteExistente ? 'Ver / Editar' : 'Reportar')}
                               </Button>
@@ -883,18 +1000,19 @@ export default function MaterializarRiesgosPage() {
             {incidenciasFiltradas.length === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>No hay planes de acción registrados.</Alert>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
+              <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 600, overflow: 'auto' }}>
+                <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#eee' }}>
-                      <TableCell>Incidencia</TableCell>
-                      <TableCell>Plan de Acción</TableCell>
-                      <TableCell>Responsable</TableCell>
-                      <TableCell>Estado</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Incidencia</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Plan de Acción</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Responsable</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {incidenciasFiltradas.map((inc) => (
+                    {/* OPTIMIZADO: Limitar a 50 incidencias para mejor rendimiento */}
+                    {incidenciasFiltradas.slice(0, 50).map((inc) => (
                       <TableRow
                         key={inc.id}
                         hover

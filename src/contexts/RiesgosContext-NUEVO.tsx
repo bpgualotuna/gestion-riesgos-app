@@ -63,6 +63,7 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
 
   // ============================================
   // CARGAR RIESGOS
+  // OPTIMIZADO: Acepta procesoId para filtrar desde el backend
   // ============================================
 
   const cargarRiesgos = useCallback(async (filtros?: any) => {
@@ -70,11 +71,16 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
       setLoading(true)
       setError(null)
 
-      console.log('[RiesgosContext] Cargando riesgos con filtros:', filtros)
+      // OPTIMIZADO: Siempre incluir causas y filtrar por procesoId si se proporciona
+      const filtrosOptimizados: any = { 
+        ...filtros, 
+        includeCausas: 'true' 
+      };
 
-      // Llamar a API con filtros, SIEMPRE incluir causas
-      const filtrosConCausas = { ...filtros, includeCausas: 'true' }
-      const respuesta = await api.riesgos.getAll(filtrosConCausas)
+      console.log('[RiesgosContext] Cargando riesgos con filtros:', filtrosOptimizados)
+
+      // Llamar a API con filtros optimizados - el backend filtrará por procesoId
+      const respuesta = await api.riesgos.getAll(filtrosOptimizados)
 
       // La API retorna { data: [...], total, page, pageSize } o solo [...]
       const arregloRiesgos = respuesta.data || respuesta
@@ -125,8 +131,15 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
 
       const actualizado = await api.riesgos.update(id, data)
 
-      // Actualizar en estado local
-      setRiesgos(riesgos.map(r => r.id === id ? actualizado : r))
+      // Actualizar en estado local (solo si el riesgo existe en el estado actual)
+      setRiesgos(prevRiesgos => {
+        const existe = prevRiesgos.some(r => r.id === id);
+        if (existe) {
+          return prevRiesgos.map(r => r.id === id ? actualizado : r);
+        }
+        // Si no existe, no agregarlo (puede ser de otro proceso)
+        return prevRiesgos;
+      })
 
       console.log(`[RiesgosContext] ✅ Riesgo ${id} actualizado`)
       return actualizado
@@ -190,12 +203,12 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
 
   // ============================================
   // CARGAR AL MONTAR
+  // OPTIMIZADO: No cargar automáticamente - dejar que cada página decida cuándo cargar
+  // Esto evita cargar datos innecesarios
   // ============================================
 
-  useEffect(() => {
-    console.log('[RiesgosContext] Componente montado, cargando riesgos...')
-    cargarRiesgos()
-  }, [cargarRiesgos])
+  // Removido: useEffect que cargaba automáticamente
+  // Ahora cada página carga solo cuando lo necesita y con los filtros correctos
 
   // ============================================
   // CONTEXT VALUE

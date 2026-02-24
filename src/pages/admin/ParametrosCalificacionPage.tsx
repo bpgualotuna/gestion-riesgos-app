@@ -59,6 +59,8 @@ import {
     useUpdateImpactosMutation,
     useCreateImpactoTipoMutation,
     useDeleteImpactoTipoMutation,
+    useGetPesosImpactoQuery,
+    useUpdatePesosImpactoMutation,
 } from '../../api/services/riesgosApi';
 import { TipoRiesgo, SubtipoRiesgo } from '../../types';
 import { DIMENSIONES_IMPACTO } from '../../utils/constants';
@@ -160,15 +162,22 @@ export default function ParametrosCalificacionPage() {
     const [formulas, setFormulas] = useState<any[]>([]);
     const [pesoDialogOpen, setPesoDialogOpen] = useState(false);
     const [pesoEditing, setPesoEditing] = useState<{ key: string; label: string; porcentaje: number } | null>(null);
+    
+    // Obtener pesos de impacto desde la base de datos
+    const { data: impactoPesosApi = [], refetch: refetchPesos } = useGetPesosImpactoQuery();
+    const [updatePesosImpacto] = useUpdatePesosImpactoMutation();
+    
     const [impactoPesos, setImpactoPesos] = useState(() => {
-        const stored = localStorage.getItem('config_pesos_impacto');
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch {
-                // fall through to defaults
-            }
+        // Usar datos de la API si están disponibles
+        if (impactoPesosApi.length > 0) {
+            return impactoPesosApi.map((p: any) => ({
+                id: p.key,
+                key: p.key,
+                label: p.label,
+                porcentaje: p.porcentaje,
+            }));
         }
+        // Fallback a valores por defecto
         return DIMENSIONES_IMPACTO.map((d) => ({
             id: d.key,
             key: d.key,
@@ -176,6 +185,18 @@ export default function ParametrosCalificacionPage() {
             porcentaje: Math.round(d.peso * 100),
         }));
     });
+    
+    // Sincronizar con datos de la API cuando cambien
+    useEffect(() => {
+        if (impactoPesosApi.length > 0) {
+            setImpactoPesos(impactoPesosApi.map((p: any) => ({
+                id: p.key,
+                key: p.key,
+                label: p.label,
+                porcentaje: p.porcentaje,
+            })));
+        }
+    }, [impactoPesosApi]);
 
     const totalPeso = impactoPesos.reduce((acc: number, item: any) => acc + (Number(item.porcentaje) || 0), 0);
 
@@ -378,7 +399,8 @@ export default function ParametrosCalificacionPage() {
     const frecuenciasColumns = useMemo(() => [
         { field: 'id', headerName: 'ID', width: 80, editable: false },
         { field: 'label', headerName: 'Frecuencia', width: 160 },
-        { field: 'descripcion', headerName: 'Descripción', flex: 1 }
+        { field: 'descripcion', headerName: 'Descripción', flex: 1 },
+        { field: 'peso', headerName: 'Peso (1-5)', width: 120, type: 'number' }
     ], []);
 
     return (
@@ -672,7 +694,7 @@ export default function ParametrosCalificacionPage() {
                             itemLabel="Nivel"
                             data={filteredFrecuencias}
                             columns={frecuenciasColumns}
-                            defaultItem={{ label: '', descripcion: '' }}
+                            defaultItem={{ label: '', descripcion: '', peso: 3 }}
                             onSave={createSaveHandler(async (data) => {
                                 return await updateFrecuencias(data).unwrap();
                             }, frecuencias)}
@@ -901,11 +923,23 @@ export default function ParametrosCalificacionPage() {
                     <Button onClick={() => setPesoDialogOpen(false)}>Cancelar</Button>
                     <Button
                         variant="contained"
-                        onClick={() => {
+                        onClick={async () => {
                             if (!pesoEditing) return;
                             const next = impactoPesos.map((p) => (p.key === pesoEditing.key ? { ...p, porcentaje: pesoEditing.porcentaje } : p));
                             setImpactoPesos(next);
-                            localStorage.setItem('config_pesos_impacto', JSON.stringify(next));
+                            
+                            // Guardar en base de datos
+                            try {
+                                await updatePesosImpacto(next.map((p) => ({
+                                    key: p.key,
+                                    label: p.label,
+                                    porcentaje: p.porcentaje,
+                                }))).unwrap();
+                                refetchPesos();
+                            } catch (error) {
+                                console.error('Error al guardar pesos de impacto:', error);
+                            }
+                            
                             setPesoDialogOpen(false);
                         }}
                     >

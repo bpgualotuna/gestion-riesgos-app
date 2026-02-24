@@ -1,35 +1,39 @@
 /**
- * Application Router
+ * Application Router - OPTIMIZED
+ * Lazy loading and route protection
  */
 
-import { createBrowserRouter, Navigate, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
+import { Box, CircularProgress } from '@mui/material';
 
 // Layouts
 import MainLayout from '../components/layout/MainLayout';
-
-// Auth Components
-// Auth Components
-import ProtectedRoute from "../components/auth/ProtectedRoute";
-import AdminRedirect from "../components/auth/AdminRedirect";
-import LoginPage from "../pages/auth/LoginPage";
-
-// Error Handling
-import RouteErrorElement from "../components/common/RouteErrorElement";
-
-// Pages - Lazy Loading for Performance
-import { lazy, Suspense } from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import ProtectedRoute from '../components/auth/ProtectedRoute';
 import RoleGuard from '../components/auth/RoleGuard';
+import AdminRedirect from '../components/auth/AdminRedirect';
+import RouteErrorElement from '../components/common/RouteErrorElement';
 
-// Loading Fallback
+// Auth Pages - Load immediately (critical)
+import LoginPage from '../pages/auth/LoginPage';
+import ModoGerenteGeneralSelector from '../components/auth/ModoGerenteGeneralSelector';
+
+// Loading Component
 const LoadingFallback = () => (
-  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+    }}
+  >
     <CircularProgress />
   </Box>
 );
 
-// Lazy load pages
+// Lazy load pages for better performance
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const FichaPage = lazy(() => import('../pages/ficha/FichaPage'));
 const IdentificacionCalificacionPage = lazy(() => import('../pages/identificacion/IdentificacionCalificacionPage'));
@@ -66,9 +70,8 @@ const ParametrosCalificacionPage = lazy(() => import('../pages/admin/ParametrosC
 const MapasConfigPage = lazy(() => import('../pages/admin/MapasConfigPage'));
 const CalificacionInherentePage = lazy(() => import('../pages/admin/CalificacionInherentePage'));
 const AdminPanelPage = lazy(() => import('../pages/admin/AdminPanelPage'));
-const ModoGerenteGeneralSelector = lazy(() => import('../components/auth/ModoGerenteGeneralSelector'));
 
-// Wrapper for lazy components
+// Wrapper for lazy loaded components with Suspense
 const LazyRoute = ({ component: Component }: { component: React.LazyExoticComponent<React.ComponentType<any>> }) => (
   <Suspense fallback={<LoadingFallback />}>
     <Component />
@@ -80,16 +83,16 @@ export const router = createBrowserRouter([
     path: '/login',
     element: <LoginPage />,
   },
-      {
-        path: ROUTES.MODO_GERENTE_GENERAL,
-        element: (
-          <ProtectedRoute>
-            <RoleGuard allowedRoles={['gerente_general']}>
-              <LazyRoute component={ModoGerenteGeneralSelector} />
-            </RoleGuard>
-          </ProtectedRoute>
-        ),
-      },
+  {
+    path: ROUTES.MODO_GERENTE_GENERAL,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard allowedRoles={['gerente_general']}>
+          <ModoGerenteGeneralSelector />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
+  },
   {
     path: '/',
     element: (
@@ -277,7 +280,11 @@ export const router = createBrowserRouter([
       },
       {
         path: ROUTES.DASHBOARD_SUPERVISOR,
-        element: <LazyRoute component={DashboardSupervisorPage} />,
+        element: (
+          <RoleGuard allowedRoles={['supervisor', 'gerente_general']}>
+            <LazyRoute component={DashboardSupervisorPage} />
+          </RoleGuard>
+        ),
       },
       {
         path: ROUTES.RESUMEN_RIESGOS,
@@ -313,12 +320,7 @@ export const router = createBrowserRouter([
       },
       {
         path: ROUTES.ASIGNACIONES,
-        element: (
-          <Navigate
-            to={ROUTES.ADMIN_AREAS}
-            replace
-          />
-        ),
+        element: <Navigate to={ROUTES.ADMIN_AREAS} replace />,
       },
     ],
   },

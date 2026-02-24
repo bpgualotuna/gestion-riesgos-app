@@ -36,12 +36,15 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+// OPTIMIZADO: Reducir logging en producción para mejor rendimiento
 const baseQueryWithLogging = async (args: any, api: any, extraOptions: any) => {
-  console.log('[FRONTEND] Request:', args);
+  if (import.meta.env.DEV) {
+    console.log('[FRONTEND] Request:', args);
+  }
   const result = await baseQuery(args, api, extraOptions);
   if (result.error) {
     console.error('[FRONTEND] Error Response:', result.error);
-  } else {
+  } else if (import.meta.env.DEV) {
     console.log('[FRONTEND] Success Response:', result.data);
   }
   return result;
@@ -50,7 +53,9 @@ const baseQueryWithLogging = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery: baseQueryWithLogging,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
+  // OPTIMIZADO: Caché global más agresivo para mejor rendimiento
+  keepUnusedDataFor: 600, // 10 minutos de caché global
   endpoints: (builder) => ({
     // ============================================
     // PROCESOS
@@ -171,7 +176,7 @@ export const riesgosApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['Riesgo', 'Estadisticas'],
+      invalidatesTags: ['Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas'],
     }),
 
     updateRiesgo: builder.mutation<Riesgo, UpdateRiesgoDto & { id: string }>({
@@ -183,6 +188,8 @@ export const riesgosApi = createApi({
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Riesgo', id },
         'Riesgo',
+        'Evaluacion',
+        'PuntosMapa',
         'Estadisticas',
       ],
     }),
@@ -192,7 +199,7 @@ export const riesgosApi = createApi({
         url: `riesgos/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Riesgo', 'Estadisticas'],
+      invalidatesTags: ['Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas'],
     }),
 
     // ============================================
@@ -244,7 +251,7 @@ export const riesgosApi = createApi({
         method: 'PUT',
         body,
       }),
-      invalidatesTags: ['Causa', 'Riesgo'],
+      invalidatesTags: ['Causa', 'Riesgo', 'Evaluacion', 'PuntosMapa'],
     }),
 
     // ============================================
@@ -274,7 +281,7 @@ export const riesgosApi = createApi({
         url: 'riesgos/mapa',
         params
       }),
-      providesTags: ['Riesgo', 'Evaluacion'],
+      providesTags: ['Riesgo', 'Evaluacion', 'PuntosMapa'],
     }),
 
     // ============================================
@@ -1126,6 +1133,20 @@ export const riesgosApi = createApi({
       providesTags: ['Configuracion'],
     }),
 
+    getPesosImpacto: builder.query<any[], void>({
+      query: () => 'catalogos/pesos-impacto',
+      providesTags: ['Configuracion'],
+    }),
+
+    updatePesosImpacto: builder.mutation<any[], any[]>({
+      query: (pesos) => ({
+        url: 'catalogos/pesos-impacto',
+        method: 'PUT',
+        body: { pesos },
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
     // Áreas
     getAreas: builder.query<any[], void>({
       query: () => 'areas',
@@ -1156,6 +1177,58 @@ export const riesgosApi = createApi({
         method: 'DELETE',
       }),
       invalidatesTags: ['Area'],
+    }),
+
+    // ============================================
+    // CALIFICACIÓN INHERENTE
+    // ============================================
+    getCalificacionInherenteActiva: builder.query<any, void>({
+      query: () => 'calificacion-inherente/activa',
+      providesTags: ['CalificacionInherente'],
+    }),
+
+    getAllCalificacionInherente: builder.query<any[], void>({
+      query: () => 'calificacion-inherente',
+      providesTags: ['CalificacionInherente'],
+    }),
+
+    getCalificacionInherenteById: builder.query<any, string | number>({
+      query: (id) => `calificacion-inherente/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'CalificacionInherente', id }],
+    }),
+
+    createCalificacionInherente: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'calificacion-inherente',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['CalificacionInherente'],
+    }),
+
+    updateCalificacionInherente: builder.mutation<any, { id: string | number } & any>({
+      query: ({ id, ...body }) => ({
+        url: `calificacion-inherente/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'CalificacionInherente', id }, 'CalificacionInherente'],
+    }),
+
+    deleteCalificacionInherente: builder.mutation<void, string | number>({
+      query: (id) => ({
+        url: `calificacion-inherente/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['CalificacionInherente'],
+    }),
+
+    calcularCalificacionInherente: builder.mutation<any, { frecuencia: number; calificacionGlobalImpacto: number }>({
+      query: (body) => ({
+        url: 'calificacion-inherente/calcular',
+        method: 'POST',
+        body,
+      }),
     }),
   }),
 });
@@ -1313,11 +1386,22 @@ export const {
   useUpdateGerenciaMutation,
   useDeleteGerenciaMutation,
   useGetVicepresidenciasQuery,
+  // Pesos de Impacto
+  useGetPesosImpactoQuery,
+  useUpdatePesosImpactoMutation,
   // Areas
   useGetAreasQuery,
   useCreateAreaMutation,
   useUpdateAreaMutation,
   useDeleteAreaMutation,
+  // Calificación Inherente
+  useGetCalificacionInherenteActivaQuery,
+  useGetAllCalificacionInherenteQuery,
+  useGetCalificacionInherenteByIdQuery,
+  useCreateCalificacionInherenteMutation,
+  useUpdateCalificacionInherenteMutation,
+  useDeleteCalificacionInherenteMutation,
+  useCalcularCalificacionInherenteMutation,
 } = riesgosApi;
 
 // Alias para compatibilidad con código existente

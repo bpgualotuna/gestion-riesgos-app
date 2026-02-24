@@ -126,8 +126,15 @@ export default function SimpleCatalog({
                                     <TextField
                                         fullWidth
                                         label={col.headerName || col.field}
-                                        value={formData[col.field] || ''}
-                                        onChange={(e) => setFormData({ ...formData, [col.field]: e.target.value })}
+                                        type={col.type === 'number' ? 'number' : 'text'}
+                                        inputProps={col.type === 'number' ? { min: 1, max: 5 } : undefined}
+                                        value={formData[col.field] ?? (col.type === 'number' ? 0 : '')}
+                                        onChange={(e) => {
+                                            const value = col.type === 'number' 
+                                                ? (e.target.value === '' ? null : Number(e.target.value))
+                                                : e.target.value;
+                                            setFormData({ ...formData, [col.field]: value });
+                                        }}
                                         disabled={!isEditable && !!editingItem} // Disable only if editing existing
                                         required={isEditable}
                                     />

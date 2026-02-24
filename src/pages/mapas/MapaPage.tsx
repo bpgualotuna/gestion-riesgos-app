@@ -184,10 +184,27 @@ export default function MapaPage() {
 
   // Forzar invalidación de caché cuando cambien los filtros (optimizado - solo cuando realmente cambian)
   useEffect(() => {
-    dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
+    dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
     refetchPuntos();
     refetchRiesgos();
   }, [filtros.procesoId, filtros.clasificacion, filtroArea, filtroProceso, clasificacion, dispatch, refetchPuntos, refetchRiesgos]);
+
+  // Escuchar eventos de actualización de riesgos para refrescar el mapa en tiempo real
+  useEffect(() => {
+    const handleRiesgoActualizado = () => {
+      console.log('[MapaPage] 🔔 Riesgo actualizado, refrescando mapa...');
+      // Invalidar caché y forzar refetch
+      dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
+      refetchPuntos();
+      refetchRiesgos();
+    };
+
+    window.addEventListener('riesgo-actualizado', handleRiesgoActualizado);
+    
+    return () => {
+      window.removeEventListener('riesgo-actualizado', handleRiesgoActualizado);
+    };
+  }, [dispatch, refetchPuntos, refetchRiesgos]);
 
   // Obtener riesgos completos para el diálogo
   const riesgosCompletos = riesgosData?.data || [];
@@ -265,7 +282,7 @@ export default function MapaPage() {
     // Usar valores por defecto si faltan
     puntosFiltrados.forEach((punto) => {
       // Evitar duplicados: si este riesgo ya fue agregado, saltarlo
-      if (riesgosAgregados.has(punto.riesgoId)) {
+      if (riesgosAgregados.has(Number(punto.riesgoId))) {
         return; // Ya agregado, saltar
       }
       
@@ -292,7 +309,7 @@ export default function MapaPage() {
       });
       
       // Marcar este riesgo como agregado
-      riesgosAgregados.add(punto.riesgoId);
+      riesgosAgregados.add(Number(punto.riesgoId));
     });
     
     return matriz;
@@ -311,7 +328,7 @@ export default function MapaPage() {
     // Incluir TODOS los puntos filtrados (los mismos del inherente)
     puntosFiltrados.forEach((punto) => {
       // Evitar duplicados: si este riesgo ya fue agregado, saltarlo
-      if (riesgosAgregados.has(punto.riesgoId)) {
+      if (riesgosAgregados.has(Number(punto.riesgoId))) {
         return; // Ya agregado, saltar
       }
       
@@ -417,7 +434,7 @@ export default function MapaPage() {
       });
       
       // Marcar este riesgo como agregado
-      riesgosAgregados.add(punto.riesgoId);
+      riesgosAgregados.add(Number(punto.riesgoId));
     });
     
     return matriz;
@@ -1280,7 +1297,7 @@ export default function MapaPage() {
                   const tipologia = punto.tipologiaNivelI || riesgo?.tipologiaNivelI || null;
                   
                   // Obtener fecha del riesgo (createdAt o updatedAt)
-                  const fechaRiesgo = riesgo?.createdAt || riesgo?.updatedAt || punto.createdAt || punto.updatedAt;
+                  const fechaRiesgo = riesgo?.createdAt || riesgo?.updatedAt;
                   const fechaFormateada = fechaRiesgo ? new Date(fechaRiesgo).toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'short',
@@ -1423,7 +1440,7 @@ export default function MapaPage() {
                                 </Typography>
                                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                   <Typography variant="body2">
-                                    <strong>Probabilidad:</strong> {riesgo.evaluacion.probabilidad || punto.probabilidad}
+                                    <strong>Probabilidad:</strong> {punto.probabilidad || riesgo.evaluacion.probabilidad || 1}
                                   </Typography>
                                   {riesgo.evaluacion.riesgoInherente && (
                                     <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 600 }}>
@@ -1431,7 +1448,7 @@ export default function MapaPage() {
                                     </Typography>
                                   )}
                                   <Typography variant="body2">
-                                    <strong>Impacto Global:</strong> {riesgo.evaluacion.impactoGlobal || punto.impacto}
+                                    <strong>Impacto Global:</strong> {punto.impacto || riesgo.evaluacion.impactoGlobal || 1}
                                   </Typography>
                                   {riesgo.evaluacion.nivelRiesgo && (
                                     <Chip
@@ -1498,7 +1515,7 @@ export default function MapaPage() {
                   const tipologia = punto.tipologiaNivelI || riesgo?.tipologiaNivelI || null;
                   
                   // Obtener fecha del riesgo
-                  const fechaRiesgo = riesgo?.createdAt || riesgo?.updatedAt || punto.createdAt || punto.updatedAt;
+                  const fechaRiesgo = riesgo?.createdAt || riesgo?.updatedAt;
                   const fechaFormateada = fechaRiesgo ? new Date(fechaRiesgo).toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'short',
@@ -1514,8 +1531,12 @@ export default function MapaPage() {
                   
                   // Obtener información de evaluación
                   const evaluacion = riesgo?.evaluacion;
-                  const probabilidadInherente = evaluacion?.probabilidad || punto.probabilidad;
-                  const impactoInherente = evaluacion?.impactoGlobal || punto.impacto;
+                  
+                  // CONFIANZA TOTAL EN LOS VALORES DEL BACKEND
+                  // El backend ya calcula correctamente probabilidad e impacto desde riesgoInherente
+                  // en getPuntosMapa, así que usamos directamente los valores del punto
+                  const probabilidadInherente = punto.probabilidad || evaluacion?.probabilidad || 1;
+                  const impactoInherente = punto.impacto || evaluacion?.impactoGlobal || 1;
                   const riesgoInherente = evaluacion?.riesgoInherente;
                   const nivelRiesgoInherente = evaluacion?.nivelRiesgo;
                   
@@ -1924,9 +1945,9 @@ export default function MapaPage() {
                         }}
                       />
                       <Chip
-                        label={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                        label={puntoSeleccionadoDetalle?.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
                         size="small"
-                        color={puntoSeleccionadoDetalle.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
+                        color={(puntoSeleccionadoDetalle?.clasificacion === CLASIFICACION_RIESGO.POSITIVA) ? 'success' : 'warning'}
                       />
                     </Box>
                     <Typography variant="body2" color="text.secondary" paragraph>

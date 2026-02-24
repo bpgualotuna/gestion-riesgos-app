@@ -81,18 +81,47 @@ export default function IncidenciasPage() {
   const { procesoSeleccionado } = useProceso();
   const { showSuccess, showError } = useNotification();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
-    const { data: riesgosResponse } = useGetRiesgosQuery({ pageSize: 1000 });
-    const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
+  
+  // OPTIMIZADO: Filtrar riesgos desde el backend y usar caché agresivo
+  const { data: riesgosResponse } = useGetRiesgosQuery(
+    { 
+      procesoId: puedeElegirSinProceso ? undefined : (procesoSeleccionado?.id || undefined),
+      pageSize: 100, // Máximo permitido por backend
+      includeCausas: true // Necesario para mostrar causas
+    },
+    {
+      skip: !puedeElegirSinProceso && !procesoSeleccionado?.id, // Skip si no hay proceso y no puede elegir sin proceso
+      refetchOnMountOrArgChange: false, // No refetch si ya está en caché
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
+      keepUnusedDataFor: 600 // 10 minutos de caché
+    }
+  );
+  
+  const { data: incidenciasApi = [] } = useGetIncidenciasQuery(
+    {
       procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined
-    }, { skip: !procesoSeleccionado?.id && !esSupervisorRiesgos });
-    const [createIncidencia] = useCreateIncidenciaMutation();
-    const [updateIncidencia] = useUpdateIncidenciaMutation();
-    const [deleteIncidencia] = useDeleteIncidenciaMutation();
-    const [createPlanAccion] = useCreatePlanAccionMutation();
+    },
+    {
+      skip: !procesoSeleccionado?.id && !esSupervisorRiesgos,
+      refetchOnMountOrArgChange: false,
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
+      keepUnusedDataFor: 300 // 5 minutos de caché
+    }
+  );
+  
+  const [createIncidencia] = useCreateIncidenciaMutation();
+  const [updateIncidencia] = useUpdateIncidenciaMutation();
+  const [deleteIncidencia] = useDeleteIncidenciaMutation();
+  const [createPlanAccion] = useCreatePlanAccionMutation();
 
-    useEffect(() => {
+  // OPTIMIZADO: Evitar re-renders innecesarios
+  useEffect(() => {
+    if (incidenciasApi && incidenciasApi.length >= 0) {
       setIncidencias(incidenciasApi as Incidencia[]);
-    }, [incidenciasApi]);
+    }
+  }, [incidenciasApi]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -117,17 +146,17 @@ export default function IncidenciasPage() {
 
   const puedeElegirSinProceso = esSupervisorRiesgos || esGerenteGeneralDirector;
 
-  // Riesgos disponibles (con causas de identificación)
+  // OPTIMIZADO: Riesgos ya filtrados desde el backend, solo extraer data
   const riesgosDisponibles = useMemo(() => {
     const riesgos = (riesgosResponse as any)?.data || [];
-    if (puedeElegirSinProceso) return riesgos;
-    if (!procesoSeleccionado?.id) return [];
-    return riesgos.filter((r: any) => String(r.procesoId) === String(procesoSeleccionado.id));
-  }, [riesgosResponse, procesoSeleccionado?.id, puedeElegirSinProceso]);
+    // Ya están filtrados por procesoId en el backend si no puede elegir sin proceso
+    return riesgos;
+  }, [riesgosResponse]);
 
+  // OPTIMIZADO: Usar comparación de strings para evitar problemas de tipos
   const causasDelRiesgo = useMemo(() => {
     if (!formData.riesgoId) return [];
-    const riesgo = riesgosDisponibles.find((r: any) => r.id === formData.riesgoId);
+    const riesgo = riesgosDisponibles.find((r: any) => String(r.id) === String(formData.riesgoId));
     return riesgo?.causas || [];
   }, [formData.riesgoId, riesgosDisponibles]);
 
@@ -142,26 +171,33 @@ export default function IncidenciasPage() {
     return [];
   }, [incidencias, procesoSeleccionado, puedeElegirSinProceso]);
 
-  // Agrupar incidencias por riesgo para el nuevo diseño
+  // OPTIMIZADO: Agrupar incidencias por riesgo con Map para mejor rendimiento
   const incidenciasAgrupadasPorRiesgo = useMemo(() => {
-    const grupos: Record<string, { riesgo: any, incidencias: Incidencia[] }> = {};
+    const grupos = new Map<string, { riesgo: any, incidencias: Incidencia[] }>();
+    
+    // OPTIMIZADO: Crear un Map de riesgos para búsqueda O(1) en lugar de O(n)
+    const riesgosMap = new Map<string, any>();
+    riesgosDisponibles.forEach((r: any) => {
+      riesgosMap.set(String(r.id), r);
+    });
 
-    // Primero, inicializamos grupos con los riesgos que tienen incidencias
+    // Agrupar incidencias
     incidenciasFiltradas.forEach(inc => {
-      if (inc.riesgoId && !grupos[inc.riesgoId]) {
-        const infoRiesgo = riesgosDisponibles.find((r: any) => r.id === inc.riesgoId) || {
-          id: inc.riesgoId,
-          nombre: inc.riesgoNombre,
-          numeroIdentificacion: inc.codigo?.split('-')[0] // Fallback
-        };
-        grupos[inc.riesgoId] = { riesgo: infoRiesgo, incidencias: [] };
-      }
       if (inc.riesgoId) {
-        grupos[inc.riesgoId].incidencias.push(inc);
+        const riesgoId = String(inc.riesgoId);
+        if (!grupos.has(riesgoId)) {
+          const infoRiesgo = riesgosMap.get(riesgoId) || {
+            id: inc.riesgoId,
+            nombre: inc.riesgoNombre,
+            numeroIdentificacion: inc.codigo?.split('-')[0] // Fallback
+          };
+          grupos.set(riesgoId, { riesgo: infoRiesgo, incidencias: [] });
+        }
+        grupos.get(riesgoId)!.incidencias.push(inc);
       }
     });
 
-    return Object.values(grupos);
+    return Array.from(grupos.values());
   }, [incidenciasFiltradas, riesgosDisponibles]);
 
   const handleToggleExpandirRiesgo = (id: string) => {

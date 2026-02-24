@@ -156,10 +156,26 @@ export default function ControlesYPlanesAccionPageNueva() {
     tieneControl: true
   });
 
-  // Cargar riesgos
+  // OPTIMIZADO: Cargar riesgos con paginación razonable
+  // Usar pageSize máximo permitido (100) y paginación si es necesario
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100; // Máximo permitido por el backend
+  
+  // OPTIMIZADO: Caché agresivo para mejor rendimiento
   const { data: riesgosApiData } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 1000, includeCausas: true } : { pageSize: 0 },
-    { skip: !procesoSeleccionado }
+    procesoSeleccionado ? { 
+      procesoId: String(procesoSeleccionado.id), 
+      pageSize: pageSize, 
+      page: currentPage,
+      includeCausas: true 
+    } : { pageSize: 0 },
+    { 
+      skip: !procesoSeleccionado,
+      refetchOnMountOrArgChange: false, // OPTIMIZADO: No refetch si ya está en caché
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
+      keepUnusedDataFor: 600 // 10 minutos de caché
+    }
   );
 
   const [updateCausa] = useUpdateCausaMutation();
@@ -1293,9 +1309,9 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box sx={{
                 display: 'grid',
-                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
-                gap: 2,
-                px: 3,
+                gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
+                gap: 1,
+                px: 2,
                 py: 1.5,
                 mb: 1,
                 bgcolor: '#f8f9fa',
@@ -1308,55 +1324,55 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('id')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">ID RIESGO</Typography>
                   {sortControles.field === 'id' ? (
-                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('descripcion')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortControles.field === 'descripcion' ? (
-                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('tipologia')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">TIPOLOGÍA</Typography>
                   {sortControles.field === 'tipologia' ? (
-                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('clasificacion')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" fontSize="0.7rem">CLASIFICACIÓN</Typography>
                   {sortControles.field === 'clasificacion' ? (
-                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortControlesLista('estado')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" fontSize="0.7rem">ESTADO</Typography>
                   {sortControles.field === 'estado' ? (
-                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box />
@@ -1369,25 +1385,43 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
-                        gap: 2,
-                        p: 2,
+                        gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
+                        gap: 1,
+                        p: 1.5,
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        width: '100%'
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
-                      <IconButton size="small" color="primary">
-                        {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                      </IconButton>
-                      <Typography variant="subtitle2" fontWeight={700} color="primary">
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
+                          {estaExpandido ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                        </IconButton>
+                      </Box>
+                      <Typography variant="subtitle2" fontWeight={700} color="primary" fontSize="0.8rem">
                         {riesgo.numeroIdentificacion || riesgo.numero || 'Sin ID'}
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={{ 
+                        fontWeight: 500,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.4,
+                        fontSize: '0.8rem',
+                        color: 'text.primary',
+                        wordBreak: 'break-word',
+                        pr: 1
+                      }}>
                         {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap' 
+                      }}>
                         {riesgo.tipologiaNivelI || riesgo.tipologia || '02 Operacional'}
                       </Typography>
                       
@@ -1841,9 +1875,9 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box sx={{
                 display: 'grid',
-                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
-                gap: 2,
-                px: 3,
+                gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
+                gap: 1,
+                px: 2,
                 py: 1.5,
                 mb: 1,
                 bgcolor: '#f8f9fa',
@@ -1856,44 +1890,44 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('id')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">ID RIESGO</Typography>
                   {sortPlanes.field === 'id' ? (
-                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('descripcion')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortPlanes.field === 'descripcion' ? (
-                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('tipologia')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">TIPOLOGÍA</Typography>
                   {sortPlanes.field === 'tipologia' ? (
-                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPlanesLista('estado')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" fontSize="0.7rem">ESTADO</Typography>
                   {sortPlanes.field === 'estado' ? (
-                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
+                    sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
-                    <UnfoldMoreIcon fontSize="inherit" />
+                    <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
                 <Box />
@@ -1906,21 +1940,45 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 48px',
-                        gap: 2,
-                        p: 2,
+                        gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
+                        gap: 1,
+                        p: 1.5,
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        width: '100%'
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
-                      <IconButton size="small" color="primary">
-                        {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                      </IconButton>
-                      <Typography variant="subtitle2" fontWeight={700} color="primary">{riesgo.numeroIdentificacion || riesgo.id}</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{riesgo.descripcionRiesgo || riesgo.nombre}</Typography>
-                      <Typography variant="body2" color="text.secondary">{riesgo.tipologiaNivelI || '02 Operacional'}</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
+                          {estaExpandido ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                        </IconButton>
+                      </Box>
+                      <Typography variant="subtitle2" fontWeight={700} color="primary" fontSize="0.8rem">
+                        {riesgo.numeroIdentificacion || riesgo.id}
+                      </Typography>
+                      <Typography variant="body2" sx={{ 
+                        fontWeight: 500,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.4,
+                        fontSize: '0.8rem',
+                        color: 'text.primary',
+                        wordBreak: 'break-word',
+                        pr: 1
+                      }}>
+                        {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap' 
+                      }}>
+                        {riesgo.tipologiaNivelI || riesgo.tipologia || '02 Operacional'}
+                      </Typography>
                       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Chip label="Plan Activo" size="small" color="info" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
                       </Box>

@@ -34,7 +34,8 @@ export function calcularImpactoGlobal(impactos: Impactos): number {
     (impactos.disponibilidadSGSI || 1) * PESOS_IMPACTO.disponibilidadSGSI +
     (impactos.integridadSGSI || 1) * PESOS_IMPACTO.integridadSGSI;
 
-  return Math.ceil(impactoGlobal);
+  // Redondear a entero (al entero más cercano)
+  return Math.round(impactoGlobal);
 }
 
 /**
@@ -59,19 +60,31 @@ export function calcularImpactoMaximo(impactos: Impactos): number {
  * Fórmula Excel: =+IF(AND(AD11=2,W11=2),3.99,AD11*W11)
  * 
  * CASO ESPECIAL: Si impactoMaximo = 2 Y probabilidad = 2, resultado = 3.99
+ * 
+ * NOTA: Esta función ahora usa el servicio centralizado cuando está disponible,
+ * pero mantiene compatibilidad con la lógica hardcodeada como fallback.
  */
 export function calcularRiesgoInherente(impactoMaximo: number, probabilidad: number): number {
-  // Caso especial documentado en Excel
-  if (impactoMaximo === 2 && probabilidad === 2) {
-    return 3.99;
+  // Intentar usar servicio centralizado (síncrono con cache)
+  try {
+    const { calcularCalificacionInherentePorCausaSync } = require('../services/calificacionInherenteService');
+    const resultado = calcularCalificacionInherentePorCausaSync(probabilidad, impactoMaximo);
+    return resultado.resultado;
+  } catch (error) {
+    // Fallback: Lógica hardcodeada
+    if (impactoMaximo === 2 && probabilidad === 2) {
+      return 3.99;
+    }
+    return impactoMaximo * probabilidad;
   }
-
-  return impactoMaximo * probabilidad;
 }
 
 /**
  * Determina el nivel de riesgo según el valor calculado
  * Fórmula Excel: =IF(OR(AF11=3,AF11=2,AF11=1,AF11=3.99,N11="Riesgo con consecuencia positiva"),"NIVEL BAJO",...)
+ * 
+ * NOTA: Esta función ahora usa el servicio centralizado cuando está disponible,
+ * pero mantiene compatibilidad con la lógica hardcodeada como fallback.
  */
 export function determinarNivelRiesgo(
   riesgoInherente: number,
@@ -82,18 +95,30 @@ export function determinarNivelRiesgo(
     return NIVELES_RIESGO.BAJO;
   }
 
-  // Para riesgos negativos, aplicar umbrales
-  if (riesgoInherente >= UMBRALES_RIESGO.CRITICO) {
-    return NIVELES_RIESGO.CRITICO;
+  // Intentar usar servicio centralizado (síncrono con cache)
+  try {
+    const { determinarNivelRiesgoSync } = require('../services/calificacionInherenteService');
+    const nivel = determinarNivelRiesgoSync(riesgoInherente);
+    // Mapear nombres de nivel a constantes
+    const nivelUpper = nivel.toUpperCase();
+    if (nivelUpper.includes('CRITICO') || nivelUpper.includes('CRÍTICO')) return NIVELES_RIESGO.CRITICO;
+    if (nivelUpper.includes('ALTO')) return NIVELES_RIESGO.ALTO;
+    if (nivelUpper.includes('MEDIO')) return NIVELES_RIESGO.MEDIO;
+    if (nivelUpper.includes('BAJO')) return NIVELES_RIESGO.BAJO;
+    return NIVELES_RIESGO.BAJO;
+  } catch (error) {
+    // Fallback: Lógica hardcodeada
+    if (riesgoInherente >= UMBRALES_RIESGO.CRITICO) {
+      return NIVELES_RIESGO.CRITICO;
+    }
+    if (riesgoInherente >= UMBRALES_RIESGO.ALTO) {
+      return NIVELES_RIESGO.ALTO;
+    }
+    if (riesgoInherente >= UMBRALES_RIESGO.MEDIO) {
+      return NIVELES_RIESGO.MEDIO;
+    }
+    return NIVELES_RIESGO.BAJO;
   }
-  if (riesgoInherente >= UMBRALES_RIESGO.ALTO) {
-    return NIVELES_RIESGO.ALTO;
-  }
-  if (riesgoInherente >= UMBRALES_RIESGO.MEDIO) {
-    return NIVELES_RIESGO.MEDIO;
-  }
-
-  return NIVELES_RIESGO.BAJO;
 }
 
 /**
