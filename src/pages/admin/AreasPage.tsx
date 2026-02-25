@@ -304,41 +304,32 @@ export default function AreasPage() {
         const usuarioId = selectedUserForAssignment.id;
         const esGerente = selectedUserForAssignment.role === 'gerente';
         
-        // Determinar el modo automáticamente según la pestaña activa:
-        // - assignmentSubTab === 0 (Modo Director) = 'supervisor'
-        // - assignmentSubTab === 1 (Modo Proceso) = 'dueño'
-        const modoAutomatico: 'dueño' | 'supervisor' | null = esGerente 
-            ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
-            : null;
+        // Para gerentes: siempre usar modo "ambos" (aparecen en ambas pestañas)
+        // Para otros usuarios: modo null
+        const modoAsignado: 'ambos' | null = esGerente ? 'ambos' : null;
         
         // Obtener responsables actuales del proceso (o inicializar)
         const responsablesActuales = responsablesSeleccionados[procesoIdStr] || [];
         
-        let nuevosResponsables: Array<{ usuarioId: number; modo?: 'dueño' | 'supervisor' | null }>;
+        let nuevosResponsables: Array<{ usuarioId: number; modo?: 'ambos' | null }>;
         if (isChecked) {
-            // Agregar el usuario si no está ya en la lista con el modo correcto
-            // Esto permite que un gerente tenga el mismo proceso en ambos modos (supervisor y dueño)
-            const yaExisteConEsteModo = responsablesActuales.find(r => 
-                r.usuarioId === usuarioId && r.modo === modoAutomatico
-            );
-            if (!yaExisteConEsteModo) {
+            // Agregar el usuario si no está ya en la lista
+            const yaExiste = responsablesActuales.find(r => r.usuarioId === usuarioId);
+            if (!yaExiste) {
                 nuevosResponsables = [
                     ...responsablesActuales,
                     { 
                         usuarioId,
-                        modo: modoAutomatico
+                        modo: modoAsignado as any
                     }
                 ];
             } else {
-                // Ya existe con este modo, no hacer nada
+                // Ya existe, no hacer nada
                 nuevosResponsables = responsablesActuales;
             }
         } else {
-            // Remover el usuario de la lista solo si el modo coincide con la pestaña actual
-            // Esto permite que un gerente tenga el mismo proceso en ambos modos
-            nuevosResponsables = responsablesActuales.filter(r => 
-                !(r.usuarioId === usuarioId && r.modo === modoAutomatico)
-            );
+            // Remover el usuario de la lista
+            nuevosResponsables = responsablesActuales.filter(r => r.usuarioId !== usuarioId);
         }
         
         // Actualizar el estado local
@@ -356,11 +347,9 @@ export default function AreasPage() {
         const usuarioId = selectedUserForAssignment.id;
         const esGerente = selectedUserForAssignment.role === 'gerente';
         
-        // Determinar el modo automáticamente según la pestaña activa
-        // Modo Director (0) = supervisor, Modo Proceso (1) = dueño
-        const modoAutomatico: 'dueño' | 'supervisor' | null = esGerente 
-            ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
-            : null;
+        // Para gerentes: siempre usar modo "ambos" (aparecen en ambas pestañas)
+        // Para otros usuarios: modo null
+        const modoAsignado: 'ambos' | null = esGerente ? 'ambos' : null;
         
         const nuevosResponsables = { ...responsablesSeleccionados };
         
@@ -369,23 +358,21 @@ export default function AreasPage() {
             const responsablesActuales = nuevosResponsables[procesoIdStr] || [];
             
             if (isChecked) {
-                // Agregar el usuario si no está ya en la lista con el modo correcto
-                const yaExiste = responsablesActuales.find(r => 
-                    r.usuarioId === usuarioId && r.modo === modoAutomatico
-                );
+                // Agregar el usuario si no está ya en la lista
+                const yaExiste = responsablesActuales.find(r => r.usuarioId === usuarioId);
                 if (!yaExiste) {
                     nuevosResponsables[procesoIdStr] = [
                         ...responsablesActuales,
                         { 
                             usuarioId,
-                            modo: modoAutomatico
+                            modo: modoAsignado as any
                         }
                     ];
                 }
             } else {
-                // Remover el usuario solo si el modo coincide con la pestaña actual
+                // Remover el usuario
                 nuevosResponsables[procesoIdStr] = responsablesActuales.filter(r => 
-                    !(r.usuarioId === usuarioId && r.modo === modoAutomatico)
+                    r.usuarioId !== usuarioId
                 );
             }
         });
@@ -402,21 +389,11 @@ export default function AreasPage() {
             const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsables]) => {
                 console.log(`[AreasPage] Guardando proceso ${procesoId} con responsables:`, responsables);
                 
-                // Asegurar que los gerentes tengan un modo válido antes de enviar
-                const responsablesConModo = responsables.map(r => {
-                    const usuario = usuarios.find(u => u.id === r.usuarioId);
-                    console.log(`[AreasPage] Procesando responsable ${r.usuarioId}:`, { usuario, esGerente: usuario?.role === 'gerente', modoOriginal: r.modo });
-                    
-                    const esGerente = usuario?.role === 'gerente';
-                    
-                    // Si es gerente y no tiene modo, usar 'dueño' por defecto
-                    const modoFinal = esGerente && !r.modo ? 'dueño' : (r.modo || null);
-                    
-                    return {
-                        usuarioId: r.usuarioId,
-                        modo: modoFinal
-                    };
-                });
+                // Enviar responsables tal como están (con modo "ambos" para gerentes)
+                const responsablesConModo = responsables.map(r => ({
+                    usuarioId: r.usuarioId,
+                    modo: r.modo || null
+                }));
                 
                 console.log(`[AreasPage] Enviando al backend proceso ${procesoId}:`, responsablesConModo);
                 
@@ -448,19 +425,14 @@ export default function AreasPage() {
         const areaProcesos = procesos.filter(p => String(p.areaId) === String(areaId));
         if (areaProcesos.length === 0) return { checked: false, indeterminate: false };
 
-        // Determinar el modo según la pestaña activa para gerentes
-        const esGerente = selectedUserForAssignment.role === 'gerente';
-        const modoEsperado: 'dueño' | 'supervisor' | null = esGerente 
-            ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
-            : null;
-
-        // Verificar si el usuario es responsable de todos los procesos del área con el modo correcto
+        // Verificar si el usuario es responsable de todos los procesos del área
+        // Para gerentes con modo "ambos", aparecen en ambas pestañas
         const usuarioId = selectedUserForAssignment.id;
         const allOwned = areaProcesos.every(p => 
-            isProcesoResponsable(p.id, usuarioId, modoEsperado)
+            isProcesoResponsable(p.id, usuarioId)
         );
         const someOwned = areaProcesos.some(p => 
-            isProcesoResponsable(p.id, usuarioId, modoEsperado)
+            isProcesoResponsable(p.id, usuarioId)
         );
 
         return {
@@ -470,25 +442,19 @@ export default function AreasPage() {
     };
     
     // Verificar si un proceso tiene a un usuario como responsable (desde base de datos)
-    // Si se especifica modoEsperado, solo verifica ese modo específico (para gerentes)
-    const isProcesoResponsable = (procesoId: string | number, usuarioId: number, modoEsperado?: 'dueño' | 'supervisor' | null): boolean => {
+    // Para gerentes con modo "ambos", siempre retorna true en ambas pestañas
+    const isProcesoResponsable = (procesoId: string | number, usuarioId: number): boolean => {
         const responsables = responsablesSeleccionados[String(procesoId)] || [];
         
-        // Si se especifica un modo esperado (para gerentes), verificar que coincida
-        if (modoEsperado !== undefined) {
-            return responsables.some(r => 
-                r.usuarioId === usuarioId && r.modo === modoEsperado
-            );
-        }
-        
-        // Si no se especifica modo, verificar si existe (para usuarios no gerentes)
+        // Verificar si el usuario está en la lista de responsables
+        // Si tiene modo "ambos", aparece en ambas pestañas
         return responsables.some(r => r.usuarioId === usuarioId);
     };
     
-    const getModoProceso = (procesoId: string | number, usuarioId: number): 'dueño' | 'supervisor' | null => {
+    const getModoProceso = (procesoId: string | number, usuarioId: number): 'ambos' | null => {
         const responsables = responsablesSeleccionados[String(procesoId)] || [];
         const responsable = responsables.find(r => r.usuarioId === usuarioId);
-        return responsable?.modo || null;
+        return responsable?.modo as any || null;
     };
     
     // Obtener todos los responsables de un proceso para mostrarlos
@@ -662,13 +628,13 @@ export default function AreasPage() {
                                     <Typography variant="h6" sx={{ mb: 2 }}>Áreas y Procesos</Typography>
                                 )}
                                 {esGerenteGeneral && assignmentSubTab === 0 && (
-                                    <Alert severity="warning" sx={{ mb: 2 }}>
-                                        <strong>Modo Director (Supervisor):</strong> Los procesos seleccionados se asignarán automáticamente como <strong>Supervisor</strong>. El gerente actuará como supervisor de estos procesos cuando seleccione "Dashboard Gerencial".
+                                    <Alert severity="info" sx={{ mb: 2 }}>
+                                        <strong>Modo Director (Supervisor):</strong> Los procesos seleccionados se asignarán automáticamente en <strong>ambos modos</strong> (Supervisor y Dueño de Proceso). Las selecciones se sincronizan entre ambas pestañas.
                                     </Alert>
                                 )}
                                 {esGerenteGeneral && assignmentSubTab === 1 && (
-                                    <Alert severity="success" sx={{ mb: 2 }}>
-                                        <strong>Modo Proceso (Dueño):</strong> Los procesos seleccionados se asignarán automáticamente como <strong>Dueño de Proceso</strong>. El gerente actuará como dueño de estos procesos cuando seleccione "Vista de Procesos".
+                                    <Alert severity="info" sx={{ mb: 2 }}>
+                                        <strong>Modo Proceso (Dueño):</strong> Los procesos seleccionados se asignarán automáticamente en <strong>ambos modos</strong> (Supervisor y Dueño de Proceso). Las selecciones se sincronizan entre ambas pestañas.
                                     </Alert>
                                 )}
 
@@ -713,14 +679,11 @@ export default function AreasPage() {
                                                     {areaProcesses.length > 0 ? (
                                                         <Box sx={{ pl: 4 }}>
                                                             {areaProcesses.map(proceso => {
-                                                                // Determinar el modo esperado según la pestaña activa
                                                                 const esGerente = selectedUserForAssignment.role === 'gerente';
-                                                                const modoEsperado: 'dueño' | 'supervisor' | null = esGerente 
-                                                                    ? (assignmentSubTab === 0 ? 'supervisor' : 'dueño')
-                                                                    : null;
                                                                 
-                                                                // Verificar si el proceso está asignado con el modo correcto
-                                                                const isOwned = isProcesoResponsable(proceso.id, selectedUserForAssignment.id, modoEsperado);
+                                                                // Verificar si el proceso está asignado
+                                                                // Para gerentes con modo "ambos", aparece en ambas pestañas
+                                                                const isOwned = isProcesoResponsable(proceso.id, selectedUserForAssignment.id);
                                                                 const responsablesProceso = getResponsablesProceso(proceso.id);
                                                                 
                                                                 return (
@@ -737,9 +700,9 @@ export default function AreasPage() {
                                                                         />
                                                                         {esGerente && isOwned && (
                                                                             <Chip 
-                                                                                label={modoEsperado === 'supervisor' ? 'Supervisor' : 'Dueño'} 
+                                                                                label="Ambos Modos" 
                                                                                 size="small" 
-                                                                                color={modoEsperado === 'supervisor' ? 'warning' : 'primary'}
+                                                                                color="success"
                                                                                 variant="outlined"
                                                                             />
                                                                         )}
@@ -753,7 +716,7 @@ export default function AreasPage() {
                                                                                 {responsablesProceso.map((resp: any) => {
                                                                                     const usuario = usuarios.find(u => u.id === resp.id);
                                                                                     const esGerenteResp = usuario?.role === 'gerente';
-                                                                                    const modoLabel = esGerenteResp && resp.modo ? ` (${resp.modo === 'dueño' ? 'Dueño' : 'Supervisor'})` : '';
+                                                                                    const modoLabel = esGerenteResp && resp.modo === 'ambos' ? ' (Ambos Modos)' : '';
                                                                                     return (
                                                                                         <Chip
                                                                                             key={resp.id}

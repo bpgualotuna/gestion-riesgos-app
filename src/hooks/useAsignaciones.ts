@@ -52,25 +52,25 @@ export const useAreasProcesosAsignados = () => {
 
     let procesosAsignados: ProcesoItem[] = [];
 
-    // 1) Gerente en Modo Director (Supervisor): ver procesos donde es responsable con modo 'supervisor'
+    // 1) Gerente en Modo Director (Supervisor): ver procesos donde es responsable con modo 'supervisor' o 'ambos'
     if (esGerenteGeneralDirector) {
         procesosAsignados = procesos.filter((p: any) =>
             (p.responsablesList || []).some(
                 (r: any) =>
                     Number(r.id) === userIdNum &&
                     r.role === 'gerente' &&
-                    r.modo === 'supervisor'
+                    (r.modo === 'supervisor' || r.modo === 'ambos')
             )
         );
     }
-    // 2) Gerente en Modo Dueño de Proceso
+    // 2) Gerente en Modo Dueño de Proceso: ver procesos donde es responsable con modo 'dueño' o 'ambos'
     else if (esGerenteDueño) {
         procesosAsignados = procesos.filter((p: any) =>
             (p.responsablesList || []).some(
                 (r: any) =>
                     Number(r.id) === userIdNum &&
                     r.role === 'gerente' &&
-                    r.modo === 'dueño'
+                    (r.modo === 'dueño' || r.modo === 'ambos')
             )
         );
     }
