@@ -260,6 +260,17 @@ export function determinarNivelRiesgoSync(valor: number): string {
 
   console.warn(`[determinarNivelRiesgoSync] ❌ Valor ${valor} no coincide con ningún rango. Rangos disponibles:`, 
     rangosOrdenados.map(r => `${r.nivelNombre} (${r.valorMinimo}-${r.valorMaximo}, activo: ${r.activo})`));
+  // Si hay valor positivo pero la config (p. ej. API) no tiene rango que lo cubra, usar rangos por defecto
+  if (valor > 0 && config !== getConfigPorDefecto()) {
+    const defaultRangos = getConfigPorDefecto().rangos
+      .filter((r: any) => r.activo !== false)
+      .sort((a: any, b: any) => a.orden - b.orden);
+    for (const rango of defaultRangos) {
+      const cumpleMinimo = rango.incluirMinimo ? valor >= rango.valorMinimo : valor > rango.valorMinimo;
+      const cumpleMaximo = rango.incluirMaximo ? valor <= rango.valorMaximo : valor < rango.valorMaximo;
+      if (cumpleMinimo && cumpleMaximo) return rango.nivelNombre;
+    }
+  }
   return 'Sin Calificar';
 }
 
@@ -291,34 +302,40 @@ export async function determinarNivelRiesgo(valor: number): Promise<string> {
 }
 
 /**
- * Calcula la calificación inherente global de un riesgo
- * (máximo de todas las causas)
+ * Agrega calificaciones por causa según la regla de la config (versión síncrona con cache).
+ * Coherencia con Admin > Calificación Inherente (Máximo, Promedio, Suma, Mínimo).
+ */
+export function agregarCalificacionInherenteGlobalSync(calificacionesPorCausa: number[]): number {
+  const config = getConfigCache() || getConfigPorDefecto();
+  const tipo = config.reglaAgregacion?.tipoAgregacion?.toLowerCase();
+  if (!calificacionesPorCausa.length) return 0;
+  if (tipo === 'promedio') {
+    return calificacionesPorCausa.reduce((a, b) => a + b, 0) / calificacionesPorCausa.length;
+  }
+  if (tipo === 'suma') {
+    return calificacionesPorCausa.reduce((a, b) => a + b, 0);
+  }
+  if (tipo === 'minimo') {
+    return Math.min(...calificacionesPorCausa);
+  }
+  return Math.max(...calificacionesPorCausa);
+}
+
+/**
+ * Calcula la calificación inherente global de un riesgo (versión async)
  */
 export async function calcularCalificacionInherenteGlobal(
   calificacionesPorCausa: number[]
 ): Promise<number> {
   const config = await getConfigActiva();
-  
-  if (!config.reglaAgregacion) {
-    // Fallback: máximo
-    return Math.max(...calificacionesPorCausa, 0);
+  if (!config.reglaAgregacion) return Math.max(...calificacionesPorCausa, 0);
+  const tipo = config.reglaAgregacion.tipoAgregacion?.toLowerCase();
+  if (!calificacionesPorCausa.length) return 0;
+  if (tipo === 'promedio') {
+    return calificacionesPorCausa.reduce((a, b) => a + b, 0) / calificacionesPorCausa.length;
   }
-
-  const tipo = config.reglaAgregacion.tipoAgregacion;
-  
-  if (tipo === 'maximo') {
-    return Math.max(...calificacionesPorCausa, 0);
-  } else if (tipo === 'promedio') {
-    return calificacionesPorCausa.length > 0
-      ? calificacionesPorCausa.reduce((a, b) => a + b, 0) / calificacionesPorCausa.length
-      : 0;
-  } else if (tipo === 'suma') {
-    return calificacionesPorCausa.reduce((a, b) => a + b, 0);
-  } else if (tipo === 'minimo') {
-    return Math.min(...calificacionesPorCausa, 0);
-  }
-
-  // Fallback
+  if (tipo === 'suma') return calificacionesPorCausa.reduce((a, b) => a + b, 0);
+  if (tipo === 'minimo') return Math.min(...calificacionesPorCausa, 0);
   return Math.max(...calificacionesPorCausa, 0);
 }
 

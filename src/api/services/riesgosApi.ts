@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RTK Query API for Risk Management
  * All endpoints connect directly to the backend API
  */
@@ -150,9 +150,8 @@ export const riesgosApi = createApi({
     // RIESGOS
     // ============================================
     getRiesgos: builder.query<PaginatedResponse<Riesgo>, FiltrosRiesgo & { page?: number; pageSize?: number }>({
-      query: (params) => ({
-        url: 'riesgos',
-        params: {
+      query: (params) => {
+        const raw: Record<string, unknown> = {
           procesoId: params.procesoId,
           clasificacion: params.clasificacion && params.clasificacion !== 'all' ? params.clasificacion : undefined,
           busqueda: params.busqueda,
@@ -160,8 +159,10 @@ export const riesgosApi = createApi({
           includeCausas: (params as any).includeCausas,
           page: params.page,
           pageSize: params.pageSize,
-        }
-      }),
+        };
+        const paramsClean = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== null));
+        return { url: 'riesgos', params: paramsClean };
+      },
       providesTags: ['Riesgo'],
     }),
 
@@ -288,13 +289,11 @@ export const riesgosApi = createApi({
     // INCIDENCIAS
     // ============================================
     getIncidencias: builder.query<any[], { procesoId?: string | number; riesgoId?: string | number }>({
-      query: (params) => ({
-        url: 'incidencias',
-        params: {
-          procesoId: params?.procesoId,
-          riesgoId: params?.riesgoId,
-        }
-      }),
+      query: (params) => {
+        const raw = { procesoId: params?.procesoId, riesgoId: params?.riesgoId };
+        const paramsClean = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== null));
+        return { url: 'incidencias', params: paramsClean };
+      },
       providesTags: ['Incidencia'],
     }),
 

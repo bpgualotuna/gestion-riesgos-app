@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Evaluación Page - COMPLETA según Excel
  * Incluye: Evaluación Inherente (Negativa/Positiva), Causas, Controles
  */
@@ -113,7 +113,10 @@ export default function EvaluacionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
   const { data: riesgosData } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
+    procesoSeleccionado
+      ? { procesoId: procesoSeleccionado.id, pageSize: 100, includeCausas: true }
+      : { pageSize: 100 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
   const [createEvaluacion, { isLoading: isSaving }] = useCreateEvaluacionMutation();
   const { showSuccess, showError } = useNotification();

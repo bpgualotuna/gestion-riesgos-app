@@ -34,8 +34,11 @@ export default function DashboardGerenteGeneralPage() {
   const navigate = useNavigate();
   const { esGerenteGeneral } = useAuth();
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
-  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, includeCausas: true });
-  const { data: puntosMapa } = useGetPuntosMapaQuery({});
+  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
+    { pageSize: 200, includeCausas: true },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+  );
+  const { data: puntosMapa } = useGetPuntosMapaQuery({}, { keepUnusedDataFor: 300 });
 
 
   const riesgos = riesgosData?.data || [];

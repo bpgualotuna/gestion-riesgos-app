@@ -1038,7 +1038,11 @@ export default function MaterializarRiesgosPage() {
       {tabValue === 1 && (
         <Card variant="outlined">
           <CardContent>
-            {incidenciasFiltradas.length === 0 ? (
+            {procesoIdConsulta && isLoadingIncidencias ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : incidenciasFiltradas.length === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>No hay planes de acción registrados.</Alert>
             ) : (
               <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 600, overflow: 'auto' }}>

@@ -164,11 +164,12 @@ export default function IncidenciasPage() {
     return base;
   }, [impactosApi]);
   const { data: riesgosResponse } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
+    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 100 } : { pageSize: 100 },
+    { skip: !procesoSeleccionado?.id, refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
-    return (riesgosResponse?.data || []).filter((r: any) => String(r.procesoId) === String(procesoSeleccionado.id));
+    return (riesgosResponse?.data || []);
   }, [riesgosResponse?.data, procesoSeleccionado?.id]);
 
   // Filtrar incidencias por proceso

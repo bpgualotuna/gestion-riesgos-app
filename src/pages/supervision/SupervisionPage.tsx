@@ -69,7 +69,10 @@ export default function SupervisionPage() {
   const navigate = useNavigate();
   const { setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
-  const { data: riesgosData } = useGetRiesgosQuery({ pageSize: 1000 });
+  const { data: riesgosData } = useGetRiesgosQuery(
+    { pageSize: 200 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+  );
   const todosRiesgos = riesgosData?.data || [];
 
   const [filtroArea, setFiltroArea] = useState<string>('all');

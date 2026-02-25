@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Riesgos del Proceso Page
  * Muestra los riesgos del proceso seleccionado
  */
@@ -54,16 +54,14 @@ export default function RiesgosProcesosPage() {
   const { data: procesosData } = useGetProcesosQuery();
   const procesos = procesosData || [];
 
-  // Filtrar riesgos según el rol del usuario
+  // Consulta filtrada en backend por proceso cuando aplica (app más rápida)
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
     puedeVerTodosLosRiesgos
-      ? { pageSize: 1000 } // Admin y Auditoría ven todos los riesgos
+      ? { pageSize: 200 }
       : procesoSeleccionado
-        ? {
-          procesoId: procesoSeleccionado.id,
-          pageSize: 100,
-        }
-        : { pageSize: 100 }
+        ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
+        : { pageSize: 100 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
 
   // Estadísticas filtradas por proceso

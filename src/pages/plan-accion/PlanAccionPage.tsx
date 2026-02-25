@@ -131,9 +131,12 @@ export default function PlanAccionPage() {
     observaciones: ''
   });
 
-  // Carga de Riesgos
+  // Carga de Riesgos filtrada en backend por proceso
   const { data: riesgosData, refetch: refetchRiesgos } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000, includeCausas: true } : { pageSize: 1000 }
+    procesoSeleccionado
+      ? { procesoId: procesoSeleccionado.id, pageSize: 100, includeCausas: true }
+      : { pageSize: 100 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
   
   // Auto-refetch cuando el contexto detecte cambios

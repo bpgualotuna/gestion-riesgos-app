@@ -32,13 +32,14 @@ export default function ResumenRiesgosPage() {
   // Determinar qué riesgos puede ver el usuario
   const puedeVerTodosLosRiesgos = esAdmin || esAuditoria;
 
-  // Obtener riesgos según permisos
+  // Consulta filtrada en backend por proceso cuando aplica
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
     puedeVerTodosLosRiesgos
-      ? { pageSize: 1000 }
+      ? { pageSize: 200 }
       : procesoSeleccionado
-      ? { procesoId: procesoSeleccionado.id, pageSize: 1000 }
-      : { pageSize: 1000 }
+      ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
+      : { pageSize: 100 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
 
   // Obtener procesos para mostrar nombres

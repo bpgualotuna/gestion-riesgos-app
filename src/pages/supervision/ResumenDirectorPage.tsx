@@ -83,7 +83,10 @@ export default function ResumenDirectorPage() {
   const { setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
   const { showSuccess, showError } = useNotification();
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
-  const { data: riesgosData } = useGetRiesgosQuery({ pageSize: 1000 });
+  const { data: riesgosData } = useGetRiesgosQuery(
+    { pageSize: 200 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+  );
   const todosRiesgos = riesgosData?.data || [];
 
   const [observaciones, setObservaciones] = useState<Observacion[]>(mockObservaciones);

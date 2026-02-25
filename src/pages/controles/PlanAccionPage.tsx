@@ -185,9 +185,10 @@ export default function PlanAccionPage() {
   // Estado local para el riesgo seleccionado en esta página
   const [riesgoSeleccionadoLocal, setRiesgoSeleccionadoLocal] = useState<any>(riesgoSeleccionadoContext);
   
-  // Obtener todos los riesgos del proceso seleccionado
+  // Riesgos filtrados en backend por proceso
   const { data: riesgosData } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 1000 } : { pageSize: 1000 }
+    procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 100 } : { pageSize: 200 },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
   const riesgos = riesgosData?.data || [];
   
