@@ -30,7 +30,7 @@ export const esUsuarioResponsableProceso = (proceso: Proceso | ProcesoItem | any
 // Hook centralizado: obtiene las áreas y procesos asignados usando los datos REALES del backend
 // ya no depende de localStorage ni de catálogos legacy.
 export const useAreasProcesosAsignados = () => {
-    const { user, esGerenteGeneralDirector, esGerenteGeneralProceso, esSupervisorRiesgos, esDueñoProcesos } = useAuth();
+    const { user, esGerenteGeneralDirector, esGerenteDueño, esSupervisorRiesgos, esDueñoProcesos } = useAuth();
     const { data: procesosApi = [], isLoading } = useGetProcesosQuery();
 
     if (!user) {
@@ -63,8 +63,8 @@ export const useAreasProcesosAsignados = () => {
             )
         );
     }
-    // 2) Gerente en Modo Proceso (Dueño de proceso)
-    else if (esGerenteGeneralProceso) {
+    // 2) Gerente en Modo Dueño de Proceso
+    else if (esGerenteDueño) {
         procesosAsignados = procesos.filter((p: any) =>
             (p.responsablesList || []).some(
                 (r: any) =>

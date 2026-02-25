@@ -38,6 +38,8 @@ interface AuthContextType {
   esGerente: boolean;
   esGerenteDueño: boolean;
   esGerenteSupervisor: boolean;
+  esGerenteGeneralProceso: boolean; // Alias para esGerenteDueño (compatibilidad)
+  esGerenteGeneralDirector: boolean; // Alias para esGerenteSupervisor (compatibilidad)
   esDuenoProcesos: boolean; // Helper para verificar si es dueño de procesos
   esDueñoProcesos: boolean; // Alias for compatibility
   esAdmin: boolean; // Helper para verificar si es admin
@@ -123,6 +125,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     esGerente,
     esGerenteDueño,
     esGerenteSupervisor,
+    esGerenteGeneralProceso: esGerenteDueño, // Alias para compatibilidad
+    esGerenteGeneralDirector: esGerenteSupervisor, // Alias para compatibilidad
     esDuenoProcesos: user?.role === 'dueño_procesos' || esGerenteDueño,
     esDueñoProcesos: user?.role === 'dueño_procesos' || esGerenteDueño,
     esAdmin: user?.role === 'admin',

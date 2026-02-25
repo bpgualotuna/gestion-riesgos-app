@@ -29,7 +29,7 @@ interface FiltroProcesoSupervisorProps {
 
 export default function FiltroProcesoSupervisor({ soloSupervisores = true, onProcesoSeleccionado }: FiltroProcesoSupervisorProps) {
     const { procesoSeleccionado, setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
-    const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
+    const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, user } = useAuth();
     const { data: procesos = [] } = useGetProcesosQuery();
     const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
     const { showSuccess } = useNotification();
@@ -41,11 +41,10 @@ export default function FiltroProcesoSupervisor({ soloSupervisores = true, onPro
     // NO mostrar para Dueño de Proceso ni Gerente General (Proceso):
     //   - Dueño de Proceso selecciona el proceso únicamente desde el header.
     //   - Gerente General (Proceso) también usa solo el selector del header.
-    const esDuenoProcesos = user?.role === 'dueño_procesos';
     const mostrarFiltros =
         !soloSupervisores ||
         esAdmin ||
-        ((esSupervisorRiesgos || esGerenteGeneralDirector) && !esGerenteGeneralProceso && !esDuenoProcesos);
+        ((esSupervisorRiesgos || esGerenteGeneralDirector) && !esGerenteGeneralProceso && !esDueñoProcesos);
 
     // Obtener procesos disponibles según permisos
     const procesosDisponibles = useMemo(() => {
@@ -67,13 +66,13 @@ export default function FiltroProcesoSupervisor({ soloSupervisores = true, onPro
             return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user?.id));
         }
 
-        // Dueño de Proceso - ve solo sus procesos como responsable (considerando responsablesList)
-        if (user?.role === 'dueño_procesos') {
-            return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
+        // Dueño de Proceso (incluye Gerente General en modo Dueño)
+        if (esDueñoProcesos) {
+            return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user?.id));
         }
 
         return procesos;
-    }, [procesos, esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, areasAsignadas, procesosAsignados, user]);
+    }, [procesos, esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, areasAsignadas, procesosAsignados, user]);
 
     // Obtener áreas disponibles
     const areasDisponibles = useMemo(() => {

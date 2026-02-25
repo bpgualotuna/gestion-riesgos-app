@@ -259,8 +259,8 @@ export default function MainLayout() {
     } else if (esGerenteGeneralProceso) {
       // Gerente General Proceso ve procesos asignados desde AreasPage
       return procesos.filter((p) => procesosAsignados.includes(String(p.id)));
-    } else if (user?.role === 'dueño_procesos') {
-      // Dueño del proceso REAL solo ve sus procesos (considerando responsablesList)
+    } else if (esDueñoProcesos) {
+      // Dueño del proceso (incluye Gerente General en modo Dueño)
       return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
     }
     return procesos;

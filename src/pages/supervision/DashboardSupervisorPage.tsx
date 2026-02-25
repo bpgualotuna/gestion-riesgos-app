@@ -133,8 +133,10 @@ export default function DashboardSupervisorPage() {
       });
     }
 
-    // Para Dueño de Procesos REAL (role === 'dueño_procesos'), filtrar solo sus procesos
-    if (user?.role === 'dueño_procesos') {
+    // Para Dueño de Procesos (incluye Gerente General en modo Dueño)
+    // Usar esDueñoProcesos en lugar de verificar role directamente
+    // Esto cubre tanto role='dueño_procesos' como Gerente General con gerenteMode='dueño'
+    if (esDueñoProcesos) {
       return todosLosProcesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
     }
 
@@ -803,7 +805,7 @@ export default function DashboardSupervisorPage() {
           onFiltroOrigenChange={setFiltroOrigen}
           procesos={procesos}
           riesgos={riesgos}
-          ocultarFiltroOrigen={user?.role === 'dueño_procesos'} // Ocultar filtro Origen para Dueño de Procesos
+          ocultarFiltroOrigen={esDueñoProcesos} // Ocultar filtro Origen para Dueño de Procesos (incluye Gerente General en modo Dueño)
         />
 
         {/* Resumen Ejecutivo y Tendencia (con KPIs combinados) */}

@@ -395,11 +395,18 @@ export default function AreasPage() {
 
     const saveAssignments = async () => {
         try {
+            console.log('[AreasPage] saveAssignments - responsablesSeleccionados:', responsablesSeleccionados);
+            console.log('[AreasPage] saveAssignments - usuarios disponibles:', usuarios.map(u => ({ id: u.id, nombre: u.nombre, role: u.role })));
+            
             // Guardar responsables para cada proceso que tenga cambios en la base de datos
             const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsables]) => {
+                console.log(`[AreasPage] Guardando proceso ${procesoId} con responsables:`, responsables);
+                
                 // Asegurar que los gerentes tengan un modo válido antes de enviar
                 const responsablesConModo = responsables.map(r => {
                     const usuario = usuarios.find(u => u.id === r.usuarioId);
+                    console.log(`[AreasPage] Procesando responsable ${r.usuarioId}:`, { usuario, esGerente: usuario?.role === 'gerente', modoOriginal: r.modo });
+                    
                     const esGerente = usuario?.role === 'gerente';
                     
                     // Si es gerente y no tiene modo, usar 'dueño' por defecto
@@ -410,6 +417,8 @@ export default function AreasPage() {
                         modo: modoFinal
                     };
                 });
+                
+                console.log(`[AreasPage] Enviando al backend proceso ${procesoId}:`, responsablesConModo);
                 
                 await updateResponsables({
                     procesoId,

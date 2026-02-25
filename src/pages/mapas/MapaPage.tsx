@@ -133,8 +133,8 @@ export default function MapaPage() {
         return false;
       });
     }
-    // Dueño de Proceso REAL
-    if (user?.role === 'dueño_procesos') {
+    // Dueño de Proceso (incluye Gerente General en modo Dueño)
+    if (esDueñoProcesos) {
       return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
     }
     return [];

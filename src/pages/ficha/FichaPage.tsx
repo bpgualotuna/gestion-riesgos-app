@@ -119,8 +119,8 @@ export default function FichaPage() {
       return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user?.id));
     }
 
-    // Dueño de Proceso - ve solo sus procesos como responsable
-    if (user?.role === 'dueño_procesos') {
+    // Dueño de Proceso (incluye Gerente General en modo Dueño)
+    if (esDueñoProcesos) {
       return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
     }
 
