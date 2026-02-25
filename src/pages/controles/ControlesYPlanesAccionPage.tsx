@@ -887,7 +887,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       const tipoActual = (causa.tipoGestion || '').toUpperCase();
       
       if (tipoActual === 'AMBOS') {
-        // Mantener AMBOS, solo marcar como inactivo la parte eliminada
+        // Calcular el nuevo estado después de eliminar
         const gestionActual = causa.gestion || {};
         const estadoAmbosActual = gestionActual.estadoAmbos || { controlActivo: true, planActivo: true };
         
@@ -896,57 +896,76 @@ export default function ControlesYPlanesAccionPageNueva() {
           planActivo: contexto === 'PLAN' ? false : estadoAmbosActual.planActivo
         };
         
-        // Construir objeto gestion con TODOS los datos
-        const gestionActualizada = {
-          ...gestionActual,
-          estadoAmbos: nuevoEstadoAmbos,
-          // Datos del plan
-          planDescripcion: causa.planDescripcion,
-          planDetalle: causa.planDetalle,
-          planResponsable: causa.planResponsable,
-          planDecision: causa.planDecision,
-          planFechaEstimada: causa.planFechaEstimada,
-          planEstado: causa.planEstado,
-          // Datos del control
-          aplicabilidad: causa.aplicabilidad,
-          puntajeAplicabilidad: causa.puntajeAplicabilidad,
-          cobertura: causa.cobertura,
-          puntajeCobertura: causa.puntajeCobertura,
-          facilidadUso: causa.facilidadUso,
-          puntajeFacilidad: causa.puntajeFacilidad,
-          segregacionFunciones: causa.segregacionFunciones,
-          puntajeSegregacion: causa.puntajeSegregacion,
-          naturalezaControl: causa.naturalezaControl,
-          puntajeNaturaleza: causa.puntajeNaturaleza,
-          desviaciones: causa.desviaciones,
-          controlDesviaciones: causa.controlDesviaciones,
-          descripcionControl: causa.descripcionControl,
-          controlDescripcion: causa.controlDescripcion,
-          responsable: causa.responsable,
-          controlResponsable: causa.controlResponsable,
-          tieneControl: causa.tieneControl,
-          tipoMitigacion: causa.tipoMitigacion,
-          puntajeTotal: causa.puntajeTotal,
-          evaluacionPreliminar: causa.evaluacionPreliminar,
-          evaluacionDefinitiva: causa.evaluacionDefinitiva,
-          porcentajeMitigacion: causa.porcentajeMitigacion,
-          frecuenciaResidual: causa.frecuenciaResidual,
-          impactoResidual: causa.impactoResidual,
-          calificacionResidual: causa.calificacionResidual,
-          nivelRiesgoResidual: causa.nivelRiesgoResidual
-        };
-        
-        await updateCausa({
-          id: causa.id,
-          tipoGestion: 'AMBOS',
-          gestion: gestionActualizada
-        }).unwrap();
-        
-        showSuccess(
-          contexto === 'CONTROL' 
-            ? 'Control eliminado. Puede re-agregarlo desde Clasificación.'
-            : 'Plan de Acción eliminado. Puede re-agregarlo desde Clasificación.'
-        );
+        // Si ambos están inactivos, volver a estado sin clasificar
+        if (!nuevoEstadoAmbos.controlActivo && !nuevoEstadoAmbos.planActivo) {
+          // Opcional: guardar historial para trazabilidad
+          const historial = {
+            fechaEliminacion: new Date().toISOString(),
+            tipoGestionAnterior: 'AMBOS',
+            datosAnteriores: gestionActual
+          };
+          
+          await updateCausa({
+            id: causa.id,
+            tipoGestion: null, // ← Volver a sin clasificar
+            gestion: { historial } // Guardar historial para trazabilidad
+          }).unwrap();
+          
+          showSuccess('Ambos eliminados. La causa vuelve a estado sin clasificar.');
+        } else {
+          // Mantener AMBOS con estado parcial (solo uno eliminado)
+          // Construir objeto gestion con TODOS los datos
+          const gestionActualizada = {
+            ...gestionActual,
+            estadoAmbos: nuevoEstadoAmbos,
+            // Datos del plan
+            planDescripcion: causa.planDescripcion,
+            planDetalle: causa.planDetalle,
+            planResponsable: causa.planResponsable,
+            planDecision: causa.planDecision,
+            planFechaEstimada: causa.planFechaEstimada,
+            planEstado: causa.planEstado,
+            // Datos del control
+            aplicabilidad: causa.aplicabilidad,
+            puntajeAplicabilidad: causa.puntajeAplicabilidad,
+            cobertura: causa.cobertura,
+            puntajeCobertura: causa.puntajeCobertura,
+            facilidadUso: causa.facilidadUso,
+            puntajeFacilidad: causa.puntajeFacilidad,
+            segregacionFunciones: causa.segregacionFunciones,
+            puntajeSegregacion: causa.puntajeSegregacion,
+            naturalezaControl: causa.naturalezaControl,
+            puntajeNaturaleza: causa.puntajeNaturaleza,
+            desviaciones: causa.desviaciones,
+            controlDesviaciones: causa.controlDesviaciones,
+            descripcionControl: causa.descripcionControl,
+            controlDescripcion: causa.controlDescripcion,
+            responsable: causa.responsable,
+            controlResponsable: causa.controlResponsable,
+            tieneControl: causa.tieneControl,
+            tipoMitigacion: causa.tipoMitigacion,
+            puntajeTotal: causa.puntajeTotal,
+            evaluacionPreliminar: causa.evaluacionPreliminar,
+            evaluacionDefinitiva: causa.evaluacionDefinitiva,
+            porcentajeMitigacion: causa.porcentajeMitigacion,
+            frecuenciaResidual: causa.frecuenciaResidual,
+            impactoResidual: causa.impactoResidual,
+            calificacionResidual: causa.calificacionResidual,
+            nivelRiesgoResidual: causa.nivelRiesgoResidual
+          };
+          
+          await updateCausa({
+            id: causa.id,
+            tipoGestion: 'AMBOS',
+            gestion: gestionActualizada
+          }).unwrap();
+          
+          showSuccess(
+            contexto === 'CONTROL' 
+              ? 'Control eliminado. Puede re-agregarlo desde Clasificación.'
+              : 'Plan de Acción eliminado. Puede re-agregarlo desde Clasificación.'
+          );
+        }
       } else {
         // Si NO es AMBOS, eliminar completamente la clasificación
         await updateCausa({
