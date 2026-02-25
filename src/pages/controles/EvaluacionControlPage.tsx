@@ -146,8 +146,8 @@ export default function EvaluacionControlPage() {
   });
 
   const { data: riesgosApiData } = useGetRiesgosQuery(
-    procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 1000, includeCausas: true } : { pageSize: 0 },
-    { skip: !procesoSeleccionado }
+    procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 100, includeCausas: true } : { pageSize: 0 },
+    { skip: !procesoSeleccionado, refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
 
   const [updateCausa] = useUpdateCausaMutation();

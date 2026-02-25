@@ -171,14 +171,13 @@ export default function MapaPage() {
     refetchOnMountOrArgChange: true,
   });
   
-  // Obtener TODOS los riesgos con causas (sin filtros de proceso si está en "all")
+  // Riesgos filtrados en backend por proceso/clasificación; pageSize acotado para no colgar la app
   const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery({
     procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
     clasificacion: clasificacion === 'all' ? undefined : (clasificacion as ClasificacionRiesgo),
     includeCausas: true,
-    pageSize: 1000 // Asegurar que se obtengan todos los riesgos
+    pageSize: 200,
   }, {
-    // Forzar refetch cuando cambien los filtros
     refetchOnMountOrArgChange: true,
   });
 
@@ -1364,35 +1363,9 @@ export default function MapaPage() {
                       </AccordionSummary>
                       <AccordionDetails>
                         <Box>
-                          {/* Información del Riesgo */}
-                          <Card sx={{ mb: 2, bgcolor: 'rgba(25, 118, 210, 0.05)' }}>
-                            <CardContent>
-                              <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '1rem' }}>
-                                Información del Riesgo
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 2 }}>
-                                <strong>Descripción:</strong> {descripcion}
-                              </Typography>
-                              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                                <Typography variant="body2">
-                                  <strong>Probabilidad:</strong> {punto.probabilidad}
-                                </Typography>
-                                <Typography variant="body2">
-                                  <strong>Impacto:</strong> {punto.impacto}
-                                </Typography>
-                                {zona && (
-                                  <Typography variant="body2">
-                                    <strong>Zona:</strong> {zona}
-                                  </Typography>
-                                )}
-                                {tipologia && (
-                                  <Typography variant="body2">
-                                    <strong>Tipología:</strong> {tipologia}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </CardContent>
-                          </Card>
+                          <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 2 }}>
+                            <strong>Descripción:</strong> {descripcion}
+                          </Typography>
 
                           {/* Información del Proceso */}
                           {riesgo && riesgo.procesoId && (() => {
@@ -1928,12 +1901,9 @@ export default function MapaPage() {
           <DialogContent>
             {riesgoSeleccionadoDetalle && puntoSeleccionadoDetalle ? (
               <Box>
-                {/* Información del Riesgo */}
+                {/* Nivel y descripción (clasificación correcta en Evaluación del Riesgo más abajo) */}
                 <Card sx={{ mb: 2, bgcolor: 'rgba(25, 118, 210, 0.05)' }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom fontWeight={600}>
-                      Información del Riesgo
-                    </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                       <Chip
                         label={puntoSeleccionadoDetalle.nivelRiesgo}
@@ -1954,12 +1924,6 @@ export default function MapaPage() {
                       <strong>Descripción:</strong> {riesgoSeleccionadoDetalle.descripcion}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 3, mt: 2, flexWrap: 'wrap' }}>
-                      <Typography variant="body2">
-                        <strong>Probabilidad:</strong> {puntoSeleccionadoDetalle.probabilidad}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Impacto:</strong> {puntoSeleccionadoDetalle.impacto}
-                      </Typography>
                       {(() => {
                         const zonaRaw = puntoSeleccionadoDetalle?.zona || riesgoSeleccionadoDetalle.zona;
                         const zona = zonaRaw && zonaRaw.trim() && !zonaRaw.toLowerCase().includes('rural') ? zonaRaw : null;

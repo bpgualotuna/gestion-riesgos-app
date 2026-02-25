@@ -98,7 +98,7 @@ export default function IncidenciasPage() {
     }
   );
   
-  const { data: incidenciasApi = [] } = useGetIncidenciasQuery(
+  const { data: incidenciasApi = [], isLoading: isLoadingIncidencias } = useGetIncidenciasQuery(
     {
       procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined
     },
@@ -199,6 +199,8 @@ export default function IncidenciasPage() {
 
     return Array.from(grupos.values());
   }, [incidenciasFiltradas, riesgosDisponibles]);
+
+  const isLoadingData = isLoadingIncidencias;
 
   const handleToggleExpandirRiesgo = (id: string) => {
     setRiesgosExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
@@ -511,7 +513,11 @@ export default function IncidenciasPage() {
           <Box />
         </Box>
 
-        {incidenciasAgrupadasPorRiesgo.length === 0 ? (
+        {isLoadingData ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : incidenciasAgrupadasPorRiesgo.length === 0 ? (
           <Card sx={{ p: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">No se han registrado eventos para los riesgos de este proceso.</Typography>
           </Card>

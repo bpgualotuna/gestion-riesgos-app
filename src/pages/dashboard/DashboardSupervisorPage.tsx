@@ -76,15 +76,25 @@ export default function DashboardSupervisorPage() {
   const [busqueda, setBusqueda] = useState('');
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
 
-  // Obtener datos
-  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery({ pageSize: 1000, procesoId: undefined });
+  // Consultas filtradas en backend cuando hay proceso seleccionado (app más rápida)
+  const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
+    {
+      procesoId: filtroProceso !== 'all' ? filtroProceso : undefined,
+      pageSize: 200,
+      includeCausas: true,
+    },
+    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+  );
   const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
     procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
   });
   const { data: planesApi = [] } = useGetPlanesQuery();
   const { data: causasApi = [] } = useGetCausasQuery();
   const { data: procesosData } = useGetProcesosQuery();
-  const { data: puntosMapa } = useGetPuntosMapaQuery({ procesoId: undefined });
+  const { data: puntosMapa } = useGetPuntosMapaQuery(
+    filtroProceso !== 'all' ? { procesoId: filtroProceso } : {},
+    { keepUnusedDataFor: 300 }
+  );
 
   const riesgos = riesgosData?.data || [];
   const procesos = procesosData || [];

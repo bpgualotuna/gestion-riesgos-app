@@ -142,7 +142,7 @@ import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
 import type { Riesgo, FiltrosRiesgo, CausaRiesgo, RiesgoFormData } from '../../types';
 import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente, determinarNivelRiesgo, generarIdConContador, setSiglasConfig } from '../../utils/calculations';
-import { determinarNivelRiesgoSync, calcularCalificacionInherentePorCausaSync } from '../../services/calificacionInherenteService';
+import { determinarNivelRiesgoSync, calcularCalificacionInherentePorCausaSync, agregarCalificacionInherenteGlobalSync } from '../../services/calificacionInherenteService';
 import {
   obtenerPorcentajeMitigacion,
   calcularFrecuenciaResidual,
@@ -256,26 +256,26 @@ export default function IdentificacionPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50; // Tamaño de página optimizado (50 items)
   
-  // OPTIMIZADO: Usar RTK Query con paginación real y caché agresivo
-  // IMPORTANTE: Las causas son necesarias para calcular la clasificación, así que siempre las incluimos
+  // procesoId numérico estable para la query (evita que "Gestión Estratégica" u otros no traigan por tipo distinto)
+  const procesoIdForQuery = procesoSeleccionado?.id != null && (esDueñoProcesos || esSupervisorRiesgos)
+    ? Number(procesoSeleccionado.id)
+    : undefined;
+  const skipRiesgosQuery = (esDueñoProcesos || esSupervisorRiesgos) && procesoIdForQuery == null;
+
+  // OPTIMIZADO: Usar RTK Query con paginación real
+  // Refetch al montar o cambiar proceso para que siempre traiga los riesgos del proceso seleccionado (p. ej. Gestión Estratégica)
   const { data: riesgosRTKData, isLoading: isLoadingRiesgosRTK, refetch: refetchRiesgosRTK } = useGetRiesgosQuery(
     {
-      // Para Dueño de Proceso y Supervisor, filtrar SIEMPRE por proceso seleccionado
-      procesoId:
-        procesoSeleccionado?.id && (esDueñoProcesos || esSupervisorRiesgos)
-          ? procesoSeleccionado.id
-          : undefined,
-      includeCausas: true, // Necesario para calcular clasificación inherente global
+      procesoId: procesoIdForQuery,
+      includeCausas: true,
       page: currentPage,
       pageSize: pageSize
     },
     {
-      // Skip la consulta si el rol requiere proceso y aún no se ha seleccionado
-      skip: (esDueñoProcesos || esSupervisorRiesgos) && !procesoSeleccionado?.id,
-      refetchOnMountOrArgChange: false, // OPTIMIZADO: No refetch si ya está en caché
-      refetchOnFocus: false, // OPTIMIZADO: No refetch al enfocar ventana
-      refetchOnReconnect: false, // OPTIMIZADO: No refetch al reconectar
-      // OPTIMIZADO: Caché más agresivo (10 minutos) para mejor rendimiento
+      skip: skipRiesgosQuery,
+      refetchOnMountOrArgChange: true, // Siempre traer datos del proceso actual al entrar o cambiar proceso
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
       keepUnusedDataFor: 600
     }
   );
@@ -285,10 +285,28 @@ export default function IdentificacionPage() {
     setCurrentPage(1);
   }, [procesoSeleccionado?.id]);
   
-  // OPTIMIZADO: Usar datos de RTK Query si están disponibles, sino usar del contexto
-  const riesgosApiDataOptimizado = riesgosRTKData?.data || riesgosRTKData || riesgosApiData || [];
-  const totalRiesgos = riesgosRTKData?.total || riesgosApiDataOptimizado.length;
-  const totalPages = riesgosRTKData?.totalPages || Math.ceil(totalRiesgos / pageSize);
+  // Dueño/Supervisor con proceso: preferir RTK (backend filtrado por procesoId); si RTK vacío, fallback a contexto filtrado
+  const requiereFiltroPorProceso = procesoIdForQuery != null;
+  const riesgosApiDataOptimizado = useMemo(() => {
+    const rtkData = riesgosRTKData?.data ?? riesgosRTKData;
+    const rtkArray = Array.isArray(rtkData) ? rtkData : [];
+    if (requiereFiltroPorProceso && procesoIdForQuery != null) {
+      if (rtkArray.length > 0) return rtkArray;
+      // Fallback: contexto filtrado por proceso actual (p. ej. Gestión Estratégica si RTK falla o tarda)
+      if (riesgosApiData && Array.isArray(riesgosApiData)) {
+        const filtrados = riesgosApiData.filter((r: any) =>
+          Number(r.procesoId ?? r.proceso?.id) === procesoIdForQuery
+        );
+        if (filtrados.length > 0) return filtrados;
+      }
+      return [];
+    }
+    return rtkArray.length > 0 ? rtkArray : (riesgosApiData || []);
+  }, [requiereFiltroPorProceso, procesoIdForQuery, riesgosRTKData, riesgosApiData]);
+  const totalRiesgos = requiereFiltroPorProceso
+    ? (riesgosRTKData?.total ?? riesgosApiDataOptimizado.length)
+    : (riesgosRTKData?.total ?? riesgosApiDataOptimizado.length);
+  const totalPages = riesgosRTKData?.totalPages ?? Math.ceil(totalRiesgos / pageSize);
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess, showError } = useNotification();
   const dispatch = useAppDispatch();
@@ -443,132 +461,66 @@ export default function IdentificacionPage() {
       // Usar frecuenciasApi del hook en lugar de hacer llamada API adicional
       const frecuenciasCatalog = frecuenciasApi || [];
 
-      // Calcular calificación inherente por cada causa usando servicio centralizado
-      const calificacionesInherentes = riesgo.causas
+      // Calcular calificación inherente por cada causa y guardar frecuencia (eje 1-5) para el mapa
+      type CausaConEje = { cal: number; frecuenciaEje: number };
+      const causasConEje: CausaConEje[] = riesgo.causas
         .map(causa => {
-          // SIEMPRE usar el calificacionGlobalImpacto del riesgo
           const impacto = calificacionGlobalImpacto;
-          
-          // Obtener el peso de la frecuencia desde el catálogo
-          let pesoFrecuencia = 3; // Default
+          let pesoFrecuencia = 3;
           if (causa.frecuencia) {
             if (typeof causa.frecuencia === 'number' || /^\d+$/.test(String(causa.frecuencia))) {
               const freqId = typeof causa.frecuencia === 'number' ? causa.frecuencia : parseInt(String(causa.frecuencia));
               const freqCatalog = frecuenciasCatalog?.find((f: any) => f.id === freqId);
-              pesoFrecuencia = freqCatalog?.peso || freqId;
+              const p = freqCatalog?.peso ?? freqId;
+              pesoFrecuencia = (p != null && p !== 3) ? p : (freqCatalog?.id ?? freqId);
             } else if (typeof causa.frecuencia === 'string') {
-              const freqCatalog = frecuenciasCatalog?.find((f: any) => 
+              const freqCatalog = frecuenciasCatalog?.find((f: any) =>
                 f.label?.toLowerCase() === causa.frecuencia.toLowerCase() ||
                 f.nombre?.toLowerCase() === causa.frecuencia.toLowerCase()
               );
-              pesoFrecuencia = freqCatalog?.peso || 3;
+              const p = freqCatalog?.peso ?? 3;
+              pesoFrecuencia = (p != null && p !== 3) ? p : (freqCatalog?.id ?? 3);
             }
           }
-          
-          // Usar servicio centralizado para calcular
           const resultado = calcularCalificacionInherentePorCausaSync(pesoFrecuencia, impacto);
-          return resultado.resultado;
+          const cal = resultado.resultado;
+          // Eje frecuencia/probabilidad en escala 1-5 (para el mapa: X = frecuencia)
+          const frecuenciaEje = Math.max(1, Math.min(5, Math.round(Number(pesoFrecuencia))));
+          return { cal, frecuenciaEje };
         })
-        .filter(cal => cal !== undefined && cal !== null && !isNaN(cal)) as number[];
+        .filter((x): x is CausaConEje => x.cal !== undefined && x.cal !== null && !isNaN(x.cal));
 
-      // Calcular calificación inherente global (máximo de todas las causas)
-      const calificacionInherenteGlobal = calificacionesInherentes.length > 0
-        ? Math.max(...calificacionesInherentes)
+      const calificacionInherenteGlobal = causasConEje.length > 0
+        ? agregarCalificacionInherenteGlobalSync(causasConEje.map(x => x.cal))
         : 0;
 
-      // Determinar nivel de riesgo usando servicio centralizado
       const nivelRiesgo = determinarNivelRiesgoSync(calificacionInherenteGlobal);
 
-      // Convertir calificación inherente global a probabilidad e impacto para el mapa
-      // Buscar la mejor combinación de probabilidad e impacto que dé el valor más cercano
-      // Priorizar combinaciones que den exactamente el valor o el más cercano por encima
-      let mejorProb = 1;
-      let mejorImp = 1;
-      let menorDiferencia = Math.abs(calificacionInherenteGlobal - (mejorProb * mejorImp));
-      let encontradoExacto = false;
-      
-      // Primero buscar coincidencia exacta
-      // IMPORTANTE: Priorizar combinaciones balanceadas (prob == imp)
-      // Para calificacionInherenteGlobal = 16, preferir 4×4 sobre otras combinaciones
-      // Para calificacionInherenteGlobal = 4, preferir 2×2 sobre 1×4 o 4×1
-      // Buscar primero combinaciones balanceadas (prob == imp), luego otras
-      for (let prob = 5; prob >= 1; prob--) {
-        const imp = prob;
-        const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-        if (Math.abs(valor - calificacionInherenteGlobal) < 0.01) {
-          mejorProb = prob;
-          mejorImp = imp;
-          encontradoExacto = true;
-          break;
-        }
-      }
-      
-      // Si no encontramos balanceada, buscar cualquier coincidencia exacta
-      if (!encontradoExacto) {
-        for (let imp = 5; imp >= 1; imp--) {
-          for (let prob = 1; prob <= 5; prob++) {
-            const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-            if (Math.abs(valor - calificacionInherenteGlobal) < 0.01) {
-              mejorProb = prob;
-              mejorImp = imp;
-              encontradoExacto = true;
-              break;
-            }
-          }
-          if (encontradoExacto) break;
-        }
-      }
-      
-      // Si no hay coincidencia exacta, buscar el más cercano >= calificacionInherenteGlobal
-      if (!encontradoExacto) {
-        menorDiferencia = Infinity;
-        for (let prob = 1; prob <= 5; prob++) {
-          for (let imp = 1; imp <= 5; imp++) {
-            const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-            
-            // Priorizar valores que sean >= calificacionInherenteGlobal (no menores)
-            if (valor >= calificacionInherenteGlobal) {
-              const diferencia = valor - calificacionInherenteGlobal;
-              if (diferencia < menorDiferencia) {
-                menorDiferencia = diferencia;
-                mejorProb = prob;
-                mejorImp = imp;
-              }
-            }
-          }
-        }
-        
-        // Si aún no hay valor >=, usar el más cercano (menor)
-        if (menorDiferencia === Infinity) {
-          menorDiferencia = Infinity;
-          for (let prob = 1; prob <= 5; prob++) {
-            for (let imp = 1; imp <= 5; imp++) {
-              const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-              const diferencia = Math.abs(calificacionInherenteGlobal - valor);
-              if (diferencia < menorDiferencia) {
-                menorDiferencia = diferencia;
-                mejorProb = prob;
-                mejorImp = imp;
-              }
-            }
-          }
-        }
+      // Posición en el mapa: X = FRECUENCIA (probabilidad), Y = IMPACTO
+      // Usar la causa que da el máximo y sus ejes reales, no una descomposición cualquiera de 15
+      const impactoEje = Math.max(1, Math.min(5, Math.round(Number(calificacionGlobalImpacto))));
+      let probabilidadMapa = 1;
+      let impactoMapa = impactoEje;
+
+      if (causasConEje.length > 0) {
+        const causaMax = causasConEje.reduce((best, cur) => (cur.cal > best.cal ? cur : best));
+        probabilidadMapa = causaMax.frecuenciaEje; // Eje X = frecuencia (Muy alta = 5, etc.)
+        impactoMapa = impactoEje;                   // Eje Y = impacto del riesgo (1-5)
       }
 
-      // Actualizar la evaluación con la calificación inherente global y los valores para el mapa
-      // IMPORTANTE: El backend espera Int para riesgoInherente, así que redondeamos
       const evaluacionUpdate: any = {
-        riesgoInherente: Math.round(calificacionInherenteGlobal), // Redondear a entero para el backend
+        riesgoInherente: Math.round(calificacionInherenteGlobal),
         nivelRiesgo: nivelRiesgo || 'SIN CALIFICAR',
-        probabilidad: mejorProb,
-        impactoGlobal: mejorImp
+        probabilidad: probabilidadMapa,
+        impactoGlobal: impactoMapa
       };
 
       console.log(`[IdentificacionPage] 💾 Guardando evaluación para riesgo ${riesgoId}:`, {
         riesgoInherente: evaluacionUpdate.riesgoInherente,
         nivelRiesgo: evaluacionUpdate.nivelRiesgo,
         probabilidad: evaluacionUpdate.probabilidad,
-        impactoGlobal: evaluacionUpdate.impactoGlobal
+        impactoGlobal: evaluacionUpdate.impactoGlobal,
+        mapa: `X=Frecuencia ${evaluacionUpdate.probabilidad}, Y=Impacto ${evaluacionUpdate.impactoGlobal}`
       });
 
       await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
@@ -616,6 +568,32 @@ export default function IdentificacionPage() {
     direction: 'asc',
   });
 
+  // Causas pendientes (solo en memoria hasta "Guardar" en el riesgo): declarar antes de riesgosParaRender
+  type CausasPendientesRecord = Record<string, {
+    toAdd: Array<{ descripcion: string; fuenteCausa: string; frecuencia: number }>;
+    toUpdate: Record<string, { descripcion?: string; fuenteCausa?: string; frecuencia?: number }>;
+    toDelete: Record<string, true>;
+  }>;
+  const [causasPendientes, setCausasPendientes] = useState<CausasPendientesRecord>({});
+
+  const getCausasEfectivas = useCallback((riesgo: { id: string | number; causas?: CausaRiesgo[] }, pendientes: CausasPendientesRecord): CausaRiesgo[] => {
+    const pid = String(riesgo.id);
+    const p = pendientes[pid];
+    if (!p) return riesgo.causas || [];
+    let list = (riesgo.causas || []).filter(c => !p.toDelete[String(c.id)]);
+    list = list.map(c => {
+      const up = p.toUpdate[String(c.id)];
+      return up ? { ...c, ...up } : c;
+    });
+    const added: CausaRiesgo[] = (p.toAdd || []).map((a, i) => ({
+      id: `temp-${pid}-${i}`,
+      descripcion: a.descripcion,
+      fuenteCausa: a.fuenteCausa,
+      frecuencia: a.frecuencia,
+    }));
+    return [...list, ...added];
+  }, []);
+
   const getCalificacionInherenteGlobal = (riesgo: any): number => {
     const causasOrdenadas = [...(riesgo.causas || [])].sort((a: any, b: any) => {
       const idA = Number(a.id) || 0;
@@ -624,10 +602,13 @@ export default function IdentificacionPage() {
     });
 
     const calificacionesInherentes = causasOrdenadas
-      .map((causa: any) => causa.calificacionInherentePorCausa)
-      .filter((cal: any) => cal !== undefined && cal !== null) as number[];
+      .map((causa: any) => {
+        const c = causa.calificacionInherentePorCausa;
+        return typeof c === 'number' && !Number.isNaN(c) ? c : null;
+      })
+      .filter((cal: any): cal is number => cal !== null && cal !== undefined) as number[];
 
-    return calificacionesInherentes.length > 0 ? Math.max(...calificacionesInherentes) : 0;
+    return calificacionesInherentes.length > 0 ? agregarCalificacionInherenteGlobalSync(calificacionesInherentes) : 0;
   };
 
   const getRiesgoSortValue = (riesgo: any, field: RiesgoSortField) => {
@@ -686,6 +667,11 @@ export default function IdentificacionPage() {
     return data;
   }, [riesgos, tiposRiesgos, sortConfigRiesgos]);
 
+  // Riesgos con causas efectivas (base + pendientes en memoria) para mostrar sin tocar la base hasta Guardar general
+  const riesgosParaRender = useMemo(() => {
+    return riesgosOrdenados.map(r => ({ ...r, causas: getCausasEfectivas(r, causasPendientes) }));
+  }, [riesgosOrdenados, causasPendientes, getCausasEfectivas]);
+
   const handleSortRiesgos = (field: RiesgoSortField) => {
     setSortConfigRiesgos((prev) => {
       if (prev.field === field) {
@@ -699,17 +685,10 @@ export default function IdentificacionPage() {
   };
 
   // Memoizar función de carga de riesgos para evitar re-renders
-  // OPTIMIZADO: Usar RTK Query que ya filtra desde el backend
+  // Retorna la promesa del refetch para poder esperar y refrescar con datos de la base
   const cargarRiesgosMemo = useCallback((procesoId?: number | string) => {
-    // RTK Query se actualiza automáticamente cuando cambia procesoId
-    // Solo invalidar caché para forzar refetch si es necesario
-    if (procesoId) {
-      dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
-      refetchRiesgosRTK();
-    } else {
-      dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
-      refetchRiesgosRTK();
-    }
+    dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
+    return refetchRiesgosRTK();
   }, [dispatch, refetchRiesgosRTK]);
 
   // Recargar configuración de calificación inherente cuando se monta el componente
@@ -759,6 +738,13 @@ export default function IdentificacionPage() {
       dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
     }
   }, [procesoSeleccionado?.id, dispatch]);
+
+  // Cargar contexto con riesgos del proceso al seleccionar proceso (p. ej. Gestión Estratégica) para tener fallback si RTK tarda o falla
+  useEffect(() => {
+    if (procesoIdForQuery != null) {
+      cargarRiesgos({ procesoId: procesoIdForQuery, includeCausas: 'true' });
+    }
+  }, [procesoIdForQuery, cargarRiesgos]);
 
   // Memoizar función de mapeo de riesgos
   const mapearRiesgos = useCallback((riesgosData: any[], objetivosList: any[], procesoSel: any) => {
@@ -895,22 +881,22 @@ export default function IdentificacionPage() {
           }
         }
         
-        // SIEMPRE usar el calificacionGlobalImpacto del riesgo, no de la causa
-        const calificacionInherentePorCausa = calcularCalificacionInherentePorCausa(
-          calificacionGlobal, // Usar siempre el del riesgo
-          pesoFrecuencia // Usar el peso de la frecuencia
+        // SIEMPRE usar el calificacionGlobalImpacto del riesgo; cálculo síncrono para tener número, no Promise
+        const { resultado: calificacionInherentePorCausa } = calcularCalificacionInherentePorCausaSync(
+          pesoFrecuencia,
+          calificacionGlobal
         );
 
         return {
           ...causa,
-          calificacionGlobalImpacto: calificacionGlobal, // SIEMPRE usar el del riesgo
-          calificacionInherentePorCausa: calificacionInherentePorCausa, // Recalcular siempre
+          calificacionGlobalImpacto: calificacionGlobal,
+          calificacionInherentePorCausa,
         };
       });
 
       return { ...riesgo, causas: causasNormalizadas };
     });
-  }, [calcularCalificacionGlobalImpacto, calcularCalificacionInherentePorCausa, frecuenciasApi]);
+  }, [calcularCalificacionGlobalImpacto, frecuenciasApi]);
 
   // Función helper para extraer el procesoId de un riesgo (memoizada fuera del useMemo)
   const obtenerProcesoId = useCallback((r: any): number | null => {
@@ -935,43 +921,12 @@ export default function IdentificacionPage() {
     return null;
   }, []);
 
-  // OPTIMIZADO: Usar datos de RTK Query que ya vienen filtrados desde el backend
-  // No necesitamos filtrar en el frontend si el backend ya lo hizo
+  // Backend ya devolvió solo riesgos del proceso cuando se pasó procesoId; no filtrar de nuevo en el front
   const riesgosFiltrados = useMemo(() => {
-    // Usar datos optimizados de RTK Query
     const datos = riesgosApiDataOptimizado;
-    
-    if (!datos || !Array.isArray(datos) || datos.length === 0) {
-      return [];
-    }
-    
-    // Si es dueño de procesos y hay proceso seleccionado, el backend ya filtró
-    // Solo verificar si el backend filtró correctamente (optimización: solo verificar los primeros 3)
-    if (procesoSeleccionado?.id && esDueñoProcesos) {
-      const procesoIdSeleccionado = Number(procesoSeleccionado.id);
-      const primerosRiesgos = datos.slice(0, Math.min(3, datos.length));
-      const todosDelProceso = primerosRiesgos.every((r: any) => {
-        const procesoIdRiesgo = obtenerProcesoId(r);
-        return procesoIdRiesgo !== null && procesoIdRiesgo === procesoIdSeleccionado;
-      });
-      
-      if (todosDelProceso) {
-        // El backend ya filtró correctamente
-        return datos;
-      }
-      
-      // Si el backend no filtró, aplicar filtro frontend como fallback
-      const riesgosDelProceso = datos.filter((r: any) => {
-        const procesoIdRiesgo = obtenerProcesoId(r);
-        return procesoIdRiesgo !== null && procesoIdRiesgo === procesoIdSeleccionado;
-      });
-      
-      return riesgosDelProceso.length > 0 ? riesgosDelProceso : datos;
-    }
-    
-    // Para supervisores, mostrar todos los riesgos
+    if (!datos || !Array.isArray(datos)) return [];
     return datos;
-  }, [riesgosApiDataOptimizado, procesoSeleccionado?.id, esDueñoProcesos, obtenerProcesoId]);
+  }, [riesgosApiDataOptimizado]);
 
   // Memoizar mapeo de riesgos (separado para mejor rendimiento)
   const riesgosMapeados = useMemo(() => {
@@ -990,16 +945,13 @@ export default function IdentificacionPage() {
   // Actualizar estado local cuando cambian los riesgos procesados
   // OPTIMIZADO: Usar startTransition para actualizaciones no críticas
   useEffect(() => {
-    // Usar startTransition para que la actualización no bloquee la UI
-    if (typeof window !== 'undefined' && (window as any).React?.startTransition) {
-      (window as any).React.startTransition(() => {
-        setRiesgos(riesgosProcesados);
-      });
-    } else {
-      // Fallback si startTransition no está disponible
-      setRiesgos(riesgosProcesados);
-    }
-  }, [riesgosProcesados]);
+    // No vaciar la lista mientras RTK recarga (p. ej. tras Guardar) para evitar "a veces asoma y después no"
+    const mantenerListaMientrasRecarga = riesgosProcesados.length === 0 && isLoadingRiesgosRTK;
+    setRiesgos(prev => {
+      if (mantenerListaMientrasRecarga && prev.length > 0) return prev;
+      return riesgosProcesados;
+    });
+  }, [riesgosProcesados, isLoadingRiesgosRTK]);
 
   // Refresh catalogs on mount - listen for changes from admin
 
@@ -1343,11 +1295,14 @@ export default function IdentificacionPage() {
     }
   };
 
-  // Eliminar riesgo
+  // Eliminar riesgo: actualizar lista y mapa sin tener que guardar en otro riesgo
   const handleEliminarRiesgo = async (riesgoId: string | number) => {
     try {
       await eliminarRiesgoApi(Number(riesgoId));
       showSuccess('Riesgo eliminado');
+      // Refrescar lista de riesgos (RTK Query) para que la UI se actualice al instante
+      refetchRiesgosRTK();
+      dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas']));
     } catch (e) {
       showError('Error al eliminar riesgo');
     }
@@ -1410,18 +1365,39 @@ export default function IdentificacionPage() {
         return;
       }
 
+      // 0. Persistir causas pendientes (en memoria) a la base antes de recalcular
+      const pendientes = causasPendientes[riesgoId];
+      if (pendientes) {
+        const riesgoIdNum = Number(riesgoId);
+        for (const causaId of Object.keys(pendientes.toDelete || {})) {
+          if (!causaId.startsWith('temp-')) await api.riesgos.causas.delete(Number(causaId));
+        }
+        for (const [causaId, data] of Object.entries(pendientes.toUpdate || {})) {
+          await api.riesgos.causas.update(Number(causaId), data);
+        }
+        for (const a of pendientes.toAdd || []) {
+          await api.riesgos.causas.create({
+            riesgoId: riesgoIdNum,
+            descripcion: a.descripcion,
+            fuenteCausa: a.fuenteCausa || null,
+            frecuencia: a.frecuencia,
+            seleccionada: true,
+          });
+        }
+        setCausasPendientes(prev => {
+          const next = { ...prev };
+          delete next[riesgoId];
+          return next;
+        });
+      }
+
       // Obtener todos los cambios pendientes para este riesgo
       const cambios = cambiosPendientes[riesgoId] || {};
-      
-      // Si no hay cambios, no hacer nada
-      if (Object.keys(cambios).length === 0) {
-        showSuccess('No hay cambios para guardar');
-        return;
-      }
+      const hayCambiosForm = Object.keys(cambios).length > 0;
 
       const payload: any = {};
 
-      // Mapear actualizaciones a estructura de Backend
+      // Mapear actualizaciones a estructura de Backend (solo si hay cambios)
       if (cambios.descripcionRiesgo !== undefined) payload.descripcion = cambios.descripcionRiesgo;
       if (cambios.tipoRiesgo !== undefined) payload.tipoRiesgo = cambios.tipoRiesgo;
       if (cambios.subtipoRiesgo !== undefined) payload.subtipoRiesgo = cambios.subtipoRiesgo;
@@ -1463,43 +1439,37 @@ export default function IdentificacionPage() {
         };
       }
 
-      // 1. Guardar cambios en el backend
-      await actualizarRiesgoApi(Number(riesgoId), payload);
-      
-      // 2. SIEMPRE recalcular calificaciones después de guardar
-      // IMPORTANTE: Pasar el riesgo actualizado para que use los cambios recién guardados
+      // 1. Guardar cambios en el backend solo si hay cambios de formulario
+      if (hayCambiosForm) {
+        await actualizarRiesgoApi(Number(riesgoId), payload);
+      }
+
+      // 2. SIEMPRE recalcular y guardar calificación inherente al usar "Guardar" (aunque no haya cambios de formulario, p. ej. tras añadir/editar causas)
       try {
         await recalcularYGuardarCalificacionInherenteGlobal(Number(riesgoId), riesgoActualizado);
       } catch (error) {
         console.error('Error al recalcular calificación inherente:', error);
       }
-      
+
       // 3. Limpiar cambios pendientes para este riesgo
       setCambiosPendientes(prev => {
         const nuevo = { ...prev };
         delete nuevo[riesgoId];
         return nuevo;
       });
-      
-      // 4. Invalidar caché del mapa
-      dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
-      
-      // 5. Recargar riesgos con los datos actualizados
-      if (procesoSeleccionado?.id) {
-        await cargarRiesgosMemo(procesoSeleccionado.id);
-      } else {
-        await cargarRiesgosMemo();
-      }
-      
-      // 6. Disparar evento para que el mapa se actualice
+
+      // 4. Invalidar caché y recargar riesgos desde la base (traer los datos que guardó y la calificación recalculada)
+      await cargarRiesgosMemo(procesoSeleccionado?.id);
+
+      // 5. Disparar evento para que el mapa se actualice
       window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: Number(riesgoId) } }));
-      
-      showSuccess('Riesgo guardado exitosamente');
+
+      // Mensaje de éxito se muestra en handleSave
     } catch (e) {
       console.error(e);
       showError('Error al guardar riesgo');
     }
-  }, [riesgos, cambiosPendientes, objetivos, procesoSeleccionado, actualizarRiesgoApi, recalcularYGuardarCalificacionInherenteGlobal, cargarRiesgosMemo, dispatch, showSuccess, showError]);
+  }, [riesgos, cambiosPendientes, causasPendientes, objetivos, procesoSeleccionado, actualizarRiesgoApi, recalcularYGuardarCalificacionInherenteGlobal, cargarRiesgosMemo, dispatch, showSuccess, showError]);
 
   const [createEvaluacion] = useCreateEvaluacionMutation();
   const [updateRiesgo] = useUpdateRiesgoMutation();
@@ -1517,6 +1487,7 @@ export default function IdentificacionPage() {
   // Estado para confirmación de eliminación (modal bonito)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [causaPendienteEliminar, setCausaPendienteEliminar] = useState<{ riesgoId: string; causaId: string } | null>(null);
+  const [guardandoRiesgoId, setGuardandoRiesgoId] = useState<string | null>(null);
 
   // Si el catálogo de fuentes cambia, elegir un valor por defecto válido
   useEffect(() => {
@@ -1556,10 +1527,18 @@ export default function IdentificacionPage() {
     recomendacion: '',
   });
 
-  // handleSave ahora usa guardarRiesgo que sí guarda y recalcula
+  // handleSave: mostrar modal "Guardando..." al instante, luego guardar y al terminar mostrar éxito
   const handleSave = useCallback(async (riesgoId: string) => {
-    await guardarRiesgo(riesgoId);
-  }, [guardarRiesgo]);
+    setGuardandoRiesgoId(riesgoId);
+    try {
+      await guardarRiesgo(riesgoId);
+      showSuccess('Se guardó exitosamente.');
+    } catch {
+      // guardarRiesgo ya muestra el error
+    } finally {
+      setGuardandoRiesgoId(null);
+    }
+  }, [guardarRiesgo, showSuccess]);
 
   return (
     <AppPageLayout
@@ -1584,6 +1563,20 @@ export default function IdentificacionPage() {
         </Button>
       }
     >
+      {/* Modal "Guardando..." mientras se persiste en la base */}
+      <Dialog
+        open={guardandoRiesgoId !== null}
+        disableEscapeKeyDown
+        PaperProps={{ sx: { minWidth: 280 } }}
+      >
+        <DialogContent sx={{ pt: 3, pb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <CircularProgress size={48} thickness={4} />
+          <Typography variant="body1" fontWeight={600}>
+            Guardando...
+          </Typography>
+        </DialogContent>
+      </Dialog>
+
       {/* Mensaje para dueño de proceso sin proceso seleccionado */}
       {requiereProcesoYNoSeleccionado && (
         <Box sx={{ p: 3 }}>
@@ -1749,7 +1742,7 @@ export default function IdentificacionPage() {
                 {/* Sin encabezado, solo espacio para el ícono de eliminar */}
               </Box>
             </Box>
-            {riesgosOrdenados.map((riesgo) => {
+            {riesgosParaRender.map((riesgo) => {
               const estaExpandido = riesgosExpandidos[riesgo.id] || false;
               const tipoRiesgoObj = (tiposRiesgos || []).find(t => 
                 t.nombre === riesgo.tipoRiesgo || 
@@ -1825,56 +1818,48 @@ export default function IdentificacionPage() {
                         
                         // Calcular calificación inherente para cada causa si no existe
                         const calificacionesInherentes = causasOrdenadas.map(causa => {
-                          // Si ya tiene calificación calculada, usarla
-                          if (causa.calificacionInherentePorCausa !== undefined && causa.calificacionInherentePorCausa !== null) {
-                            return causa.calificacionInherentePorCausa;
+                          // Si ya tiene calificación calculada (número), usarla
+                          const ya = causa.calificacionInherentePorCausa;
+                          if (typeof ya === 'number' && !Number.isNaN(ya)) {
+                            return ya;
                           }
                           
-                          // Si no, calcularla usando el servicio
-                          try {
-                            // Obtener frecuencia (puede ser ID o valor)
-                            const frecuencia = causa.frecuencia;
-                            // frecuenciasApi está disponible en el scope del componente
-                            const pesoFrecuencia = obtenerPesoFrecuencia(frecuencia, frecuenciasApi || []);
-                            
-                            // Calcular impacto global desde los impactos del riesgo
-                            const impactos = riesgo.impactos || {};
-                            const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
-                            
-                            // Calcular calificación inherente por causa
-                            const calificacion = calcularCalificacionInherentePorCausaSync(
-                              pesoFrecuencia,
-                              calificacionGlobalImpacto
-                            );
-                            
-                            return calificacion;
-                          } catch (error) {
-                            console.error('Error al calcular calificación inherente para causa:', error);
-                            return 0;
-                          }
+                          // Si no, calcularla usando el servicio (Sync devuelve { resultado, excepcionAplicada })
+                            try {
+                              const frecuencia = causa.frecuencia;
+                              const pesoFrecuencia = obtenerPesoFrecuencia(frecuencia, frecuenciasApi || []);
+                              const impactos = riesgo.impactos || {};
+                              const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
+                              const { resultado } = calcularCalificacionInherentePorCausaSync(
+                                pesoFrecuencia,
+                                calificacionGlobalImpacto
+                              );
+                              return resultado;
+                            } catch (error) {
+                              console.error('Error al calcular calificación inherente para causa:', error);
+                              return 0;
+                            }
                         }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
                         
                         let calificacionInherenteGlobal = calificacionesInherentes.length > 0
-                          ? Math.max(...calificacionesInherentes)
+                          ? agregarCalificacionInherenteGlobalSync(calificacionesInherentes)
                           : 0;
                         
                         // Intentar recalcular si hay causas pero calificación es 0
                         if (calificacionInherenteGlobal === 0 && riesgo.causas && riesgo.causas.length > 0) {
                           try {
                             const causasRecalculadas = riesgo.causas.map(causa => {
-                              if (causa.calificacionInherentePorCausa !== undefined && causa.calificacionInherentePorCausa !== null && causa.calificacionInherentePorCausa > 0) {
-                                return causa.calificacionInherentePorCausa;
-                              }
-                              
-                              // Calcular si no existe
+                              const ya = causa.calificacionInherentePorCausa;
+                              if (typeof ya === 'number' && ya > 0) return ya;
                               const pesoFrecuencia = obtenerPesoFrecuencia(causa.frecuencia, frecuenciasApi || []);
                               const impactos = riesgo.impactos || {};
                               const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
-                              return calcularCalificacionInherentePorCausaSync(pesoFrecuencia, calificacionGlobalImpacto);
+                              const { resultado } = calcularCalificacionInherentePorCausaSync(pesoFrecuencia, calificacionGlobalImpacto);
+                              return resultado;
                             }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
                             
                             if (causasRecalculadas.length > 0) {
-                              calificacionInherenteGlobal = Math.max(...causasRecalculadas);
+                              calificacionInherenteGlobal = agregarCalificacionInherenteGlobalSync(causasRecalculadas);
                             }
                           } catch (error) {
                             console.error(`[IdentificacionPage] Error al recalcular calificación para riesgo ${riesgo.id}:`, error);
@@ -2082,12 +2067,18 @@ export default function IdentificacionPage() {
                         });
 
                         // Calcular la calificación inherente global (máximo de todas las causas)
+                        // Extraer número por si viene como { resultado } del servicio
                         const calificacionesInherentes = causasOrdenadas
-                          .map(causa => causa.calificacionInherentePorCausa)
-                          .filter(cal => cal !== undefined && cal !== null) as number[];
+                          .map(causa => {
+                            const c = causa.calificacionInherentePorCausa;
+                            if (typeof c === 'number' && !Number.isNaN(c)) return c;
+                            if (c != null && typeof c === 'object' && typeof (c as any).resultado === 'number') return (c as any).resultado;
+                            return null;
+                          })
+                          .filter((cal): cal is number => cal !== null && cal !== undefined);
 
                         const calificacionInherenteGlobal = calificacionesInherentes.length > 0
-                          ? Math.max(...calificacionesInherentes)
+                          ? agregarCalificacionInherenteGlobalSync(calificacionesInherentes)
                           : 0;
 
                         // Determinar el nivel de riesgo según la calificación
@@ -2191,9 +2182,11 @@ export default function IdentificacionPage() {
                                         </TableCell>
                                         <TableCell align="center">
                                           <Typography variant="body2" fontWeight={600}>
-                                            {causa.calificacionInherentePorCausa !== undefined
-                                              ? causa.calificacionInherentePorCausa.toFixed(2)
-                                              : 'N/A'}
+                                            {(() => {
+                                              const c = causa.calificacionInherentePorCausa;
+                                              const num = typeof c === 'number' ? c : (c != null && typeof (c as any).resultado === 'number' ? (c as any).resultado : null);
+                                              return num !== null ? num.toFixed(2) : 'N/A';
+                                            })()}
                                           </Typography>
                                         </TableCell>
                                       </TableRow>
@@ -2344,116 +2337,67 @@ export default function IdentificacionPage() {
           <Button onClick={() => setDialogCausaOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            onClick={async () => {
-              try {
-                // Calcular calificaciones para la nueva causa
-                const riesgo = riesgos.find(r => r.id === riesgoIdParaCausa);
-                if (!riesgo) {
-                  showError('No se encontró el riesgo');
-                  return;
-                }
-
-                const calificacionGlobalImpacto = calcularCalificacionGlobalImpacto(riesgo.impactos);
-                const calificacionInherente = calcularCalificacionInherentePorCausa(
-                  calificacionGlobalImpacto,
-                  nuevaCausaFrecuencia
-                );
-
-                // Obtener el nombre de la fuente desde el catálogo
-                let fuenteNombre = '';
-                if (Array.isArray(fuentesCausa)) {
-                  const fuenteObj = fuentesCausa.find((f: any) => String(f.id ?? f.nombre ?? f) === nuevaCausaFuente);
-                  fuenteNombre = fuenteObj?.nombre ?? nuevaCausaFuente;
-                } else if (typeof fuentesCausa === 'object') {
-                  fuenteNombre = (fuentesCausa as any)[nuevaCausaFuente]?.nombre ?? nuevaCausaFuente;
-                } else {
-                  fuenteNombre = nuevaCausaFuente;
-                }
-
-                if (causaEditando) {
-                  // ACTUALIZAR causa existente
-                  const causaData = {
-                    descripcion: nuevaCausaDescripcion,
-                    fuenteCausa: fuenteNombre,
-                    frecuencia: nuevaCausaFrecuencia,
-                  };
-
-                  const riesgoIdNumUpdate = Number(riesgoIdParaCausa);
-                  await api.riesgos.causas.update(Number(causaEditando.id), causaData);
-                  
-                  // Recalcular y guardar calificación inherente global después de actualizar causa
-                  if (riesgoIdNumUpdate && !isNaN(riesgoIdNumUpdate)) {
-                    await recalcularYGuardarCalificacionInherenteGlobal(riesgoIdNumUpdate);
-                  }
-                  
-                  // Recargar solo los riesgos del proceso seleccionado
-                  if (procesoSeleccionado?.id) {
-                    await cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
-                  } else {
-                    await cargarRiesgos({ includeCausas: true });
-                  }
-                  // Invalidar caché del mapa para forzar actualización inmediata
-                  dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
-                  // Disparar evento para que el mapa se actualice
-                  window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: riesgoIdNumUpdate } }));
-                  showSuccess('Causa actualizada correctamente');
-                } else {
-                  // CREAR nueva causa
-                  if (!nuevaCausaDescripcion.trim()) {
-                    showError('La descripción de la causa es requerida');
-                    return;
-                  }
-                  
-                  const riesgoIdNum = Number(riesgoIdParaCausa);
-                  if (!riesgoIdNum || isNaN(riesgoIdNum)) {
-                    showError('ID de riesgo inválido');
-                    return;
-                  }
-
-                  const causaData = {
-                    riesgoId: riesgoIdNum,
-                    descripcion: nuevaCausaDescripcion.trim(),
-                    fuenteCausa: fuenteNombre || null,
-                    frecuencia: nuevaCausaFrecuencia,
-                    seleccionada: true
-                  };
-
-                  await api.riesgos.causas.create(causaData);
-
-                  // Recalcular y guardar calificación inherente global después de crear causa
-                  await recalcularYGuardarCalificacionInherenteGlobal(riesgoIdNum);
-
-                  // Recargar solo los riesgos del proceso seleccionado
-                  if (procesoSeleccionado?.id) {
-                    await cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
-                  } else {
-                    await cargarRiesgos({ includeCausas: true });
-                  }
-                  // Invalidar caché del mapa para forzar actualización inmediata
-                  dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
-                  // Disparar evento para que el mapa se actualice
-                  window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: riesgoIdNum } }));
-                  showSuccess('Causa agregada correctamente');
-                }
-                
-                // Limpiar formulario y cerrar diálogo
-                setDialogCausaOpen(false);
-                setCausaEditando(null);
-                setNuevaCausaDescripcion('');
-                // Resetear a primera fuente disponible
-                let primeraFuente = '';
-                if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
-                  const f = fuentesCausa[0];
-                  primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
-                } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
-                  primeraFuente = Object.keys(fuentesCausa)[0];
-                }
-                setNuevaCausaFuente(primeraFuente);
-                setNuevaCausaFrecuencia(3);
-              } catch (error) {
-                console.error('Error al guardar causa:', error);
-                showError(causaEditando ? 'Error al actualizar causa' : 'Error al agregar causa');
+            onClick={() => {
+              const riesgo = riesgosParaRender.find(r => r.id === riesgoIdParaCausa) ?? riesgos.find(r => r.id === riesgoIdParaCausa);
+              if (!riesgo) {
+                showError('No se encontró el riesgo');
+                return;
               }
+              if (!causaEditando && !nuevaCausaDescripcion.trim()) {
+                showError('La descripción de la causa es requerida');
+                return;
+              }
+
+              let fuenteNombre = '';
+              if (Array.isArray(fuentesCausa)) {
+                const fuenteObj = fuentesCausa.find((f: any) => String(f.id ?? f.nombre ?? f) === nuevaCausaFuente);
+                fuenteNombre = fuenteObj?.nombre ?? nuevaCausaFuente;
+              } else if (typeof fuentesCausa === 'object') {
+                fuenteNombre = (fuentesCausa as any)[nuevaCausaFuente]?.nombre ?? nuevaCausaFuente;
+              } else {
+                fuenteNombre = nuevaCausaFuente;
+              }
+
+              const pid = String(riesgoIdParaCausa);
+              const causaData = { descripcion: nuevaCausaDescripcion.trim(), fuenteCausa: fuenteNombre, frecuencia: nuevaCausaFrecuencia };
+
+              setCausasPendientes(prev => {
+                const next = { ...prev };
+                next[pid] = {
+                  toAdd: next[pid]?.toAdd ?? [],
+                  toUpdate: next[pid]?.toUpdate ?? {},
+                  toDelete: next[pid]?.toDelete ?? {},
+                };
+                if (causaEditando) {
+                  const cid = String(causaEditando.id);
+                  if (cid.startsWith('temp-')) {
+                    const idx = next[pid].toAdd.findIndex((_, i) => `temp-${pid}-${i}` === cid);
+                    if (idx >= 0) {
+                      next[pid].toAdd = [...next[pid].toAdd];
+                      next[pid].toAdd[idx] = causaData;
+                    }
+                  } else {
+                    next[pid].toUpdate[cid] = causaData;
+                  }
+                } else {
+                  next[pid].toAdd = [...next[pid].toAdd, causaData];
+                }
+                return next;
+              });
+
+              setDialogCausaOpen(false);
+              setCausaEditando(null);
+              setNuevaCausaDescripcion('');
+              let primeraFuente = '';
+              if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
+                const f = fuentesCausa[0];
+                primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+              } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
+                primeraFuente = Object.keys(fuentesCausa)[0];
+              }
+              setNuevaCausaFuente(primeraFuente);
+              setNuevaCausaFrecuencia(3);
+              showSuccess('Cambios guardados en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.');
             }}
           >
             {causaEditando ? 'Guardar' : 'Agregar'}
@@ -2909,40 +2853,29 @@ export default function IdentificacionPage() {
           <Button
             variant="contained"
             color="error"
-            onClick={async () => {
+            onClick={() => {
               if (!causaPendienteEliminar || causaEliminando) return;
-              const { causaId } = causaPendienteEliminar;
-              setCausaEliminando(causaId);
-              try {
-                const riesgoIdNum = causaPendienteEliminar ? Number(causaPendienteEliminar.riesgoId) : null;
-                await api.riesgos.causas.delete(Number(causaId));
-                
-                // Recalcular y guardar calificación inherente global después de eliminar causa
-                if (riesgoIdNum) {
-                  await recalcularYGuardarCalificacionInherenteGlobal(riesgoIdNum);
-                }
-                
-                // Recargar solo los riesgos del proceso seleccionado
-                if (procesoSeleccionado?.id) {
-                  await cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
+              const { riesgoId, causaId } = causaPendienteEliminar;
+              const pid = String(riesgoId);
+              setCausasPendientes(prev => {
+                const next = { ...prev };
+                next[pid] = {
+                  toAdd: next[pid]?.toAdd ?? [],
+                  toUpdate: next[pid]?.toUpdate ?? {},
+                  toDelete: next[pid]?.toDelete ?? {},
+                };
+                if (causaId.startsWith('temp-')) {
+                  const idx = parseInt(causaId.split('-').pop() || '0', 10);
+                  next[pid].toAdd = next[pid].toAdd.filter((_, i) => i !== idx);
                 } else {
-                  await cargarRiesgos({ includeCausas: true });
+                  next[pid].toDelete[causaId] = true;
                 }
-                // Invalidar caché del mapa para forzar actualización inmediata
-                dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
-                // Disparar evento para que el mapa se actualice
-                if (riesgoIdNum) {
-                  window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: riesgoIdNum } }));
-                }
-                showSuccess('Causa eliminada correctamente');
-              } catch (error) {
-                console.error('Error al eliminar causa:', error);
-                showError('Error al eliminar causa');
-              } finally {
-                setCausaEliminando(null);
-                setConfirmDeleteOpen(false);
-                setCausaPendienteEliminar(null);
-              }
+                return next;
+              });
+              setCausaEliminando(null);
+              setConfirmDeleteOpen(false);
+              setCausaPendienteEliminar(null);
+              showSuccess('Causa quitada en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.');
             }}
           >
             {causaEliminando ? (
@@ -4097,6 +4030,8 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
   }
   
   if (prevProps.riesgo.causas?.length !== nextProps.riesgo.causas?.length) return false;
+  // Re-render cuando cambia el contenido de causas (p. ej. edición en memoria: frecuencia, descripción)
+  if (prevProps.riesgo.causas !== nextProps.riesgo.causas) return false;
   if (prevProps.isReadOnly !== nextProps.isReadOnly) return false;
   if (prevProps.procesoSeleccionado?.id !== nextProps.procesoSeleccionado?.id) return false;
   if (prevProps.causaEliminando !== nextProps.causaEliminando) return false;
