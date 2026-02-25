@@ -57,6 +57,7 @@ import {
   UnfoldMore as UnfoldMoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -241,7 +242,21 @@ export default function ControlesYPlanesAccionPageNueva() {
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
-        return tipo === 'PENDIENTE';
+        
+        // Causas sin clasificar
+        if (tipo === 'PENDIENTE' || !tipo) return true;
+        
+        // AMBOS incompleto (falta control o plan)
+        if (tipo === 'AMBOS') {
+          const estadoAmbos = c.gestion?.estadoAmbos;
+          const controlActivo = estadoAmbos?.controlActivo ?? true;
+          const planActivo = estadoAmbos?.planActivo ?? true;
+          
+          // Mostrar en clasificación si falta alguno
+          return !controlActivo || !planActivo;
+        }
+        
+        return false;
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
   }, [riesgosDelProceso]);
@@ -251,7 +266,15 @@ export default function ControlesYPlanesAccionPageNueva() {
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || '').toUpperCase();
-        return tipo === 'PLAN' || tipo === 'AMBOS';
+        
+        if (tipo === 'PLAN') return true;
+        
+        if (tipo === 'AMBOS') {
+          const planActivo = c.gestion?.estadoAmbos?.planActivo ?? true;
+          return planActivo; // ← Solo mostrar si plan está activo
+        }
+        
+        return false;
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
   }, [riesgosDelProceso]);
@@ -261,7 +284,15 @@ export default function ControlesYPlanesAccionPageNueva() {
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
-        return tipo === 'CONTROL' || tipo === 'AMBOS';
+        
+        if (tipo === 'CONTROL') return true;
+        
+        if (tipo === 'AMBOS') {
+          const controlActivo = c.gestion?.estadoAmbos?.controlActivo ?? true;
+          return controlActivo; // ← Solo mostrar si control está activo
+        }
+        
+        return false;
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
   }, [riesgosDelProceso]);
@@ -482,6 +513,160 @@ export default function ControlesYPlanesAccionPageNueva() {
     let causaActualizada: any = null;
     const causasUpd = riesgo.causas.map((c: any) => {
       if (c.id === causaIdEvaluacion) {
+        const tipoActual = (c.tipoGestion || '').toUpperCase();
+        
+        // Si es AMBOS, reactivar la parte que se está agregando
+        if (tipoActual === 'AMBOS') {
+          const estadoAmbosActual = c.gestion?.estadoAmbos || { controlActivo: true, planActivo: true };
+          
+          // Si se selecciona AMBOS, reactivar ambas partes
+          const nuevoEstadoAmbos = tipoClasificacion === 'AMBOS' 
+            ? { controlActivo: true, planActivo: true }
+            : {
+                controlActivo: tipoClasificacion === 'CONTROL' ? true : estadoAmbosActual.controlActivo,
+                planActivo: tipoClasificacion === 'PLAN' ? true : estadoAmbosActual.planActivo
+              };
+          
+          // Si se selecciona AMBOS (re-agregar ambos)
+          if (tipoClasificacion === 'AMBOS') {
+            let pt = 0;
+            let prel = 'Inefectivo';
+            let def = 'Inefectivo';
+            let mit = 0;
+
+            if (criteriosEvaluacion.tieneControl) {
+              pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+              prel = determinarEvaluacionPreliminar(pt);
+              def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.desviaciones);
+              mit = obtenerPorcentajeMitigacionAvanzado(def);
+            }
+
+            const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
+            const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
+            const calRes = calcularCalificacionResidual(fRes, iRes);
+            
+            let nivelResidualCausa = 'Sin Calificar';
+            if (calRes >= 15 && calRes <= 25) nivelResidualCausa = 'Crítico';
+            else if (calRes >= 10 && calRes <= 14) nivelResidualCausa = 'Alto';
+            else if (calRes >= 5 && calRes <= 9) nivelResidualCausa = 'Medio';
+            else if (calRes >= 1 && calRes <= 4) nivelResidualCausa = 'Bajo';
+            
+            causaActualizada = {
+              ...c,
+              ...criteriosEvaluacion,
+              controlDesviaciones: criteriosEvaluacion.desviaciones,
+              controlDescripcion: criteriosEvaluacion.descripcionControl,
+              controlResponsable: criteriosEvaluacion.responsable,
+              tieneControl: criteriosEvaluacion.tieneControl,
+              tipoGestion: 'AMBOS',
+              puntajeTotal: pt,
+              evaluacionDefinitiva: def,
+              porcentajeMitigacion: mit,
+              frecuenciaResidual: fRes,
+              impactoResidual: iRes,
+              calificacionResidual: calRes,
+              nivelRiesgoResidual: nivelResidualCausa,
+              // Datos del plan
+              planDescripcion: formPlan.descripcion,
+              planDetalle: formPlan.detalle,
+              planResponsable: formPlan.responsable,
+              planDecision: formPlan.decision,
+              planFechaEstimada: formPlan.fechaEstimada,
+              planEstado: formPlan.estado,
+              gestion: {
+                ...(c.gestion || {}),
+                estadoAmbos: nuevoEstadoAmbos
+              }
+            };
+            return causaActualizada;
+          }
+          
+          // Mantener AMBOS y actualizar estado (solo control o solo plan)
+          if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control') {
+            let pt = 0;
+            let prel = 'Inefectivo';
+            let def = 'Inefectivo';
+            let mit = 0;
+
+            if (criteriosEvaluacion.tieneControl) {
+              pt = calcularPuntajeControl(criteriosEvaluacion.puntajeAplicabilidad, criteriosEvaluacion.puntajeCobertura, criteriosEvaluacion.puntajeFacilidad, criteriosEvaluacion.puntajeSegregacion, criteriosEvaluacion.puntajeNaturaleza);
+              prel = determinarEvaluacionPreliminar(pt);
+              def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.desviaciones);
+              mit = obtenerPorcentajeMitigacionAvanzado(def);
+            }
+
+            const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
+            const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
+            const calRes = calcularCalificacionResidual(fRes, iRes);
+            
+            let nivelResidualCausa = 'Sin Calificar';
+            if (calRes >= 15 && calRes <= 25) nivelResidualCausa = 'Crítico';
+            else if (calRes >= 10 && calRes <= 14) nivelResidualCausa = 'Alto';
+            else if (calRes >= 5 && calRes <= 9) nivelResidualCausa = 'Medio';
+            else if (calRes >= 1 && calRes <= 4) nivelResidualCausa = 'Bajo';
+            
+            causaActualizada = {
+              ...c,
+              ...criteriosEvaluacion,
+              controlDesviaciones: criteriosEvaluacion.desviaciones,
+              controlDescripcion: criteriosEvaluacion.descripcionControl,
+              controlResponsable: criteriosEvaluacion.responsable,
+              tieneControl: criteriosEvaluacion.tieneControl,
+              tipoGestion: 'AMBOS', // ← Mantener AMBOS
+              puntajeTotal: pt,
+              evaluacionDefinitiva: def,
+              porcentajeMitigacion: mit,
+              frecuenciaResidual: fRes,
+              impactoResidual: iRes,
+              calificacionResidual: calRes,
+              nivelRiesgoResidual: nivelResidualCausa,
+              // ← PRESERVAR datos del plan existente
+              planDescripcion: c.planDescripcion,
+              planDetalle: c.planDetalle,
+              planResponsable: c.planResponsable,
+              planDecision: c.planDecision,
+              planFechaEstimada: c.planFechaEstimada,
+              planEstado: c.planEstado,
+              gestion: {
+                ...(c.gestion || {}),
+                estadoAmbos: nuevoEstadoAmbos
+              }
+            };
+          } else {
+            // PLAN
+            causaActualizada = {
+              ...c,
+              tipoGestion: 'AMBOS', // ← Mantener AMBOS
+              planDescripcion: formPlan.descripcion,
+              planDetalle: formPlan.detalle,
+              planResponsable: formPlan.responsable,
+              planDecision: formPlan.decision,
+              planFechaEstimada: formPlan.fechaEstimada,
+              planEstado: formPlan.estado,
+              // ← PRESERVAR datos del control existente
+              ...criteriosEvaluacion,
+              controlDesviaciones: c.controlDesviaciones,
+              controlDescripcion: c.controlDescripcion,
+              controlResponsable: c.controlResponsable,
+              tieneControl: c.tieneControl,
+              puntajeTotal: c.puntajeTotal,
+              evaluacionDefinitiva: c.evaluacionDefinitiva,
+              porcentajeMitigacion: c.porcentajeMitigacion,
+              frecuenciaResidual: c.frecuenciaResidual,
+              impactoResidual: c.impactoResidual,
+              calificacionResidual: c.calificacionResidual,
+              nivelRiesgoResidual: c.nivelRiesgoResidual,
+              gestion: {
+                ...(c.gestion || {}),
+                estadoAmbos: nuevoEstadoAmbos
+              }
+            };
+          }
+          
+          return causaActualizada;
+        }
+        
+        // Si NO es AMBOS, comportamiento normal
         if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || tipoClasificacion === 'AMBOS' || (!tipoClasificacion)) {
           let pt = 0;
           let prel = 'Inefectivo';
@@ -494,7 +679,6 @@ export default function ControlesYPlanesAccionPageNueva() {
             def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.desviaciones);
             mit = obtenerPorcentajeMitigacionAvanzado(def);
           } else {
-            // If no control, reset scores and mitigation
             pt = 0;
             prel = 'Inefectivo';
             def = 'Inefectivo';
@@ -505,17 +689,11 @@ export default function ControlesYPlanesAccionPageNueva() {
           const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
           const calRes = calcularCalificacionResidual(fRes, iRes);
           
-          // Calcular nivelRiesgoResidual para esta causa individual
           let nivelResidualCausa = 'Sin Calificar';
-          if (calRes >= 15 && calRes <= 25) {
-            nivelResidualCausa = 'Crítico';
-          } else if (calRes >= 10 && calRes <= 14) {
-            nivelResidualCausa = 'Alto';
-          } else if (calRes >= 5 && calRes <= 9) {
-            nivelResidualCausa = 'Medio';
-          } else if (calRes >= 1 && calRes <= 4) {
-            nivelResidualCausa = 'Bajo';
-          }
+          if (calRes >= 15 && calRes <= 25) nivelResidualCausa = 'Crítico';
+          else if (calRes >= 10 && calRes <= 14) nivelResidualCausa = 'Alto';
+          else if (calRes >= 5 && calRes <= 9) nivelResidualCausa = 'Medio';
+          else if (calRes >= 1 && calRes <= 4) nivelResidualCausa = 'Bajo';
           
           causaActualizada = {
             ...c, ...criteriosEvaluacion,
@@ -535,6 +713,9 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
               planEstado: formPlan.estado,
+              gestion: {
+                estadoAmbos: { controlActivo: true, planActivo: true }
+              }
             }),
           };
           return causaActualizada;
@@ -559,16 +740,20 @@ export default function ControlesYPlanesAccionPageNueva() {
 
     if (riesgoIdEvaluacion) {
       // Calcular Riesgo Residual Global (MAX de los residuales de TODAS las causas con controles)
-      // IMPORTANTE: Siempre recalcular desde TODAS las causas del riesgo, no solo las actualizadas
-      // Esto asegura que si se añaden más causas, el riesgo global siempre refleje el máximo
-      
-      // Obtener TODAS las causas del riesgo (las actualizadas + las existentes)
       const todasLasCausas = causasUpd;
       
-      // Filtrar solo las causas que tienen controles aplicados
+      // Filtrar solo las causas que tienen controles aplicados Y activos
       const causasConControles = todasLasCausas.filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-        return tipo === 'CONTROL' || tipo === 'AMBOS';
+        
+        if (tipo === 'CONTROL') return true;
+        
+        if (tipo === 'AMBOS') {
+          const controlActivo = c.gestion?.estadoAmbos?.controlActivo ?? true;
+          return controlActivo; // ← Solo contar si está activo
+        }
+        
+        return false;
       });
       
       // Calcular calificaciones residuales de TODAS las causas con controles
@@ -693,23 +878,87 @@ export default function ControlesYPlanesAccionPageNueva() {
     return c?.descripcion || causaId;
   };
 
-  const handleEliminarClasificacion = async (riesgoId: string, causa: any) => {
+  const handleEliminarClasificacion = async (
+    riesgoId: string, 
+    causa: any, 
+    contexto: 'CONTROL' | 'PLAN'
+  ) => {
     try {
-      await updateCausa({
-        id: causa.id,
-        tipoGestion: null,
-        planDescripcion: null,
-        planDetalle: null,
-        planResponsable: null,
-        planFechaEstimada: null,
-        planEstado: null,
-        controlDescripcion: null,
-        controlTipo: null,
-        controlDesviaciones: null,
-        gestion: null
-      }).unwrap();
-      showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
+      const tipoActual = (causa.tipoGestion || '').toUpperCase();
+      
+      if (tipoActual === 'AMBOS') {
+        // Mantener AMBOS, solo marcar como inactivo la parte eliminada
+        const gestionActual = causa.gestion || {};
+        const estadoAmbosActual = gestionActual.estadoAmbos || { controlActivo: true, planActivo: true };
+        
+        const nuevoEstadoAmbos = {
+          controlActivo: contexto === 'CONTROL' ? false : estadoAmbosActual.controlActivo,
+          planActivo: contexto === 'PLAN' ? false : estadoAmbosActual.planActivo
+        };
+        
+        // Construir objeto gestion con TODOS los datos
+        const gestionActualizada = {
+          ...gestionActual,
+          estadoAmbos: nuevoEstadoAmbos,
+          // Datos del plan
+          planDescripcion: causa.planDescripcion,
+          planDetalle: causa.planDetalle,
+          planResponsable: causa.planResponsable,
+          planDecision: causa.planDecision,
+          planFechaEstimada: causa.planFechaEstimada,
+          planEstado: causa.planEstado,
+          // Datos del control
+          aplicabilidad: causa.aplicabilidad,
+          puntajeAplicabilidad: causa.puntajeAplicabilidad,
+          cobertura: causa.cobertura,
+          puntajeCobertura: causa.puntajeCobertura,
+          facilidadUso: causa.facilidadUso,
+          puntajeFacilidad: causa.puntajeFacilidad,
+          segregacionFunciones: causa.segregacionFunciones,
+          puntajeSegregacion: causa.puntajeSegregacion,
+          naturalezaControl: causa.naturalezaControl,
+          puntajeNaturaleza: causa.puntajeNaturaleza,
+          desviaciones: causa.desviaciones,
+          controlDesviaciones: causa.controlDesviaciones,
+          descripcionControl: causa.descripcionControl,
+          controlDescripcion: causa.controlDescripcion,
+          responsable: causa.responsable,
+          controlResponsable: causa.controlResponsable,
+          tieneControl: causa.tieneControl,
+          tipoMitigacion: causa.tipoMitigacion,
+          puntajeTotal: causa.puntajeTotal,
+          evaluacionPreliminar: causa.evaluacionPreliminar,
+          evaluacionDefinitiva: causa.evaluacionDefinitiva,
+          porcentajeMitigacion: causa.porcentajeMitigacion,
+          frecuenciaResidual: causa.frecuenciaResidual,
+          impactoResidual: causa.impactoResidual,
+          calificacionResidual: causa.calificacionResidual,
+          nivelRiesgoResidual: causa.nivelRiesgoResidual
+        };
+        
+        await updateCausa({
+          id: causa.id,
+          tipoGestion: 'AMBOS',
+          gestion: gestionActualizada
+        }).unwrap();
+        
+        showSuccess(
+          contexto === 'CONTROL' 
+            ? 'Control eliminado. Puede re-agregarlo desde Clasificación.'
+            : 'Plan de Acción eliminado. Puede re-agregarlo desde Clasificación.'
+        );
+      } else {
+        // Si NO es AMBOS, eliminar completamente la clasificación
+        await updateCausa({
+          id: causa.id,
+          tipoGestion: null,
+          gestion: null
+        }).unwrap();
+        
+        showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
+      }
     } catch (error) {
+      console.error('Error al eliminar clasificación:', error);
       showError('Error al eliminar clasificación');
     }
   };
@@ -949,8 +1198,22 @@ export default function ControlesYPlanesAccionPageNueva() {
                             <TableBody>
                               {riesgo.causas.map((causa: any) => {
                                 const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
-                                // Double check filter (should be redundant if memos work, but safe)
-                                if (tipoGestion !== 'PENDIENTE') return null;
+                                
+                                // Permitir causas pendientes y AMBOS incompletos
+                                if (tipoGestion === 'PENDIENTE') {
+                                  // Causa sin clasificar - OK
+                                } else if (tipoGestion === 'AMBOS') {
+                                  // Verificar si está incompleto
+                                  const estadoAmbos = causa.gestion?.estadoAmbos;
+                                  const controlActivo = estadoAmbos?.controlActivo ?? true;
+                                  const planActivo = estadoAmbos?.planActivo ?? true;
+                                  
+                                  // Si ambos están activos, no mostrar en clasificación
+                                  if (controlActivo && planActivo) return null;
+                                } else {
+                                  // Otros tipos no se muestran en clasificación
+                                  return null;
+                                }
 
                                 return (
                                   <Fragment key={causa.id}>
@@ -967,34 +1230,167 @@ export default function ControlesYPlanesAccionPageNueva() {
                                             onChange={(e) => {
                                               const accion = e.target.value;
                                               if (accion) {
+                                                // Primero establecer el tipo de clasificación
                                                 setTipoClasificacion(accion as any);
-                                                handleEvaluarControl(riesgo.id, causa);
+                                                // Usar setTimeout para asegurar que el estado se actualice antes de abrir el diálogo
+                                                setTimeout(() => {
+                                                  handleEvaluarControl(riesgo.id, causa);
+                                                }, 0);
                                               }
                                             }}
                                           >
-                                            <MenuItem value="CONTROL">
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <ShieldIcon fontSize="small" />
-                                                Control
-                                              </Box>
-                                            </MenuItem>
-                                            <MenuItem value="PLAN">
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <AssignmentIcon fontSize="small" />
-                                                Plan de Acción
-                                              </Box>
-                                            </MenuItem>
-                                            <MenuItem value="AMBOS">
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <CheckCircleIcon fontSize="small" />
-                                                Ambos
-                                              </Box>
-                                            </MenuItem>
+                                            {(() => {
+                                              const tipoGestion = (causa.tipoGestion || '').toUpperCase();
+                                              
+                                              // Si es AMBOS incompleto
+                                              if (tipoGestion === 'AMBOS') {
+                                                const estadoAmbos = causa.gestion?.estadoAmbos;
+                                                const controlActivo = estadoAmbos?.controlActivo ?? true;
+                                                const planActivo = estadoAmbos?.planActivo ?? true;
+                                                
+                                                // Falta control
+                                                if (!controlActivo && planActivo) {
+                                                  return [
+                                                    <MenuItem key="control" value="CONTROL">
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <ShieldIcon fontSize="small" />
+                                                        Control (Re-agregar)
+                                                      </Box>
+                                                    </MenuItem>,
+                                                    <MenuItem key="plan" value="PLAN" disabled>
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: 0.5 }}>
+                                                        <AssignmentIcon fontSize="small" />
+                                                        Plan de Acción (Ya aplicado)
+                                                      </Box>
+                                                    </MenuItem>
+                                                  ];
+                                                }
+                                                
+                                                // Falta plan
+                                                if (controlActivo && !planActivo) {
+                                                  return [
+                                                    <MenuItem key="control" value="CONTROL" disabled>
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: 0.5 }}>
+                                                        <ShieldIcon fontSize="small" />
+                                                        Control (Ya aplicado)
+                                                      </Box>
+                                                    </MenuItem>,
+                                                    <MenuItem key="plan" value="PLAN">
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <AssignmentIcon fontSize="small" />
+                                                        Plan de Acción (Re-agregar)
+                                                      </Box>
+                                                    </MenuItem>
+                                                  ];
+                                                }
+                                                
+                                                // Faltan ambos
+                                                if (!controlActivo && !planActivo) {
+                                                  return [
+                                                    <MenuItem key="control" value="CONTROL">
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <ShieldIcon fontSize="small" />
+                                                        Control (Re-agregar)
+                                                      </Box>
+                                                    </MenuItem>,
+                                                    <MenuItem key="plan" value="PLAN">
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <AssignmentIcon fontSize="small" />
+                                                        Plan de Acción (Re-agregar)
+                                                      </Box>
+                                                    </MenuItem>,
+                                                    <MenuItem key="ambos" value="AMBOS">
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <CheckCircleIcon fontSize="small" />
+                                                        Ambos (Re-agregar)
+                                                      </Box>
+                                                    </MenuItem>
+                                                  ];
+                                                }
+                                              }
+                                              
+                                              // Causa sin clasificar (normal)
+                                              return [
+                                                <MenuItem key="control" value="CONTROL">
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <ShieldIcon fontSize="small" />
+                                                    Control
+                                                  </Box>
+                                                </MenuItem>,
+                                                <MenuItem key="plan" value="PLAN">
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <AssignmentIcon fontSize="small" />
+                                                    Plan de Acción
+                                                  </Box>
+                                                </MenuItem>,
+                                                <MenuItem key="ambos" value="AMBOS">
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <CheckCircleIcon fontSize="small" />
+                                                    Ambos
+                                                  </Box>
+                                                </MenuItem>
+                                              ];
+                                            })()}
                                           </Select>
                                         </FormControl>
                                       </TableCell>
                                       <TableCell align="center">
-                                        <Chip label="Pendiente" variant="outlined" size="small" />
+                                        {(() => {
+                                          const tipoGestion = (causa.tipoGestion || '').toUpperCase();
+                                          
+                                          if (tipoGestion === 'AMBOS') {
+                                            const estadoAmbos = causa.gestion?.estadoAmbos;
+                                            const controlActivo = estadoAmbos?.controlActivo ?? true;
+                                            const planActivo = estadoAmbos?.planActivo ?? true;
+                                            
+                                            if (!controlActivo && planActivo) {
+                                              return (
+                                                <Chip 
+                                                  label="AMBOS - Falta Control" 
+                                                  size="small" 
+                                                  color="error"
+                                                  variant="outlined"
+                                                  icon={<WarningIcon />}
+                                                  sx={{ fontSize: '0.7rem' }}
+                                                />
+                                              );
+                                            }
+                                            
+                                            if (controlActivo && !planActivo) {
+                                              return (
+                                                <Chip 
+                                                  label="AMBOS - Falta Plan" 
+                                                  size="small" 
+                                                  color="error"
+                                                  variant="outlined"
+                                                  icon={<WarningIcon />}
+                                                  sx={{ fontSize: '0.7rem' }}
+                                                />
+                                              );
+                                            }
+                                            
+                                            if (!controlActivo && !planActivo) {
+                                              return (
+                                                <Chip 
+                                                  label="AMBOS - Incompleto" 
+                                                  size="small" 
+                                                  color="error"
+                                                  variant="filled"
+                                                  icon={<WarningIcon />}
+                                                  sx={{ fontSize: '0.7rem' }}
+                                                />
+                                              );
+                                            }
+                                          }
+                                          
+                                          return (
+                                            <Chip 
+                                              label="Pendiente" 
+                                              variant="outlined" 
+                                              size="small" 
+                                            />
+                                          );
+                                        })()}
                                       </TableCell>
                                     </TableRow>
                                     {
@@ -1569,7 +1965,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     {causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || 'Sin evaluar'}
                                   </TableCell>
                                   <TableCell align="center">
-                                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                                         <IconButton
                                         size="small"
                                           color="primary"
@@ -1588,12 +1984,21 @@ export default function ControlesYPlanesAccionPageNueva() {
                                         color="error"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleEliminarClasificacion(riesgo.id, causa);
+                                          handleEliminarClasificacion(riesgo.id, causa, 'CONTROL');
                                         }}
-                                          title="Eliminar"
+                                          title="Eliminar Control"
                                       >
                                           <DeleteIcon fontSize="small" />
                                         </IconButton>
+                                        {(causa.tipoGestion || '').toUpperCase() === 'AMBOS' && (
+                                          <Chip 
+                                            label="También en Planes" 
+                                            size="small" 
+                                            color="warning" 
+                                            variant="outlined"
+                                            sx={{ fontSize: '0.65rem', height: 20 }}
+                                          />
+                                        )}
                                     </Box>
                                   </TableCell>
                                 </TableRow>
@@ -2028,7 +2433,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       <TableCell>{causa.planResponsable || causa.gestion?.planResponsable || 'N/A'}</TableCell>
                                       <TableCell align="center">{causa.planFechaEstimada || causa.gestion?.planFechaEstimada || 'N/A'}</TableCell>
                                     <TableCell align="center">
-                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                                           <IconButton
                                           size="small"
                                             color="primary"
@@ -2047,12 +2452,21 @@ export default function ControlesYPlanesAccionPageNueva() {
                                           color="error"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleEliminarClasificacion(riesgo.id, causa);
+                                            handleEliminarClasificacion(riesgo.id, causa, 'PLAN');
                                           }}
-                                            title="Eliminar"
+                                            title="Eliminar Plan"
                                         >
                                             <DeleteIcon fontSize="small" />
                                           </IconButton>
+                                          {(causa.tipoGestion || '').toUpperCase() === 'AMBOS' && (
+                                            <Chip 
+                                              label="También en Controles" 
+                                              size="small" 
+                                              color="warning" 
+                                              variant="outlined"
+                                              sx={{ fontSize: '0.65rem', height: 20 }}
+                                            />
+                                          )}
                                       </Box>
                                     </TableCell>
                                   </TableRow>
