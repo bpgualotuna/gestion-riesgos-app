@@ -54,8 +54,10 @@ export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery: baseQueryWithLogging,
   tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
-  // OPTIMIZADO: Caché global más agresivo para mejor rendimiento
-  keepUnusedDataFor: 600, // 10 minutos de caché global
+  // OPTIMIZADO: Caché más corto (2 minutos) para datos más frescos
+  keepUnusedDataFor: 120, // 2 minutos de caché global
+  // OPTIMIZADO: Refetch solo si los datos tienen más de 2 minutos
+  refetchOnMountOrArgChange: 120,
   endpoints: (builder) => ({
     // ============================================
     // PROCESOS
