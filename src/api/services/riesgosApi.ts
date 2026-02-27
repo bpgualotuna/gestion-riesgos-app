@@ -1270,6 +1270,33 @@ export const riesgosApi = createApi({
         body,
       }),
     }),
+
+    // ============================================
+    // CONFIGURACIÓN RESIDUAL
+    // ============================================
+    getConfiguracionResidual: builder.query<any, void>({
+      query: () => 'configuracion-residual',
+      providesTags: ['Configuracion'],
+    }),
+
+    updateConfiguracionResidual: builder.mutation<any, { id: number } & any>({
+      query: ({ id, ...body }) => ({
+        url: `configuracion-residual/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
+    recalcularRiesgosResiduales: builder.mutation<any, { preview?: boolean; confirmacion?: boolean }>({
+      query: ({ preview = false, confirmacion = false }) => ({
+        url: `configuracion-residual/recalcular?preview=${preview}`,
+        method: 'POST',
+        body: { confirmacion },
+      }),
+      invalidatesTags: (_result, _error, { preview }) => 
+        preview ? [] : ['Riesgo', 'Evaluacion', 'Causa'],
+    }),
   }),
 });
 
@@ -1448,6 +1475,10 @@ export const {
   useUpdateCalificacionInherenteMutation,
   useDeleteCalificacionInherenteMutation,
   useCalcularCalificacionInherenteMutation,
+  // Configuración Residual
+  useGetConfiguracionResidualQuery,
+  useUpdateConfiguracionResidualMutation,
+  useRecalcularRiesgosResidualesMutation,
 } = riesgosApi;
 
 // Alias para compatibilidad con código existente

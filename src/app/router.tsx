@@ -65,6 +65,7 @@ const ConfiguracionPage = lazy(() => import('../pages/admin/ConfiguracionPage'))
 const ParametrosCalificacionPage = lazy(() => import('../pages/admin/ParametrosCalificacionPage'));
 const MapasConfigPage = lazy(() => import('../pages/admin/MapasConfigPage'));
 const CalificacionInherentePage = lazy(() => import('../pages/admin/CalificacionInherentePage'));
+const CalificacionResidualPage = lazy(() => import('../pages/admin/ConfiguracionResidualPage'));
 const AdminPanelPage = lazy(() => import('../pages/admin/AdminPanelPage'));
 const ModoGerenteGeneralSelector = lazy(() => import('../components/auth/ModoGerenteGeneralSelector'));
 
@@ -156,6 +157,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowedRoles={['admin']}>
             <LazyRoute component={CalificacionInherentePage} />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: '/admin/calificacion-residual',
+        element: (
+          <RoleGuard allowedRoles={['admin']}>
+            <LazyRoute component={CalificacionResidualPage} />
           </RoleGuard>
         ),
       },
