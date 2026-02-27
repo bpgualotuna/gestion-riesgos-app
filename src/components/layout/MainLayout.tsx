@@ -668,6 +668,7 @@ export default function MainLayout() {
                 { text: 'Conf. Mapa Riesgos', icon: <MapIcon />, path: ROUTES.ADMIN_MAPA_CONFIG },
                 { text: 'Parámetros de Calificación', icon: <SettingsIcon />, path: '/admin/parametros-calificacion' },
                 { text: 'Calificación Inherente', icon: <SettingsIcon />, path: '/admin/calificacion-inherente' },
+                { text: 'Calificación Residual', icon: <SettingsIcon />, path: ROUTES.ADMIN_CALIFICACION_RESIDUAL },
               ].map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
