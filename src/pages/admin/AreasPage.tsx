@@ -145,6 +145,17 @@ export default function AreasPage() {
     // Detectar si el usuario seleccionado es Gerente (ya no se usa localStorage, solo para UI)
     const esGerenteGeneral = selectedUserForAssignment?.role === 'gerente';
 
+    // Obtener roles únicos de los usuarios
+    const rolesUnicos = useMemo(() => {
+        const rolesSet = new Set<string>();
+        usuarios.forEach((u: any) => {
+            if (u.role) {
+                rolesSet.add(u.role);
+            }
+        });
+        return Array.from(rolesSet).sort();
+    }, [usuarios]);
+
     // Filtrar usuarios por rol
     const usuariosFiltrados = useMemo(() => {
         let filtered;
@@ -563,10 +574,11 @@ export default function AreasPage() {
                                     label="Filtrar por Rol"
                                 >
                                     <MenuItem value="all">Todos los roles</MenuItem>
-                                    <MenuItem value="admin">Administrador</MenuItem>
-                                    <MenuItem value="gerente">Gerente</MenuItem>
-                                    <MenuItem value="supervisor">Supervisor de Riesgos</MenuItem>
-                                    <MenuItem value="dueño_procesos">Dueño de Procesos</MenuItem>
+                                    {rolesUnicos.map((rol) => (
+                                        <MenuItem key={rol} value={rol}>
+                                            {rol.charAt(0).toUpperCase() + rol.slice(1).replace('_', ' ')}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
 
