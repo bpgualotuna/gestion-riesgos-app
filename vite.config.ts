@@ -13,10 +13,10 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0', // Permitir conexiones desde cualquier IP
+    host: 'localhost', // Solo localhost para evitar problemas de WebSocket
     port: 5173,
-    strictPort: false, // Permitir usar otro puerto si 5173 está ocupado
-    open: false, // No abrir automáticamente
+    strictPort: false,
+    open: false,
     hmr: {
       protocol: 'ws',
       host: 'localhost',
