@@ -41,6 +41,7 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
+import { API_BASE_URL } from '../../utils/constants';
 
 export default function AnalisisProcesoPage() {
   const { showSuccess, showError } = useNotification();
@@ -62,6 +63,8 @@ export default function AnalisisProcesoPage() {
           url: procesoData.documentoUrl,
           date: new Date().toISOString()
         });
+      } else {
+        setSavedFile(null);
       }
     }
   }, [procesoData]);
@@ -92,14 +95,33 @@ export default function AnalisisProcesoPage() {
     setDeleteConfirmationOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (fileToDelete === 'selected') {
       setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } else if (fileToDelete === 'saved') {
-      setSavedFile(null);
+    } else if (fileToDelete === 'saved' && savedFile && procesoSeleccionado?.id) {
+      try {
+        // Eliminar en Azure Blob (o Cloudinary): backend espera ?url= con la URL guardada
+        const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(savedFile.url)}`;
+        const res = await fetch(deleteUrl, { method: 'DELETE', credentials: 'include' });
+        if (res.ok || res.status === 404) {
+          await updateProceso({
+            id: procesoSeleccionado.id,
+            analisis: descripcion,
+            documentoUrl: null,
+            documentoNombre: null,
+          }).unwrap();
+          setSavedFile(null);
+          showSuccess('Archivo eliminado');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showError(data?.error || 'Error al eliminar el archivo');
+        }
+      } catch (e) {
+        showError('Error al eliminar el archivo');
+      }
     }
     setDeleteConfirmationOpen(false);
     setFileToDelete(null);
@@ -112,14 +134,37 @@ export default function AnalisisProcesoPage() {
     }
 
     try {
-      // Mocking file upload for now, just saving current state
+      let documentoUrl: string | null = savedFile ? savedFile.url : null;
+      let documentoNombre: string | null = savedFile ? savedFile.name : null;
+
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('archivo', selectedFile);
+        const uploadRes = await fetch(`${API_BASE_URL}/upload/archivo`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          showError(err?.error || 'Error al subir el archivo');
+          return;
+        }
+        const uploadData = await uploadRes.json();
+        documentoUrl = uploadData.url;
+        documentoNombre = uploadData.nombre ?? selectedFile.name;
+      }
+
       await updateProceso({
         id: procesoSeleccionado.id,
         analisis: descripcion,
-        documentoUrl: selectedFile ? URL.createObjectURL(selectedFile) : (savedFile ? savedFile.url : null),
-        documentoNombre: selectedFile ? selectedFile.name : (savedFile ? savedFile.name : null)
+        documentoUrl,
+        documentoNombre,
       }).unwrap();
 
+      if (documentoUrl && documentoNombre) {
+        setSavedFile({ name: documentoNombre, url: documentoUrl, date: new Date().toISOString() });
+      }
       setSelectedFile(null);
       showSuccess('Análisis de proceso y documentación guardados exitosamente');
     } catch (error) {
