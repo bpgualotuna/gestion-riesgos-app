@@ -6,7 +6,7 @@ type ProcesoItem = {
     id: string | number;
     areaId?: string | number;
     responsableId?: string | number;
-    responsablesList?: Array<{ id: number; nombre: string; role?: string; modo?: 'dueño' | 'supervisor' | null }>;
+    responsablesList?: Array<{ id: number; nombre: string; role?: string; modo?: 'director' | 'proceso' | null }>;
 };
 
 // Helper para verificar si un usuario es responsable de un proceso (independiente del modo)
@@ -52,39 +52,37 @@ export const useAreasProcesosAsignados = () => {
 
     let procesosAsignados: ProcesoItem[] = [];
 
-    // 1) Gerente en Modo Director (Supervisor): ver procesos donde es responsable con modo 'supervisor' o 'ambos'
+    // 1) Gerente en Modo Director (Supervisor): ver procesos donde es responsable con modo 'director'
     if (esGerenteGeneralDirector) {
         procesosAsignados = procesos.filter((p: any) =>
             (p.responsablesList || []).some(
                 (r: any) =>
                     Number(r.id) === userIdNum &&
-                    r.role === 'gerente' &&
-                    (r.modo === 'supervisor' || r.modo === 'ambos')
+                    r.modo === 'director'
             )
         );
     }
-    // 2) Gerente en Modo Dueño de Proceso: ver procesos donde es responsable con modo 'dueño' o 'ambos'
+    // 2) Gerente en Modo Dueño de Proceso: ver procesos donde es responsable con modo 'proceso'
     else if (esGerenteDueño) {
         procesosAsignados = procesos.filter((p: any) =>
             (p.responsablesList || []).some(
                 (r: any) =>
                     Number(r.id) === userIdNum &&
-                    r.role === 'gerente' &&
-                    (r.modo === 'dueño' || r.modo === 'ambos')
+                    r.modo === 'proceso'
             )
         );
     }
-    // 3) Supervisor de Riesgos: ver procesos donde es responsable (modo null)
+    // 3) Supervisor de Riesgos: ver procesos donde es responsable (cualquier modo)
     else if (esSupervisorRiesgos) {
         procesosAsignados = procesos.filter((p) => esUsuarioResponsableProceso(p, userIdNum));
     }
-    // 4) Dueño de Proceso real: ver procesos donde es responsable y NO es gerente
+    // 4) Dueño de Proceso real: ver procesos donde es responsable con modo 'proceso' o null
     else if (esDueñoProcesos) {
         procesosAsignados = procesos.filter((p: any) =>
             (p.responsablesList || []).some(
                 (r: any) =>
                     Number(r.id) === userIdNum &&
-                    (r.role === 'dueño_procesos' || !r.role || r.modo == null)
+                    (r.modo === 'proceso' || r.modo === null)
             )
         );
     } else {
