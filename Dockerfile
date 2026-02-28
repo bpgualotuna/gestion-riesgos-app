@@ -1,11 +1,10 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Build stage: Debian/glibc para que Rolldown instale @rolldown/binding-linux-x64-gnu (Alpine/musl falla con binding musl)
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-# Forzar librerías nativas de Linux (evita fallos Rolldown/502 en contenedor)
-RUN npm cache clean --force && npm install --legacy-peer-deps --include=optional --platform=linux --arch=x64
+RUN npm cache clean --force && npm install --legacy-peer-deps --include=optional
 
 COPY . .
 
