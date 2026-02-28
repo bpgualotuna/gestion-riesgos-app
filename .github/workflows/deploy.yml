@@ -33,8 +33,10 @@ jobs:
             mkdir -p "$DEPLOY_DIR"
             cd "$DEPLOY_DIR"
 
+            echo "==> Configurando Git..."
             git config --global --add safe.directory "$DEPLOY_DIR" 2>/dev/null || true
 
+            echo "==> Actualizando código (master)..."
             if [ ! -d ".git" ]; then
               git clone --branch master https://github.com/${{ github.repository }}.git .
             else
@@ -43,9 +45,16 @@ jobs:
               git checkout master
             fi
 
+            echo "==> Creando .env..."
             echo "${{ secrets.DOTENV_FILE }}" > .env
 
-            docker compose build --no-cache || docker-compose build --no-cache
+            echo "==> Build Docker (sin caché)..."
+            export BUILDKIT_PROGRESS=plain
+            docker compose build --no-cache --progress=plain 2>&1 || docker-compose build --no-cache 2>&1
+
+            echo "==> Levantando contenedores..."
             docker compose up -d --build || docker-compose up -d --build
 
+            echo "==> Limpieza de imágenes..."
             docker image prune -f 2>/dev/null || true
+            echo "==> Deploy frontend listo."
