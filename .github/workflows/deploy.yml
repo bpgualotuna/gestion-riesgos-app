@@ -1,9 +1,5 @@
-# =============================================================================
-# Deploy Frontend - Gestión de Riesgos (COMWARE)
-# Rama: master. Cada push a master reconstruye y despliega en el servidor vía SSH + Docker.
-# Repo privado: añadir secret GH_CLONE_TOKEN (Personal Access Token con permiso repo).
-# =============================================================================
-
+# Deploy Frontend - Gestión de Riesgos (rama master). Repo privado: secret GH_CLONE_TOKEN.
+# Para recibir correo si falla o si desplegó bien: GitHub → Settings → Notifications → Actions → Email.
 name: Deploy Frontend
 
 on:
@@ -12,12 +8,11 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to server
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
@@ -29,39 +24,33 @@ jobs:
           script_stop: true
           script: |
             set -e
-            export DEPLOY_DIR="$HOME/app-frontend"
-            mkdir -p "$DEPLOY_DIR"
-            cd "$DEPLOY_DIR"
-
-            echo "==> Configurando Git..."
-            git config --global --add safe.directory "$DEPLOY_DIR" 2>/dev/null || true
+            mkdir -p ~/app-frontend
+            cd ~/app-frontend
 
             echo "==> Actualizando código (master)..."
             REPO="${{ github.repository }}"
             if [ -n "${{ secrets.GH_CLONE_TOKEN }}" ]; then
-              CLONE_URL="https://x-access-token:${{ secrets.GH_CLONE_TOKEN }}@github.com/${REPO}.git"
+              URL="https://x-access-token:${{ secrets.GH_CLONE_TOKEN }}@github.com/${REPO}.git"
             else
-              CLONE_URL="https://github.com/${REPO}.git"
+              URL="https://github.com/${REPO}.git"
             fi
             if [ ! -d ".git" ]; then
-              git clone --branch master "$CLONE_URL" .
+              [ -n "$(ls -A 2>/dev/null)" ] && rm -rf ./* ./.[!.]* 2>/dev/null || true
+              git clone "$URL" .
+              git checkout master 2>/dev/null || git checkout main
             else
-              git remote set-url origin "$CLONE_URL" 2>/dev/null || true
-              git fetch origin master
-              git reset --hard origin/master
-              git checkout master
+              git remote set-url origin "$URL" 2>/dev/null || true
+              git fetch origin master 2>/dev/null || git fetch origin main
+              git reset --hard origin/master 2>/dev/null || git reset --hard origin/main
+              git checkout master 2>/dev/null || git checkout main
             fi
 
-            echo "==> Creando .env..."
+            echo "==> .env..."
             echo "${{ secrets.DOTENV_FILE }}" > .env
 
-            echo "==> Build Docker (sin caché)..."
-            export BUILDKIT_PROGRESS=plain
-            docker compose build --no-cache --progress=plain 2>&1 || docker-compose build --no-cache 2>&1
+            echo "==> Docker up --build..."
+            sudo docker compose up -d --build
 
-            echo "==> Levantando contenedores..."
-            docker compose up -d --build || docker-compose up -d --build
-
-            echo "==> Limpieza de imágenes..."
-            docker image prune -f 2>/dev/null || true
+            echo "==> Limpieza..."
+            docker image prune -f 2>/dev/null || sudo docker image prune -f 2>/dev/null || true
             echo "==> Deploy frontend listo."
