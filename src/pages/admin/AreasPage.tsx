@@ -96,28 +96,13 @@ export default function AreasPage() {
     // Formato: { procesoId: [{ usuarioId, modo }] }
     const [responsablesSeleccionados, setResponsablesSeleccionados] = useState<Record<string, Array<{ usuarioId: number; modo: string }>>>({});
     
-    // Cargar responsables de todos los procesos al inicio
+    // Cargar procesos cuando cambian los datos de la API
     useEffect(() => {
         // Siempre actualizar procesos, incluso si está vacío (para limpiar estado anterior)
         setProcesos(procesosData || []);
         
-        if (procesosData && procesosData.length > 0) {
-            // Inicializar responsablesSeleccionados con los responsables existentes (incluyendo modo)
-            const responsablesIniciales: Record<string, Array<{ usuarioId: number; modo: string }>> = {};
-            procesosData.forEach((p: any) => {
-                if (p.responsablesList && p.responsablesList.length > 0) {
-                    // Cargar desde responsablesList que ahora incluye modo
-                    responsablesIniciales[String(p.id)] = p.responsablesList.map((r: any) => ({
-                        usuarioId: r.id,
-                        modo: r.modo // "director" o "proceso"
-                    }));
-                }
-            });
-            setResponsablesSeleccionados(responsablesIniciales);
-        } else {
-            // Si no hay procesos, limpiar responsables
-            setResponsablesSeleccionados({});
-        }
+        // NO inicializar responsablesSeleccionados aquí
+        // Se leerán directamente de procesosData.responsablesList en isProcesoResponsable
     }, [procesosData]);
 
     const [tabValue, setTabValue] = useState(0);
@@ -140,6 +125,14 @@ export default function AreasPage() {
     const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<Usuario | null>(null);
     const [searchFilterAssignment, setSearchFilterAssignment] = useState('');
     const [assignmentSubTab, setAssignmentSubTab] = useState(0); // 0: Director, 1: Proceso
+    
+    // Limpiar estado local cuando cambia el usuario seleccionado
+    useEffect(() => {
+        if (selectedUserForAssignment) {
+            // Limpiar el estado local para que se lean los datos frescos de la API
+            setResponsablesSeleccionados({});
+        }
+    }, [selectedUserForAssignment]);
     const [filtroRol, setFiltroRol] = useState<string>('all');
 
     // Detectar si el usuario seleccionado es Gerente (ya no se usa localStorage, solo para UI)
@@ -446,12 +439,13 @@ export default function AreasPage() {
     
     // Verificar si un proceso tiene a un usuario como responsable en el modo actual
     const isProcesoResponsable = (procesoId: string | number, usuarioId: number): boolean => {
-        // Primero buscar en el estado local (cambios no guardados)
-        const responsablesLocal = responsablesSeleccionados[String(procesoId)] || [];
         const modoActual = assignmentSubTab === 0 ? 'director' : 'proceso';
         
-        // Si hay cambios locales, usar esos
-        if (responsablesLocal.length > 0) {
+        // Buscar en el estado local primero (cambios no guardados)
+        const responsablesLocal = responsablesSeleccionados[String(procesoId)];
+        
+        // Si hay cambios locales (incluso si es array vacío), usar esos
+        if (responsablesLocal !== undefined) {
             return responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
         }
         
