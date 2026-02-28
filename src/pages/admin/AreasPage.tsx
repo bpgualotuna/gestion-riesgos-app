@@ -303,10 +303,14 @@ export default function AreasPage() {
     const handleProcessToggle = (procesoId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
-        // Usar modo según la pestaña activa
+        // Determinar el modo según el rol del usuario
+        const esGerente = selectedUserForAssignment.role === 'gerente';
+        const modoActual = esGerente 
+            ? (assignmentSubTab === 0 ? 'director' : 'proceso')
+            : 'proceso';
+        
         const procesoIdStr = String(procesoId);
         const usuarioId = selectedUserForAssignment.id;
-        const modoActual = assignmentSubTab === 0 ? 'director' : 'proceso';
         
         // Obtener responsables actuales del proceso (o inicializar)
         const responsablesActuales = responsablesSeleccionados[procesoIdStr] || [];
@@ -342,10 +346,15 @@ export default function AreasPage() {
     const handleAreaToggle = (areaId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
+        // Determinar el modo según el rol del usuario
+        const esGerente = selectedUserForAssignment.role === 'gerente';
+        const modoActual = esGerente 
+            ? (assignmentSubTab === 0 ? 'director' : 'proceso')
+            : 'proceso';
+        
         // Agregar/remover como responsable de todos los procesos del área
         const procesosDelArea = procesos.filter(p => String(p.areaId) === String(areaId));
         const usuarioId = selectedUserForAssignment.id;
-        const modoActual = assignmentSubTab === 0 ? 'director' : 'proceso';
         
         const nuevosResponsables = { ...responsablesSeleccionados };
         
@@ -439,23 +448,51 @@ export default function AreasPage() {
     
     // Verificar si un proceso tiene a un usuario como responsable en el modo actual
     const isProcesoResponsable = (procesoId: string | number, usuarioId: number): boolean => {
-        const modoActual = assignmentSubTab === 0 ? 'director' : 'proceso';
+        // Determinar el modo según el rol del usuario seleccionado
+        // Si NO es gerente, siempre usar modo "proceso"
+        // Si es gerente, usar el tab seleccionado
+        const esGerente = selectedUserForAssignment?.role === 'gerente';
+        const modoActual = esGerente 
+            ? (assignmentSubTab === 0 ? 'director' : 'proceso')
+            : 'proceso'; // Dueños de proceso siempre usan modo "proceso"
         
-        // Buscar en el estado local primero (cambios no guardados)
+        // DEBUG: Logging para diagnosticar
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`[isProcesoResponsable] Checking proceso ${procesoId} for user ${usuarioId} (${selectedUserForAssignment?.role}) in modo ${modoActual}`);
+        }
+        
+        // 1. Buscar en el estado local primero (cambios no guardados)
         const responsablesLocal = responsablesSeleccionados[String(procesoId)];
         
         // Si hay cambios locales (incluso si es array vacío), usar esos
         if (responsablesLocal !== undefined) {
-            return responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
+            const result = responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`[isProcesoResponsable] Usando estado local (${responsablesLocal.length} items), resultado:`, result);
+            }
+            return result;
         }
         
-        // Si no hay cambios locales, buscar en los datos originales de la API
+        // 2. Si no hay cambios locales, buscar en los datos originales de la API
         const proceso = procesos.find(p => String(p.id) === String(procesoId));
+        
         if (proceso && (proceso as any).responsablesList) {
             const responsablesApi = (proceso as any).responsablesList || [];
-            return responsablesApi.some((r: any) => r.id === usuarioId && r.modo === modoActual);
+            const result = responsablesApi.some((r: any) => r.id === usuarioId && r.modo === modoActual);
+            
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`[isProcesoResponsable] Usando API (${responsablesApi.length} items), resultado:`, result);
+                if (!result && responsablesApi.length > 0) {
+                    console.log(`[isProcesoResponsable] Responsables en API:`, responsablesApi.map((r: any) => ({ id: r.id, modo: r.modo })));
+                }
+            }
+            
+            return result;
         }
         
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`[isProcesoResponsable] No se encontró nada, retornando false`);
+        }
         return false;
     };
     
