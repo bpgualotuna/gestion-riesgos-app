@@ -93,11 +93,11 @@ export default function LoginPage() {
                 }}
             >
                 <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 4 } }}>
-                    {/* Logo Section */}
+                    {/* Logo Section: /favicon.svg está en public/ y se sirve en la raíz (funciona en prod) */}
                     <Box sx={{ textAlign: 'center', mb: 4 }}>
                         <Box
                             component="img"
-                            src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+                            src="/favicon.svg"
                             alt="COMWARE Logo"
                             sx={{
                                 height: 'auto',
