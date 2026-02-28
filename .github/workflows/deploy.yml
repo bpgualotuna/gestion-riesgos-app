@@ -1,65 +1,43 @@
-# Deploy Frontend - Gestión de Riesgos (rama master)
 name: Deploy Frontend
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true # Detiene todo si un comando falla
           script: |
+            # 1. Entrar a la carpeta
             mkdir -p ~/app-frontend
             cd ~/app-frontend
-
-            echo "==> Configurando acceso al repositorio..."
-            REPO="${{ github.repository }}"
-            if [ -n "${{ secrets.GH_CLONE_TOKEN }}" ]; then
-              URL="https://x-access-token:${{ secrets.GH_CLONE_TOKEN }}@github.com/${REPO}.git"
-            else
-              URL="https://github.com/${REPO}.git"
-            fi
-
-            # 1. Sincronización forzada de código
+            
+            # 2. Actualizar código (Lógica simple que te funcionaba)
             if [ ! -d ".git" ]; then
-              echo "==> Clonando por primera vez..."
-              git clone "$URL" .
-              git checkout master || git checkout main
+              git clone https://github.com/${{ github.repository }}.git .
             else
-              echo "==> Actualizando código existente..."
-              git remote set-url origin "$URL"
-              (git fetch origin master && git reset --hard origin/master) || (git fetch origin main && git reset --hard origin/main)
+              git fetch origin master
+              git reset --hard origin/master
             fi
 
-            set -e # Seguridad: si algo falla de aquí en adelante, el deploy se marca como error
-
-            # 2. Variables de entorno
-            echo "==> Creando archivo .env..."
+            # 3. Inyectar variables
             echo "${{ secrets.DOTENV_FILE }}" > .env
 
-            # 3. Limpieza de espacio (Crítico para máquinas de 30GB)
-            echo "==> Borrando basura de Docker para liberar espacio..."
+            # 4. LIMPIEZA PREVENTIVA (Para que no falle por falta de espacio)
             sudo docker system prune -f
 
-            # 4. Construcción y encendido
-            echo "==> Docker compose up --build..."
-            # --force-recreate asegura que no se usen contenedores viejos
+            # 5. Levantar con Build (Añadimos --force-recreate para asegurar cambios)
             sudo docker compose up -d --build --force-recreate
 
-            # 5. Limpieza final de imágenes huérfanas
-            echo "==> Limpieza final..."
+            # 6. Limpieza final de imágenes viejas
             sudo docker image prune -f
-            echo "==> Deploy frontend finalizado con éxito en Azure."
