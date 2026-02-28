@@ -4,7 +4,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
+# Forzar librerías nativas de Linux (evita fallos Rolldown/502 en contenedor)
+RUN npm cache clean --force && npm install --legacy-peer-deps --include=optional --platform=linux --arch=x64
 
 COPY . .
 
