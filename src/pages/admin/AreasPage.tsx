@@ -446,11 +446,23 @@ export default function AreasPage() {
     
     // Verificar si un proceso tiene a un usuario como responsable en el modo actual
     const isProcesoResponsable = (procesoId: string | number, usuarioId: number): boolean => {
-        const responsables = responsablesSeleccionados[String(procesoId)] || [];
+        // Primero buscar en el estado local (cambios no guardados)
+        const responsablesLocal = responsablesSeleccionados[String(procesoId)] || [];
         const modoActual = assignmentSubTab === 0 ? 'director' : 'proceso';
         
-        // Verificar si el usuario está asignado en el modo actual
-        return responsables.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
+        // Si hay cambios locales, usar esos
+        if (responsablesLocal.length > 0) {
+            return responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
+        }
+        
+        // Si no hay cambios locales, buscar en los datos originales de la API
+        const proceso = procesos.find(p => String(p.id) === String(procesoId));
+        if (proceso && (proceso as any).responsablesList) {
+            const responsablesApi = (proceso as any).responsablesList || [];
+            return responsablesApi.some((r: any) => r.id === usuarioId && r.modo === modoActual);
+        }
+        
+        return false;
     };
     
     const getModoProceso = (procesoId: string | number, usuarioId: number): string | null => {
