@@ -1,5 +1,4 @@
-# Deploy Frontend - Gestión de Riesgos (rama master). Repo privado: secret GH_CLONE_TOKEN.
-# Para recibir correo si falla o si desplegó bien: GitHub → Settings → Notifications → Actions → Email.
+# Deploy Frontend - Gestión de Riesgos (rama master)
 name: Deploy Frontend
 
 on:
@@ -21,34 +20,46 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
+          script_stop: true # Detiene todo si un comando falla
           script: |
             mkdir -p ~/app-frontend
             cd ~/app-frontend
 
-            echo "==> Actualizando código (master)..."
+            echo "==> Configurando acceso al repositorio..."
             REPO="${{ github.repository }}"
             if [ -n "${{ secrets.GH_CLONE_TOKEN }}" ]; then
               URL="https://x-access-token:${{ secrets.GH_CLONE_TOKEN }}@github.com/${REPO}.git"
             else
               URL="https://github.com/${REPO}.git"
             fi
+
+            # 1. Sincronización forzada de código
             if [ ! -d ".git" ]; then
-              find . -maxdepth 1 -mindepth 1 -exec rm -rf {} + 2>/dev/null || true
-              git clone "$URL" . || ( find . -maxdepth 1 -mindepth 1 -exec rm -rf {} + 2>/dev/null; git clone "$URL" . || exit 1 )
-              git checkout master 2>/dev/null || git checkout main || true
+              echo "==> Clonando por primera vez..."
+              git clone "$URL" .
+              git checkout master || git checkout main
             else
-              git remote set-url origin "$URL" 2>/dev/null || true
-              ( git fetch origin master && git reset --hard origin/master && git checkout master ) || ( git fetch origin main && git reset --hard origin/main && git checkout main )
+              echo "==> Actualizando código existente..."
+              git remote set-url origin "$URL"
+              (git fetch origin master && git reset --hard origin/master) || (git fetch origin main && git reset --hard origin/main)
             fi
 
-            set -e
-            echo "==> .env..."
+            set -e # Seguridad: si algo falla de aquí en adelante, el deploy se marca como error
+
+            # 2. Variables de entorno
+            echo "==> Creando archivo .env..."
             echo "${{ secrets.DOTENV_FILE }}" > .env
 
-            echo "==> Docker up --build..."
-            sudo docker compose up -d --build
+            # 3. Limpieza de espacio (Crítico para máquinas de 30GB)
+            echo "==> Borrando basura de Docker para liberar espacio..."
+            sudo docker system prune -f
 
-            echo "==> Limpieza..."
-            docker image prune -f 2>/dev/null || sudo docker image prune -f 2>/dev/null || true
-            echo "==> Deploy frontend listo."
+            # 4. Construcción y encendido
+            echo "==> Docker compose up --build..."
+            # --force-recreate asegura que no se usen contenedores viejos
+            sudo docker compose up -d --build --force-recreate
+
+            # 5. Limpieza final de imágenes huérfanas
+            echo "==> Limpieza final..."
+            sudo docker image prune -f
+            echo "==> Deploy frontend finalizado con éxito en Azure."
