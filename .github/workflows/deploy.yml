@@ -1,7 +1,7 @@
 # =============================================================================
 # Deploy Frontend - Gestión de Riesgos (COMWARE)
 # Rama: master. Cada push a master reconstruye y despliega en el servidor vía SSH + Docker.
-# GitHub envía las notificaciones de éxito/fallo al correo de tu cuenta (automático).
+# Repo privado: añadir secret GH_CLONE_TOKEN (Personal Access Token con permiso repo).
 # =============================================================================
 
 name: Deploy Frontend
@@ -37,9 +37,16 @@ jobs:
             git config --global --add safe.directory "$DEPLOY_DIR" 2>/dev/null || true
 
             echo "==> Actualizando código (master)..."
-            if [ ! -d ".git" ]; then
-              git clone --branch master https://github.com/${{ github.repository }}.git .
+            REPO="${{ github.repository }}"
+            if [ -n "${{ secrets.GH_CLONE_TOKEN }}" ]; then
+              CLONE_URL="https://x-access-token:${{ secrets.GH_CLONE_TOKEN }}@github.com/${REPO}.git"
             else
+              CLONE_URL="https://github.com/${REPO}.git"
+            fi
+            if [ ! -d ".git" ]; then
+              git clone --branch master "$CLONE_URL" .
+            else
+              git remote set-url origin "$CLONE_URL" 2>/dev/null || true
               git fetch origin master
               git reset --hard origin/master
               git checkout master
