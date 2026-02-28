@@ -16,7 +16,6 @@ import {
     Tabs,
     Tab,
     InputAdornment,
-    CircularProgress
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -47,6 +46,7 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import Grid2 from '../../utils/Grid2';
+import { confirmarEliminar } from '../../utils/constants';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -267,20 +267,18 @@ export default function ProcesosDefinicionPage() {
                 showSuccess('Proceso creado correctamente');
             }
             handleCloseDialog();
-        } catch (error) {
-            console.error('Error saving proceso:', error);
+        } catch {
             showError('Error al guardar el proceso');
         }
     };
 
     const handleDelete = async (id: string | number) => {
-        if (window.confirm('¿Está seguro de eliminar este proceso?')) {
+        if (confirmarEliminar('este proceso')) {
             try {
                 await deleteProceso(id).unwrap();
                 showSuccess('Proceso eliminado correctamente');
             } catch (error) {
-                console.error('Error deleting proceso:', error);
-                showError('Error al eliminar el proceso');
+                showError((error as any)?.data?.error || 'Error al eliminar el proceso');
             }
         }
     };

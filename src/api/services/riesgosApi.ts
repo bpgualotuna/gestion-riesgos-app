@@ -4,7 +4,7 @@
  */
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { API_BASE_URL } from '../../utils/constants';
+import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import type {
   Riesgo,
   CreateRiesgoDto,
@@ -28,31 +28,28 @@ import type {
   ImpactoTipo,
 } from '../../types';
 
-const baseQuery = fetchBaseQuery({
+const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
   prepareHeaders: (headers) => {
-    // Add auth token if needed
+    const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null;
+    if (token) headers.set('Authorization', `Bearer ${token}`);
     return headers;
   },
+  credentials: 'include',
 });
 
-// OPTIMIZADO: Reducir logging en producción para mejor rendimiento
-const baseQueryWithLogging = async (args: any, api: any, extraOptions: any) => {
-  if (import.meta.env.DEV) {
-    console.log('[FRONTEND] Request:', args);
-  }
-  const result = await baseQuery(args, api, extraOptions);
-  if (result.error) {
-    console.error('[FRONTEND] Error Response:', result.error);
-  } else if (import.meta.env.DEV) {
-    console.log('[FRONTEND] Success Response:', result.data);
+const baseQuery = async (args: any, api: any, extraOptions: any) => {
+  const result = await rawBaseQuery(args, api, extraOptions);
+  if (result.error?.status === 401) {
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    window.dispatchEvent(new CustomEvent('auth:session-expired'));
   }
   return result;
 };
 
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
-  baseQuery: baseQueryWithLogging,
+  baseQuery,
   tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
   // OPTIMIZADO: Caché más corto (2 minutos) para datos más frescos
   keepUnusedDataFor: 120, // 2 minutos de caché global
@@ -339,17 +336,37 @@ export const riesgosApi = createApi({
     // ============================================
     // PLANES DE ACCIÓN
     // ============================================
-    getPlanes: builder.query<any[], void>({
-      query: () => 'planes-accion',
+    getPlanes: builder.query<
+      { data: any[]; total: number; page: number; pageSize: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean },
+      { page?: number; pageSize?: number } | void
+    >({
+      query: (params) => ({
+        url: 'planes-accion',
+        params: params && typeof params === 'object' && !Array.isArray(params)
+          ? { page: params.page ?? 1, pageSize: params.pageSize ?? 20 }
+          : { page: 1, pageSize: 20 },
+      }),
       providesTags: ['PlanAccion'],
     }),
-    getPlanesByRiesgo: builder.query<any[], number | string>({
-      query: (riesgoId) => `planes-accion/riesgo/${riesgoId}`,
+    getPlanesByRiesgo: builder.query<
+      { data: any[]; total: number; page: number; pageSize: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean },
+      { riesgoId: number | string; page?: number; pageSize?: number }
+    >({
+      query: ({ riesgoId, page = 1, pageSize = 20 }) => ({
+        url: `planes-accion/riesgo/${riesgoId}`,
+        params: { page, pageSize },
+      }),
       providesTags: ['PlanAccion'],
     }),
 
-    getPlanesByIncidencia: builder.query<any[], number | string>({
-      query: (incidenciaId) => `planes-accion/incidencia/${incidenciaId}`,
+    getPlanesByIncidencia: builder.query<
+      { data: any[]; total: number; page: number; pageSize: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean },
+      { incidenciaId: number | string; page?: number; pageSize?: number }
+    >({
+      query: ({ incidenciaId, page = 1, pageSize = 20 }) => ({
+        url: `planes-accion/incidencia/${incidenciaId}`,
+        params: { page, pageSize },
+      }),
       providesTags: ['PlanAccion'],
     }),
 
@@ -802,14 +819,8 @@ export const riesgosApi = createApi({
     }),
 
     getMapaConfig: builder.query<any, void>({
-      query: () => {
-        console.log('🌐 API Call: GET catalogos/mapa-config');
-        return 'catalogos/mapa-config';
-      },
-      transformResponse: (response: any) => {
-        console.log('📥 API Response - getMapaConfig:', response);
-        return response;
-      },
+      query: () => 'catalogos/mapa-config',
+      transformResponse: (response: any) => response,
       providesTags: ['MapaConfig'],
     }),
 
@@ -960,14 +971,8 @@ export const riesgosApi = createApi({
     }),
 
     getNivelesRiesgo: builder.query<any[], void>({
-      query: () => {
-        console.log('🌐 API Call: GET catalogos/niveles-riesgo');
-        return 'catalogos/niveles-riesgo';
-      },
-      transformResponse: (response: any) => {
-        console.log('📥 API Response - getNivelesRiesgo:', response);
-        return response;
-      },
+      query: () => 'catalogos/niveles-riesgo',
+      transformResponse: (response: any) => response,
       providesTags: ['Configuracion'],
     }),
 
@@ -1000,31 +1005,18 @@ export const riesgosApi = createApi({
     // MAP CONFIGURATION
     // ============================================
     getEjesMapa: builder.query<{ probabilidad: any[], impacto: any[] }, void>({
-      query: () => {
-        console.log('🌐 API Call: GET catalogos/ejes-mapa');
-        return 'catalogos/ejes-mapa';
-      },
-      transformResponse: (response: any) => {
-        console.log('📥 API Response - getEjesMapa:', response);
-        return response;
-      },
+      query: () => 'catalogos/ejes-mapa',
+      transformResponse: (response: any) => response,
       providesTags: ['Configuracion'],
     }),
 
     updateMapaConfig: builder.mutation<any, { type: 'inherente' | 'residual' | 'tolerancia'; data: any }>({
-      query: ({ type, data }) => {
-        console.log('🌐 API Call: PUT catalogos/mapa-config');
-        console.log('📤 Request body:', { type, data });
-        return {
-          url: 'catalogos/mapa-config',
-          method: 'PUT',
-          body: { type, data }
-        };
-      },
-      transformResponse: (response: any) => {
-        console.log('📥 API Response - updateMapaConfig:', response);
-        return response;
-      },
+      query: ({ type, data }) => ({
+        url: 'catalogos/mapa-config',
+        method: 'PUT',
+        body: { type, data }
+      }),
+      transformResponse: (response: any) => response,
       invalidatesTags: ['MapaConfig'],
     }),
     // ============================================

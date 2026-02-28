@@ -29,6 +29,7 @@ import {
 import { useGetProcesosQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import type { Proceso } from '../../types';
 
 export default function ProcesosGerenteGeneralPage() {
@@ -105,7 +106,7 @@ export default function ProcesosGerenteGeneralPage() {
       </Box>
 
       {isLoading ? (
-        <Typography>Cargando procesos...</Typography>
+        <PageLoadingSkeleton variant="table" tableRows={6} />
       ) : procesosGerenciales.length === 0 ? (
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>

@@ -39,7 +39,7 @@ import {
   Collapse,
   Tabs,
   Tab,
-  CircularProgress,
+  Skeleton,
   Pagination,
   Stack,
 } from '@mui/material';
@@ -59,6 +59,7 @@ import {
   UnfoldMore as UnfoldMoreIcon,
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import api from '../../services/api';
 
@@ -134,7 +135,7 @@ const DEFAULT_TIPOS_PROCESO: any[] = [];
 const DEFAULT_CONSECUENCIAS: any[] = [];
 const DEFAULT_NIVELES_RIESGO: any[] = [];
 const DEFAULT_CLASIFICACIONES_RIESGO: any[] = [];
-import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO } from '../../utils/constants';
+import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO, confirmarEliminar } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -273,7 +274,7 @@ export default function IdentificacionPage() {
     },
     {
       skip: skipRiesgosQuery,
-      refetchOnMountOrArgChange: true, // Siempre traer datos del proceso actual al entrar o cambiar proceso
+      refetchOnMountOrArgChange: false, // Usar caché al entrar; refetch solo cuando cambian procesoId o page
       refetchOnFocus: false,
       refetchOnReconnect: false,
       keepUnusedDataFor: 600
@@ -411,7 +412,7 @@ export default function IdentificacionPage() {
       const resultado = calcularCalificacionInherentePorCausaSync(frecuencia, calificacionGlobalImpacto);
       return resultado.resultado;
     } catch (error) {
-      console.error('Error al calcular calificación inherente por causa:', error);
+      // Error al calcular calificación inherente por causa
       // Fallback: lógica hardcodeada
       if (calificacionGlobalImpacto === 2 && frecuencia === 2) {
         return valorEspecialMemo || 3.99;
@@ -515,25 +516,15 @@ export default function IdentificacionPage() {
         impactoGlobal: impactoMapa
       };
 
-      console.log(`[IdentificacionPage] 💾 Guardando evaluación para riesgo ${riesgoId}:`, {
-        riesgoInherente: evaluacionUpdate.riesgoInherente,
-        nivelRiesgo: evaluacionUpdate.nivelRiesgo,
-        probabilidad: evaluacionUpdate.probabilidad,
-        impactoGlobal: evaluacionUpdate.impactoGlobal,
-        mapa: `X=Frecuencia ${evaluacionUpdate.probabilidad}, Y=Impacto ${evaluacionUpdate.impactoGlobal}`
-      });
-
-      await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
-      
-      // Invalidar caché del mapa para que se actualice automáticamente
-      // Esto fuerza que el mapa recargue los puntos con las nuevas posiciones
-      dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
-      
-      // Disparar evento para que el mapa se actualice inmediatamente
-      window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId } }));
-    } catch (error) {
-      console.error(`[IdentificacionPage] ❌ Error al recalcular calificación inherente para riesgo ${riesgoId}:`, error);
-      // No mostrar error al usuario, pero loguear para debugging
+      try {
+        await actualizarRiesgoApi(riesgoId, { evaluacion: evaluacionUpdate });
+        dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
+        window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId } }));
+      } catch {
+        // Recalcular calificación inherente falló; no bloquear al usuario
+      }
+    } catch {
+      // Error al recalcular calificación inherente global (api.riesgos.getById, etc.)
     }
   }, [frecuenciasApi, actualizarRiesgoApi]);
 
@@ -691,60 +682,30 @@ export default function IdentificacionPage() {
     return refetchRiesgosRTK();
   }, [dispatch, refetchRiesgosRTK]);
 
-  // Recargar configuración de calificación inherente cuando se monta el componente
-  // OPTIMIZADO: Cargar en paralelo sin bloquear la UI
+  // Recargar configuración de calificación inherente (usa caché 5 min en cliente; no invalidar al montar para no demorar)
   useEffect(() => {
-    // Cargar configuración en background sin bloquear
-    const recargarConfig = async () => {
+    const recargarConfig = async (invalidate = false) => {
       try {
         const { invalidarCache, getConfigActiva } = await import('../../services/calificacionInherenteService');
-        // Invalidar cache para forzar recarga
-        invalidarCache();
-        // Recargar configuración (no esperar, hacer en background)
+        if (invalidate) invalidarCache();
         getConfigActiva().then(() => {
-          // Solo incrementar versión cuando termine, sin bloquear
           setConfigVersion(prev => prev + 1);
-          console.log('[IdentificacionPage] ✅ Configuración recargada en background');
-        }).catch((error) => {
-          console.error('Error al recargar configuración:', error);
-        });
-      } catch (error) {
-        console.error('Error al importar servicio:', error);
+        }).catch(() => {});
+      } catch (e) {
+        // Error al importar servicio
       }
     };
-    
-    // Ejecutar en background sin bloquear
-    recargarConfig();
-    
-    // También escuchar eventos de actualización de configuración
-    const handleConfigUpdate = () => {
-      console.log('[IdentificacionPage] 🔔 Evento de actualización de configuración recibido');
-      recargarConfig();
-    };
-    
+    recargarConfig(false); // Montar: no invalidar, usar caché para no duplicar /api/calificacion-inherente/activa
+    const handleConfigUpdate = () => recargarConfig(true); // Admin guardó: invalidar y traer fresca
     window.addEventListener('calificacion-inherente-updated', handleConfigUpdate);
-    
-    return () => {
-      window.removeEventListener('calificacion-inherente-updated', handleConfigUpdate);
-    };
+    return () => window.removeEventListener('calificacion-inherente-updated', handleConfigUpdate);
   }, []);
 
-  // OPTIMIZADO: RTK Query ya maneja el filtrado automáticamente cuando cambia procesoSeleccionado?.id
-  // No necesitamos useEffect adicional - RTK Query se actualiza automáticamente
-  // Solo invalidar caché cuando cambia el proceso para asegurar datos frescos
-  useEffect(() => {
-    if (procesoSeleccionado?.id) {
-      // Invalidar caché para forzar refetch con el nuevo procesoId
-      dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
-    }
-  }, [procesoSeleccionado?.id, dispatch]);
+  // OPTIMIZADO: No invalidar caché de Riesgo al cambiar proceso; el cambio de procesoIdForQuery ya hace que RTK refetch.
+  // Evita doble petición y demora al entrar a Identificación.
 
-  // Cargar contexto con riesgos del proceso al seleccionar proceso (p. ej. Gestión Estratégica) para tener fallback si RTK tarda o falla
-  useEffect(() => {
-    if (procesoIdForQuery != null) {
-      cargarRiesgos({ procesoId: procesoIdForQuery, includeCausas: 'true' });
-    }
-  }, [procesoIdForQuery, cargarRiesgos]);
+  // OPTIMIZADO: No llamar cargarRiesgos aquí; RTK (useGetRiesgosQuery) ya trae riesgos con paginación.
+  // Evita petición duplicada a /api/riesgos sin page/pageSize que demoraba al entrar a Identificación.
 
   // Memoizar función de mapeo de riesgos
   const mapearRiesgos = useCallback((riesgosData: any[], objetivosList: any[], procesoSel: any) => {
@@ -1261,42 +1222,35 @@ export default function IdentificacionPage() {
         siglaGerencia: gerenciaSigla,
         objetivoId: procesoSeleccionado?.objetivos?.[0] ? Number(procesoSeleccionado.objetivos[0]) : null,
         evaluacion: {
-          impactoPersonas: 1, 
-          impactoLegal: 1, 
-          impactoAmbiental: 1, 
+          impactoPersonas: 1,
+          impactoLegal: 1,
+          impactoAmbiental: 1,
           impactoProcesos: 1,
-          impactoReputacion: 1, 
-          impactoEconomico: 1, 
-          impactoTecnologico: 1, 
-          probabilidad,
-          impactoGlobal,
-          impactoMaximo,
-          riesgoInherente,
-          nivelRiesgo
+          impactoReputacion: 1,
+          impactoEconomico: 1,
+          impactoTecnologico: 1,
+          probabilidad: Number(probabilidad),
+          impactoGlobal: Math.round(Number(impactoGlobal)),
+          impactoMaximo: Number(impactoMaximo),
+          riesgoInherente: Math.round(Number(riesgoInherente)),
+          nivelRiesgo: String(nivelRiesgo || 'Sin Calificar')
         }
       };
-      
 
-      // OPTIMIZADO: Usar mutación de RTK Query para crear el riesgo
       const creado = await createRiesgoMutation(payload).unwrap();
       showSuccess('Riesgo creado exitosamente');
-      
-      // OPTIMIZADO: Forzar refetch inmediato de la lista de riesgos para que aparezca el nuevo riesgo
       await refetchRiesgosRTK();
-      
-      // También recargar del contexto para sincronizar con otras páginas
-      await cargarRiesgos({ procesoId: procesoSeleccionado.id, includeCausas: true });
-      
-      // Seleccionar el riesgo recién creado para que otras páginas (Controles / Planes / Materializar) se sincronicen
-      try { iniciarVer(creado as any); } catch (err) { /* noop */ }
-    } catch (e) {
-      console.error(e);
-      showError('Error al crear riesgo');
+      await cargarRiesgosMemo(procesoSeleccionado?.id);
+      try { iniciarVer(creado as any); } catch { /* noop */ }
+    } catch (e: any) {
+      const msg = e?.data?.error || e?.message || 'Error al crear riesgo';
+      showError(msg);
     }
   };
 
   // Eliminar riesgo: actualizar lista y mapa sin tener que guardar en otro riesgo
   const handleEliminarRiesgo = async (riesgoId: string | number) => {
+    if (!confirmarEliminar('este riesgo')) return;
     try {
       await eliminarRiesgoApi(Number(riesgoId));
       showSuccess('Riesgo eliminado');
@@ -1304,7 +1258,7 @@ export default function IdentificacionPage() {
       refetchRiesgosRTK();
       dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas']));
     } catch (e) {
-      showError('Error al eliminar riesgo');
+      showError((e as any)?.data?.error || 'Error al eliminar riesgo');
     }
   };
 
@@ -1448,7 +1402,7 @@ export default function IdentificacionPage() {
       try {
         await recalcularYGuardarCalificacionInherenteGlobal(Number(riesgoId), riesgoActualizado);
       } catch (error) {
-        console.error('Error al recalcular calificación inherente:', error);
+        // Error al recalcular calificación inherente
       }
 
       // 3. Limpiar cambios pendientes para este riesgo
@@ -1465,9 +1419,8 @@ export default function IdentificacionPage() {
       window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: Number(riesgoId) } }));
 
       // Mensaje de éxito se muestra en handleSave
-    } catch (e) {
-      console.error(e);
-      showError('Error al guardar riesgo');
+    } catch (e: any) {
+      showError(e?.data?.error || e?.message || 'Error al guardar riesgo');
     }
   }, [riesgos, cambiosPendientes, causasPendientes, objetivos, procesoSeleccionado, actualizarRiesgoApi, recalcularYGuardarCalificacionInherenteGlobal, cargarRiesgosMemo, dispatch, showSuccess, showError]);
 
@@ -1570,10 +1523,8 @@ export default function IdentificacionPage() {
         PaperProps={{ sx: { minWidth: 280 } }}
       >
         <DialogContent sx={{ pt: 3, pb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <CircularProgress size={48} thickness={4} />
-          <Typography variant="body1" fontWeight={600}>
-            Guardando...
-          </Typography>
+          <Skeleton variant="rectangular" width={48} height={48} sx={{ borderRadius: 1 }} />
+          <Skeleton variant="text" width={120} />
         </DialogContent>
       </Dialog>
 
@@ -1593,12 +1544,7 @@ export default function IdentificacionPage() {
         {isLoadingData ? (
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
-                <CircularProgress size={50} thickness={4} sx={{ mb: 2 }} />
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-                  Cargando riesgos y datos...
-                </Typography>
-              </Box>
+              <PageLoadingSkeleton variant="table" tableRows={6} />
             </CardContent>
           </Card>
         ) : riesgos.length === 0 ? (
@@ -1835,8 +1781,7 @@ export default function IdentificacionPage() {
                                 calificacionGlobalImpacto
                               );
                               return resultado;
-                            } catch (error) {
-                              console.error('Error al calcular calificación inherente para causa:', error);
+                            } catch {
                               return 0;
                             }
                         }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
@@ -1861,8 +1806,7 @@ export default function IdentificacionPage() {
                             if (causasRecalculadas.length > 0) {
                               calificacionInherenteGlobal = agregarCalificacionInherenteGlobalSync(causasRecalculadas);
                             }
-                          } catch (error) {
-                            console.error(`[IdentificacionPage] Error al recalcular calificación para riesgo ${riesgo.id}:`, error);
+                          } catch {
                           }
                         }
                         
@@ -1902,13 +1846,9 @@ export default function IdentificacionPage() {
                               }
                               color = '#fff';
                             }
-                          } catch (error) {
-                            console.error('Error al determinar nivel de riesgo:', error);
+                          } catch {
                             // Mantener valores por defecto para "SIN CALIFICAR"
                           }
-                        } else if (riesgo.causas && riesgo.causas.length > 0) {
-                          // Si hay causas pero calificación es 0, loggear advertencia
-                          console.warn(`[IdentificacionPage] ⚠️ Riesgo ${riesgo.id} tiene ${riesgo.causas.length} causas pero calificación es 0`);
                         }
                         
                         return (
@@ -2120,9 +2060,7 @@ export default function IdentificacionPage() {
                               color: '#fff', 
                               bgColor 
                             };
-                          } catch (error) {
-                            console.error('Error al determinar nivel de riesgo:', error);
-                            // Último fallback: usar configuración por defecto
+                          } catch {
                             return { nivel: 'SIN CALIFICAR', color: '#ffffff', bgColor: '#9e9e9e' };
                           }
                         };
@@ -2132,11 +2070,6 @@ export default function IdentificacionPage() {
                           ? getNivelRiesgoSync(calificacionInherenteGlobal)
                           : { nivel: 'SIN CALIFICAR', color: '#ffffff', bgColor: '#9e9e9e' };
                         
-                        // Solo loggear si hay una calificación válida para evitar spam en consola
-                        if (calificacionInherenteGlobal > 0) {
-                          console.log(`[IdentificacionPage] Nivel de riesgo calculado para ${calificacionInherenteGlobal}:`, nivelInfo);
-                        }
-
                         return (
                           <Box sx={{ mt: 3, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
                             <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
@@ -2879,7 +2812,7 @@ export default function IdentificacionPage() {
             }}
           >
             {causaEliminando ? (
-              <CircularProgress size={18} color="inherit" />
+              <Skeleton variant="rectangular" width={18} height={18} sx={{ borderRadius: 0.5 }} />
             ) : (
               'Eliminar'
             )}
@@ -3509,7 +3442,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                             sx={{ position: 'relative' }}
                           >
                             {causaEliminando === String(causa.id) ? (
-                              <CircularProgress size={16} color="error" />
+                              <Skeleton variant="rectangular" width={16} height={16} sx={{ borderRadius: 0.5 }} />
                             ) : (
                               <DeleteIcon fontSize="small" />
                             )}

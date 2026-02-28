@@ -7,7 +7,7 @@ import {
     Tab,
     Button,
     Grid,
-    CircularProgress,
+    Skeleton,
     Alert,
     Tooltip,
     TextField,
@@ -27,6 +27,7 @@ import {
     useGetEjesMapaQuery
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 
 
@@ -298,11 +299,6 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     const { data: configDataRaw, isLoading: isLoadingConfig } = useGetMapaConfigQuery();
     const { data: nivelesData, isLoading: isLoadingNiveles } = useGetNivelesRiesgoQuery();
 
-    // Debug logs
-    console.log('📊 MapasConfigPage - configDataRaw:', configDataRaw);
-    console.log('📊 MapasConfigPage - nivelesData:', nivelesData);
-    console.log('📊 MapasConfigPage - isLoadingConfig:', isLoadingConfig);
-    console.log('📊 MapasConfigPage - isLoadingNiveles:', isLoadingNiveles);
     const [updateMapaConfig, { isLoading: isUpdating }] = useUpdateMapaConfigMutation();
 
     // Simplify type handling
@@ -316,12 +312,7 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     const [localConfig, setLocalConfig] = useState<any>(null);
 
     useEffect(() => {
-        if (configData) {
-            console.log('📊 useEffect - configData:', configData);
-            console.log('📊 useEffect - tabValue:', tabValue);
-            console.log('📊 useEffect - configData[tabValue]:', configData[tabValue]);
-            setLocalConfig(configData[tabValue]);
-        }
+        if (configData) setLocalConfig(configData[tabValue]);
     }, [configData, tabValue]);
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: MapaTabType) => {
@@ -335,21 +326,20 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
 
     const handleSave = async () => {
         if (!localConfig) return;
-        console.log('💾 handleSave - Guardando configuración...');
-        console.log('💾 handleSave - tabValue:', tabValue);
-        console.log('💾 handleSave - localConfig:', localConfig);
         try {
-            const result = await updateMapaConfig({ type: tabValue as any, data: localConfig }).unwrap();
-            console.log('✅ handleSave - Guardado exitoso:', result);
+            await updateMapaConfig({ type: tabValue as any, data: localConfig }).unwrap();
             showSuccess('Guardado correctamente');
         } catch (error) {
-            console.error('❌ handleSave - Error al guardar:', error);
             showError('Error al guardar configuración');
         }
     };
 
     if (isLoadingConfig || isLoadingNiveles) {
-        return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+        return (
+            <AppPageLayout title="Configuración del Mapa de Riesgos">
+                <PageLoadingSkeleton variant="table" tableRows={5} />
+            </AppPageLayout>
+        );
     }
 
     const alertContent = (
@@ -437,7 +427,10 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                             </Box>
                         </Box>
                     ) : (
-                        <CircularProgress size={20} />
+                        <Box sx={{ py: 2 }}>
+                            <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1, mb: 1 }} />
+                            <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 1 }} />
+                        </Box>
                     )}
                 </Box>
             </Box>

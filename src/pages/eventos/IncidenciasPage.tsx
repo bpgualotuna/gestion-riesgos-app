@@ -43,8 +43,10 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
+import { confirmarEliminar } from '../../utils/constants';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useUpdateIncidenciaMutation, useDeleteIncidenciaMutation, useCreatePlanAccionMutation } from '../../api/services/riesgosApi';
 
@@ -313,9 +315,12 @@ export default function IncidenciasPage() {
   };
 
   const handleEliminar = async (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
+    if (!confirmarEliminar('esta incidencia')) return;
+    try {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
+    } catch (error) {
+      showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }
   };
 
@@ -514,9 +519,7 @@ export default function IncidenciasPage() {
         </Box>
 
         {isLoadingData ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-            <CircularProgress />
-          </Box>
+          <PageLoadingSkeleton variant="table" tableRows={5} />
         ) : incidenciasAgrupadasPorRiesgo.length === 0 ? (
           <Card sx={{ p: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">No se han registrado eventos para los riesgos de este proceso.</Typography>

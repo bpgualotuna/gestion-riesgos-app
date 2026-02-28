@@ -19,14 +19,18 @@ const API_BASE_URL =
     (typeof process !== 'undefined' && process.env && (process.env.REACT_APP_API_URL as string)) ||
     'http://localhost:8080/api'
 
+const AUTH_TOKEN_KEY = 'gr_token'
+
 // ============================================
 // Configuración Headers
 // ============================================
 
-const getHeaders = () => ({
-    'Content-Type': 'application/json',
-    // Sin localStorage: autenticacion manejada por el backend/cookies si aplica
-})
+const getHeaders = (): HeadersInit => {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null
+    if (token) (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+    return headers
+}
 
 // ============================================
 // Manejador de Errores
@@ -125,7 +129,6 @@ export const api = {
         },
         getById: async (id: number) => {
             if (id === undefined || id === null || id === '') {
-                console.warn('[api.procesos.getById] llamada con id inválido:', id)
                 throw new Error('Invalid proceso id')
             }
             const res = await fetch(`${API_BASE_URL}/procesos/${id}`, { headers: getHeaders() })
@@ -226,15 +229,12 @@ export const api = {
                 return handleResponse(res)
             },
             delete: async (id: number) => {
-                console.log(`[API] DELETE /riesgos/causas/${id}`);
                 const res = await fetch(`${API_BASE_URL}/riesgos/causas/${id}`, {
                     method: 'DELETE',
                     headers: getHeaders()
                 })
-                console.log(`[API] DELETE response status: ${res.status}`);
                 if (!res.ok) {
                     const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
-                    console.error(`[API] DELETE error:`, errorData);
                     throw new Error(errorData.error || `Error al eliminar causa ${id} (${res.status})`)
                 }
                 return handleResponse(res)

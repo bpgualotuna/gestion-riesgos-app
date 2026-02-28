@@ -823,12 +823,14 @@ export default function MainLayout() {
       >
         <Toolbar
           sx={{
-            minHeight: { xs: 64, md: 70 },
+            minHeight: { xs: 56, sm: 64, md: 70 },
             px: 0,
-            pl: 2,
-            pr: { xs: 2, md: 3 },
+            pl: { xs: 1.5, sm: 2 },
+            pr: { xs: 1.5, sm: 2, md: 3 },
             display: 'flex',
             alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: { xs: 0.5, sm: 1 },
             minWidth: 0,
           }}
         >
@@ -886,8 +888,11 @@ export default function MainLayout() {
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 2,
-                mr: 2,
+                gap: { xs: 1, sm: 2 },
+                mr: { xs: 1, md: 2 },
+                flex: { xs: '1 1 auto', md: '0 0 auto' },
+                minWidth: 0,
+                maxWidth: { xs: '100%', sm: 360, md: 400 },
               }}
             >
               {/* Selector de Proceso */}
@@ -916,7 +921,8 @@ export default function MainLayout() {
                     size="small"
                     placeholder="Seleccionar Proceso..."
                     sx={{
-                      width: 320,
+                      width: '100%',
+                      minWidth: { xs: 0, sm: 260, md: 320 },
                       '& .MuiOutlinedInput-root': {
                         height: 40,
                         backgroundColor: '#fff',
@@ -982,7 +988,7 @@ export default function MainLayout() {
                     disabled={!procesoSeleccionado}
                     sx={{
                       height: 40,
-                      minWidth: 140,
+                      minWidth: { xs: 100, sm: 140 },
                       borderRadius: '20px',
                       fontWeight: 700,
                       fontSize: '0.875rem',
@@ -1169,7 +1175,7 @@ export default function MainLayout() {
           display: 'flex',
           flexGrow: 1,
           minHeight: 0,
-          mt: { xs: '64px', md: '70px' }, // Margen superior para compensar AppBar fijo
+          mt: { xs: '56px', sm: '64px', md: '70px' }, // Margen superior para compensar AppBar fijo
         }}
       >
         {/* Sidebar Container - Contenedor del sidebar */}
@@ -1194,9 +1200,9 @@ export default function MainLayout() {
                 borderColor: 'divider',
                 background: '#FFFFFF',
                 position: 'fixed',
-                top: { xs: 64, md: 70 },
+                top: { xs: 56, sm: 64, md: 70 },
                 left: 0,
-                height: { xs: 'calc(100vh - 64px)', md: 'calc(100vh - 70px)' },
+                height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)', md: 'calc(100vh - 70px)' },
                 overflowY: 'auto',
                 zIndex: 1200,
               },
@@ -1231,11 +1237,13 @@ export default function MainLayout() {
           component="main"
           sx={{
             flexGrow: 1,
+            minWidth: 0,
             width: { md: `calc(100% - ${sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH}px)` },
             display: 'flex',
             flexDirection: 'column',
             minHeight: '100%',
             overflow: 'auto',
+            overflowX: 'hidden',
             position: 'relative',
             zIndex: 1,
           }}
@@ -1252,7 +1260,8 @@ export default function MainLayout() {
             <Box
               sx={{
                 flexGrow: 1,
-                p: { xs: 2, md: 3 },
+                minWidth: 0,
+                p: { xs: 1.5, sm: 2, md: 3 },
                 background: (theme) => theme.palette.background.default,
               }}
             >

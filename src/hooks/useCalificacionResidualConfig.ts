@@ -8,8 +8,5 @@ export function useCalificacionResidualConfig() {
   const { data, isLoading, error } = useGetCalificacionResidualActivaQuery(undefined, {
     skip: false,
   });
-  if (error) {
-    console.warn('[useCalificacionResidualConfig] Error al precargar configuración:', error);
-  }
   return { config: data, isLoading, error };
 }

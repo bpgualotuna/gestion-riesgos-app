@@ -8,9 +8,7 @@ import { getConfigActiva } from '../services/calificacionInherenteService';
 export function useCalificacionInherenteConfig() {
   useEffect(() => {
     // Precargar la configuración al montar el componente
-    getConfigActiva().catch((error) => {
-      console.warn('[useCalificacionInherenteConfig] Error al precargar configuración:', error);
-    });
+    getConfigActiva().catch(() => {});
   }, []);
 }
 

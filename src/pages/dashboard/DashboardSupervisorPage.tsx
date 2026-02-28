@@ -88,7 +88,8 @@ export default function DashboardSupervisorPage() {
   const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
     procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
   });
-  const { data: planesApi = [] } = useGetPlanesQuery();
+  const { data: planesResponse } = useGetPlanesQuery({ page: 1, pageSize: 50 });
+  const planesApi = planesResponse?.data ?? [];
   const { data: causasApi = [] } = useGetCausasQuery();
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery(

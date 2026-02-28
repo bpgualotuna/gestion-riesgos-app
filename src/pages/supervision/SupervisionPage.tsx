@@ -19,7 +19,6 @@ import {
   Alert,
   Divider,
   Avatar,
-  LinearProgress,
   Paper,
   Table,
   TableBody,
@@ -31,6 +30,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
@@ -273,14 +273,7 @@ export default function SupervisionPage() {
   ];
 
   if (loadingProcesos) {
-    return (
-      <Box>
-        <LinearProgress />
-        <Typography variant="body1" sx={{ mt: 2 }} align="center">
-          Cargando procesos...
-        </Typography>
-      </Box>
-    );
+    return <PageLoadingSkeleton variant="table" tableRows={6} />;
   }
 
   return (

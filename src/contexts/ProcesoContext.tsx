@@ -143,9 +143,6 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
 export function useProceso() {
   const context = useContext(ProcesoContext);
   if (context === undefined) {
-    // Retornar valores por defecto en lugar de lanzar error
-    // Esto puede pasar durante el renderizado inicial antes de que el provider esté montado
-    console.warn('useProceso called outside ProcesoProvider, using default values');
     return {
       procesoSeleccionado: null,
       setProcesoSeleccionado: () => { },

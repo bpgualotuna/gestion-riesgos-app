@@ -16,7 +16,6 @@ import {
     Alert,
     InputAdornment,
     IconButton,
-    CircularProgress,
     Divider,
 } from '@mui/material';
 import {
@@ -86,14 +85,14 @@ export default function LoginPage() {
                 sx={{
                     maxWidth: 480,
                     width: '100%',
-                    mx: 2,
+                    mx: { xs: 1.5, sm: 2 },
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
                     borderRadius: 3,
                     position: 'relative',
                     zIndex: 1,
                 }}
             >
-                <CardContent sx={{ p: 4 }}>
+                <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 4 } }}>
                     {/* Logo Section */}
                     <Box sx={{ textAlign: 'center', mb: 4 }}>
                         <Box
@@ -102,19 +101,16 @@ export default function LoginPage() {
                             alt="COMWARE Logo"
                             sx={{
                                 height: 'auto',
-                                width: 'auto',
-                                maxHeight: 120,
-                                maxWidth: 300,
+                                width: '100%',
+                                maxHeight: { xs: 90, sm: 110, md: 120 },
+                                maxWidth: { xs: 240, sm: 280, md: 300 },
                                 objectFit: 'contain',
                                 mb: 2,
                                 mx: 'auto',
                                 display: 'block',
                             }}
                         />
-                        <Typography variant="h4" fontWeight={700} gutterBottom>
-                            COMWARE
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="h6" color="text.secondary" sx={{ py: 2, fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' } }}>
                             Sistema de Gestión de Riesgos
                         </Typography>
                     </Box>
@@ -198,11 +194,7 @@ export default function LoginPage() {
                                 },
                             }}
                         >
-                            {isLoading ? (
-                                <CircularProgress size={24} sx={{ color: '#1a1a1a' }} />
-                            ) : (
-                                'Iniciar Sesión'
-                            )}
+                            {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                         </Button>
                     </form>
 
@@ -216,7 +208,7 @@ export default function LoginPage() {
                         display="block"
                         sx={{ mt: 3 }}
                     >
-                        © 2026 COMWARE - Talento Humano v1.0
+                        © 2026 COMWARE
                     </Typography>
                 </CardContent>
             </Card>

@@ -25,6 +25,7 @@ import {
     Cancel as CancelIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef } from '@mui/x-data-grid';
 import { TipoRiesgo } from '../../types';
 
@@ -91,7 +92,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     };
 
     const handleDelete = (codigo: string) => {
-        if (window.confirm('¿Está seguro de eliminar este tipo de riesgo?')) {
+        if (confirmarEliminar('este tipo de riesgo')) {
             const newData = data.filter(d => d.codigo !== codigo);
             onSave(newData);
         }

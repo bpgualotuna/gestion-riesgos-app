@@ -19,13 +19,14 @@ import RouteErrorElement from "../components/common/RouteErrorElement";
 
 // Pages - Lazy Loading for Performance
 import { lazy, Suspense } from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import { Box } from '@mui/material';
 import RoleGuard from '../components/auth/RoleGuard';
+import PageLoadingSkeleton from '../components/ui/PageLoadingSkeleton';
 
-// Loading Fallback
+// Loading Fallback: skeleton en lugar de icono de carga
 const LoadingFallback = () => (
-  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-    <CircularProgress />
+  <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <PageLoadingSkeleton lines={12} variant="text" />
   </Box>
 );
 

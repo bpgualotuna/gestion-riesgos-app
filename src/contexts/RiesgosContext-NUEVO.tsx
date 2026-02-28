@@ -77,19 +77,14 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
         includeCausas: 'true' 
       };
 
-      console.log('[RiesgosContext] Cargando riesgos con filtros:', filtrosOptimizados)
-
       // Llamar a API con filtros optimizados - el backend filtrará por procesoId
       const respuesta = await api.riesgos.getAll(filtrosOptimizados)
 
       // La API retorna { data: [...], total, page, pageSize } o solo [...]
       const arregloRiesgos = respuesta.data || respuesta
       setRiesgos(arregloRiesgos)
-
-      console.log(`[RiesgosContext] ✅ ${arregloRiesgos.length} riesgos cargados con causas`)
     } catch (err: any) {
       const mensaje = err.message || 'Error cargando riesgos'
-      console.error('[RiesgosContext] ❌ Error:', mensaje)
       setError(mensaje)
     } finally {
       setLoading(false)
@@ -103,18 +98,11 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
   const crearRiesgo = useCallback(async (data: any): Promise<Riesgo> => {
     try {
       setError(null)
-      console.log('[RiesgosContext] Creando riesgo:', data)
-
       const nuevoRiesgo = await api.riesgos.create(data)
-      
-      // Recargar todos los riesgos para sincronizar con otras páginas
       await cargarRiesgos()
-
-      console.log(`[RiesgosContext] ✅ Riesgo creado: ${nuevoRiesgo.id}`)
       return nuevoRiesgo
     } catch (err: any) {
       const mensaje = err.message || 'Error creando riesgo'
-      console.error('[RiesgosContext] ❌ Error:', mensaje)
       setError(mensaje)
       throw err
     }
@@ -127,8 +115,6 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
   const actualizarRiesgo = useCallback(async (id: number, data: any): Promise<Riesgo> => {
     try {
       setError(null)
-      console.log(`[RiesgosContext] Actualizando riesgo ${id}:`, data)
-
       const actualizado = await api.riesgos.update(id, data)
 
       // Actualizar en estado local (solo si el riesgo existe en el estado actual)
@@ -140,12 +126,9 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
         // Si no existe, no agregarlo (puede ser de otro proceso)
         return prevRiesgos;
       })
-
-      console.log(`[RiesgosContext] ✅ Riesgo ${id} actualizado`)
       return actualizado
     } catch (err: any) {
       const mensaje = err.message || 'Error actualizando riesgo'
-      console.error('[RiesgosContext] ❌ Error:', mensaje)
       setError(mensaje)
       throw err
     }
@@ -158,17 +141,10 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
   const eliminarRiesgo = useCallback(async (id: number) => {
     try {
       setError(null)
-      console.log(`[RiesgosContext] Eliminando riesgo ${id}`)
-
       await api.riesgos.delete(id)
-
-      // Actualizar en estado local
       setRiesgos(riesgos.filter(r => r.id !== id))
-
-      console.log(`[RiesgosContext] ✅ Riesgo ${id} eliminado`)
     } catch (err: any) {
       const mensaje = err.message || 'Error eliminando riesgo'
-      console.error('[RiesgosContext] ❌ Error:', mensaje)
       setError(mensaje)
       throw err
     }
@@ -180,13 +156,10 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
 
   const obtenerRiesgoDetalle = useCallback(async (id: number): Promise<Riesgo> => {
     try {
-      console.log(`[RiesgosContext] Obteniendo detalle de riesgo ${id}`)
       const riesgo = await api.riesgos.getById(id)
-      console.log(`[RiesgosContext] ✅ Detalle obtenido`)
       return riesgo
     } catch (err: any) {
       const mensaje = err.message || `Error obteniendo riesgo ${id}`
-      console.error('[RiesgosContext] ❌ Error:', mensaje)
       setError(mensaje)
       throw err
     }
@@ -197,7 +170,6 @@ export function RiesgosProvider({ children }: RiesgosProviderProps) {
   // ============================================
 
   const refrescar = useCallback(async () => {
-    console.log('[RiesgosContext] Refrescando riesgos...')
     await cargarRiesgos()
   }, [cargarRiesgos])
 

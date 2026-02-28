@@ -17,7 +17,7 @@ import {
     TextField,
     Paper,
     InputAdornment,
-    CircularProgress,
+    Skeleton,
 } from '@mui/material';
 import {
     Assessment as AssessmentIcon,
@@ -35,6 +35,7 @@ import {
 import SimpleCatalog from './SimpleCatalog';
 import ImpactosCatalog from './ImpactosCatalog';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { confirmarEliminar } from '../../utils/constants';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import {
     useGetOrigenesQuery,
@@ -302,8 +303,7 @@ export default function ParametrosCalificacionPage() {
                     newList.push({ ...item });
                 }
                 await updateService(newList);
-            } catch (error) {
-                console.error('Error guardando:', error);
+            } catch {
             }
         };
     };
@@ -313,14 +313,12 @@ export default function ParametrosCalificacionPage() {
         currentList: any[] = []
     ) => {
         return async (id: any) => {
-            if (window.confirm('¿Confirma eliminación?')) {
+            if (!confirmarEliminar()) return;
                 try {
                     const newList = currentList.filter(i => i.id !== id);
                     await updateService(newList);
-                } catch (error) {
-                    console.error('Error eliminando:', error);
+                } catch {
                 }
-            }
         };
     };
 
@@ -331,17 +329,15 @@ export default function ParametrosCalificacionPage() {
             } else {
                 await createTipologia(item).unwrap();
             }
-        } catch (error) {
-            console.error('Error guardando tipologia:', error);
+        } catch {
         }
     };
 
     const handleDeleteTiposRiesgo = async (id: number) => {
-        if (!window.confirm('¿Confirma eliminación?')) return;
+        if (!confirmarEliminar('esta tipología')) return;
         try {
             await deleteTipologia(id as any).unwrap();
-        } catch (error) {
-            console.error('Error eliminando tipologia:', error);
+        } catch {
         }
     };
 
@@ -609,6 +605,7 @@ export default function ParametrosCalificacionPage() {
                                     await updateSubtipo(data).unwrap();
                                 }}
                                 onDeleteSubtipo={async (id) => {
+                                    if (!confirmarEliminar('este subtipo')) return;
                                     await deleteSubtipo(id).unwrap();
                                 }}
                             />
@@ -645,6 +642,7 @@ export default function ParametrosCalificacionPage() {
                                     }
                                 }}
                                 onDelete={async (id) => {
+                                    if (!confirmarEliminar('este objetivo')) return;
                                     await deleteObjetivo(id).unwrap();
                                 }}
                             />
@@ -775,6 +773,7 @@ export default function ParametrosCalificacionPage() {
                                 await createImpactoTipo(data).unwrap();
                             }}
                             onDeleteTipo={async (tipoId) => {
+                                if (!confirmarEliminar('este tipo de impacto')) return;
                                 await deleteImpactoTipo(tipoId).unwrap();
                             }}
                         />
@@ -871,7 +870,7 @@ export default function ParametrosCalificacionPage() {
                                 }
                             }}
                             onDelete={(id) => {
-                                if (!window.confirm('¿Confirma eliminación de la fórmula?')) return;
+                                if (!confirmarEliminar('esta fórmula')) return;
                                 mockService.deleteMockFormula(id);
                                 setFormulas((prev) => prev.filter((f) => f.id !== id));
                             }}
@@ -1073,8 +1072,7 @@ export default function ParametrosCalificacionPage() {
                                 setTimeout(() => {
                                     setRecalculandoModalOpen(false);
                                 }, 1000);
-                            } catch (error) {
-                                console.error('Error al guardar pesos de impacto:', error);
+                            } catch {
                                 setRecalculandoModalOpen(false);
                             }
                         }}
@@ -1093,13 +1091,9 @@ export default function ParametrosCalificacionPage() {
                 disableEscapeKeyDown
             >
                 <DialogContent sx={{ textAlign: 'center', py: 4 }}>
-                    <CircularProgress size={60} sx={{ mb: 3 }} />
-                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
-                        Recalculando Calificaciones
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Por favor espere, se están recalculando las calificaciones inherentes y el impacto global de todos los riesgos...
-                    </Typography>
+                    <Skeleton variant="rectangular" width={60} height={60} sx={{ borderRadius: 1, mx: 'auto', mb: 3 }} />
+                    <Skeleton variant="text" width="80%" sx={{ mx: 'auto', mb: 1 }} />
+                    <Skeleton variant="text" width="100%" />
                 </DialogContent>
             </Dialog>
 

@@ -6,7 +6,6 @@ import {
   TextField,
   Button,
   Grid,
-  CircularProgress,
   Alert,
   Card,
   CardContent,
@@ -43,6 +42,7 @@ import {
   useGetNivelesRiesgoQuery,
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 import { invalidarCache, getConfigActiva } from '../../services/calificacionInherenteService';
 
@@ -167,7 +167,6 @@ export default function CalificacionInherentePage() {
         window.dispatchEvent(new CustomEvent('calificacion-inherente-updated', { 
           detail: { timestamp: Date.now() } 
         }));
-        console.log('[CalificacionInherentePage] ✅ Evento de actualización disparado');
       }, 100);
       
       showSuccess('Configuración guardada exitosamente. Los cambios se aplicarán inmediatamente.');
@@ -235,10 +234,8 @@ export default function CalificacionInherentePage() {
 
   if (isLoading) {
     return (
-      <AppPageLayout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <CircularProgress />
-        </Box>
+      <AppPageLayout title="Calificación Inherente">
+        <PageLoadingSkeleton lines={10} />
       </AppPageLayout>
     );
   }

@@ -59,6 +59,7 @@ import {
     useUpdateResponsablesProcesoMutation
 } from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
+import { confirmarEliminar } from '../../utils/constants';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
     const { children, value, index, ...other } = props;
@@ -87,8 +88,6 @@ export default function AreasPage() {
             roleId: u.roleId || u.role?.id || null,
             roleNombre: u.role?.nombre || 'Sin rol asignado'
         }));
-        console.log('[AreasPage] Total usuarios recibidos:', usuariosData.length);
-        console.log('[AreasPage] Total usuarios mapeados:', mapped.length);
         return mapped;
     }, [usuariosData]);
 
@@ -157,7 +156,6 @@ export default function AreasPage() {
         } else {
             filtered = usuarios.filter((u: any) => u.role === filtroRol);
         }
-        console.log('[AreasPage] Filtro rol:', filtroRol, 'Total usuarios:', usuarios.length, 'Usuarios filtrados:', filtered.length);
         return filtered;
     }, [usuarios, filtroRol]);
 
@@ -244,19 +242,17 @@ export default function AreasPage() {
             }
             handleCloseAreaDialog();
         } catch (error) {
-            console.error('Error saving area:', error);
             showError('Error al guardar el área');
         }
     };
 
     const handleDeleteArea = async (areaId: string | number) => {
-        if (window.confirm('¿Está seguro de eliminar esta área?')) {
+        if (confirmarEliminar('esta área')) {
             try {
                 await deleteArea(areaId).unwrap();
                 showSuccess('Área eliminada correctamente');
             } catch (error) {
-                console.error('Error deleting area:', error);
-                showError('Error al eliminar el área');
+                showError((error as any)?.data?.error || 'Error al eliminar el área');
             }
         }
     };
@@ -300,6 +296,12 @@ export default function AreasPage() {
     // ==========================================
     // ASSIGNMENT LOGIC - MÚLTIPLES RESPONSABLES
     // ==========================================
+    // Lista completa de responsables de un proceso en formato { usuarioId, modo } (para enviar al backend)
+    const getResponsablesProcesoRaw = (procesoId: string | number): Array<{ usuarioId: number; modo: string }> => {
+        const list = getResponsablesProceso(procesoId);
+        return list.map((r: any) => ({ usuarioId: r.id, modo: (r.modo || 'proceso') as string }));
+    };
+
     const handleProcessToggle = (procesoId: string | number, isChecked: boolean) => {
         if (!selectedUserForAssignment) return;
 
@@ -312,8 +314,8 @@ export default function AreasPage() {
         const procesoIdStr = String(procesoId);
         const usuarioId = selectedUserForAssignment.id;
         
-        // Obtener responsables actuales del proceso (o inicializar)
-        const responsablesActuales = responsablesSeleccionados[procesoIdStr] || [];
+        // Usar estado local si existe; si no, cargar lista completa desde API (directores + dueños) para no borrar al guardar
+        const responsablesActuales = responsablesSeleccionados[procesoIdStr] ?? getResponsablesProcesoRaw(procesoId);
         
         let nuevosResponsables: Array<{ usuarioId: number; modo: string }>;
         if (isChecked) {
@@ -360,7 +362,8 @@ export default function AreasPage() {
         
         procesosDelArea.forEach(proceso => {
             const procesoIdStr = String(proceso.id);
-            const responsablesActuales = nuevosResponsables[procesoIdStr] || [];
+            // Usar estado local si existe; si no, lista completa desde API para no borrar otros modos
+            const responsablesActuales = nuevosResponsables[procesoIdStr] ?? getResponsablesProcesoRaw(proceso.id);
             
             if (isChecked) {
                 // Agregar con el modo de la pestaña actual
@@ -386,21 +389,11 @@ export default function AreasPage() {
 
     const saveAssignments = async () => {
         try {
-            console.log('[AreasPage] saveAssignments - responsablesSeleccionados:', responsablesSeleccionados);
-            console.log('[AreasPage] saveAssignments - usuarios disponibles:', usuarios.map(u => ({ id: u.id, nombre: u.nombre, role: u.role })));
-            
-            // Guardar responsables para cada proceso que tenga cambios en la base de datos
             const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsables]) => {
-                console.log(`[AreasPage] Guardando proceso ${procesoId} con responsables:`, responsables);
-                
-                // Enviar responsables con sus modos (director o proceso)
                 const responsablesConModo = responsables.map(r => ({
                     usuarioId: r.usuarioId,
                     modo: r.modo
                 }));
-                
-                console.log(`[AreasPage] Enviando al backend proceso ${procesoId}:`, responsablesConModo);
-                
                 await updateResponsables({
                     procesoId,
                     responsables: responsablesConModo
@@ -418,7 +411,6 @@ export default function AreasPage() {
             
             showSuccess('Asignaciones guardadas correctamente en la base de datos');
         } catch (error: any) {
-            console.error('Error al guardar asignaciones:', error);
             const errorMessage = error?.data?.error || error?.message || 'Error al guardar asignaciones';
             showError(errorMessage);
         }
@@ -456,21 +448,12 @@ export default function AreasPage() {
             ? (assignmentSubTab === 0 ? 'director' : 'proceso')
             : 'proceso'; // Dueños de proceso siempre usan modo "proceso"
         
-        // DEBUG: Logging para diagnosticar
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`[isProcesoResponsable] Checking proceso ${procesoId} for user ${usuarioId} (${selectedUserForAssignment?.role}) in modo ${modoActual}`);
-        }
-        
         // 1. Buscar en el estado local primero (cambios no guardados)
         const responsablesLocal = responsablesSeleccionados[String(procesoId)];
         
         // Si hay cambios locales (incluso si es array vacío), usar esos
         if (responsablesLocal !== undefined) {
-            const result = responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
-            if (process.env.NODE_ENV === 'development') {
-                console.log(`[isProcesoResponsable] Usando estado local (${responsablesLocal.length} items), resultado:`, result);
-            }
-            return result;
+            return responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
         }
         
         // 2. Si no hay cambios locales, buscar en los datos originales de la API
@@ -478,20 +461,7 @@ export default function AreasPage() {
         
         if (proceso && (proceso as any).responsablesList) {
             const responsablesApi = (proceso as any).responsablesList || [];
-            const result = responsablesApi.some((r: any) => r.id === usuarioId && r.modo === modoActual);
-            
-            if (process.env.NODE_ENV === 'development') {
-                console.log(`[isProcesoResponsable] Usando API (${responsablesApi.length} items), resultado:`, result);
-                if (!result && responsablesApi.length > 0) {
-                    console.log(`[isProcesoResponsable] Responsables en API:`, responsablesApi.map((r: any) => ({ id: r.id, modo: r.modo })));
-                }
-            }
-            
-            return result;
-        }
-        
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`[isProcesoResponsable] No se encontró nada, retornando false`);
+            return responsablesApi.some((r: any) => r.id === usuarioId && r.modo === modoActual);
         }
         return false;
     };
@@ -595,7 +565,7 @@ export default function AreasPage() {
                                 Nueva Área
                             </Button>
                         </Box>
-                        <AppDataGrid rows={filteredAreas} columns={areaColumns} getRowId={(row) => row.id} onRowClick={(params) => handleOpenAreaDetailDialog(params.row)} />
+                        <AppDataGrid rows={filteredAreas} columns={areaColumns} getRowId={(row) => row.id} onRowClick={(params) => handleOpenAreaDetailDialog(params.row)} loading={loadingAreas} />
                     </Box>
                 </TabPanel>
 

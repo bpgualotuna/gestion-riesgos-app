@@ -2,6 +2,14 @@
  * Application Entry Point
  */
 
+// Sin logs en consola en todo el sistema
+if (typeof console !== 'undefined') {
+  ['log', 'info', 'debug', 'warn', 'error'].forEach((m) => {
+    const orig = console[m as keyof Console];
+    if (typeof orig === 'function') (console as any)[m] = () => {};
+  });
+}
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
@@ -46,12 +54,10 @@ function showError(error: unknown) {
 
 // Capturar errores globales y promesas rechazadas
 window.addEventListener('error', (event) => {
-  console.error('❌ Error global:', event.error || event.message);
   showError(event.error || new Error(event.message));
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('❌ Promesa rechazada:', event.reason);
   showError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
 });
 
@@ -66,29 +72,18 @@ if ('serviceWorker' in navigator && import.meta.env.DEV) {
   });
 }
 
-console.log('%c🚀 INICIANDO APLICACIÓN', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-console.log('%c📍 URL:', 'color: #2196F3; font-weight: bold;', window.location.href);
-console.log('%c🌐 User Agent:', 'color: #9C27B0; font-weight: bold;', navigator.userAgent);
-
 // Renderizar con manejo de errores mejorado
 try {
-  console.log('%c📦 Cargando módulos...', 'color: #FF9800; font-weight: bold;');
-  
   const root = createRoot(rootElement);
-  console.log('%c✅ Root creado correctamente', 'color: #4CAF50; font-weight: bold;');
-
-  console.log('%c🎨 Renderizando componente App...', 'color: #E91E63; font-weight: bold;');
   root.render(
     <StrictMode>
       <App />
     </StrictMode>
   );
-  console.log('%c✅ Aplicación renderizada correctamente', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-  
+
   // Timeout de seguridad: si después de 5 segundos no hay contenido, mostrar mensaje
   setTimeout(() => {
     if (rootElement.children.length === 0 || rootElement.textContent?.trim() === '') {
-      console.warn('⚠️ La aplicación no ha renderizado contenido después de 5 segundos');
       rootElement.innerHTML = `
         <div style="padding: 40px; text-align: center; background: #E8E8E8; min-height: 100vh; color: #000; font-family: Arial, sans-serif;">
           <h1 style="color: #f57c00;">La aplicación está cargando...</h1>
@@ -108,6 +103,5 @@ try {
   }, 5000);
   
 } catch (error) {
-  console.error('❌ ERROR CRÍTICO al renderizar:', error);
   showError(error);
 }

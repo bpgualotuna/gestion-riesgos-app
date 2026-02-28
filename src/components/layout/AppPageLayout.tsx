@@ -25,7 +25,7 @@ const AppPageLayout: React.FC<AppPageLayoutProps> = ({
     maxWidth = 'xl',
 }) => {
     return (
-        <Container maxWidth={maxWidth} sx={{ mt: 1, mb: 4, px: { xs: 2, md: 3 } }}>
+        <Container maxWidth={maxWidth} disableGutters={false} sx={{ mt: 1, mb: 4, px: { xs: 1.5, sm: 2, md: 3 }, width: '100%' }}>
             {/* Top Content Section (e.g. Filters) */}
             {topContent && (
                 <Box sx={{ mb: 3 }}>
@@ -46,7 +46,7 @@ const AppPageLayout: React.FC<AppPageLayoutProps> = ({
                     )}
                 </Box>
                 {action && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                         {action}
                     </Box>
                 )}
@@ -63,13 +63,15 @@ const AppPageLayout: React.FC<AppPageLayoutProps> = ({
             <Paper
                 elevation={0}
                 sx={{
-                    p: { xs: 2, md: 4, lg: 5 },
+                    p: { xs: 1.5, sm: 2, md: 4, lg: 5 },
                     borderRadius: 4,
                     border: '1px solid',
                     borderColor: 'divider',
                     backgroundColor: 'background.paper',
                     boxShadow: '0 2px 12px rgba(0, 0, 0, 0.03)',
                     minHeight: '70vh',
+                    overflow: 'auto',
+                    maxWidth: '100%',
                 }}
             >
                 {children}

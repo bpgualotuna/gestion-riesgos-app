@@ -32,6 +32,8 @@ import {
   Collapse,
   Tooltip
 } from '@mui/material';
+import { confirmarEliminar } from '../../utils/constants';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import {
   Save as SaveIcon,
   Add as AddIcon,
@@ -145,7 +147,7 @@ export default function EvaluacionControlPage() {
     puntajeTotal: 0,
   });
 
-  const { data: riesgosApiData } = useGetRiesgosQuery(
+  const { data: riesgosApiData, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 100, includeCausas: true } : { pageSize: 0 },
     { skip: !procesoSeleccionado, refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
@@ -339,14 +341,13 @@ export default function EvaluacionControlPage() {
         showSuccess('Control guardado correctamente');
         setDialogOpen(false);
       })
-      .catch((error) => {
-        console.error('Error saving control:', error);
+      .catch(() => {
         showError('Error al guardar el control');
       });
   };
 
   const handleEliminar = (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar este control?')) {
+    if (confirmarEliminar('este control')) {
       const causaToDelete = causasById.get(id);
       if (causaToDelete) {
         updateCausa({
@@ -360,8 +361,7 @@ export default function EvaluacionControlPage() {
             showSuccess('Control eliminado');
           })
           .catch((error) => {
-            console.error('Error deleting control:', error);
-            showError('Error al eliminar el control');
+            showError((error as any)?.data?.error || 'Error al eliminar el control');
           });
       }
     }
@@ -391,10 +391,15 @@ export default function EvaluacionControlPage() {
 
       {!procesoSeleccionado && <Alert severity="warning">Selecciona un proceso</Alert>}
 
-      {procesoSeleccionado && riesgosDelProceso.length === 0 && (
+      {procesoSeleccionado && isLoadingRiesgos && (
+        <PageLoadingSkeleton variant="table" tableRows={6} />
+      )}
+
+      {procesoSeleccionado && !isLoadingRiesgos && riesgosDelProceso.length === 0 && (
         <Alert severity="info">No hay riesgos identificados para este proceso.</Alert>
       )}
 
+      {procesoSeleccionado && !isLoadingRiesgos && riesgosDelProceso.length > 0 && (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {riesgosDelProceso.map((riesgo) => {
           const estaExpandido = riesgosExpandidos[riesgo.id] || false;
@@ -530,6 +535,7 @@ export default function EvaluacionControlPage() {
           );
         })}
       </Box>
+      )}
 
       {/* Dialog para agregar/editar control */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>

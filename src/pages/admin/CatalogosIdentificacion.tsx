@@ -5,7 +5,6 @@ import {
     Tabs,
     Tab,
     Alert,
-    CircularProgress,
 } from '@mui/material';
 import {
     Warning as RiesgoIcon,
@@ -17,7 +16,9 @@ import {
     FactCheck as ObjetivoIcon,
 } from '@mui/icons-material';
 import SimpleCatalog from './SimpleCatalog';
+import { confirmarEliminar } from '../../utils/constants';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import {
     useGetTiposRiesgosQuery,
     useUpdateTipologiaMutation,
@@ -73,8 +74,8 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
 
     if (loadingTipos || loadingObjetivos) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-                <CircularProgress />
+            <Box sx={{ p: 3 }}>
+                <PageLoadingSkeleton lines={8} variant="text" />
             </Box>
         );
     }
@@ -122,11 +123,12 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
                         }
                     }}
                     onDelete={async (id) => {
+                        if (!confirmarEliminar('esta tipología')) return;
                         try {
                             await deleteTipologia(id).unwrap();
                             showSuccess('Tipología eliminada');
                         } catch (e) {
-                            showError('Error al eliminar tipología');
+                            showError((e as any)?.data?.error || 'Error al eliminar tipología');
                         }
                     }}
                     itemLabel="Tipología"
@@ -156,11 +158,12 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
                         }
                     }}
                     onDelete={async (id) => {
+                        if (!confirmarEliminar('este objetivo')) return;
                         try {
                             await deleteObjetivo(id).unwrap();
                             showSuccess('Objetivo eliminado');
                         } catch (e) {
-                            showError('Error al eliminar objetivo');
+                            showError((e as any)?.data?.error || 'Error al eliminar objetivo');
                         }
                     }}
                     itemLabel="Objetivo"

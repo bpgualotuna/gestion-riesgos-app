@@ -42,6 +42,7 @@ import {
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery, useGetAreasQuery, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { colors } from '../../app/theme/colors';
@@ -191,7 +192,6 @@ export default function MapaPage() {
   // Escuchar eventos de actualización de riesgos para refrescar el mapa en tiempo real
   useEffect(() => {
     const handleRiesgoActualizado = () => {
-      console.log('[MapaPage] 🔔 Riesgo actualizado, refrescando mapa...');
       // Invalidar caché y forzar refetch
       dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
       refetchPuntos();
@@ -1039,11 +1039,9 @@ export default function MapaPage() {
           </Alert>
         ) : null}
 
-        {/* Mostrar indicador de carga */}
+        {/* Mostrar skeleton mientras carga el mapa */}
         {(isLoadingPuntos || isLoadingRiesgos) && !errorPuntos && !errorRiesgos ? (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            Cargando mapa de riesgos...
-          </Alert>
+          <PageLoadingSkeleton variant="table" tableRows={5} />
         ) : null}
 
         {/* Mostrar mensaje si no hay datos pero no está cargando */}

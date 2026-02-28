@@ -5,7 +5,7 @@
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, Skeleton, Typography } from '@mui/material';
 import { ROUTES } from '../../utils/constants';
 
 interface RoleGuardProps {
@@ -28,20 +28,10 @@ export default function RoleGuard({
 
   if (isLoading && showLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          gap: 2,
-        }}
-      >
-        <CircularProgress />
-        <Typography variant="body2" color="text.secondary">
-          Verificando permisos...
-        </Typography>
+      <Box sx={{ p: 4, maxWidth: 400, mx: 'auto', minHeight: '100vh' }}>
+        <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, mb: 2 }} />
+        <Skeleton variant="text" width="70%" />
+        <Skeleton variant="text" width="50%" />
       </Box>
     );
   }

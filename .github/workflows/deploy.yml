@@ -1,33 +1,51 @@
+# =============================================================================
+# Deploy Frontend - Gestión de Riesgos (COMWARE)
+# Rama: master. Cada push a master reconstruye y despliega en el servidor vía SSH + Docker.
+# GitHub envía las notificaciones de éxito/fallo al correo de tu cuenta (automático).
+# =============================================================================
+
 name: Deploy Frontend
 
 on:
   push:
-    branches: [ master ]  # Cambiado de main a master
+    branches: [master]
 
 jobs:
   deploy:
+    name: Deploy to server
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
           script: |
-            mkdir -p ~/app-frontend
-            cd ~/app-frontend
-            
+            set -e
+            export DEPLOY_DIR="$HOME/app-frontend"
+            mkdir -p "$DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
+
+            git config --global --add safe.directory "$DEPLOY_DIR" 2>/dev/null || true
+
             if [ ! -d ".git" ]; then
-              git clone https://github.com/${{ github.repository }}.git .
+              git clone --branch master https://github.com/${{ github.repository }}.git .
             else
-              # Cambiado de main a master aquí también
               git fetch origin master
               git reset --hard origin/master
+              git checkout master
             fi
 
             echo "${{ secrets.DOTENV_FILE }}" > .env
-            sudo docker compose up -d --build
+
+            docker compose build --no-cache || docker-compose build --no-cache
+            docker compose up -d --build || docker-compose up -d --build
+
+            docker image prune -f 2>/dev/null || true

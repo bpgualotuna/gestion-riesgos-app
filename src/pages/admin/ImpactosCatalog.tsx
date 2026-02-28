@@ -21,6 +21,7 @@ import {
     Delete as DeleteIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef } from '@mui/x-data-grid';
 
 interface ImpactosCatalogProps {
@@ -118,7 +119,7 @@ export default function ImpactosCatalog({
     };
 
     const handleDeleteImpact = (row: any) => {
-        if (window.confirm(`¿Está seguro de que desea eliminar el tipo de impacto "${row.nombre}"?`)) {
+        if (confirmarEliminar(`el tipo de impacto "${row.nombre}"`)) {
             onDeleteTipo(row.id);
         }
     };

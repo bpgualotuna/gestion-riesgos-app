@@ -6,7 +6,8 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
-import { Box, CircularProgress } from '@mui/material';
+import { Box } from '@mui/material';
+import PageLoadingSkeleton from '../components/ui/PageLoadingSkeleton';
 
 // Layouts
 import MainLayout from '../components/layout/MainLayout';
@@ -19,17 +20,10 @@ import RouteErrorElement from '../components/common/RouteErrorElement';
 import LoginPage from '../pages/auth/LoginPage';
 import ModoGerenteGeneralSelector from '../components/auth/ModoGerenteGeneralSelector';
 
-// Loading Component
+// Loading Component: skeleton en lugar de icono de carga
 const LoadingFallback = () => (
-  <Box
-    sx={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-    }}
-  >
-    <CircularProgress />
+  <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <PageLoadingSkeleton lines={12} variant="text" />
   </Box>
 );
 

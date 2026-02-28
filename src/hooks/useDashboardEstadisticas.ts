@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react';
+import { useMemo } from 'react';
 import { UMBRALES_RIESGO } from '../utils/constants';
 
 interface UseDashboardEstadisticasProps {
@@ -162,14 +162,6 @@ export const useDashboardEstadisticas = ({
             fueraApetito,
             porNivelRiesgo // Añadir calificaciones por nivel
         };
-        
-        console.log('[useDashboardEstadisticas] 📊 Estadísticas calculadas:', {
-            totalRiesgos: total,
-            porNivelRiesgo: resultado.porNivelRiesgo,
-            riesgosFiltradosCount: riesgosFiltrados.length,
-            puntosCount: puntos.length
-        });
-        
         return resultado;
     }, [riesgosFiltrados, procesos, puntos]);
 

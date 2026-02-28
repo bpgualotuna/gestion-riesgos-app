@@ -38,8 +38,7 @@ import {
   Paper,
   Collapse,
   FormControlLabel,
-  Switch,
-  LinearProgress
+  Switch
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -64,6 +63,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO } from '../../utils/constants';
@@ -163,7 +163,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   const pageSize = 100; // Máximo permitido por el backend
   
   // OPTIMIZADO: Caché agresivo para mejor rendimiento
-  const { data: riesgosApiData } = useGetRiesgosQuery(
+  const { data: riesgosApiData, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado ? { 
       procesoId: String(procesoSeleccionado.id), 
       pageSize: pageSize, 
@@ -828,14 +828,6 @@ export default function ControlesYPlanesAccionPageNueva() {
         nivelRiesgoResidual = 'Bajo';
       }
 
-      console.log('[Controles] 💾 Guardando valores residuales:', {
-        riesgoId: riesgoIdEvaluacion,
-        maxRiesgoResidual,
-        probabilidadResidual: mejorProbRes,
-        impactoResidual: mejorImpRes,
-        nivelRiesgoResidual
-      });
-
       if (causaActualizada) {
         try {
           await updateCausa({
@@ -843,8 +835,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             tipoGestion: causaActualizada.tipoGestion,
             gestion: causaActualizada
           }).unwrap();
-        } catch (err) {
-          console.error('Error al actualizar causa:', err);
+        } catch {
         }
       }
 
@@ -865,8 +856,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         
         setEvaluacionExpandida(null);
         showSuccess('Gestión guardada exitosamente y Riesgo Residual Actualizado');
-      } catch (err) {
-        console.error('Error al actualizar riesgo:', err);
+      } catch {
         showError('Error al guardar clasificación');
       }
     }
@@ -976,8 +966,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         
         showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
       }
-    } catch (error) {
-      console.error('Error al eliminar clasificación:', error);
+    } catch {
       showError('Error al eliminar clasificación');
     }
   };
@@ -1001,7 +990,9 @@ export default function ControlesYPlanesAccionPageNueva() {
       {/* TAB 0: CLASIFICACIÓN Y GESTIÓN */}
       <TabPanel value={activeTab} index={0}>
         <Box>
-          {riesgosPendientes.length === 0 ? (
+          {isLoadingRiesgos ? (
+            <PageLoadingSkeleton variant="table" tableRows={6} />
+          ) : riesgosPendientes.length === 0 ? (
             <Card><CardContent><Typography align="center">No hay causas pendientes de clasificar. ¡Excelente trabajo!</Typography></CardContent></Card>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1717,7 +1708,9 @@ export default function ControlesYPlanesAccionPageNueva() {
       {/* TAB 1: CONTROLES */}
       <TabPanel value={activeTab} index={1}>
         <Box>
-          {riesgosConControles.length === 0 ? (
+          {isLoadingRiesgos ? (
+            <PageLoadingSkeleton variant="table" tableRows={6} />
+          ) : riesgosConControles.length === 0 ? (
             <Card><CardContent><Typography align="center">No hay controles registrados.</Typography></CardContent></Card>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -2292,7 +2285,9 @@ export default function ControlesYPlanesAccionPageNueva() {
       {/* TAB 2: PLANES DE ACCIÓN */}
       <TabPanel value={activeTab} index={2}>
         <Box>
-          {riesgosConPlanes.length === 0 ? (
+          {isLoadingRiesgos ? (
+            <PageLoadingSkeleton variant="table" tableRows={6} />
+          ) : riesgosConPlanes.length === 0 ? (
             <Card><CardContent><Typography align="center">No hay planes de acción registrados.</Typography></CardContent></Card>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

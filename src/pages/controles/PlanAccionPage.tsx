@@ -38,6 +38,7 @@ import {
   Badge,
   Autocomplete,
 } from '@mui/material';
+import { confirmarEliminar } from '../../utils/constants';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -376,7 +377,7 @@ export default function PlanAccionPage() {
   };
 
   const handleEliminarPlan = (planId: string) => {
-    if (window.confirm('¿Está seguro de eliminar este plan de acción?')) {
+    if (confirmarEliminar('este plan de acción')) {
       setPlanesAccion(planesAccion.filter((plan) => plan.id !== planId));
       showSuccess('Plan de acción eliminado exitosamente');
     }
@@ -499,7 +500,7 @@ export default function PlanAccionPage() {
   };
 
   const handleEliminarTarea = (planId: string, tareaId: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta tarea?')) {
+    if (confirmarEliminar('esta tarea')) {
       const planesActualizados = planesAccion.map((plan) =>
         plan.id === planId
           ? {

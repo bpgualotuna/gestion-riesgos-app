@@ -4,6 +4,8 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { AUTH_TOKEN_KEY } from '../utils/constants';
+
 // User roles - Solo 4 roles permitidos
 export type UserRole = 'admin' | 'dueño_procesos' | 'gerente' | 'supervisor';
 export type GerenteModo = 'dueño' | 'supervisor';
@@ -55,26 +57,68 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [gerenteMode, setGerenteModeState] = useState<GerenteModo | null>(null);
 
-  // Login function
+  // Restaurar sesión desde JWT al montar
+  useEffect(() => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+    fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        const u: User = {
+          id: data.id,
+          username: data.username,
+          email: data.email,
+          fullName: data.fullName,
+          role: data.role as UserRole,
+          department: data.department,
+          position: data.position,
+          esDuenoProcesos: data.esDuenoProcesos,
+        };
+        setUser(u);
+        if (u.role === 'gerente') setGerenteModeState(null);
+      })
+      .catch(() => sessionStorage.removeItem(AUTH_TOKEN_KEY))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  // Si el backend responde 401 (token inválido/expirado), cerrar sesión
+  useEffect(() => {
+    const handler = () => {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      setUser(null);
+      setGerenteModeState(null);
+    };
+    window.addEventListener('auth:session-expired', handler);
+    return () => window.removeEventListener('auth:session-expired', handler);
+  }, []);
+
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
+    setIsLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/auth/login`, {
+      const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
         const backendUser = data.user;
+        if (data.token) sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
 
-        // Map backend user to context User format
         const contextUser: User = {
           id: backendUser.id,
           username: backendUser.username,
@@ -87,21 +131,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         setUser(contextUser);
-        if (contextUser.role === 'gerente') {
-          setGerenteModeState(null);
-        }
+        if (contextUser.role === 'gerente') setGerenteModeState(null);
         return { success: true, user: contextUser };
       } else {
         return { success: false, error: data.error || 'Credenciales inválidas' };
       }
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch {
       return { success: false, error: 'Error de conexión con el servidor' };
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Logout function
   const logout = () => {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
     setUser(null);
     setGerenteModeState(null);
   };

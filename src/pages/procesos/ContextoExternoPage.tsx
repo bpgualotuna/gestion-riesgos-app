@@ -97,8 +97,7 @@ export default function ContextoExternoPage() {
         contextos: [...existingInternos, ...contextos]
       }).unwrap();
       showSuccess('Análisis de contexto externo guardado exitosamente');
-    } catch (error) {
-      console.error(error);
+    } catch {
       showError('Error al guardar el contexto externo');
     }
   };

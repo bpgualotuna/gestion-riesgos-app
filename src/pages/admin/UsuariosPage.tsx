@@ -41,6 +41,7 @@ import {
     Security as SecurityIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Usuario, Cargo, Gerencia } from '../../types';
 import {
@@ -52,7 +53,7 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
-import { CircularProgress, Typography as MuiTypography } from '@mui/material';
+import { Typography as MuiTypography } from '@mui/material';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -334,19 +335,18 @@ export default function UsuariosPage() {
                 showSuccess('Rol creado correctamente');
             }
             handleCloseRoleDialog();
-        } catch (error) {
-            console.error('Error saving role:', error);
+        } catch {
             showError('Error al guardar el rol');
         }
     };
 
     const handleDeleteRole = async (id: string | number) => {
-        if (window.confirm('¿Está seguro de eliminar este rol?')) {
+        if (confirmarEliminar('este rol')) {
             try {
                 await deleteRole(id as any).unwrap();
                 showSuccess('Rol eliminado correctamente');
             } catch (error: any) {
-                const errorMsg = error?.data?.error || 'Error al eliminar el rol';
+                const errorMsg = (error as any)?.data?.error || 'Error al eliminar el rol';
                 showError(errorMsg);
             }
         }
@@ -433,19 +433,18 @@ export default function UsuariosPage() {
                 showSuccess('Gerencia creada correctamente');
             }
             handleCloseGerenciaDialog();
-        } catch (error) {
-            console.error('Error saving gerencia:', error);
+        } catch {
             showError('Error al guardar la gerencia');
         }
     };
 
     const handleDeleteGerencia = async (id: string | number) => {
-        if (window.confirm('¿Está seguro de eliminar esta gerencia?')) {
+        if (confirmarEliminar('esta gerencia')) {
             try {
                 await deleteGerencia(id as any).unwrap();
                 showSuccess('Gerencia eliminada correctamente');
             } catch (error) {
-                showError('Error al eliminar la gerencia');
+                showError((error as any)?.data?.error || 'Error al eliminar la gerencia');
             }
         }
     };
@@ -471,12 +470,12 @@ export default function UsuariosPage() {
     };
 
     const handleDeleteCargo = async (id: string | number) => {
-        if (window.confirm('¿Está seguro de eliminar este cargo?')) {
+        if (confirmarEliminar('este cargo')) {
             try {
                 await deleteCargo(id as any).unwrap();
                 showSuccess('Cargo eliminado correctamente');
             } catch (error) {
-                showError('Error al eliminar el cargo');
+                showError((error as any)?.data?.error || 'Error al eliminar el cargo');
             }
         }
     };
@@ -502,12 +501,12 @@ export default function UsuariosPage() {
     };
 
     const handleDelete = async (id: string | number) => {
-        if (window.confirm('¿Está seguro de eliminar este usuario?')) {
+        if (confirmarEliminar('este usuario')) {
             try {
                 await deleteUsuario(id as any).unwrap();
                 showSuccess('Usuario eliminado correctamente');
             } catch (error) {
-                showError('Error al eliminar el usuario');
+                showError((error as any)?.data?.error || 'Error al eliminar el usuario');
             }
         }
     };

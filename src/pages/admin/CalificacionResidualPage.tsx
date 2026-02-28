@@ -5,7 +5,6 @@ import {
   TextField,
   Button,
   Grid,
-  CircularProgress,
   Alert,
   Card,
   CardContent,
@@ -55,6 +54,7 @@ import {
   useGetNivelesRiesgoQuery,
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 
 export default function CalificacionResidualPage() {
@@ -166,10 +166,8 @@ export default function CalificacionResidualPage() {
 
   if (isLoading) {
     return (
-      <AppPageLayout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <CircularProgress />
-        </Box>
+      <AppPageLayout title="Configuración de Calificación Residual">
+        <PageLoadingSkeleton lines={10} />
       </AppPageLayout>
     );
   }

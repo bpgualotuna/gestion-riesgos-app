@@ -56,9 +56,10 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetImpactosQuery } from '../../api/services/riesgosApi';
 import { useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation, useGetRiesgosQuery } from '../../api/services/riesgosApi';
-import { LABELS_IMPACTO } from '../../utils/constants';
+import { LABELS_IMPACTO, confirmarEliminar } from '../../utils/constants';
 import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 
 // Opciones de impacto desde constants (no quemadas)
 const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => ({
@@ -129,7 +130,7 @@ export default function IncidenciasPage() {
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState<Incidencia | null>(null);
   const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
 
-  const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
+  const { data: incidenciasApi = [], isLoading: isLoadingIncidencias } = useGetIncidenciasQuery({
     procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
   }, { skip: !procesoSeleccionado?.id });
   const [createIncidencia] = useCreateIncidenciaMutation();
@@ -163,10 +164,11 @@ export default function IncidenciasPage() {
 
     return base;
   }, [impactosApi]);
-  const { data: riesgosResponse } = useGetRiesgosQuery(
+  const { data: riesgosResponse, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 100 } : { pageSize: 100 },
     { skip: !procesoSeleccionado?.id, refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
+  const isLoadingData = !!procesoSeleccionado?.id && (isLoadingRiesgos || isLoadingIncidencias);
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
     return (riesgosResponse?.data || []);
@@ -246,9 +248,12 @@ export default function IncidenciasPage() {
   };
 
   const handleEliminar = async (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
+    if (!confirmarEliminar('esta incidencia')) return;
+    try {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
+    } catch (error) {
+      showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }
   };
 
@@ -345,7 +350,9 @@ export default function IncidenciasPage() {
       {/* TAB 0: REGISTRO / MATERIALIZACIÓN DE RIESGOS */}
       {tabValue === 0 && (
         <Box>
-          {riesgosDelProceso.length === 0 ? (
+          {isLoadingData ? (
+            <PageLoadingSkeleton variant="table" tableRows={6} />
+          ) : riesgosDelProceso.length === 0 ? (
             <Alert severity="info" sx={{ mt: 2 }}>No hay riesgos asociados a este proceso.</Alert>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -843,7 +850,9 @@ export default function IncidenciasPage() {
       {tabValue === 1 && (
         <Card variant="outlined">
           <CardContent>
-            {incidenciasFiltradas.length === 0 ? (
+            {isLoadingData ? (
+              <PageLoadingSkeleton variant="table" tableRows={4} />
+            ) : incidenciasFiltradas.length === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>No hay planes de acción registrados.</Alert>
             ) : (
               <TableContainer component={Paper} variant="outlined">

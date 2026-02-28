@@ -284,7 +284,6 @@ export function setSiglasConfig(siglas: Array<{ nombre: string; sigla: string }>
 
 export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string {
   if (!vicepresidenciaNombre || !vicepresidenciaNombre.trim()) {
-    console.warn('No se proporcionó vicepresidencia para generar ID');
     return '';
   }
 
@@ -331,7 +330,6 @@ export function generarIdRiesgoAutomatico(vicepresidenciaNombre: string): string
   }
 
   if (!siglaEncontrada) {
-    console.warn(`No se encontró sigla para vicepresidencia: "${vicepresidenciaNombre}". Siglas disponibles:`, siglas.map(s => s.nombre));
     // Si no se encuentra, generar sigla por defecto
     const siglaDefault = vicepresidenciaNombre
       .split(' ')

@@ -29,7 +29,6 @@ import {
   Tabs,
   Tab,
   Alert,
-  CircularProgress,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -39,6 +38,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 import {
   useGetConfiguracionResidualQuery,
@@ -113,7 +113,6 @@ export default function ConfiguracionResidualPage() {
 
       showSuccess('Configuración guardada exitosamente');
     } catch (error: any) {
-      console.error('Error al guardar:', error);
       showError(error?.data?.message || 'Error al guardar la configuración');
     }
   };
@@ -129,14 +128,12 @@ export default function ConfiguracionResidualPage() {
         showSuccess(
           `Preview completado: ${result.resultado.causasActualizadas} causas y ${result.resultado.riesgosActualizados} riesgos se actualizarían`
         );
-        console.log('Detalles del preview:', result.resultado);
       } else {
         showSuccess(
           `Recálculo completado: ${result.resultado.causasActualizadas} causas y ${result.resultado.riesgosActualizados} riesgos actualizados`
         );
       }
     } catch (error: any) {
-      console.error('Error al recalcular:', error);
       showError(error?.data?.message || 'Error al recalcular riesgos residuales');
     }
   };
@@ -144,10 +141,8 @@ export default function ConfiguracionResidualPage() {
   // Loading state
   if (isLoading) {
     return (
-      <AppPageLayout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-          <CircularProgress />
-        </Box>
+      <AppPageLayout title="Configuración Residual">
+        <PageLoadingSkeleton lines={10} />
       </AppPageLayout>
     );
   }

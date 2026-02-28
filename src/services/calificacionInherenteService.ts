@@ -3,7 +3,7 @@
  * Usa la configuración de la base de datos para calcular calificaciones
  */
 
-import { API_BASE_URL } from '../utils/constants';
+import { API_BASE_URL, AUTH_TOKEN_KEY } from '../utils/constants';
 
 export interface CalificacionInherenteConfig {
   id: number;
@@ -62,7 +62,10 @@ export async function getConfigActiva(): Promise<CalificacionInherenteConfig> {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/calificacion-inherente/activa`);
+    const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null;
+    const headers: HeadersInit = {};
+    if (token) (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/calificacion-inherente/activa`, { headers });
     if (!response.ok) {
       throw new Error('Error fetching config');
     }
@@ -73,9 +76,7 @@ export async function getConfigActiva(): Promise<CalificacionInherenteConfig> {
     cacheTimestamp = now;
     
     return config;
-  } catch (error) {
-    console.error('[CalificacionInherenteService] Error fetching config:', error);
-    // Retornar configuración por defecto si falla
+  } catch {
     return getConfigPorDefecto();
   }
 }
@@ -236,11 +237,8 @@ export function determinarNivelRiesgoSync(valor: number): string {
   // Ordenar rangos por orden (de menor a mayor, para evaluar primero los rangos más altos)
   // El orden 1 es el más alto (Crítico), orden 4 es el más bajo (Bajo)
   const rangosOrdenados = [...config.rangos]
-    .filter(r => r.activo !== false) // Filtrar solo los activos (activo puede ser undefined, null, o true)
+    .filter(r => r.activo !== false)
     .sort((a, b) => a.orden - b.orden);
-
-  console.log(`[determinarNivelRiesgoSync] Evaluando valor ${valor} contra ${rangosOrdenados.length} rangos:`, 
-    rangosOrdenados.map(r => `${r.nivelNombre} (${r.valorMinimo}-${r.valorMaximo}, orden: ${r.orden})`));
 
   for (const rango of rangosOrdenados) {
     const cumpleMinimo = rango.incluirMinimo 
@@ -249,17 +247,8 @@ export function determinarNivelRiesgoSync(valor: number): string {
     const cumpleMaximo = rango.incluirMaximo 
       ? valor <= rango.valorMaximo 
       : valor < rango.valorMaximo;
-    
-    console.log(`[determinarNivelRiesgoSync] Rango ${rango.nivelNombre}: cumpleMinimo=${cumpleMinimo} (${valor} ${rango.incluirMinimo ? '>=' : '>'} ${rango.valorMinimo}), cumpleMaximo=${cumpleMaximo} (${valor} ${rango.incluirMaximo ? '<=' : '<'} ${rango.valorMaximo})`);
-    
-    if (cumpleMinimo && cumpleMaximo) {
-      console.log(`[determinarNivelRiesgoSync] ✅ Valor ${valor} coincide con rango ${rango.nivelNombre}`);
-      return rango.nivelNombre;
-    }
+    if (cumpleMinimo && cumpleMaximo) return rango.nivelNombre;
   }
-
-  console.warn(`[determinarNivelRiesgoSync] ❌ Valor ${valor} no coincide con ningún rango. Rangos disponibles:`, 
-    rangosOrdenados.map(r => `${r.nivelNombre} (${r.valorMinimo}-${r.valorMaximo}, activo: ${r.activo})`));
   // Si hay valor positivo pero la config (p. ej. API) no tiene rango que lo cubra, usar rangos por defecto
   if (valor > 0 && config !== getConfigPorDefecto()) {
     const defaultRangos = getConfigPorDefecto().rangos

@@ -36,6 +36,7 @@ import {
   Badge,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import {
   BusinessCenter as BusinessCenterIcon,
   Person as PersonIcon,
@@ -201,13 +202,7 @@ export default function ResumenDirectorPage() {
   };
 
   if (loadingProcesos) {
-    return (
-      <Box>
-        <Typography variant="body1" align="center" sx={{ mt: 4 }}>
-          Cargando procesos...
-        </Typography>
-      </Box>
-    );
+    return <PageLoadingSkeleton variant="table" tableRows={6} />;
   }
 
   return (

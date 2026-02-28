@@ -296,9 +296,8 @@ export default function DofaPage() {
         dofaItems: allItems
       }).unwrap();
       showSuccess('Matriz DOFA guardada exitosamente');
-    } catch (error) {
-      console.error(error);
-      // showError('Error al guardar'); // Assuming showError exists or use showSuccess with error msg? 
+    } catch {
+      // showError('Error al guardar'); 
       // check useNotification hooks. showSuccess available.
     }
   };

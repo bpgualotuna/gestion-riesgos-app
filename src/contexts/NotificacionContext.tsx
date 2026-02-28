@@ -1,16 +1,20 @@
 /**
  * Notificación Context
- * Manages notifications and tasks for the review and approval workflow
+ * Manages notifications and tasks for the review and approval workflow.
+ * Éxito: barra de tiempo + cierre automático o Aceptar. Error: solo Aceptar.
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { Notificacion, Tarea } from '../types';
 import { useAuth } from "./AuthContext";
 import { useTheme } from '@mui/material/styles';
 
-import { Snackbar, Alert, Box, Paper, Typography } from '@mui/material';
+import { Box, Paper, Typography, Button, LinearProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+
+const SUCCESS_AUTO_CLOSE_MS = 4500;
 
 interface NotificacionContextType {
   notificaciones: Notificacion[];
@@ -44,31 +48,54 @@ export function NotificacionProvider({ children }: { children: ReactNode }) {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info');
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [successProgress, setSuccessProgress] = useState(0);
+
   const showSuccess = useCallback((message: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
     setSnackbarMessage(message);
     setSnackbarSeverity('success');
+    setSuccessProgress(0);
     setSnackbarOpen(true);
   }, []);
 
   const showError = useCallback((message: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
     setSnackbarMessage(message);
     setSnackbarSeverity('error');
     setSnackbarOpen(true);
   }, []);
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
-  };
-
-  // Auto-close after 1 second
-  useEffect(() => {
-    if (snackbarOpen) {
-      const timer = setTimeout(() => {
-        setSnackbarOpen(false);
-      }, 1000);
-      return () => clearTimeout(timer);
+  const handleSnackbarClose = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-  }, [snackbarOpen]);
+    setSnackbarOpen(false);
+    setSuccessProgress(0);
+  }, []);
+
+  // Éxito: barra de tiempo y cierre automático si no se pulsa Aceptar
+  useEffect(() => {
+    if (!snackbarOpen || snackbarSeverity !== 'success') return;
+    const start = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      setSuccessProgress(Math.min(100, (elapsed / SUCCESS_AUTO_CLOSE_MS) * 100));
+    }, 80);
+    timerRef.current = setTimeout(() => {
+      clearInterval(interval);
+      setSnackbarOpen(false);
+      setSuccessProgress(0);
+    }, SUCCESS_AUTO_CLOSE_MS);
+    return () => {
+      clearInterval(interval);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [snackbarOpen, snackbarSeverity]);
 
   // Cargar notificaciones y tareas del localStorage
   useEffect(() => {
@@ -222,7 +249,7 @@ export function NotificacionProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {/* Custom Alert Overlay */}
+      {/* Modal de notificación: animado, barra de tiempo en éxito, error solo Aceptar */}
       {snackbarOpen && (
         <Box
           sx={{
@@ -231,133 +258,75 @@ export function NotificacionProvider({ children }: { children: ReactNode }) {
             left: '50%',
             transform: 'translate(-50%, -50%)',
             zIndex: 10000,
-            animation: 'slideInBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
-            '@keyframes slideInBounce': {
-              '0%': {
-                opacity: 0,
-                transform: 'translate(-50%, -60%) scale(0.7)',
-              },
-              '100%': {
-                opacity: 1,
-                transform: 'translate(-50%, -50%) scale(1)',
-              }
+            minWidth: { xs: 280, sm: 380 },
+            maxWidth: '90vw',
+            '@keyframes modalEnter': {
+              '0%': { opacity: 0, transform: 'translate(-50%, -50%) scale(0.92)' },
+              '100%': { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
             },
-            '@keyframes pulse': {
-              '0%, 100%': { transform: 'scale(1)' },
-              '50%': { transform: 'scale(1.1)' }
-            }
+            animation: 'modalEnter 0.25s ease-out',
           }}
         >
           <Paper
-            elevation={24}
+            elevation={8}
             sx={{
-              minWidth: 400,
-              background: snackbarSeverity === 'success'
-                ? `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`
-                : `linear-gradient(135deg, ${theme.palette.error.light} 0%, ${theme.palette.error.main} 100%)`,
-              borderRadius: 4,
-              p: 4,
-              position: 'relative',
+              backgroundColor: theme.palette.background.paper,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: snackbarSeverity === 'success'
+                ? theme.palette.success.main
+                : theme.palette.error.main,
               overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: '-100%',
-                width: '100%',
-                height: '100%',
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-                animation: 'shimmer 1.5s infinite',
-              },
-              '@keyframes shimmer': {
-                '0%': { left: '-100%' },
-                '100%': { left: '100%' }
-              }
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 3,
-                position: 'relative',
-                zIndex: 1
-              }}
-            >
-              {/* Animated Icon */}
-              <Box
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                {snackbarSeverity === 'success' ? (
+                  <CheckCircleIcon sx={{ fontSize: 32, color: theme.palette.success.main, flexShrink: 0 }} />
+                ) : (
+                  <ErrorOutlineIcon sx={{ fontSize: 32, color: theme.palette.error.main, flexShrink: 0 }} />
+                )}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+                    {snackbarSeverity === 'success' ? 'Operación exitosa' : 'Error'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {snackbarMessage}
+                  </Typography>
+                </Box>
+              </Box>
+              {snackbarSeverity === 'success' && (
+                <LinearProgress
+                  variant="determinate"
+                  value={successProgress}
+                  sx={{
+                    mt: 2,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: theme.palette.success.light,
+                    '& .MuiLinearProgress-bar': { backgroundColor: theme.palette.success.main },
+                  }}
+                />
+              )}
+              <Button
+                variant="contained"
+                size="medium"
+                fullWidth
+                onClick={handleSnackbarClose}
                 sx={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                  borderRadius: '50%',
-                  p: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  animation: 'pulse 1s ease-in-out infinite',
-                  boxShadow: '0 0 20px rgba(255,255,255,0.5)'
+                  mt: 3,
+                  ...(snackbarSeverity === 'success'
+                    ? { backgroundColor: theme.palette.primary.main, color: theme.palette.primary.contrastText }
+                    : { backgroundColor: theme.palette.error.main, color: theme.palette.error.contrastText }),
                 }}
               >
-                {snackbarSeverity === 'success' ? (
-                  <CheckCircleIcon sx={{ fontSize: 48, color: '#fff' }} />
-                ) : (
-                  <Alert severity="error" sx={{ fontSize: 48, color: '#fff' }} />
-                )}
-              </Box>
-
-              {/* Message */}
-              <Box sx={{ flex: 1 }}>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    color: '#fff',
-                    fontWeight: 700,
-                    textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                    letterSpacing: '0.5px'
-                  }}
-                >
-                  {snackbarMessage}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'rgba(255,255,255,0.9)',
-                    mt: 0.5,
-                    fontWeight: 500
-                  }}
-                >
-                  {snackbarSeverity === 'success' ? '¡Operación exitosa!' : 'Ocurrió un error'}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Progress bar */}
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                height: 4,
-                backgroundColor: 'rgba(255,255,255,0.3)',
-                width: '100%',
-                overflow: 'hidden'
-              }}
-            >
-              <Box
-                sx={{
-                  height: '100%',
-                  backgroundColor: '#fff',
-                  animation: 'progress 1s linear',
-                  '@keyframes progress': {
-                    '0%': { width: '100%' },
-                    '100%': { width: '0%' }
-                  }
-                }}
-              />
+                Aceptar
+              </Button>
             </Box>
           </Paper>
         </Box>
       )}
-      {/* Backdrop */}
+      {/* Backdrop: en error no cerrar al hacer clic, solo con botón */}
       {snackbarOpen && (
         <Box
           sx={{
@@ -366,16 +335,12 @@ export function NotificacionProvider({ children }: { children: ReactNode }) {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
             zIndex: 9999,
-            animation: 'fadeInBackdrop 0.3s ease-in-out',
-            '@keyframes fadeInBackdrop': {
-              from: { opacity: 0 },
-              to: { opacity: 1 }
-            }
+            '@keyframes backdropIn': { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+            animation: 'backdropIn 0.2s ease-out',
           }}
-          onClick={handleSnackbarClose}
+          onClick={snackbarSeverity === 'success' ? handleSnackbarClose : undefined}
         />
       )}
     </NotificacionContext.Provider>

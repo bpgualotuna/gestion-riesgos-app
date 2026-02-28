@@ -36,7 +36,6 @@ import {
   Tabs,
   Tab,
   Collapse,
-  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -58,9 +57,10 @@ import { useRiesgo } from '../../contexts/RiesgoContext';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetImpactosQuery, useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation } from '../../api/services/riesgosApi';
-import { LABELS_IMPACTO } from '../../utils/constants';
+import { LABELS_IMPACTO, confirmarEliminar } from '../../utils/constants';
 import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 
 // Opciones de impacto desde constants (no quemadas)
@@ -136,9 +136,10 @@ export default function MaterializarRiesgosPage() {
   const [procesoFiltroId, setProcesoFiltroId] = useState<string | null>(null);
   // Deferir la carga de datos hasta después del primer render para que la navegación sea instantánea
   const [deferLoad, setDeferLoad] = useState(false);
+  // Mostrar pocos riesgos al inicio para no colgar la página; el usuario puede cargar más
+  const [visibleRiesgosCount, setVisibleRiesgosCount] = useState(15);
 
   useEffect(() => {
-    // Activar carga de datos después del primer pintado
     setDeferLoad(true);
   }, []);
 
@@ -167,6 +168,10 @@ export default function MaterializarRiesgosPage() {
         ? procesoFiltroId
         : null;
 
+  useEffect(() => {
+    setVisibleRiesgosCount(15);
+  }, [procesoIdConsulta]);
+
   // OPTIMIZADO: Agregar caché para incidencias
   const { data: incidenciasApi = [], isLoading: isLoadingIncidencias } = useGetIncidenciasQuery(
     {
@@ -190,19 +195,18 @@ export default function MaterializarRiesgosPage() {
   const prevIncidenciasRef = useRef<Incidencia[]>([]);
   
   useEffect(() => {
-    if (incidenciasApi) {
-      const apiData = incidenciasApi as Incidencia[];
-      const prevData = prevIncidenciasRef.current;
-      
-      // Solo actualizar si realmente cambió (comparar IDs)
-      const apiIds = apiData.map(inc => inc.id).sort().join(',');
-      const prevIds = prevData.map(inc => inc.id).sort().join(',');
-      
-      if (apiIds !== prevIds) {
-        setIncidenciasLocal(apiData);
-        prevIncidenciasRef.current = apiData;
-      }
-    }
+    if (!incidenciasApi) return;
+    const apiData = incidenciasApi as Incidencia[];
+    const prevData = prevIncidenciasRef.current;
+    const apiIds = apiData.map(inc => inc.id).sort().join(',');
+    const prevIds = prevData.map(inc => inc.id).sort().join(',');
+    if (apiIds === prevIds) return;
+    // Diferir actualización para no bloquear el hilo principal y evitar "página no responde"
+    const rafId = requestAnimationFrame(() => {
+      setIncidenciasLocal(apiData);
+      prevIncidenciasRef.current = apiData;
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [incidenciasApi]);
   
   // OPTIMIZADO: Caché agresivo para impactos (cambian muy poco)
@@ -390,11 +394,14 @@ export default function MaterializarRiesgosPage() {
 
   // OPTIMIZADO: useCallback para evitar re-crear función en cada render
   const handleEliminar = useCallback(async (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta incidencia?')) {
+    if (!confirmarEliminar('esta incidencia')) return;
+    try {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
+    } catch (error) {
+      showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }
-  }, [deleteIncidencia, showSuccess]);
+  }, [deleteIncidencia, showSuccess, showError]);
 
   // OPTIMIZADO: useMemo para función que no cambia
   const obtenerColorEstado = useCallback((estado: string) => {
@@ -558,9 +565,7 @@ export default function MaterializarRiesgosPage() {
       {tabValue === 0 && (
         <Box>
           {isLoadingData ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-              <CircularProgress />
-            </Box>
+            <PageLoadingSkeleton variant="table" tableRows={6} />
           ) : riesgosDelProceso.length === 0 ? (
             <Alert severity="info" sx={{ mt: 2 }}>No hay riesgos asociados a este proceso.</Alert>
           ) : (
@@ -586,8 +591,8 @@ export default function MaterializarRiesgosPage() {
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
               </Box>
-              {/* OPTIMIZADO: Limitar renderizado inicial a primeros 10 riesgos para mejor rendimiento */}
-              {riesgosDelProceso.slice(0, 50).map((riesgo: any) => (
+              {/* OPTIMIZADO: Renderizar solo N riesgos visibles para no colgar; "Ver más" carga el resto */}
+              {riesgosDelProceso.slice(0, visibleRiesgosCount).map((riesgo: any) => (
                 <Card key={riesgo.id} variant="outlined" sx={{ overflow: 'hidden' }}>
                   <Box
                     sx={{
@@ -641,7 +646,7 @@ export default function MaterializarRiesgosPage() {
                     </Box>
                     <Box />
                   </Box>
-                  <Collapse in={riesgoExpandido === riesgo.id}>
+                  <Collapse in={riesgoExpandido === riesgo.id} mountOnEnter unmountOnExit>
                     <Divider />
                     <Box sx={{ p: 2, bgcolor: '#fafafa' }}>
                       <Typography variant="subtitle2" gutterBottom>Causas Asociadas:</Typography>
@@ -672,7 +677,7 @@ export default function MaterializarRiesgosPage() {
                                 {isExpanded ? 'Cerrar' : (incidenteExistente ? 'Ver / Editar' : 'Reportar')}
                               </Button>
                             </Box>
-                            <Collapse in={isExpanded}>
+                            <Collapse in={isExpanded} mountOnEnter unmountOnExit>
                               <Box sx={{ p: 2, bgcolor: '#fff3e0', borderTop: '1px solid #ffe0b2' }}>
                                 <Typography variant="subtitle2" color="warning.main" gutterBottom>
                                   {incidenteExistente ? 'Editar Incidencia' : 'Registrar Materialización'}
@@ -1029,6 +1034,16 @@ export default function MaterializarRiesgosPage() {
                   </Collapse>
                 </Card>
               ))}
+              {riesgosDelProceso.length > visibleRiesgosCount && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => startTransition(() => setVisibleRiesgosCount((n) => Math.min(n + 15, riesgosDelProceso.length)))}
+                  >
+                    Ver más riesgos ({visibleRiesgosCount} de {riesgosDelProceso.length})
+                  </Button>
+                </Box>
+              )}
             </Box>
           )}
         </Box>
@@ -1039,9 +1054,7 @@ export default function MaterializarRiesgosPage() {
         <Card variant="outlined">
           <CardContent>
             {procesoIdConsulta && isLoadingIncidencias ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
+              <PageLoadingSkeleton variant="table" tableRows={4} />
             ) : incidenciasFiltradas.length === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>No hay planes de acción registrados.</Alert>
             ) : (

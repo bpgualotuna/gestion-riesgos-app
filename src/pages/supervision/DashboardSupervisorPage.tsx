@@ -103,7 +103,8 @@ export default function DashboardSupervisorPage() {
     filtroProceso !== 'all' ? { procesoId: filtroProceso } : {},
     { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
   );
-  const { data: planesApi = [] } = useGetPlanesQuery();
+  const { data: planesResponse } = useGetPlanesQuery({ page: 1, pageSize: 50 });
+  const planesApi = planesResponse?.data ?? [];
   const { data: incidenciasStats } = useGetIncidenciasEstadisticasQuery({
     procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
   });
@@ -958,10 +959,6 @@ export default function DashboardSupervisorPage() {
                 ) : (
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
-                      console.log('[Dashboard] 📊 Estadísticas por nivel:', estadisticas.porNivelRiesgo);
-                      console.log('[Dashboard] 📊 Riesgos filtrados:', riesgosFiltrados.length);
-                      console.log('[Dashboard] 📊 Puntos del mapa:', puntos.length);
-                      
                       // Asegurar que todos los niveles aparezcan, incluso con 0
                       const nivelesCompletos = {
                         'Crítico': estadisticas.porNivelRiesgo?.['Crítico'] || 0,
@@ -979,8 +976,6 @@ export default function DashboardSupervisorPage() {
                                  name === 'Medio' ? '#fbc02d' : 
                                  name === 'Bajo' ? '#388e3c' : '#666'
                         }));
-                      
-                      console.log('[Dashboard] 📊 Datos para gráfico:', dataNiveles);
                       
                       const COLORS = dataNiveles.map(d => d.color);
                       

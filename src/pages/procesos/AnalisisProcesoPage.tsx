@@ -41,7 +41,7 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
-import { API_BASE_URL } from '../../utils/constants';
+import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 
 export default function AnalisisProcesoPage() {
   const { showSuccess, showError } = useNotification();
@@ -105,7 +105,12 @@ export default function AnalisisProcesoPage() {
       try {
         // Eliminar en Azure Blob (o Cloudinary): backend espera ?url= con la URL guardada
         const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(savedFile.url)}`;
-        const res = await fetch(deleteUrl, { method: 'DELETE', credentials: 'include' });
+        const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+        const res = await fetch(deleteUrl, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.ok || res.status === 404) {
           await updateProceso({
             id: procesoSeleccionado.id,
@@ -140,10 +145,12 @@ export default function AnalisisProcesoPage() {
       if (selectedFile) {
         const formData = new FormData();
         formData.append('archivo', selectedFile);
+        const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
         const uploadRes = await fetch(`${API_BASE_URL}/upload/archivo`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!uploadRes.ok) {
           const err = await uploadRes.json().catch(() => ({}));

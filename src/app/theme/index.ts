@@ -8,6 +8,9 @@ import { colors } from './colors';
 import { typography } from './typography';
 
 const themeOptions = {
+  breakpoints: {
+    values: { xs: 0, sm: 600, md: 900, lg: 1200, xl: 1536 },
+  },
   palette: {
     mode: 'light' as const,
     primary: {
@@ -124,6 +127,8 @@ const themeOptions = {
     MuiDataGrid: {
       styleOverrides: {
         root: {
+          width: '100%',
+          maxWidth: '100%',
           border: 'none',
           '& .MuiDataGrid-cell': {
             borderBottom: `1px solid ${colors.divider}`,

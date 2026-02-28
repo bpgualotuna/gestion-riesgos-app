@@ -2,6 +2,20 @@
  * Application Constants
  */
 
+/** Clave para guardar el JWT en sessionStorage (no exponer en logs). */
+export const AUTH_TOKEN_KEY = 'gr_token';
+
+/** Mensaje estándar de confirmación para eliminar. Usar en todo el sistema. */
+export const CONFIRM_ELIMINAR = '¿Está seguro que desea eliminar? Esta acción no se puede deshacer.';
+
+/** Confirmación para eliminar un elemento con nombre (ej. "esta incidencia", "el rol X"). */
+export function confirmarEliminar(descripcion?: string): boolean {
+  const msg = descripcion
+    ? `¿Está seguro que desea eliminar ${descripcion}? Esta acción no se puede deshacer.`
+    : CONFIRM_ELIMINAR;
+  return window.confirm(msg);
+}
+
 // Niveles de Riesgo
 export const NIVELES_RIESGO = {
   CRITICO: 'NIVEL CRÍTICO',

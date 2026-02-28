@@ -47,6 +47,7 @@ import {
   FactCheck as FactCheckIcon,
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useRiesgo } from '../../contexts/RiesgoContext';
@@ -113,7 +114,8 @@ export default function PlanAccionPage() {
 
   // Mock Planes
   const [planesAccion, setPlanesAccion] = useState<PlanAccion[]>([]);
-  const { data: planesApi = [] } = useGetPlanesQuery();
+  const { data: planesResponse, isLoading: isLoadingPlanes } = useGetPlanesQuery({ page: 1, pageSize: 50 });
+  const planesApi = planesResponse?.data ?? [];
   const [createPlanAccion] = useCreatePlanAccionMutation();
   const [updateRiesgo] = useUpdateRiesgoMutation();
   const [updateCausa] = useUpdateCausaMutation();
@@ -132,7 +134,7 @@ export default function PlanAccionPage() {
   });
 
   // Carga de Riesgos filtrada en backend por proceso
-  const { data: riesgosData, refetch: refetchRiesgos } = useGetRiesgosQuery(
+  const { data: riesgosData, refetch: refetchRiesgos, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100, includeCausas: true }
       : { pageSize: 100 },
@@ -274,7 +276,9 @@ export default function PlanAccionPage() {
         {/* TAB 0: CLASIFICACIÓN DE CAUSA */}
         {activeTab === 0 && (
           <Box>
-            {riesgos.length === 0 ? (
+            {isLoadingRiesgos ? (
+              <PageLoadingSkeleton variant="table" tableRows={6} />
+            ) : riesgos.length === 0 ? (
               <Card><CardContent><Typography align="center">No hay riesgos registrados.</Typography></CardContent></Card>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -349,7 +353,9 @@ export default function PlanAccionPage() {
         {/* TAB 1: CALIFICACION RESIDUAL (Copia de Identificación) */}
         {activeTab === 1 && (
           <Box>
-            {riesgos.length === 0 ? (
+            {isLoadingRiesgos ? (
+              <PageLoadingSkeleton variant="table" tableRows={6} />
+            ) : riesgos.length === 0 ? (
               <Card><CardContent><Typography align="center">No hay riesgos registrados.</Typography></CardContent></Card>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -463,8 +469,12 @@ export default function PlanAccionPage() {
                 Nuevo Plan
               </Button>
             </Box>
-            {planesAccion.length === 0 && <Typography align="center" sx={{ py: 3 }}>No hay planes creados.</Typography>}
-            {planesAccion.map((p, i) => (
+            {isLoadingPlanes ? (
+              <PageLoadingSkeleton variant="table" tableRows={4} />
+            ) : planesAccion.length === 0 ? (
+              <Typography align="center" sx={{ py: 3 }}>No hay planes creados.</Typography>
+            ) : null}
+            {!isLoadingPlanes && planesAccion.map((p, i) => (
               <Card
                 key={i}
                 sx={{ mb: 1, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}

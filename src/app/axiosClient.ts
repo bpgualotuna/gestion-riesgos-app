@@ -3,7 +3,7 @@
  */
 
 import axios from 'axios';
-import { API_BASE_URL } from '../utils/constants';
+import { API_BASE_URL, AUTH_TOKEN_KEY } from '../utils/constants';
 
 export const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -13,14 +13,14 @@ export const axiosClient = axios.create({
   timeout: 10000,
 });
 
-// Request interceptor
+// Request interceptor: añadir JWT si existe
 axiosClient.interceptors.request.use(
   (config) => {
+    const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null;
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor
@@ -31,26 +31,21 @@ axiosClient.interceptors.response.use(
   (error) => {
     // Handle common errors
     if (error.response?.status === 401) {
-      // Unauthorized - redirect to login
-      // Use window.location.pathname to preserve the current path structure
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+      if (window.location.pathname !== '/login') window.location.href = '/login';
     }
     
     if (error.response?.status === 403) {
       // Forbidden
-      console.error('Access forbidden:', error.response?.data?.message || 'You do not have permission to access this resource');
     }
     
     if (error.response?.status === 500) {
       // Server error
-      console.error('Server error:', error.response?.data?.message || 'Internal server error');
     }
     
-    // Handle network errors
     if (!error.response && error.request) {
-      console.error('Network error: Unable to connect to the server');
+      // Network error
     }
     
     return Promise.reject(error);

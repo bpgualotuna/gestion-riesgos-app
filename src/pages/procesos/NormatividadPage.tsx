@@ -28,7 +28,7 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
-import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO } from "../../utils/constants";
+import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO, confirmarEliminar } from "../../utils/constants";
 import { formatDate } from '../../utils/formatters';
 
 interface Normatividad {
@@ -79,6 +79,7 @@ export default function NormatividadPage() {
   const handleEliminar = async (e: React.MouseEvent, row: Normatividad) => {
     e.stopPropagation();
     if (!procesoSeleccionado) return;
+    if (!confirmarEliminar('esta normatividad')) return;
     const updatedList = normatividades
       .filter(n => n.id !== row.id)
       .map((n, idx) => ({ ...n, numero: idx + 1 }));
@@ -89,8 +90,7 @@ export default function NormatividadPage() {
         normatividades: updatedList
       }).unwrap();
       showSuccess('Normatividad eliminada correctamente');
-    } catch (error) {
-      console.error(error);
+    } catch {
       setNormatividades(normatividades); // revert on error
       showError('Error al eliminar normatividad');
     }
@@ -442,8 +442,7 @@ export default function NormatividadPage() {
             }).unwrap();
             showSuccess('Normatividad guardada exitosamente');
             setDialogOpen(false);
-          } catch (error) {
-            console.error(error);
+          } catch {
             showError('Error al guardar normatividad');
           }
         }}>

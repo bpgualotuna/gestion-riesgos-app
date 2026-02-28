@@ -66,9 +66,8 @@ export default function UsuariosPage({ user }: UsuariosPageProps) {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsuarios(response.data);
-    } catch (err: any) {
+    } catch {
       setError('Error al cargar usuarios');
-      console.error(err);
     } finally {
       setLoading(false);
     }

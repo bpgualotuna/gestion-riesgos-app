@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Procesos Page
  * Gestión de procesos - Solo visible para Dueño del Proceso
  */
@@ -12,7 +12,6 @@ import {
   Button,
   TextField,
   Alert,
-  CircularProgress,
   Chip,
   List,
   ListItem,
@@ -47,6 +46,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import { useNotification } from '../../hooks/useNotification';
+import { confirmarEliminar } from '../../utils/constants';
 import { useRevisionProceso } from '../../hooks/useRevisionProceso';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -160,7 +160,6 @@ export default function ProcesosPage() {
   // Obtener observaciones de un proceso usando el hook
   const getObservacionesProceso = (procesoId: string): any[] => {
     if (typeof obtenerObservaciones !== 'function') {
-      console.warn('⚠️ obtenerObservaciones no está disponible');
       return [];
     }
     return obtenerObservaciones(procesoId);
@@ -277,7 +276,7 @@ export default function ProcesosPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar este proceso?')) {
+    if (confirmarEliminar('este proceso')) {
       try {
         await deleteProceso(id).unwrap();
         showSuccess('Proceso eliminado exitosamente');
@@ -291,7 +290,7 @@ export default function ProcesosPage() {
           }
         }
       } catch (error) {
-        showError('Error al eliminar el proceso');
+        showError((e as any)?.data?.error || 'Error al eliminar el proceso');
       }
     }
   };
@@ -473,16 +472,12 @@ export default function ProcesosPage() {
         <Typography variant="h6" gutterBottom>
           Procesos Disponibles
         </Typography>
-        {isLoading ? (
-          <CircularProgress />
-        ) : (
-          <AppDataGrid
-            rows={procesosVisibles}
-            columns={columns.filter((col) => col.field !== 'actions')}
-            loading={isLoading}
-            getRowId={(row) => row.id}
-          />
-        )}
+        <AppDataGrid
+          rows={procesosVisibles}
+          columns={columns.filter((col) => col.field !== 'actions')}
+          loading={isLoading}
+          getRowId={(row) => row.id}
+        />
       </Box>
     );
   }
@@ -586,7 +581,7 @@ export default function ProcesosPage() {
                     disabled={isCreating}
                     sx={{ background: '#1976d2' }}
                   >
-                    {isCreating ? <CircularProgress size={24} /> : 'Crear Proceso'}
+                    {isCreating ? 'Guardando...' : 'Crear Proceso'}
                   </Button>
                 </Grid2>
               </Grid2>
