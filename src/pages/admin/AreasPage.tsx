@@ -407,8 +407,9 @@ export default function AreasPage() {
             
             await Promise.all(promesas);
             
-            // Limpiar el estado local después de guardar
-            setResponsablesSeleccionados({});
+            // NO limpiar el estado local - se actualizará automáticamente cuando la API refresque
+            // El useEffect recargará los datos desde procesosData cuando se invalide el caché
+            // setResponsablesSeleccionados({}); // ← COMENTADO
             
             // Refrescar los procesos para obtener los responsables actualizados
             // (esto se hace automáticamente por invalidatesTags)
