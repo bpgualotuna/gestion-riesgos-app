@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 
@@ -47,7 +47,7 @@ const TablaPlanesAccion: React.FC<TablaPlanesAccionProps> = ({ planes }) => {
                     <DataGrid
                         rows={planes}
                         columns={columns}
-                        pageSizeOptions={[5, 10]}
+                        pageSizeOptions={[5, 10, 25, 50]}
                         initialState={{
                             pagination: { paginationModel: { pageSize: 5 } },
                         }}

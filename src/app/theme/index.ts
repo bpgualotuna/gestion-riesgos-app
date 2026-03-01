@@ -34,9 +34,9 @@ const themeOptions = {
       paper: colors.background.paper,
     },
     text: colors.text,
-    text: colors.text,
     divider: colors.divider,
     brand: colors.brand,
+    sidebar: colors.sidebar,
   },
   typography,
   shape: {
@@ -74,6 +74,7 @@ const themeOptions = {
           borderRadius: 12,
           boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.15)',
           backgroundImage: 'none',
+          overflow: 'hidden',
         },
       },
     },
@@ -140,6 +141,15 @@ const themeOptions = {
           '& .MuiDataGrid-row:hover': {
             backgroundColor: 'rgba(200, 217, 0, 0.1)',
           },
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          margin: 8,
+          maxWidth: 'calc(100% - 16px)',
+          maxHeight: 'calc(100% - 16px)',
         },
       },
     },

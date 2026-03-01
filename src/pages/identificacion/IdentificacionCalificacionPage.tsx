@@ -253,9 +253,9 @@ export default function IdentificacionPage() {
   // OPTIMIZADO: Usar mutación de RTK Query para crear riesgos
   const [createRiesgoMutation] = useCreateRiesgoMutation();
   
-  // OPTIMIZADO: Paginación - Estado para controlar página actual
+  // OPTIMIZADO: Paginación - Estado para controlar página actual (por defecto 10 por página)
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 50; // Tamaño de página optimizado (50 items)
+  const [pageSize, setPageSize] = useState(5);
   
   // procesoId numérico estable para la query (evita que "Gestión Estratégica" u otros no traigan por tipo distinto)
   const procesoIdForQuery = procesoSeleccionado?.id != null && (esDueñoProcesos || esSupervisorRiesgos)
@@ -1561,12 +1561,10 @@ export default function IdentificacionPage() {
             </CardContent>
           </Card>
         ) : (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: 2,
-            width: '100%'
-          }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+            {/* Contenedor con scroll horizontal en móvil para que la tabla no se aplaste */}
+            <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: { xs: -0.5, sm: 0 } }}>
+              <Box sx={{ minWidth: { xs: 720, sm: '100%' } }}>
             {/* Column Headers */}
             <Box sx={{
               display: 'grid',
@@ -2174,29 +2172,48 @@ export default function IdentificacionPage() {
               );
             })}
             
-            {/* Paginación */}
-            {totalPages > 1 && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
-                <Stack spacing={2}>
-                  <Pagination
-                    count={totalPages}
-                    page={currentPage}
-                    onChange={(event, value) => {
-                      setCurrentPage(value);
-                      // Scroll al inicio de la lista
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    color="primary"
-                    size="large"
-                    showFirstButton
-                    showLastButton
-                  />
-                  <Typography variant="body2" color="text.secondary" align="center">
-                    Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRiesgos)} de {totalRiesgos} riesgos
-                  </Typography>
-                </Stack>
+            {/* Paginación: por defecto 10 por página, usuario puede elegir 10/25/50 */}
+            {totalRiesgos > 0 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 3, mb: 2, gap: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 2 }}>
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel>Mostrar</InputLabel>
+                    <Select
+                      value={pageSize}
+                      label="Mostrar"
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <MenuItem value={5}>5 por página</MenuItem>
+                  <MenuItem value={10}>10 por página</MenuItem>
+                      <MenuItem value={25}>25 por página</MenuItem>
+                      <MenuItem value={50}>50 por página</MenuItem>
+                    </Select>
+                  </FormControl>
+                  {totalPages > 1 && (
+                    <Pagination
+                      count={totalPages}
+                      page={currentPage}
+                      onChange={(event, value) => {
+                        setCurrentPage(value);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      color="primary"
+                      size="large"
+                      showFirstButton
+                      showLastButton
+                    />
+                  )}
+                </Box>
+                <Typography variant="body2" color="text.secondary" align="center">
+                  Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRiesgos)} de {totalRiesgos} riesgos
+                </Typography>
               </Box>
             )}
+              </Box>
+            </Box>
           </Box>
         )}
       </>

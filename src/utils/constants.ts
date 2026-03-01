@@ -143,7 +143,6 @@ export const ROUTES = {
   DASHBOARD_SUPERVISOR: '/dashboard-supervisor',
   PLAN_ACCION: '/plan-accion',
   EVALUACION_CONTROL: '/evaluacion-control',
-  TAREAS: '/tareas',
   HISTORIAL: '/historial',
   RESUMEN_RIESGOS: '/resumen-riesgos',
   RIESGOS_POR_PROCESO: '/riesgos-por-proceso',
@@ -168,6 +167,6 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 
 // Configuración de Paginación
 export const PAGINATION = {
-  DEFAULT_PAGE_SIZE: 10,
+  DEFAULT_PAGE_SIZE: 5,
   PAGE_SIZE_OPTIONS: [5, 10, 25, 50, 100],
 } as const;

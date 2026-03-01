@@ -23,6 +23,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  CircularProgress,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -114,6 +115,7 @@ export default function ProcesosPage() {
 
   // Estados para diálogos
   const [observacionDialogOpen, setObservacionDialogOpen] = useState(false);
+  const [rechazoModalLoading, setRechazoModalLoading] = useState(false);
   const [historialDialogOpen, setHistorialDialogOpen] = useState(false);
   const [observacionTexto, setObservacionTexto] = useState('');
   const [procesoParaAccion, setProcesoParaAccion] = useState<Proceso | null>(null);
@@ -232,11 +234,21 @@ export default function ProcesosPage() {
       showError('Por favor ingrese una observación');
       return;
     }
-    await rechazarConObservaciones('', '', observacionTexto, '');
-    setObservacionDialogOpen(false);
-    setObservacionTexto('');
-    setProcesoParaAccion(null);
-    refetch();
+    setRechazoModalLoading(true);
+    try {
+      await rechazarConObservaciones(
+        String(procesoParaAccion.id),
+        observacionTexto,
+        user?.id ?? '',
+        user?.nombre ?? ''
+      );
+      setObservacionDialogOpen(false);
+      setObservacionTexto('');
+      setProcesoParaAccion(null);
+      refetch();
+    } finally {
+      setRechazoModalLoading(false);
+    }
   };
 
   const handleResolverObservaciones = async (proceso: Proceso) => {
@@ -602,35 +614,52 @@ export default function ProcesosPage() {
       />
 
       {/* Dialogo para agregar observacion al rechazar */}
-      <Dialog open={observacionDialogOpen} onClose={() => setObservacionDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={observacionDialogOpen}
+        onClose={() => !rechazoModalLoading && (setObservacionDialogOpen(false), setObservacionTexto(''), setProcesoParaAccion(null))}
+        maxWidth="sm"
+        fullWidth
+        disableEscapeKeyDown={rechazoModalLoading}
+      >
         <DialogTitle>Rechazar Proceso con Observaciones</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Indique las observaciones o razones por las que se rechaza este proceso:
-          </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Observaciones"
-            value={observacionTexto}
-            onChange={(e) => setObservacionTexto(e.target.value)}
-            placeholder="Ingrese las observaciones..."
-            sx={{ mt: 2 }}
-          />
+          {rechazoModalLoading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, py: 3 }}>
+              <CircularProgress size={28} />
+              <Typography color="text.secondary">Enviando rechazo…</Typography>
+            </Box>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Indique las observaciones o razones por las que se rechaza este proceso:
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Observaciones"
+                value={observacionTexto}
+                onChange={(e) => setObservacionTexto(e.target.value)}
+                placeholder="Ingrese las observaciones..."
+                sx={{ mt: 2 }}
+              />
+            </>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
-            setObservacionDialogOpen(false);
-            setObservacionTexto('');
-            setProcesoParaAccion(null);
-          }}>
-            Cancelar
-          </Button>
-          <Button variant="contained" color="error" onClick={handleConfirmarRechazo}>
-            Rechazar con Observaciones
-          </Button>
-        </DialogActions>
+        {!rechazoModalLoading && (
+          <DialogActions>
+            <Button onClick={() => {
+              setObservacionDialogOpen(false);
+              setObservacionTexto('');
+              setProcesoParaAccion(null);
+            }}>
+              Cancelar
+            </Button>
+            <Button variant="contained" color="error" onClick={handleConfirmarRechazo}>
+              Rechazar con Observaciones
+            </Button>
+          </DialogActions>
+        )}
       </Dialog>
 
       {/* Diálogo de historial */}

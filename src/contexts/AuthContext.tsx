@@ -9,6 +9,7 @@ import { AUTH_TOKEN_KEY } from '../utils/constants';
 // User roles - Solo 4 roles permitidos
 export type UserRole = 'admin' | 'dueño_procesos' | 'gerente' | 'supervisor';
 export type GerenteModo = 'dueño' | 'supervisor';
+export type GerenteGeneralMode = 'director' | 'proceso'; // director = supervisor, proceso = dueño
 
 // User interface
 export interface User {
@@ -19,10 +20,11 @@ export interface User {
   role: UserRole;
   department: string;
   avatar?: string;
+  fotoPerfil?: string | null;
   phone?: string;
   position: string;
-  esDuenoProcesos?: boolean; // Indica si es dueño de procesos
-  gerenteMode?: GerenteModo | null; // Modo seleccionado por el gerente
+  esDuenoProcesos?: boolean;
+  gerenteMode?: GerenteModo | null;
 }
 
 // Hardcoded users database removed in favor of mockData
@@ -46,8 +48,12 @@ interface AuthContextType {
   esDueñoProcesos: boolean; // Alias for compatibility
   esAdmin: boolean; // Helper para verificar si es admin
   esSupervisorRiesgos: boolean; // Helper para verificar si es supervisor de riesgos
-  esDirectorProcesos: boolean; // Alias for supervisor de riesgos
-  esAuditoria: boolean; // Helper para verificar si es auditor
+  esDirectorProcesos: boolean;
+  esAuditoria: boolean;
+  esGerenteGeneral: boolean;
+  gerenteGeneralMode: GerenteGeneralMode | null;
+  setGerenteGeneralMode: (mode: GerenteGeneralMode | null) => void;
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,6 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           department: data.department,
           position: data.position,
           esDuenoProcesos: data.esDuenoProcesos,
+          fotoPerfil: data.fotoPerfil ?? null,
         };
         setUser(u);
         if (u.role === 'gerente') setGerenteModeState(null);
@@ -128,6 +135,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           department: backendUser.department,
           position: backendUser.position,
           esDuenoProcesos: backendUser.esDuenoProcesos,
+          fotoPerfil: backendUser.fotoPerfil ?? null,
         };
 
         setUser(contextUser);
@@ -153,7 +161,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setGerenteModeState(mode);
   };
 
-  const esGerente = user?.role === 'gerente';
+  const esGerente = user?.role === 'gerente' || user?.role === 'gerente_general';
+  const gerenteGeneralMode: GerenteGeneralMode | null = gerenteMode === 'supervisor' ? 'director' : gerenteMode === 'dueño' ? 'proceso' : null;
+  const setGerenteGeneralMode = (mode: GerenteGeneralMode | null) => {
+    setGerenteModeState(mode === 'director' ? 'supervisor' : mode === 'proceso' ? 'dueño' : null);
+  };
+
+  const refreshUser = async () => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token || !user) return;
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+      setUser({
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        fullName: data.fullName,
+        role: data.role as UserRole,
+        department: data.department,
+        position: data.position,
+        esDuenoProcesos: data.esDuenoProcesos,
+        fotoPerfil: data.fotoPerfil ?? null,
+      });
+    } catch {
+      // ignore
+    }
+  };
   const esGerenteDueño = esGerente && gerenteMode === 'dueño';
   const esGerenteSupervisor = esGerente && gerenteMode === 'supervisor';
 
@@ -175,7 +210,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     esAdmin: user?.role === 'admin',
     esSupervisorRiesgos: user?.role === 'supervisor' || esGerenteSupervisor,
     esDirectorProcesos: user?.role === 'supervisor' || esGerenteSupervisor,
-    esAuditoria: false, // Ya no hay modo auditor
+    esAuditoria: false,
+    esGerenteGeneral: esGerente,
+    gerenteGeneralMode,
+    setGerenteGeneralMode,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

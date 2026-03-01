@@ -62,6 +62,7 @@ import {
   Task as TaskIcon,
   History as HistoryIcon,
   People as PeopleIcon,
+  Person as PersonIcon,
   Security as SecurityIcon,
   Notifications as NotificationsIcon,
   Functions as FunctionsIcon,
@@ -81,10 +82,10 @@ import {
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
+import PerfilDialog from '../profile/PerfilDialog';
 import { useRiesgo } from "../../contexts/RiesgoContext";
 import { useProceso } from "../../contexts/ProcesoContext";
 import { useGetProcesosQuery } from "../../api/services/riesgosApi";
-import NotificacionesMenu from "../notificaciones/NotificacionesMenu";
 import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from "../../hooks/useAsignaciones";
 
@@ -98,6 +99,22 @@ interface MenuItemType {
   path?: string;
   children?: MenuItemType[];
 }
+
+/** Mapeo texto menú → clave en theme.palette.sidebar.mainMenu */
+const MAIN_MENU_KEYS: Record<string, string> = {
+  'Dashboard': 'dashboard',
+  'Procesos': 'procesos',
+  'Identificación y Calificación': 'identificacion',
+  'Controles y Planes de Acción': 'controles',
+  'Materializar Riesgos': 'materializarRiesgos',
+  'Usuarios': 'usuarios',
+  'Áreas y Asignaciones': 'areasAsignaciones',
+  'Conf. Mapa Riesgos': 'confMapaRiesgos',
+  'Parámetros de Calificación': 'parametrosCalificacion',
+  'Calificación Inherente': 'calificacionInherente',
+  'Calificación Residual': 'calificacionResidual',
+};
+const DEFAULT_MENU_COLOR = '#1976d2';
 
 const menuItems: MenuItemType[] = [
   {
@@ -129,16 +146,12 @@ const menuItems: MenuItemType[] = [
   {
     text: 'Controles y Planes de Acción',
     icon: <SecurityIcon />,
-    children: [
-      { text: 'Controles y Planes de Acción', icon: <AssignmentIcon />, path: ROUTES.PLAN_ACCION },
-    ],
+    path: ROUTES.PLAN_ACCION,
   },
   {
-    text: 'Eventos',
-    icon: <EventIcon />,
-    children: [
-      { text: 'Materializar Riesgos', icon: <WarningIcon />, path: ROUTES.INCIDENCIAS },
-    ],
+    text: 'Materializar Riesgos',
+    icon: <WarningIcon />,
+    path: ROUTES.INCIDENCIAS,
   },
 ];
 
@@ -149,6 +162,18 @@ export default function MainLayout() {
   useCalificacionInherenteConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const getIconColor = (itemText: string) => {
+    const key = MAIN_MENU_KEYS[itemText];
+    const mainMenu = (theme.palette as any).sidebar?.mainMenu;
+    return (mainMenu && key && mainMenu[key]) ? mainMenu[key] : DEFAULT_MENU_COLOR;
+  };
+  const getSubmenuColor = (childIndex: number) => {
+    const submenu = (theme.palette as any).sidebar?.submenu;
+    if (!submenu || !submenu.length) return DEFAULT_MENU_COLOR;
+    return submenu[childIndex % submenu.length];
+  };
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [adminSection, setAdminSection] = useState<string>(() => {
@@ -196,13 +221,17 @@ export default function MainLayout() {
     esManager,
     esManagerDueño,
     esManagerSupervisor,
+    refreshUser,
   } = useAuth();
   const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
   const [modoManagerDialogOpen, setModoManagerDialogOpen] = useState(false);
+  const [perfilOpen, setPerfilOpen] = useState(false);
 
-  // Obtener asignaciones del supervisor/dueño de procesos
-  const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
+  // Obtener asignaciones del supervisor/dueño de procesos (misma lógica que el selector de proceso)
+  const { areas: areasAsignadas, procesos: procesosAsignados, loading: loadingAsignaciones } = useAreasProcesosAsignados();
   const tieneAsignaciones = areasAsignadas.length > 0 || procesosAsignados.length > 0;
+  const debeBloquearPanelPorSinAsignaciones =
+    (esDueñoProcesos || esSupervisorRiesgos) && !loadingAsignaciones && !tieneAsignaciones;
 
   // Función para obtener el nombre del rol en español
   const getNombreRol = (): string => {
@@ -368,44 +397,41 @@ export default function MainLayout() {
                 disabled={isDisabledParent}
                 onClick={(e) => {
                   if (isDisabledParent) return;
-                  // If collapsed on desktop, expand first
-                  if (sidebarCollapsed && !isMobile) {
-                    setSidebarCollapsed(false);
-                    localStorage.setItem('sidebarCollapsed', 'false');
-                    // Continue to toggle menu
-                  }
-
+                  // Sidebar colapsado: no expandir, solo abrir/cerrar submenú hacia abajo
                   // Si tiene path, navegar primero
                   if (item.path) {
                     handleMenuClick(item.path);
                   }
-
-                  // Luego abrir/cerrar el submenú
                   handleToggleMenu(item.text);
                 }}
-                sx={{
-                  borderRadius: 1.5,
-                  py: 1,
-                  px: sidebarCollapsed && !isMobile ? 1.5 : 2,
-                  pl: sidebarCollapsed && !isMobile ? 1.5 : (2 + level * 1.5),
-                  justifyContent: shouldShowText ? 'flex-start' : 'center',
-                  backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? 'rgba(25, 118, 210, 0.12)' : 'transparent'),
-                  borderLeft: isSelected ? '3px solid #1976d2' : '3px solid transparent',
-                  minHeight: 40,
-                  opacity: isDisabledParent ? 0.3 : 1,
-                  pointerEvents: isDisabledParent ? 'none' : 'auto',
-                  '&:hover': {
-                    backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? 'rgba(25, 118, 210, 0.12)' : 'rgba(0, 0, 0, 0.04)'),
-                  },
-                  '&.Mui-disabled': {
-                    cursor: 'not-allowed',
-                  },
+                sx={(theme) => {
+                  const segColor = getIconColor(item.text);
+                  const bgSelected = `${segColor}14`;
+                  const bgHover = `${segColor}0a`;
+                  return {
+                    borderRadius: 1.5,
+                    py: 1,
+                    px: sidebarCollapsed && !isMobile ? 1.5 : 2,
+                    pl: sidebarCollapsed && !isMobile ? 1.5 : (2 + level * 1.5),
+                    justifyContent: shouldShowText ? 'flex-start' : 'center',
+                    backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? bgSelected : 'transparent'),
+                    borderLeft: isSelected ? `3px solid ${segColor}` : '3px solid transparent',
+                    minHeight: 40,
+                    opacity: isDisabledParent ? 0.3 : 1,
+                    pointerEvents: isDisabledParent ? 'none' : 'auto',
+                    '&:hover': {
+                      backgroundColor: isDisabledParent ? 'rgba(0, 0, 0, 0.02)' : (isSelected ? bgHover : 'rgba(0, 0, 0, 0.04)'),
+                    },
+                    '&.Mui-disabled': {
+                      cursor: 'not-allowed',
+                    },
+                  };
                 }}
               >
                 <ListItemIcon
                   sx={{
                     minWidth: sidebarCollapsed && !isMobile ? 24 : 36,
-                    color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.7)'),
+                    color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text),
                     justifyContent: 'center',
                     fontSize: sidebarCollapsed && !isMobile ? '1.2rem' : '1.25rem',
                   }}
@@ -419,11 +445,11 @@ export default function MainLayout() {
                       primaryTypographyProps={{
                         fontSize: '0.875rem',
                         fontWeight: isSelected ? 600 : 500,
-                        color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? '#1976d2' : 'rgba(0, 0, 0, 0.87)'),
+                        color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)'),
                       }}
                     />
                     <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
-                      {isOpen ? <ExpandLess sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.54)' }} /> : <ExpandMore sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.54)' }} />}
+                      {isOpen ? <ExpandLess sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text) }} /> : <ExpandMore sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text) }} />}
                     </Box>
                   </>
                 )}
@@ -436,7 +462,7 @@ export default function MainLayout() {
                 pl: sidebarCollapsed && !isMobile ? 1.5 : 2,
                 pr: 1,
                 position: 'relative',
-                ...(sidebarCollapsed && {
+                ...(sidebarCollapsed && !isMobile && {
                   '&::before': {
                     content: '""',
                     position: 'absolute',
@@ -444,17 +470,18 @@ export default function MainLayout() {
                     top: 0,
                     bottom: 0,
                     width: '2px',
-                    backgroundColor: (theme) => theme.palette.warning.main,
-                    opacity: 0.5,
+                    backgroundColor: getIconColor(item.text),
+                    opacity: 0.6,
                   },
                 }),
               }}
             >
               <List component="div" disablePadding>
-                {item.children?.map((child) => {
+                {item.children?.map((child, childIndex) => {
                   const isChildActive = child.path ? (location.pathname === child.path || location.pathname === child.path.split('?')[0]) : false;
 
                   const isChildDisabled = false;
+                  const subColor = getSubmenuColor(childIndex);
 
                   return (
                     <React.Fragment key={child.text}>
@@ -466,41 +493,47 @@ export default function MainLayout() {
                             onClick={() => {
                               if (child.path && !isChildDisabled) {
                                 handleMenuClick(child.path);
-                                if (sidebarCollapsed) {
-                                  setOpenMenus({}); // Cerrar el submenú al hacer clic en un elemento hijo
+                                // Con el panel colapsado no cerrar submenús: evita parpadeo/recarga
+                                if (!sidebarCollapsed) {
+                                  setOpenMenus({});
                                 }
                               }
                             }}
-                            sx={(theme) => ({
-                              borderRadius: 1,
-                              py: 0.75,
-                              px: sidebarCollapsed && !isMobile ? 1.5 : 2,
-                              pl: sidebarCollapsed && !isMobile ? 2.5 : (2 + (level + 1) * 1.5),
-                              justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start',
-                              minHeight: 36,
-                              position: 'relative',
-                              opacity: isChildDisabled ? 0.3 : 1,
-                              pointerEvents: isChildDisabled ? 'none' : 'auto',
-                              backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '1F' : 'transparent'),
-                              '&.Mui-selected': {
-                                backgroundColor: theme.palette.warning.main + '1F',
-                                borderLeft: sidebarCollapsed ? 'none' : `3px solid ${theme.palette.warning.main}`,
+                            sx={() => {
+                              const segColor = subColor;
+                              const bgSelected = `${segColor}1F`;
+                              const bgHover = `${segColor}29`;
+                              return {
+                                borderRadius: 1,
+                                py: 0.75,
+                                px: sidebarCollapsed && !isMobile ? 1.5 : 2,
+                                pl: sidebarCollapsed && !isMobile ? 2.5 : (2 + (level + 1) * 1.5),
+                                justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start',
+                                minHeight: 36,
+                                position: 'relative',
+                                opacity: isChildDisabled ? 0.3 : 1,
+                                pointerEvents: isChildDisabled ? 'none' : 'auto',
+                                backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? bgSelected : 'transparent'),
+                                '&.Mui-selected': {
+                                  backgroundColor: bgSelected,
+                                  borderLeft: sidebarCollapsed ? 'none' : `3px solid ${segColor}`,
+                                  '&:hover': {
+                                    backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : bgHover,
+                                  },
+                                  '& .MuiListItemIcon-root': {
+                                    color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : segColor,
+                                  },
+                                },
                                 '&:hover': {
-                                  backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : theme.palette.warning.main + '29',
+                                  backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? bgHover : 'rgba(0, 0, 0, 0.04)'),
                                 },
-                                '& .MuiListItemIcon-root': {
-                                  color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : theme.palette.warning.main,
-                                },
-                              },
-                              '&:hover': {
-                                backgroundColor: isChildDisabled ? 'rgba(0, 0, 0, 0.02)' : (isChildActive ? theme.palette.warning.main + '29' : theme.palette.action.hover),
-                              },
-                            })}
+                              };
+                            }}
                           >
                             <ListItemIcon
-                              sx={(theme) => ({
+                              sx={() => ({
                                 minWidth: sidebarCollapsed && !isMobile ? 36 : 40,
-                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.secondary),
+                                color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : subColor,
                                 justifyContent: 'center',
                                 fontSize: '1.1rem',
                               })}
@@ -514,8 +547,8 @@ export default function MainLayout() {
                                   fontSize: '0.8125rem',
                                   fontWeight: isChildActive ? 600 : 400,
                                 }}
-                                sx={(theme) => ({
-                                  color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? theme.palette.warning.main : theme.palette.text.primary),
+                                sx={() => ({
+                                  color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? subColor : 'rgba(0, 0, 0, 0.87)'),
                                 })}
                               />
                             )}
@@ -544,40 +577,36 @@ export default function MainLayout() {
             selected={isActive}
             disabled={isDisabled}
             onClick={() => !isDisabled && handleMenuClick(item.path)}
-            sx={{
-              borderRadius: 1.5,
-              py: 0.875,
-              px: sidebarCollapsed && !isMobile ? 1.5 : 2,
-              pl: sidebarCollapsed && !isMobile ? 1.5 : (2 + level * 1.5),
-              justifyContent: shouldShowText ? 'flex-start' : 'center',
-              opacity: isDisabled ? 0.5 : 1,
-              minHeight: 36,
-              '&.Mui-selected': {
-                backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                borderLeft: '3px solid #1976d2',
+            sx={() => {
+              const segColor = getIconColor(item.text);
+              const bgSelected = `${segColor}14`;
+              const bgHover = `${segColor}1F`;
+              return {
+                borderRadius: 1.5,
+                py: 0.875,
+                px: sidebarCollapsed && !isMobile ? 1.5 : 2,
+                pl: sidebarCollapsed && !isMobile ? 1.5 : (2 + level * 1.5),
+                justifyContent: shouldShowText ? 'flex-start' : 'center',
+                opacity: isDisabled ? 0.5 : 1,
+                minHeight: 36,
+                '&.Mui-selected': {
+                  backgroundColor: bgSelected,
+                  borderLeft: `3px solid ${segColor}`,
+                  '&:hover': { backgroundColor: bgHover },
+                  '& .MuiListItemIcon-root': { color: segColor },
+                  '& .MuiListItemText-primary': { fontWeight: 600, color: segColor },
+                },
                 '&:hover': {
-                  backgroundColor: 'rgba(25, 118, 210, 0.12)',
+                  backgroundColor: isDisabled ? 'transparent' : (isActive ? bgHover : 'rgba(0, 0, 0, 0.04)'),
                 },
-                '& .MuiListItemIcon-root': {
-                  color: '#1976d2',
-                },
-                '& .MuiListItemText-primary': {
-                  fontWeight: 600,
-                  color: '#1976d2',
-                },
-              },
-              '&:hover': {
-                backgroundColor: isDisabled ? 'transparent' : (isActive ? 'rgba(25, 118, 210, 0.12)' : 'rgba(0, 0, 0, 0.04)'),
-              },
-              '&.Mui-disabled': {
-                cursor: 'not-allowed',
-              },
+                '&.Mui-disabled': { cursor: 'not-allowed' },
+              };
             }}
           >
             <ListItemIcon
               sx={{
                 minWidth: sidebarCollapsed ? 24 : 36,
-                color: isActive ? '#1976d2' : isDisabled ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.7)',
+                color: isDisabled ? 'rgba(0, 0, 0, 0.3)' : getIconColor(item.text),
                 justifyContent: 'center',
                 fontSize: sidebarCollapsed ? '1.1rem' : '1.2rem',
               }}
@@ -590,7 +619,7 @@ export default function MainLayout() {
                 primaryTypographyProps={{
                   fontSize: '0.8125rem',
                   fontWeight: isActive ? 600 : 400,
-                  color: isDisabled ? 'text.disabled' : (isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.87)'),
+                  color: isDisabled ? 'text.disabled' : (isActive ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)'),
                 }}
               />
             )}
@@ -628,33 +657,50 @@ export default function MainLayout() {
   }, []);
 
 
-  // Sidebar content
+  // Sidebar content (bloqueado si Dueño/Supervisor sin procesos asignados)
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      {/* Botón para colapsar/expandir sidebar */}
-      {/* Botón para colapsar/expandir sidebar - Solo desktop */}
-      <IconButton
-        onClick={handleSidebarCollapse}
-        sx={{
-          display: { xs: 'none', md: 'flex' }, // Ocultar en móvil
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          zIndex: 10,
-          backgroundColor: 'background.paper',
-          boxShadow: 1,
-          '&:hover': {
-            backgroundColor: 'action.hover',
-          },
-        }}
-        size="small"
-      >
-        {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-      </IconButton>
+      {debeBloquearPanelPorSinAsignaciones ? (
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2,
+            textAlign: 'center',
+            opacity: 0.9,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            No tiene procesos asignados. Contacte al administrador.
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          {/* Botón para colapsar/expandir sidebar - Solo desktop */}
+          <IconButton
+            onClick={handleSidebarCollapse}
+            sx={{
+              display: { xs: 'none', md: 'flex' }, // Ocultar en móvil
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 10,
+              backgroundColor: 'background.paper',
+              boxShadow: 1,
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+            size="small"
+          >
+            {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </IconButton>
 
-      {/* Navigation Menu */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1.5, pt: 2 }}>
-        <List sx={{ px: sidebarCollapsed ? 0.5 : 1 }}>
+          {/* Navigation Menu: pt mayor para no solaparse con el botón desplegar/ocultar (móvil y web) */}
+          <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1.5, pt: { xs: 5, sm: 6, md: 6 } }}>
+            <List sx={{ px: sidebarCollapsed ? 0.5 : 1 }}>
           {/* Si es admin, siempre mostrar opciones de admin en el sidebar (no Dashboard ni Ayuda) */}
           {esAdmin ? (
             <>
@@ -703,7 +749,7 @@ export default function MainLayout() {
                       <ListItemIcon
                         sx={{
                           minWidth: sidebarCollapsed ? 24 : 36,
-                          color: isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.7)',
+                          color: getIconColor(item.text),
                           justifyContent: 'center',
                           fontSize: sidebarCollapsed ? '1.1rem' : '1.2rem',
                         }}
@@ -716,7 +762,7 @@ export default function MainLayout() {
                           primaryTypographyProps={{
                             fontSize: '0.8125rem',
                             fontWeight: isActive ? 600 : 400,
-                            color: isActive ? '#1976d2' : 'rgba(0, 0, 0, 0.87)',
+                            color: isActive ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)',
                           }}
                         />
                       )}
@@ -730,13 +776,13 @@ export default function MainLayout() {
               .filter((item) => {
                 // Filtrar items según el rol
                 if (esSupervisorRiesgos) {
-                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Eventos'];
+                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos'];
                   return allowedMenus.includes(item.text);
                 }
                 if (esDueñoProcesos) {
-                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Eventos
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Eventos'];
+                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos'];
                   return allowedMenus.includes(item.text);
                 }
                 if (esGerenteGeneral && !gerenteGeneralMode) {
@@ -755,8 +801,10 @@ export default function MainLayout() {
 
           )}
 
-        </List>
-      </Box>
+            </List>
+          </Box>
+        </>
+      )}
     </Box>
   );
 
@@ -823,278 +871,355 @@ export default function MainLayout() {
       >
         <Toolbar
           sx={{
-            minHeight: { xs: 56, sm: 64, md: 70 },
+            minHeight: { xs: 96, sm: 100, md: 70 },
+            py: { xs: 1, md: 0 },
             px: 0,
             pl: { xs: 1.5, sm: 2 },
             pr: { xs: 1.5, sm: 2, md: 3 },
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'center' },
             flexWrap: 'wrap',
-            gap: { xs: 0.5, sm: 1 },
+            gap: { xs: 0.75, sm: 1 },
             minWidth: 0,
+            width: '100%',
           }}
         >
-          {/* Logo COMWARE - Al borde izquierdo */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: { xs: 1, md: 2 },
-              cursor: 'pointer',
-              mr: { xs: 1, md: 2 },
-            }}
-            onClick={() => navigate(ROUTES.DASHBOARD)}
-          >
-            <Box
-              component="img"
-              src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
-              alt="COMWARE Logo"
-              sx={{
-                height: { xs: 35, md: 45 },
-                width: 'auto',
-                objectFit: 'contain',
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
-              }}
-            />
-            <Typography
-              variant="h6"
-              sx={{
-                display: { xs: 'none', md: 'block' },
-                fontWeight: 700,
-                color: '#1976d2',
-                fontSize: '1.1rem',
-              }}
-            >
-              Gestión de Riesgos
-            </Typography>
-          </Box>
-
-          {/* Mobile Menu Button */}
-          <IconButton
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{
-              display: { md: 'none' },
-              mr: 2,
-              color: 'rgba(0, 0, 0, 0.87)',
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
-
-          {/* Selector de Proceso y Modo - En AppBar (no mostrar para admin ni supervisor) */}
-          {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: { xs: 1, sm: 2 },
-                mr: { xs: 1, md: 2 },
-                flex: { xs: '1 1 auto', md: '0 0 auto' },
-                minWidth: 0,
-                maxWidth: { xs: '100%', sm: 360, md: 400 },
-              }}
-            >
-              {/* Selector de Proceso */}
-              <Autocomplete
-                value={procesoSeleccionado || null}
-                onChange={(_, newValue) => {
-                  if (newValue) {
-                    setProcesoSeleccionado(newValue);
-                    if (newValue.estado === 'aprobado') {
-                      setModoProceso('visualizar');
-                    } else {
-                      setModoProceso('editar');
-                    }
-                    showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
-                  } else {
-                    setProcesoSeleccionado(null);
-                    setModoProceso(null);
-                  }
+          {/* Móvil: 2 líneas. Línea 1: hamburger → logo → modo. Línea 2: lista proceso → perfil */}
+          {isMobile ? (
+            <>
+              {/* Línea 1: Hamburguesa, Logo, Modo */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  gap: 1,
+                  minHeight: 44,
                 }}
-                options={procesosDisponibles}
-                getOptionDisabled={(option) => !option.activo}
-                getOptionLabel={(option) => option.nombre}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    size="small"
-                    placeholder="Seleccionar Proceso..."
+              >
+                <IconButton
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ color: 'rgba(0, 0, 0, 0.87)', flexShrink: 0 }}
+                  aria-label="Abrir menú"
+                >
+                  <MenuIcon />
+                </IconButton>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    cursor: 'pointer',
+                    flex: 1,
+                    minWidth: 0,
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => navigate(ROUTES.DASHBOARD)}
+                >
+                  <Box
+                    component="img"
+                    src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+                    alt="COMWARE Logo"
                     sx={{
-                      width: '100%',
-                      minWidth: { xs: 0, sm: 260, md: 320 },
-                      '& .MuiOutlinedInput-root': {
-                        height: 40,
-                        backgroundColor: '#fff',
-                        borderRadius: '20px',
-                        pl: '12px !important',
-                        pr: '40px !important',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                        border: '1.5px solid',
-                        borderColor: '#e0e0e0',
-                        transition: 'all 0.2s',
-                        '& fieldset': { border: 'none' },
-                        '&:hover': {
-                          borderColor: '#1976d2',
-                          boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
-                        },
-                        '&.Mui-focused': {
-                          borderColor: '#1976d2',
-                          boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
-                        },
-                      }
+                      height: 32,
+                      width: 'auto',
+                      objectFit: 'contain',
+                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
                     }}
                   />
+                </Box>
+                {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
+                  <FormControl size="small" sx={{ flexShrink: 0 }}>
+                    <Select
+                      value={modoProceso || ''}
+                      onChange={(e) => {
+                        const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
+                        if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar' && !esDueñoProcesos) {
+                          showError('Los procesos aprobados solo pueden ser editados por el Dueño del Proceso');
+                          return;
+                        }
+                        setModoProceso(nuevoModo === '' ? null : nuevoModo);
+                      }}
+                      displayEmpty
+                      disabled={!procesoSeleccionado}
+                      sx={{
+                        height: 36,
+                        minWidth: 100,
+                        borderRadius: '18px',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#f5f5f5',
+                        color: !modoProceso ? '#666' : '#fff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                        '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                        '& .MuiSelect-icon': { color: !modoProceso ? '#666' : '#fff' },
+                      }}
+                    >
+                      <MenuItem value=""><em>Modo</em></MenuItem>
+                      <MenuItem value="visualizar">Ver</MenuItem>
+                      {(procesoSeleccionado?.estado !== 'aprobado' || esDueñoProcesos) && <MenuItem value="editar">Editar</MenuItem>}
+                    </Select>
+                  </FormControl>
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} sx={{ py: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                      <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
-                        <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
-                      </Box>
-                      <Chip
-                        label={option.activo ? 'Activo' : 'Inactivo'}
+              </Box>
+
+              {/* Línea 2: Lista de proceso + Perfil */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  width: '100%',
+                  minWidth: 0,
+                }}
+              >
+                {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
+                  <Autocomplete
+                    value={procesoSeleccionado || null}
+                    onChange={(_, newValue) => {
+                      if (newValue) {
+                        setProcesoSeleccionado(newValue);
+                        if (newValue.estado === 'aprobado') setModoProceso('visualizar');
+                        else setModoProceso('editar');
+                        showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+                      } else {
+                        setProcesoSeleccionado(null);
+                        setModoProceso(null);
+                      }
+                    }}
+                    options={procesosDisponibles}
+                    getOptionDisabled={(option) => !option.activo}
+                    getOptionLabel={(option) => option.nombre}
+                    ListboxProps={{ style: { maxHeight: 'min(70vh, 400px)' }, sx: { py: 0 } }}
+                    slotProps={{
+                      paper: { sx: { maxHeight: 'min(70vh, 400px)', minWidth: 280, mt: 0.5 } },
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
                         size="small"
-                        color={option.activo ? 'success' : 'error'}
+                        placeholder="Proceso..."
                         sx={{
-                          height: 18,
-                          fontSize: '0.65rem',
-                          fontWeight: 700,
-                          opacity: option.activo ? 1 : 0.7
+                          flex: 1,
+                          minWidth: 0,
+                          '& .MuiOutlinedInput-root': {
+                            height: 38,
+                            borderRadius: '19px',
+                            backgroundColor: '#fff',
+                            '& fieldset': { border: '1.5px solid #e0e0e0' },
+                          },
                         }}
                       />
-                    </Box>
-                  </Box>
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} sx={{ py: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                          <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
+                            <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                          </Box>
+                          <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
+                        </Box>
+                      </Box>
+                    )}
+                    noOptionsText="No hay procesos"
+                  />
                 )}
-                noOptionsText="No hay procesos"
-              />
-
-              {/* Selector de Modo */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControl size="small">
-                  <Select
-                    value={modoProceso || ''}
-                    onChange={(e) => {
-                      const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
-                      if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar' && !esDueñoProcesos) {
-                        showError('Los procesos aprobados solo pueden ser editados por el Dueño del Proceso');
-                        return;
-                      }
-                      setModoProceso(nuevoModo === '' ? null : nuevoModo);
-                    }}
-                    displayEmpty
-                    disabled={!procesoSeleccionado}
+                <Box sx={{ flexGrow: 1, minWidth: 8 }} />
+                {user && (
+                  <IconButton
+                    onClick={handleUserMenuOpen}
                     sx={{
+                      flexShrink: 0,
+                      p: 0,
+                      width: 40,
                       height: 40,
-                      minWidth: { xs: 100, sm: 140 },
-                      borderRadius: '20px',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#f5f5f5',
-                      color: !modoProceso ? '#666' : '#fff',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                      '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                      '& .MuiSelect-icon': { color: !modoProceso ? '#666' : '#fff' },
-                      '&:hover': {
-                        filter: 'brightness(1.05)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                      },
-                      transition: 'all 0.2s',
+                      '&:hover': { opacity: 0.9 },
+                    }}
+                    aria-label="Menú de usuario"
+                  >
+                    {user.fotoPerfil ? (
+                      <Avatar
+                        src={user.fotoPerfil}
+                        sx={{ width: 40, height: 40, border: '2px solid #1976d2', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <AccountCircleIcon sx={{ color: '#1976d2', fontSize: 28 }} />
+                    )}
+                  </IconButton>
+                )}
+              </Box>
+            </>
+          ) : (
+            <>
+              {/* Desktop: Logo a la izquierda */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  cursor: 'pointer',
+                  mr: 2,
+                }}
+                onClick={() => navigate(ROUTES.DASHBOARD)}
+              >
+                <Box
+                  component="img"
+                  src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+                  alt="COMWARE Logo"
+                  sx={{
+                    height: 45,
+                    width: 'auto',
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
+                  }}
+                />
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2', fontSize: '1.1rem' }}>
+                  Gestión de Riesgos
+                </Typography>
+              </Box>
+
+              {/* Selector de Proceso y Modo - Desktop */}
+              {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mr: 2, flex: '0 0 auto', minWidth: 0, maxWidth: 400 }}>
+                  <Autocomplete
+                    value={procesoSeleccionado || null}
+                    onChange={(_, newValue) => {
+                      if (newValue) {
+                        setProcesoSeleccionado(newValue);
+                        if (newValue.estado === 'aprobado') setModoProceso('visualizar');
+                        else setModoProceso('editar');
+                        showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+                      } else {
+                        setProcesoSeleccionado(null);
+                        setModoProceso(null);
+                      }
+                    }}
+                    options={procesosDisponibles}
+                    getOptionDisabled={(option) => !option.activo}
+                    getOptionLabel={(option) => option.nombre}
+                    ListboxProps={{ style: { maxHeight: 'min(70vh, 400px)' }, sx: { py: 0 } }}
+                    slotProps={{
+                      paper: { sx: { maxHeight: 'min(70vh, 400px)', minWidth: 280, mt: 0.5 } },
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        placeholder="Seleccionar Proceso..."
+                        sx={{
+                          width: '100%',
+                          minWidth: 320,
+                          '& .MuiOutlinedInput-root': {
+                            height: 40,
+                            backgroundColor: '#fff',
+                            borderRadius: '20px',
+                            pl: '12px !important',
+                            pr: '40px !important',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                            border: '1.5px solid',
+                            borderColor: '#e0e0e0',
+                            '& fieldset': { border: 'none' },
+                            '&:hover': { borderColor: '#1976d2', boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)' },
+                            '&.Mui-focused': { borderColor: '#1976d2', boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)' },
+                          },
+                        }}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} sx={{ py: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                          <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
+                            <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                          </Box>
+                          <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
+                        </Box>
+                      </Box>
+                    )}
+                    noOptionsText="No hay procesos"
+                  />
+                  <FormControl size="small">
+                    <Select
+                      value={modoProceso || ''}
+                      onChange={(e) => {
+                        const nuevoModo = e.target.value as 'editar' | 'visualizar' | '';
+                        if (procesoSeleccionado?.estado === 'aprobado' && nuevoModo === 'editar' && !esDueñoProcesos) {
+                          showError('Los procesos aprobados solo pueden ser editados por el Dueño del Proceso');
+                          return;
+                        }
+                        setModoProceso(nuevoModo === '' ? null : nuevoModo);
+                      }}
+                      displayEmpty
+                      disabled={!procesoSeleccionado}
+                      sx={{
+                        height: 40,
+                        minWidth: 140,
+                        borderRadius: '20px',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                        backgroundColor: modoProceso === 'editar' ? '#ff9800' : modoProceso === 'visualizar' ? '#2196f3' : '#f5f5f5',
+                        color: !modoProceso ? '#666' : '#fff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                        '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                        '& .MuiSelect-icon': { color: !modoProceso ? '#666' : '#fff' },
+                        '&:hover': { filter: 'brightness(1.05)', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' },
+                      }}
+                    >
+                      <MenuItem value=""><em>Modo</em></MenuItem>
+                      <MenuItem value="visualizar">Visualizar</MenuItem>
+                      {(procesoSeleccionado?.estado !== 'aprobado' || esDueñoProcesos) && <MenuItem value="editar">Editar</MenuItem>}
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
+
+              <Box sx={{ flexGrow: 1 }} />
+
+              {user && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    mr: 2,
+                    cursor: 'pointer',
+                    p: 0.5,
+                    px: 1,
+                    borderRadius: '30px',
+                    '&:hover': { backgroundColor: 'rgba(0,0,0,0.03)' },
+                  }}
+                  onClick={handleUserMenuOpen}
+                >
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.1 }}>
+                      {user.fullName}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                      {getNombreRol()}
+                    </Typography>
+                  </Box>
+                  <Avatar
+                    src={user.fotoPerfil || undefined}
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      bgcolor: '#1976d2',
+                      border: '2px solid #fff',
+                      boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)',
+                      objectFit: 'cover',
                     }}
                   >
-                    <MenuItem value=""><em>Modo</em></MenuItem>
-                    <MenuItem value="visualizar">Visualizar</MenuItem>
-                    {(procesoSeleccionado?.estado !== 'aprobado' || esDueñoProcesos) && <MenuItem value="editar">Editar</MenuItem>}
-                  </Select>
-                </FormControl>
-              </Box>
-            </Box>
-          )}
-
-          {/* Riesgo Seleccionado - Oculto del AppBar, solo se muestra en las páginas internas como Plan de Acción */}
-
-          {/* Spacer */}
-          <Box sx={{ flexGrow: 1 }} />
-
-          {/* Notificaciones */}
-          <NotificacionesMenu />
-
-          {user && (
-            <Box
-              sx={{
-                display: { xs: 'none', md: 'flex' },
-                alignItems: 'center',
-                gap: 1.5,
-                mr: 2,
-                cursor: 'pointer',
-                p: 0.5,
-                px: 1,
-                borderRadius: '30px',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  backgroundColor: 'rgba(0,0,0,0.03)',
-                }
-              }}
-              onClick={handleUserMenuOpen}
-            >
-              <Box sx={{ textAlign: 'right' }}>
-                <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.1 }}>
-                  {user.fullName}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                  {getNombreRol()}
-                </Typography>
-              </Box>
-              <Avatar
-                sx={{
-                  width: 38,
-                  height: 38,
-                  bgcolor: '#1976d2',
-                  border: '2px solid #fff',
-                  boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)',
-                }}
-              >
-                {user.fullName.charAt(0)}
-              </Avatar>
-            </Box>
-          )}
-
-          {/* User Menu - Mobile */}
-          {user && (
-            <Box
-              sx={{
-                display: { xs: 'flex', md: 'none' },
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.87)' }}>
-                  {user.fullName}
-                </Typography>
-                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'rgba(0, 0, 0, 0.60)' }}>
-                  {getNombreRol()}
-                </Typography>
-              </Box>
-              <IconButton
-                onClick={handleUserMenuOpen}
-                sx={{
-                  background: '#F0F0F0',
-                  border: '2px solid #1976d2',
-                  width: 40,
-                  height: 40,
-                  boxShadow: '0 0 10px rgba(25, 118, 210, 0.2)',
-                  '&:hover': {
-                    background: '#E8E8E8',
-                    boxShadow: '0 0 15px rgba(25, 118, 210, 0.4)',
-                  },
-                }}
-              >
-                <AccountCircleIcon sx={{ color: '#1976d2', fontSize: 24 }} />
-              </IconButton>
-            </Box>
+                    {!user.fotoPerfil && user.fullName?.charAt(0)}
+                  </Avatar>
+                </Box>
+              )}
+            </>
           )}
 
           {/* User Dropdown Menu */}
@@ -1147,6 +1272,17 @@ export default function MainLayout() {
               </Typography>
             </Box>
             <Divider />
+            <MenuItem
+              key="ver-perfil"
+              onClick={() => {
+                handleUserMenuClose();
+                setPerfilOpen(true);
+              }}
+              sx={{ py: 1.5, color: '#1976d2' }}
+            >
+              <PersonIcon sx={{ mr: 1.5, fontSize: 20 }} />
+              Ver perfil
+            </MenuItem>
             {esAdmin && (
               <MenuItem
                 key="admin-panel"
@@ -1160,12 +1296,51 @@ export default function MainLayout() {
                 Panel Administrativo
               </MenuItem>
             )}
-            {esAdmin && <Divider key="admin-divider" />}
+            {esGerenteGeneral && (
+              <>
+                <Divider />
+                <Box sx={{ px: 2, py: 1 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                    Cambiar modo
+                  </Typography>
+                </Box>
+                <MenuItem
+                  onClick={() => {
+                    setGerenteGeneralMode('director');
+                    handleUserMenuClose();
+                    navigate(ROUTES.DASHBOARD_SUPERVISOR);
+                  }}
+                  sx={{ py: 1.25 }}
+                >
+                  <BarChartIcon sx={{ mr: 1.5, fontSize: 20 }} />
+                  Usar como Supervisor
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setGerenteGeneralMode('proceso');
+                    handleUserMenuClose();
+                    navigate(ROUTES.PROCESOS);
+                  }}
+                  sx={{ py: 1.25 }}
+                >
+                  <AccountTreeIcon sx={{ mr: 1.5, fontSize: 20 }} />
+                  Usar como Dueño de proceso
+                </MenuItem>
+              </>
+            )}
+            <Divider />
             <MenuItem key="logout" onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
               <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
               Cerrar Sesión
             </MenuItem>
           </Menu>
+
+          <PerfilDialog
+            open={perfilOpen}
+            onClose={() => setPerfilOpen(false)}
+            user={user}
+            onSaved={refreshUser}
+          />
         </Toolbar>
       </AppBar>
 
@@ -1175,7 +1350,7 @@ export default function MainLayout() {
           display: 'flex',
           flexGrow: 1,
           minHeight: 0,
-          mt: { xs: '56px', sm: '64px', md: '70px' }, // Margen superior para compensar AppBar fijo
+          mt: { xs: '96px', sm: '100px', md: '70px' }, // Margen superior para compensar AppBar fijo (móvil 2 líneas)
         }}
       >
         {/* Sidebar Container - Contenedor del sidebar */}
@@ -1212,7 +1387,7 @@ export default function MainLayout() {
           </Drawer>
         </Box>
 
-        {/* Mobile Temporary Drawer */}
+        {/* Mobile Temporary Drawer: z-index alto para que no lo tape el contenido */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -1220,19 +1395,31 @@ export default function MainLayout() {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', md: 'none' },
+            zIndex: 1300,
+            '& .MuiBackdrop-root': {
+              top: { xs: 96, sm: 100 },
+              zIndex: 1299,
+            },
             '& .MuiDrawer-paper': {
               width: DRAWER_WIDTH,
               boxSizing: 'border-box',
               borderRight: '1px solid',
               borderColor: 'divider',
               background: '#FFFFFF',
+              top: { xs: 96, sm: 100 },
+              height: { xs: 'calc(100vh - 96px)', sm: 'calc(100vh - 100px)' },
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              WebkitOverflowScrolling: 'touch',
+              pt: 0.5,
+              zIndex: 1300,
             },
           }}
         >
           {drawerContent}
         </Drawer>
 
-        {/* Main Content Container - Contenedor del contenido principal */}
+        {/* Main Content Container - en móvil z-index bajo para que el drawer quede encima */}
         <Box
           component="main"
           sx={{
@@ -1245,7 +1432,7 @@ export default function MainLayout() {
             overflow: 'auto',
             overflowX: 'hidden',
             position: 'relative',
-            zIndex: 1,
+            zIndex: { xs: 0, md: 1 },
           }}
         >
           {/* Content Wrapper - Contenedor interno para fácil configuración */}
@@ -1265,15 +1452,24 @@ export default function MainLayout() {
                 background: (theme) => theme.palette.background.default,
               }}
             >
-              {/* Mostrar alerta solo si NO estamos en dashboard o mapa (tienen sus propios filtros) */}
-              {esDueñoProcesos && tieneAsignaciones && !procesoSeleccionado?.id && 
-               location.pathname !== ROUTES.DASHBOARD_SUPERVISOR && 
-               location.pathname !== ROUTES.MAPA && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Seleccione un proceso para habilitar el resto del menú.
+              {/* Sin procesos asignados: mensaje único y no mostrar contenido */}
+              {debeBloquearPanelPorSinAsignaciones ? (
+                <Alert severity="warning" sx={{ maxWidth: 480 }}>
+                  No tiene procesos asignados. Contacte al administrador para que le asigne procesos.
                 </Alert>
+              ) : (
+                <>
+                  {/* Mostrar alerta solo cuando SÍ hay asignaciones y aún no ha elegido proceso */}
+                  {(esDueñoProcesos || esSupervisorRiesgos) && tieneAsignaciones && !procesoSeleccionado?.id &&
+                   location.pathname !== ROUTES.DASHBOARD_SUPERVISOR &&
+                   location.pathname !== ROUTES.MAPA && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Seleccione un proceso para habilitar el resto del menú.
+                    </Alert>
+                  )}
+                  <Outlet />
+                </>
               )}
-              <Outlet />
             </Box>
           </Box>
         </Box>

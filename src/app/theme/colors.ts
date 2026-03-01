@@ -126,6 +126,35 @@ export const colors = {
 
   // Divisores
   divider: "rgba(0, 0, 0, 0.12)",
+
+  // Sidebar: menú principal y submenús (submenús con colores distintos al principal)
+  sidebar: {
+    mainMenu: {
+      dashboard: "#1976d2",
+      procesos: "#0288d1",
+      identificacion: "#2e7d32",
+      controles: "#ed6c02",
+      materializarRiesgos: "#9c27b0",
+      usuarios: "#7b1fa2",
+      areasAsignaciones: "#00796b",
+      confMapaRiesgos: "#1565c0",
+      parametrosCalificacion: "#5d4037",
+      calificacionInherente: "#5d4037",
+      calificacionResidual: "#5d4037",
+    },
+    submenu: [
+      "#7b1fa2",
+      "#00796b",
+      "#1565c0",
+      "#5d4037",
+      "#2e7d32",
+      "#c62828",
+      "#6a1b9a",
+      "#00838f",
+      "#558b2f",
+      "#ef6c00",
+    ],
+  },
 };
 
 // Helper para obtener color de nivel de riesgo

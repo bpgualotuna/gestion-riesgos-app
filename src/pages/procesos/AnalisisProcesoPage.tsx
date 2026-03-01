@@ -22,6 +22,8 @@ import {
   DialogTitle,
   DialogContent,
   IconButton,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -34,7 +36,9 @@ import {
   Visibility as VisibilityIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -44,6 +48,8 @@ import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 
 export default function AnalisisProcesoPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
@@ -76,18 +82,55 @@ export default function AnalisisProcesoPage() {
 
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<'selected' | 'saved' | null>(null);
+  const [deleteModalLoading, setDeleteModalLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+
+  const setFileIfValid = (file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      showError('El archivo es demasiado grande. Máximo 5MB.');
+      return;
+    }
+    if (!acceptedMimeTypes.includes(file.type)) {
+      showError('Formato no permitido. Use PDF, PNG, JPG o DOCX.');
+      return;
+    }
+    setSelectedFile(file);
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('El archivo es demasiado grande. Máximo 5MB.');
-        return;
-      }
-      setSelectedFile(file);
+    if (file) setFileIfValid(file);
+    event.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!savedFile && e.dataTransfer.types.includes('Files')) setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (savedFile) {
+      showError('Solo se permite un archivo a la vez. Elimine el archivo guardado para subir otro.');
+      return;
     }
+    const file = e.dataTransfer.files?.[0];
+    if (file) setFileIfValid(file);
   };
 
   const handleRequestDelete = (type: 'selected' | 'saved') => {
@@ -96,14 +139,19 @@ export default function AnalisisProcesoPage() {
   };
 
   const handleConfirmDelete = async () => {
-    if (fileToDelete === 'selected') {
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+    setDeleteModalLoading(true);
+    try {
+      if (fileToDelete === 'selected') {
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setDeleteConfirmationOpen(false);
+        setFileToDelete(null);
+        setDeleteModalLoading(false);
+        return;
       }
-    } else if (fileToDelete === 'saved' && savedFile && procesoSeleccionado?.id) {
-      try {
-        // Eliminar en Azure Blob (o Cloudinary): backend espera ?url= con la URL guardada
+      if (fileToDelete === 'saved' && savedFile && procesoSeleccionado?.id) {
         const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(savedFile.url)}`;
         const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
         const res = await fetch(deleteUrl, {
@@ -119,17 +167,19 @@ export default function AnalisisProcesoPage() {
             documentoNombre: null,
           }).unwrap();
           setSavedFile(null);
+          setDeleteConfirmationOpen(false);
+          setFileToDelete(null);
           showSuccess('Archivo eliminado');
         } else {
           const data = await res.json().catch(() => ({}));
           showError(data?.error || 'Error al eliminar el archivo');
         }
-      } catch (e) {
-        showError('Error al eliminar el archivo');
       }
+    } catch (e) {
+      showError('Error al eliminar el archivo');
+    } finally {
+      setDeleteModalLoading(false);
     }
-    setDeleteConfirmationOpen(false);
-    setFileToDelete(null);
   };
 
   const handleSave = async () => {
@@ -137,7 +187,7 @@ export default function AnalisisProcesoPage() {
       showError('Debe seleccionar un proceso');
       return;
     }
-
+    setSaving(true);
     try {
       let documentoUrl: string | null = savedFile ? savedFile.url : null;
       let documentoNombre: string | null = savedFile ? savedFile.name : null;
@@ -155,6 +205,7 @@ export default function AnalisisProcesoPage() {
         if (!uploadRes.ok) {
           const err = await uploadRes.json().catch(() => ({}));
           showError(err?.error || 'Error al subir el archivo');
+          setSaving(false);
           return;
         }
         const uploadData = await uploadRes.json();
@@ -176,20 +227,28 @@ export default function AnalisisProcesoPage() {
       showSuccess('Análisis de proceso y documentación guardados exitosamente');
     } catch (error) {
       showError('Error al guardar el análisis');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handlePreview = (url: string, name: string) => {
     const isPdf = name.toLowerCase().endsWith('.pdf');
     const isImage = /\.(jpg|jpeg|png|gif)$/i.test(name);
+    const u = (url || '').trim();
+    if (!u.startsWith('http')) {
+      showError('URL del archivo no válida');
+      return;
+    }
+    const urlSinCache = `${u}#_t=${Date.now()}`;
 
     if (isPdf) {
       setPreviewType('pdf');
-      setPreviewUrl(url);
+      setPreviewUrl(urlSinCache);
       setPreviewOpen(true);
     } else if (isImage) {
       setPreviewType('image');
-      setPreviewUrl(url);
+      setPreviewUrl(urlSinCache);
       setPreviewOpen(true);
     }
   };
@@ -251,8 +310,9 @@ export default function AnalisisProcesoPage() {
           {!isReadOnly && (
             <Button
               variant="contained"
-              startIcon={<SaveIcon />}
+              startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
               onClick={handleSave}
+              disabled={saving}
               sx={{
                 background: '#1976d2',
                 color: '#fff',
@@ -261,7 +321,7 @@ export default function AnalisisProcesoPage() {
                 fontWeight: 700,
               }}
             >
-              Guardar Análisis
+              {saving ? 'Guardando…' : 'Guardar Análisis'}
             </Button>
           )}
         </Box>
@@ -384,12 +444,16 @@ export default function AnalisisProcesoPage() {
                 <Box>
                   <Paper
                     elevation={0}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
                     sx={{
                       p: 2.5,
-                      backgroundColor: 'rgba(255, 165, 0, 0.05)',
-                      border: '1px dashed',
-                      borderColor: '#FFA500',
+                      backgroundColor: dragOver ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 165, 0, 0.05)',
+                      border: '2px dashed',
+                      borderColor: dragOver ? 'primary.main' : '#FFA500',
                       borderRadius: 2,
+                      transition: 'background-color 0.2s, border-color 0.2s',
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
@@ -399,7 +463,7 @@ export default function AnalisisProcesoPage() {
                           Archivos Adjuntos
                         </Typography>
                         <Typography variant="body2" color="text.secondary" paragraph>
-                          Puede adjuntar diagramas y archivos adicionales (PDF, PNG, JPG, DOCX). Solo se permite un archivo a la vez.
+                          Arrastre un archivo aquí desde el escritorio o use el botón para seleccionar. PDF, PNG, JPG, DOCX. Máx. 5MB. Un archivo a la vez.
                         </Typography>
 
                         {/* Saved File Display */}
@@ -504,8 +568,9 @@ export default function AnalisisProcesoPage() {
                       </Button>
                       <Button
                         variant="contained"
-                        startIcon={<SaveIcon />}
+                        startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
                         onClick={handleSave}
+                        disabled={saving}
                         sx={{
                           borderRadius: 2,
                           px: 4,
@@ -518,7 +583,7 @@ export default function AnalisisProcesoPage() {
                           transition: 'all 0.3s ease',
                         }}
                       >
-                        Guardar Análisis
+                        {saving ? 'Guardando…' : 'Guardar Análisis'}
                       </Button>
                     </Box>
                   </Box>
@@ -529,29 +594,30 @@ export default function AnalisisProcesoPage() {
         </Box>
       </Box>
 
-      {/* Preview Modal */}
+      {/* Preview Modal - En móvil los PDF se abren en nueva pestaña para evitar errores de iframe */}
       <Dialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
         maxWidth="lg"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
           sx: {
-            height: '90vh',
-            maxHeight: '90vh',
-            borderRadius: 2,
+            height: isMobile ? '100%' : '90vh',
+            maxHeight: isMobile ? '100%' : '90vh',
+            borderRadius: isMobile ? 0 : 2,
           }
         }}
       >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0', p: 2 }}>
-          <Typography variant="h6" fontWeight={600}>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0', p: { xs: 1.5, sm: 2 } }}>
+          <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Vista Previa del Archivo
           </Typography>
           <IconButton onClick={() => setPreviewOpen(false)} size="small">
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, height: '100%', bgcolor: '#f5f5f5', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <DialogContent sx={{ p: 0, height: '100%', bgcolor: '#f5f5f5', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
           {previewUrl && (
             <>
               {previewType === 'image' && (
@@ -566,7 +632,22 @@ export default function AnalisisProcesoPage() {
                   }}
                 />
               )}
-              {previewType === 'pdf' && (
+              {previewType === 'pdf' && isMobile && (
+                <Box sx={{ p: 3, textAlign: 'center', maxWidth: 360 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    En el celular el PDF no se puede mostrar aquí. Ábrelo en una nueva pestaña para verlo correctamente.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Abrir documento en nueva pestaña
+                  </Button>
+                </Box>
+              )}
+              {previewType === 'pdf' && !isMobile && (
                 <iframe
                   src={previewUrl}
                   width="100%"
@@ -583,22 +664,32 @@ export default function AnalisisProcesoPage() {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteConfirmationOpen}
-        onClose={() => setDeleteConfirmationOpen(false)}
+        onClose={() => !deleteModalLoading && setDeleteConfirmationOpen(false)}
+        disableEscapeKeyDown={deleteModalLoading}
       >
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>
-          <Typography>
-            ¿Está seguro de que desea eliminar este archivo? Esta acción no se puede deshacer.
-          </Typography>
+          {deleteModalLoading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, py: 3 }}>
+              <CircularProgress size={28} />
+              <Typography color="text.secondary">Eliminando…</Typography>
+            </Box>
+          ) : (
+            <Typography>
+              ¿Está seguro de que desea eliminar este archivo? Esta acción no se puede deshacer.
+            </Typography>
+          )}
         </DialogContent>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button onClick={() => setDeleteConfirmationOpen(false)} color="inherit">
-            Cancelar
-          </Button>
-          <Button onClick={handleConfirmDelete} color="error" variant="contained">
-            Eliminar
-          </Button>
-        </Box>
+        {!deleteModalLoading && (
+          <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button onClick={() => setDeleteConfirmationOpen(false)} color="inherit">
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmDelete} color="error" variant="contained">
+              Eliminar
+            </Button>
+          </Box>
+        )}
       </Dialog>
     </AppPageLayout>
   );

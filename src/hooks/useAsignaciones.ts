@@ -1,4 +1,4 @@
-﻿import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Proceso } from '../types';
 import { useGetProcesosQuery } from '../api/services/riesgosApi';
 
@@ -72,19 +72,15 @@ export const useAreasProcesosAsignados = () => {
             )
         );
     }
-    // 3) Supervisor de Riesgos: ver procesos donde es responsable (cualquier modo)
+    // 3) Supervisor de Riesgos: procesos donde es director o responsable (igual que el selector del header)
     else if (esSupervisorRiesgos) {
-        procesosAsignados = procesos.filter((p) => esUsuarioResponsableProceso(p, userIdNum));
-    }
-    // 4) Dueño de Proceso real: ver procesos donde es responsable con modo 'proceso' o null
-    else if (esDueñoProcesos) {
         procesosAsignados = procesos.filter((p: any) =>
-            (p.responsablesList || []).some(
-                (r: any) =>
-                    Number(r.id) === userIdNum &&
-                    (r.modo === 'proceso' || r.modo === null)
-            )
+            Number(p.directorId) === userIdNum || esUsuarioResponsableProceso(p, userIdNum)
         );
+    }
+    // 4) Dueño de Proceso: misma lógica que el selector (responsableId o responsablesList)
+    else if (esDueñoProcesos) {
+        procesosAsignados = procesos.filter((p) => esUsuarioResponsableProceso(p, userIdNum));
     } else {
         // Otros roles (admin, etc.) no usan este hook para restringir vistas
         return { areas: [] as string[], procesos: [] as string[], loading: isLoading };

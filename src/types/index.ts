@@ -1,4 +1,4 @@
-﻿
+
 export interface Impactos {
   personas: number;
   legal: number;
@@ -219,16 +219,6 @@ export interface UpdateProcesoDto extends Partial<CreateProcesoDto> {
   contextos?: Array<{ tipo: string; descripcion: string }>;
 }
 
-export interface CreateNotificacionDto {
-  mensaje: string;
-  tipo: 'info' | 'warning' | 'error' | 'success';
-  fecha?: string;
-}
-
-export interface UpdateNotificacionDto extends Partial<CreateNotificacionDto> {
-  leida?: boolean;
-}
-
 export const EstadoProceso = {
   BORRADOR: 'borrador',
   EN_REVISION: 'en_revision',
@@ -322,33 +312,6 @@ export interface CreatePriorizacionDto {
   respuesta: string;
   responsable?: string;
   puntajePriorizacion?: number;
-}
-
-export interface Notificacion {
-  id: string;
-  usuarioId: string;
-  procesoId?: string;
-  titulo: string;
-  mensaje: string;
-  leida: boolean;
-  tipo: 'info' | 'warning' | 'error' | 'success';
-  fechaLeida?: string;
-  createdAt: string;
-}
-
-export interface Tarea {
-  id: string;
-  notificacionId: string;
-  usuarioId: string;
-  procesoId?: string;
-  titulo: string;
-  descripcion: string;
-  estado: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
-  prioridad: 'critica' | 'alta' | 'media' | 'baja';
-  completada: boolean;
-  fechaCompletada?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Causa {

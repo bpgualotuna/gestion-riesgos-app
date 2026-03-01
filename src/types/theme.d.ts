@@ -9,6 +9,10 @@ declare module '@mui/material/styles' {
             blue: string;
             blueDark: string;
         };
+        sidebar: {
+            mainMenu: Record<string, string>;
+            submenu: string[];
+        };
     }
     interface PaletteOptions {
         brand?: {
@@ -16,6 +20,10 @@ declare module '@mui/material/styles' {
             orange?: string;
             blue?: string;
             blueDark?: string;
+        };
+        sidebar?: {
+            mainMenu?: Record<string, string>;
+            submenu?: string[];
         };
     }
     interface TypeBackground {

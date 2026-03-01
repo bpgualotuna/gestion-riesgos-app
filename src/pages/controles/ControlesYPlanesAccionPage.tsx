@@ -481,10 +481,9 @@ export default function ControlesYPlanesAccionPageNueva() {
       impactosResiduales: tipoClasificacion === 'control' ? impactosResiduales : undefined,
       frecuenciaResidual: tipoClasificacion === 'control' ? frecuenciaResidual : undefined,
       planDescripcion: tipoClasificacion === 'plan' ? formPlan.descripcion : undefined,
+      planDetalle: tipoClasificacion === 'plan' ? formPlan.detalle : undefined,
       planResponsable: tipoClasificacion === 'plan' ? formPlan.responsable : undefined,
-      planDecision: tipoClasificacion === 'plan' ? formPlan.decision : undefined,
       planFechaEstimada: tipoClasificacion === 'plan' ? formPlan.fechaEstimada : undefined,
-      planEstado: tipoClasificacion === 'plan' ? formPlan.estado : undefined,
       procesoId: String(procesoSeleccionado!.id),
       createdAt: clasificacion?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
@@ -570,9 +569,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: formPlan.descripcion,
               planDetalle: formPlan.detalle,
               planResponsable: formPlan.responsable,
-              planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
-              planEstado: formPlan.estado,
               gestion: {
                 ...(c.gestion || {}),
                 estadoAmbos: nuevoEstadoAmbos
@@ -624,9 +621,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: c.planDescripcion,
               planDetalle: c.planDetalle,
               planResponsable: c.planResponsable,
-              planDecision: c.planDecision,
               planFechaEstimada: c.planFechaEstimada,
-              planEstado: c.planEstado,
               gestion: {
                 ...(c.gestion || {}),
                 estadoAmbos: nuevoEstadoAmbos
@@ -640,9 +635,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: formPlan.descripcion,
               planDetalle: formPlan.detalle,
               planResponsable: formPlan.responsable,
-              planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
-              planEstado: formPlan.estado,
               // ← PRESERVAR datos del control existente
               ...criteriosEvaluacion,
               controlDesviaciones: c.controlDesviaciones,
@@ -710,9 +703,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: formPlan.descripcion,
               planDetalle: formPlan.detalle,
               planResponsable: formPlan.responsable,
-              planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
-              planEstado: formPlan.estado,
               gestion: {
                 estadoAmbos: { controlActivo: true, planActivo: true }
               }
@@ -727,9 +718,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             planDescripcion: formPlan.descripcion,
             planDetalle: formPlan.detalle,
             planResponsable: formPlan.responsable,
-            planDecision: formPlan.decision,
             planFechaEstimada: formPlan.fechaEstimada,
-            planEstado: formPlan.estado,
             puntajeTotal: undefined, porcentajeMitigacion: 0
           };
           return causaActualizada;
@@ -912,9 +901,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             planDescripcion: causa.planDescripcion,
             planDetalle: causa.planDetalle,
             planResponsable: causa.planResponsable,
-            planDecision: causa.planDecision,
             planFechaEstimada: causa.planFechaEstimada,
-            planEstado: causa.planEstado,
             // Datos del control
             aplicabilidad: causa.aplicabilidad,
             puntajeAplicabilidad: causa.puntajeAplicabilidad,
@@ -2443,7 +2430,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       }}
                                     >
                                     <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
-                                      <TableCell>{causa.planDescripcion || causa.gestion?.planDescripcion || 'Sin descripción'}</TableCell>
+                                      <TableCell sx={{ maxWidth: 360 }}>{causa.planDetalle || causa.gestion?.planDetalle || causa.planDescripcion || causa.gestion?.planDescripcion || 'Sin descripción'}</TableCell>
                                       <TableCell>{causa.planResponsable || causa.gestion?.planResponsable || 'N/A'}</TableCell>
                                       <TableCell align="center">{causa.planFechaEstimada || causa.gestion?.planFechaEstimada || 'N/A'}</TableCell>
                                     <TableCell align="center">
@@ -2554,7 +2541,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                 <Typography variant="body2" sx={{ mb: 2 }}>
                   {(itemDetalle as any).descripcion ?? causaDetalleView?.causa?.descripcion ?? 'Sin descripción'}
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Fuente</Typography>
                     <Typography variant="body2">
@@ -2565,12 +2552,6 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Typography variant="caption" color="text.secondary">Frecuencia</Typography>
                     <Typography variant="body2">
                       {(itemDetalle as any).frecuencia ?? causaDetalleView?.causa?.frecuencia ?? 'N/A'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Impacto Global</Typography>
-                    <Typography variant="body2">
-                      {(itemDetalle as any).calificacionGlobalImpacto ?? causaDetalleView?.causa?.calificacionGlobalImpacto ?? 'N/A'}
                     </Typography>
                   </Box>
                 </Box>
@@ -2681,50 +2662,26 @@ export default function ControlesYPlanesAccionPageNueva() {
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Plan de Acción
                   </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Descripción</Typography>
-                      <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {(itemDetalle as any).planDescripcion || (itemDetalle as any).gestion?.planDescripcion || causaDetalleView?.causa?.planDescripcion || 'N/A'}
-                      </Typography>
-                    </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Detalle</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">Descripción detallada</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
                         {(itemDetalle as any).planDetalle || (itemDetalle as any).gestion?.planDetalle || causaDetalleView?.causa?.planDetalle || 'N/A'}
                       </Typography>
                     </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Responsable</Typography>
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        {(itemDetalle as any).planResponsable || (itemDetalle as any).gestion?.planResponsable || causaDetalleView?.causa?.planResponsable || 'N/A'}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Fecha Estimada</Typography>
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        {(itemDetalle as any).planFechaEstimada || (itemDetalle as any).gestion?.planFechaEstimada || causaDetalleView?.causa?.planFechaEstimada || 'N/A'}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Decisión</Typography>
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        {(itemDetalle as any).planDecision || (itemDetalle as any).gestion?.planDecision || causaDetalleView?.causa?.planDecision || 'N/A'}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Estado</Typography>
-                      <Chip
-                        label={(itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || 'N/A'}
-                        size="small"
-                        color={
-                          ((itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'completado'
-                            ? 'success'
-                            : ((itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || '').toLowerCase() === 'en_progreso'
-                            ? 'warning'
-                            : 'default'
-                        }
-                      />
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block">Responsable</Typography>
+                        <Typography variant="body2" sx={{ mb: 2 }}>
+                          {(itemDetalle as any).planResponsable || (itemDetalle as any).gestion?.planResponsable || causaDetalleView?.causa?.planResponsable || 'N/A'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block">Fecha Estimada</Typography>
+                        <Typography variant="body2" sx={{ mb: 2 }}>
+                          {(itemDetalle as any).planFechaEstimada || (itemDetalle as any).gestion?.planFechaEstimada || causaDetalleView?.causa?.planFechaEstimada || 'N/A'}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Box>
                 </Box>
@@ -2777,8 +2734,8 @@ export default function ControlesYPlanesAccionPageNueva() {
           {tipoClasificacion === 'control' && <TextField fullWidth label="Descripción Control" value={formControl.descripcion} onChange={e => setFormControl({ ...formControl, descripcion: e.target.value })} sx={{ mt: 2 }} />}
           {tipoClasificacion === 'plan' && (
             <>
-              <TextField fullWidth label="Descripción Plan" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} sx={{ mt: 2 }} />
-              <TextField fullWidth label="Decisión" value={formPlan.decision} onChange={e => setFormPlan({ ...formPlan, decision: e.target.value })} sx={{ mt: 2 }} />
+              <TextField fullWidth label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} sx={{ mt: 2 }} />
+              <TextField fullWidth label="Descripción detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} sx={{ mt: 2 }} />
             </>
           )}
         </DialogContent>

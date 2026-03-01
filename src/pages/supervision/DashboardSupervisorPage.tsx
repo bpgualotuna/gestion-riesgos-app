@@ -36,6 +36,7 @@ import {
   IconButton,
   LinearProgress,
   Collapse,
+  TablePagination,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -88,6 +89,9 @@ export default function DashboardSupervisorPage() {
   const [busqueda, setBusqueda] = useState('');
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
   const [expandidosProcesos, setExpandidosProcesos] = useState<Record<string, boolean>>({});
+  const [pageDetalleProcesos, setPageDetalleProcesos] = useState(1);
+  const [rowsPerPageDetalleProcesos, setRowsPerPageDetalleProcesos] = useState(5);
+  const [chartExpandido, setChartExpandido] = useState<Record<string, boolean>>({});
 
   // Consultas filtradas en backend: solo traer riesgos/incidencias del proceso cuando hay filtro (app más rápida)
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
@@ -1012,18 +1016,31 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="h6" fontWeight={600}>
                     Riesgo Inherente vs Residual por Proceso
                   </Typography>
-                  <Chip label="Efectividad de controles" size="small" sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600, fontSize: '0.7rem' }} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip label="Efectividad de controles" size="small" sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600, fontSize: '0.7rem' }} />
+                    {riesgosFiltrados.length > 0 && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={chartExpandido['inh-res'] ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                        onClick={() => setChartExpandido((p) => ({ ...p, 'inh-res': !p['inh-res'] }))}
+                        sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                      >
+                        {chartExpandido['inh-res'] ? 'Colapsar' : 'Expandir gráfico'}
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
                 {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ width: '100%', height: Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) }}>
+                  <Box sx={{ width: '100%', height: chartExpandido['inh-res'] ? Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) : 320, transition: 'height 0.25s ease', overflow: 'hidden' }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; promedioInherente: number; promedioResidual: number; totalRiesgos: number }> = {};
                       // Inicializar TODOS los procesos asignados con 0
@@ -1308,18 +1325,31 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="h6" fontWeight={600}>
                     Cobertura de Controles por Proceso
                   </Typography>
-                  <Chip label="Gestión de causas" size="small" sx={{ backgroundColor: '#e3f2fd', color: '#1565c0', fontWeight: 600, fontSize: '0.7rem' }} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip label="Gestión de causas" size="small" sx={{ backgroundColor: '#e3f2fd', color: '#1565c0', fontWeight: 600, fontSize: '0.7rem' }} />
+                    {riesgosFiltrados.length > 0 && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={chartExpandido['causas'] ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                        onClick={() => setChartExpandido((p) => ({ ...p, causas: !p.causas }))}
+                        sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                      >
+                        {chartExpandido['causas'] ? 'Colapsar' : 'Expandir gráfico'}
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
                 {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ width: '100%', height: Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) }}>
+                  <Box sx={{ width: '100%', height: chartExpandido['causas'] ? Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) : 320, transition: 'height 0.25s ease', overflow: 'hidden' }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; conGestion: number; sinGestion: number; totalCausas: number }> = {};
                       // Inicializar TODOS los procesos asignados con 0
@@ -1395,15 +1425,28 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Controles por Proceso
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Controles por Proceso
+                  </Typography>
+                  {riesgosFiltrados.length > 0 && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={chartExpandido['controles'] ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                      onClick={() => setChartExpandido((p) => ({ ...p, controles: !p.controles }))}
+                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                    >
+                      {chartExpandido['controles'] ? 'Colapsar' : 'Expandir gráfico'}
+                    </Button>
+                  )}
+                </Box>
                 {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ width: '100%', height: Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) }}>
+                  <Box sx={{ width: '100%', height: chartExpandido['controles'] ? Math.max(300, Object.keys((() => { const d: Record<string,number> = {}; procesos.forEach((p: any) => { d[p.nombre || ''] = 1; }); return d; })()).length * 50) : 320, transition: 'height 0.25s ease', overflow: 'hidden' }}>
                     {(() => {
                       const dataPorProceso: Record<string, { nombre: string; cantidad: number }> = {};
                       // Inicializar TODOS los procesos asignados con 0
@@ -1512,15 +1555,20 @@ export default function DashboardSupervisorPage() {
           const totalGlobalPlanes = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.totalPlanes, 0);
           const totalGlobalRiesgos = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.riesgos.length, 0);
 
+          const totalProcesos = riesgosPorProcesoDetalle.length;
+          const fromPage = (pageDetalleProcesos - 1) * rowsPerPageDetalleProcesos;
+          const toPage = Math.min(fromPage + rowsPerPageDetalleProcesos, totalProcesos);
+          const riesgosPorProcesoPaginado = riesgosPorProcesoDetalle.slice(fromPage, toPage);
+
           return (
             <Grid2 container spacing={2.5} sx={{ mb: 4 }}>
               <Grid2 xs={12}>
-                <Card sx={{ height: '100%' }}>
-                  <CardContent>
+                <Card sx={{ height: '100%', overflow: 'visible' }}>
+                  <CardContent sx={{ overflow: 'visible', width: '100%', minWidth: 0 }}>
                     {/* Header */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-                      <Box>
-                        <Typography variant="h6" fontWeight={700}>
+                      <Box sx={{ minWidth: 0, flex: '1 1 200px' }}>
+                        <Typography variant="h6" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
                           Detalle de Riesgos por Proceso — Controles y Planes de Acción
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -1549,27 +1597,47 @@ export default function DashboardSupervisorPage() {
                       </Box>
                     </Box>
 
-                    {/* Toolbar: expandir/colapsar */}
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
-                        onClick={toggleExpandirTodos}
-                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-                      >
-                        {todosExpandidos ? 'Colapsar todos' : 'Expandir todos'}
-                      </Button>
+                    {/* Toolbar: expandir/colapsar + paginación */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                      <Box />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                          onClick={toggleExpandirTodos}
+                          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                        >
+                          {todosExpandidos ? 'Colapsar todos' : 'Expandir todos'}
+                        </Button>
+                        {totalProcesos > 5 && (
+                          <TablePagination
+                            component="div"
+                            count={totalProcesos}
+                            page={pageDetalleProcesos - 1}
+                            onPageChange={(_, newPage) => setPageDetalleProcesos(newPage + 1)}
+                            rowsPerPage={rowsPerPageDetalleProcesos}
+                            onRowsPerPageChange={(e) => {
+                              setRowsPerPageDetalleProcesos(Number(e.target.value));
+                              setPageDetalleProcesos(1);
+                            }}
+                            rowsPerPageOptions={[5, 10, 25, 50]}
+                            labelRowsPerPage="Mostrar"
+                            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+                            sx={{ border: 'none', '.MuiTablePagination-toolbar': { flexWrap: 'wrap', px: 0 } }}
+                          />
+                        )}
+                      </Box>
                     </Box>
 
-                    {/* Acordeones por proceso */}
+                    {/* Acordeones por proceso (paginados) */}
                     {riesgosPorProcesoDetalle.length === 0 ? (
                       <Box sx={{ py: 4, textAlign: 'center' }}>
                         <Typography color="text.secondary">No hay procesos disponibles</Typography>
                       </Box>
                     ) : (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {riesgosPorProcesoDetalle.map((procesoData) => {
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, overflow: 'visible' }}>
+                        {riesgosPorProcesoPaginado.map((procesoData) => {
                           const isExpanded = expandidos[procesoData.procesoNombre] || false;
                           const maxVal = Math.max(
                             ...procesoData.riesgos.map((r: any) => {
@@ -1602,19 +1670,20 @@ export default function DashboardSupervisorPage() {
                               <AccordionSummary
                                 expandIcon={<ExpandMoreIcon />}
                                 sx={{
-                                  px: 2.5,
+                                  px: { xs: 1.5, sm: 2.5 },
                                   py: 0.5,
                                   backgroundColor: isExpanded ? '#f8faff' : 'transparent',
                                   '&:hover': { backgroundColor: '#f5f8ff' },
-                                  minHeight: 64,
+                                  minHeight: 56,
+                                  '& .MuiAccordionSummary-content': { minWidth: 0, margin: '12px 0' },
                                 }}
                               >
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1, gap: 2 }}>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: { xs: 1, sm: 2 }, width: '100%', pr: 1, minWidth: 0 }}>
                                   {/* Nombre proceso + riesgos count */}
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
-                                    <AccountTreeIcon sx={{ color: '#1565c0', fontSize: 22 }} />
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: '1 1 180px', minWidth: 0 }}>
+                                    <AccountTreeIcon sx={{ color: '#1565c0', fontSize: 22, flexShrink: 0 }} />
                                     <Box sx={{ minWidth: 0 }}>
-                                      <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.3 }} noWrap>
+                                      <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.3, wordBreak: 'break-word' }}>
                                         {procesoData.procesoNombre}
                                       </Typography>
                                       <Typography variant="caption" color="text.secondary">
@@ -1634,10 +1703,10 @@ export default function DashboardSupervisorPage() {
                                         backgroundColor: '#1565c012',
                                         color: '#1565c0',
                                         fontWeight: 700,
-                                        fontSize: '0.85rem',
+                                        fontSize: { xs: '0.75rem', sm: '0.85rem' },
                                         height: 28,
-                                        minWidth: 56,
-                                        '.MuiChip-label': { px: 0.8 },
+                                        minWidth: 44,
+                                        '.MuiChip-label': { px: 0.6 },
                                       }}
                                     />
                                     <Chip
@@ -1648,15 +1717,15 @@ export default function DashboardSupervisorPage() {
                                         backgroundColor: '#e6510012',
                                         color: '#e65100',
                                         fontWeight: 700,
-                                        fontSize: '0.85rem',
+                                        fontSize: { xs: '0.75rem', sm: '0.85rem' },
                                         height: 28,
-                                        minWidth: 56,
-                                        '.MuiChip-label': { px: 0.8 },
+                                        minWidth: 44,
+                                        '.MuiChip-label': { px: 0.6 },
                                       }}
                                     />
                                   </Box>
 
-                                  {/* Mini barra de progreso visual */}
+                                  {/* Mini barra de progreso visual - solo desktop */}
                                   <Box sx={{ width: 120, flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
                                     <Box sx={{ display: 'flex', gap: 0.3, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
                                       <Box sx={{

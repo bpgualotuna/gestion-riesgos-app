@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -13,6 +13,7 @@ import {
   TableHead,
   TableRow,
   Alert,
+  TablePagination,
 } from '@mui/material';
 import {
   TrendingDown as TrendingDownIcon,
@@ -73,6 +74,9 @@ export default function ResumenEstadisticasMapas({
   filtroProceso,
   puntosFiltrados,
 }: ResumenEstadisticasProps) {
+  const [pageComparativa, setPageComparativa] = useState(0);
+  const [rowsPerPageComparativa, setRowsPerPageComparativa] = useState(5);
+
   const estadisticas = useMemo(() => {
     // Mapear riesgos con sus valores inherentes y residuales
     // Usar puntosFiltrados directamente para obtener valores consistentes
@@ -242,12 +246,12 @@ export default function ResumenEstadisticasMapas({
           </Grid2>
         </Grid2>
 
-        {/* Tabla Detallada de Riesgos */}
+        {/* Tabla Detallada de Riesgos con paginación */}
         <Typography variant="h6" gutterBottom sx={{ mt: 3, mb: 2 }}>
           Detalle: Cambios por Riesgo
         </Typography>
-        <TableContainer component={Paper}>
-          <Table size="small">
+        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 400 }}>
             <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Riesgo</TableCell>
@@ -267,7 +271,9 @@ export default function ResumenEstadisticasMapas({
               </TableRow>
             </TableHead>
             <TableBody>
-              {estadisticas.riesgosComparativa.map((riesgo, index) => (
+              {estadisticas.riesgosComparativa
+                .slice(pageComparativa * rowsPerPageComparativa, pageComparativa * rowsPerPageComparativa + rowsPerPageComparativa)
+                .map((riesgo, index) => (
                 <TableRow key={index} sx={{ '&:hover': { backgroundColor: '#fafafa' } }}>
                   <TableCell sx={{ fontWeight: 600 }}>
                     #{riesgo.numero}
@@ -332,6 +338,20 @@ export default function ResumenEstadisticasMapas({
               ))}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={estadisticas.riesgosComparativa.length}
+            page={pageComparativa}
+            onPageChange={(_, newPage) => setPageComparativa(newPage)}
+            rowsPerPage={rowsPerPageComparativa}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPageComparativa(Number(e.target.value));
+              setPageComparativa(0);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            labelRowsPerPage="Mostrar"
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+          />
         </TableContainer>
 
         {/* Resumen Narrativo */}

@@ -6,15 +6,22 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   background-color: #E8E8E8;
+  overflow-x: hidden;
 }
 
 body {
+  -webkit-overflow-scrolling: touch;
   font-family:
     "Roboto",
     -apple-system,
@@ -127,4 +134,15 @@ code {
   filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0,0,0,0.2));
   transform: scale(1.05);
   transition: all 0.3s ease;
+}
+
+/* Responsive: tablas con scroll horizontal en pantallas pequeñas */
+@media (max-width: 600px) {
+  .MuiTableContainer-root {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .MuiTable-root {
+    min-width: 400px;
+  }
 }
