@@ -225,7 +225,7 @@ export default function ContextoInternoPage() {
           onChange={handleChange('cadenaSuministro')}
           disabled={isReadOnly}
           multiline
-          rows={3}
+          rows={4}
           variant="outlined"
         />
 
@@ -236,18 +236,18 @@ export default function ContextoInternoPage() {
           onChange={handleChange('informacion')}
           disabled={isReadOnly}
           multiline
-          rows={3}
+          rows={4}
           variant="outlined"
         />
 
         <TextField
           fullWidth
-          label="Sistemas"
+          label="Sistemas/Tecnología"
           value={formData.sistemas}
           onChange={handleChange('sistemas')}
           disabled={isReadOnly}
           multiline
-          rows={3}
+          rows={4}
           variant="outlined"
         />
 
@@ -258,7 +258,7 @@ export default function ContextoInternoPage() {
           onChange={handleChange('proyectos')}
           disabled={isReadOnly}
           multiline
-          rows={3}
+          rows={4}
           variant="outlined"
         />
 
@@ -269,7 +269,7 @@ export default function ContextoInternoPage() {
           onChange={handleChange('impuestos')}
           disabled={isReadOnly}
           multiline
-          rows={3}
+          rows={4}
           variant="outlined"
         />
 

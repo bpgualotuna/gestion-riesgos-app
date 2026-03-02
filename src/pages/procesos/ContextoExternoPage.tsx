@@ -29,6 +29,8 @@ interface ContextoExterno {
   tecnologico: string;
   ambiental: string;
   gruposInteresExternos: string;
+  politico: string;
+  megatendencias: string;
   otrosFactores: string;
 }
 
@@ -47,6 +49,8 @@ export default function ContextoExternoPage() {
     tecnologico: '',
     ambiental: '',
     gruposInteresExternos: '',
+    politico: '',
+    megatendencias: '',
     otrosFactores: '',
   });
 
@@ -60,6 +64,8 @@ export default function ContextoExternoPage() {
         if (c.tipo === 'EXTERNO_TECNOLOGICO') contextoMap.tecnologico = c.descripcion;
         if (c.tipo === 'EXTERNO_AMBIENTAL') contextoMap.ambiental = c.descripcion;
         if (c.tipo === 'EXTERNO_GRUPOSINTERESEXTERNOS') contextoMap.gruposInteresExternos = c.descripcion;
+        if (c.tipo === 'EXTERNO_POLITICO') contextoMap.politico = c.descripcion;
+        if (c.tipo === 'EXTERNO_MEGATENDENCIAS') contextoMap.megatendencias = c.descripcion;
         if (c.tipo === 'EXTERNO_OTROSFACTORES') contextoMap.otrosFactores = c.descripcion;
       });
       setFormData(prev => ({ ...prev, ...contextoMap }));
@@ -85,6 +91,8 @@ export default function ContextoExternoPage() {
       { tipo: 'EXTERNO_TECNOLOGICO', descripcion: formData.tecnologico },
       { tipo: 'EXTERNO_AMBIENTAL', descripcion: formData.ambiental },
       { tipo: 'EXTERNO_GRUPOSINTERESEXTERNOS', descripcion: formData.gruposInteresExternos },
+      { tipo: 'EXTERNO_POLITICO', descripcion: formData.politico },
+      { tipo: 'EXTERNO_MEGATENDENCIAS', descripcion: formData.megatendencias },
       { tipo: 'EXTERNO_OTROSFACTORES', descripcion: formData.otrosFactores },
     ];
 
@@ -214,7 +222,7 @@ export default function ContextoExternoPage() {
           onChange={handleChange('ambiental')}
           disabled={isReadOnly}
           multiline
-          rows={3}
+          rows={4}
           variant="outlined"
         />
 
@@ -229,18 +237,38 @@ export default function ContextoExternoPage() {
           variant="outlined"
         />
 
-        <Box sx={{ gridColumn: { md: '1 / -1' } }}>
-          <TextField
-            fullWidth
-            label="Otros Factores Externos"
-            value={formData.otrosFactores}
-            onChange={handleChange('otrosFactores')}
-            disabled={isReadOnly}
-            multiline
-            rows={3}
-            variant="outlined"
-          />
-        </Box>
+        <TextField
+          fullWidth
+          label="Político"
+          value={formData.politico}
+          onChange={handleChange('politico')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Megatendencias"
+          value={formData.megatendencias}
+          onChange={handleChange('megatendencias')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Otros Factores Externos"
+          value={formData.otrosFactores}
+          onChange={handleChange('otrosFactores')}
+          disabled={isReadOnly}
+          multiline
+          rows={4}
+          variant="outlined"
+        />
       </Box>
     </AppPageLayout>
   );

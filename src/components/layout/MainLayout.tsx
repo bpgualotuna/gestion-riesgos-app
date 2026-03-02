@@ -88,8 +88,7 @@ import { useProceso } from "../../contexts/ProcesoContext";
 import { useGetProcesosQuery } from "../../api/services/riesgosApi";
 import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from "../../hooks/useAsignaciones";
-
-
+import VirtualAssistantDemo from "../common/VirtualAssistantDemo";
 const DRAWER_WIDTH = 280;
 const DRAWER_WIDTH_COLLAPSED = 70;
 
@@ -1485,6 +1484,7 @@ export default function MainLayout() {
           </Box>
         </Box>
       </Box>
+      <VirtualAssistantDemo />
     </Box>
   );
 }
