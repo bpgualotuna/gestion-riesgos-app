@@ -581,7 +581,18 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
             <Box sx={{ position: 'relative', borderRadius: '50%', p: 0.5 }}>
               <Avatar
-                src={photoLoadError ? undefined : (fotoPerfil ? `${fotoPerfil}${fotoPerfil.includes('?') ? '&' : '?'}bust=${photoCacheKey}` : undefined)}
+                src={
+                  photoLoadError
+                    ? undefined
+                    : fotoPerfil
+                      ? (
+                        // Si es una URL de blob local, usarla tal cual (no agregar query params)
+                        fotoPerfil.startsWith('blob:')
+                          ? fotoPerfil
+                          : `${fotoPerfil}${fotoPerfil.includes('?') ? '&' : '?'}bust=${photoCacheKey}`
+                        )
+                      : undefined
+                }
                 onError={() => setPhotoLoadError(true)}
                 sx={{
                   width: 80,
