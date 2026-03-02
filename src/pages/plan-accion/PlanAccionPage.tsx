@@ -731,14 +731,14 @@ export default function PlanAccionPage() {
                   const prel = determinarEvaluacionPreliminar(pt);
                   const def = determinarEvaluacionDefinitiva(prel, criteriosEvaluacion.recomendacion);
                   const mit = obtenerPorcentajeMitigacionAvanzado(def);
-                  const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion);
-                  const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion);
+                  const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion, def);
+                  const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion, def);
 
                   causaActualizada = {
                     ...c, ...criteriosEvaluacion,
                     puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
                     frecuenciaResidual: fRes, impactoResidual: iRes,
-                    calificacionResidual: calcularCalificacionResidual(fRes, iRes)
+                    calificacionResidual: (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes)
                   };
                   return causaActualizada;
                 }

@@ -165,8 +165,8 @@ export const ROUTES = {
 // API Base URL (configurar según entorno)
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-// Configuración de Paginación
+// Configuración de Paginación (admin y listas: 10 por página)
 export const PAGINATION = {
-  DEFAULT_PAGE_SIZE: 5,
+  DEFAULT_PAGE_SIZE: 10,
   PAGE_SIZE_OPTIONS: [5, 10, 25, 50, 100],
 } as const;

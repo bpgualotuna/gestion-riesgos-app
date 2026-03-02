@@ -46,7 +46,8 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import Grid2 from '../../utils/Grid2';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -77,6 +78,7 @@ function TabPanel(props: TabPanelProps) {
 export default function ProcesosDefinicionPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
+    const { confirmDelete } = useConfirm();
     const [currentTab, setCurrentTab] = useState(0);
 
     // RTK Query Hooks
@@ -273,13 +275,12 @@ export default function ProcesosDefinicionPage() {
     };
 
     const handleDelete = async (id: string | number) => {
-        if (confirmarEliminar('este proceso')) {
-            try {
-                await deleteProceso(id).unwrap();
-                showSuccess('Proceso eliminado correctamente');
-            } catch (error) {
-                showError((error as any)?.data?.error || 'Error al eliminar el proceso');
-            }
+        if (!(await confirmDelete('este proceso'))) return;
+        try {
+            await deleteProceso(id).unwrap();
+            showSuccess('Proceso eliminado correctamente');
+        } catch (error) {
+            showError((error as any)?.data?.error || 'Error al eliminar el proceso');
         }
     };
 
@@ -377,11 +378,19 @@ export default function ProcesosDefinicionPage() {
         },
     ];
 
+    const loadingActual = loadingProcesos || loadingTipos || loadingGerencias || loadingAreas || loadingUsuarios;
+
     return (
         <AppPageLayout
             title="Gestión de Procesos"
             description="Administre procesos y sus tipos."
         >
+            {loadingActual ? (
+                <Box sx={{ py: 2 }}>
+                    <PageLoadingSkeleton variant="table" tableRows={8} />
+                </Box>
+            ) : (
+            <>
             <Box sx={{ mt: -2 }}>
                 <Tabs
                     value={currentTab}
@@ -755,6 +764,8 @@ export default function ProcesosDefinicionPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
+            </>
+            )}
         </AppPageLayout >
     );
 }

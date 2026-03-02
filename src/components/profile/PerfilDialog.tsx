@@ -1,10 +1,9 @@
 /**
  * Diálogo de perfil: ver toda la información y editar solo nombre, contraseña y foto.
- * Contraseña solo se puede cambiar con la contraseña actual.
- * Foto: recorte circular (canvas propio, sin librerías externas), luego se sube a Azure.
+ * Foto: recorte circular manual (arrastrar para elegir la zona) y actualización al guardar.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+ import React, { useState, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,49 +20,59 @@ import {
   CircularProgress,
   Slider,
 } from '@mui/material';
-import { Person as PersonIcon, Visibility, VisibilityOff, PhotoCamera, Crop } from '@mui/icons-material';
+import { Person as PersonIcon, Visibility, VisibilityOff, PhotoCamera, Crop, ZoomIn, ZoomOut } from '@mui/icons-material';
 import type { User } from '../../contexts/AuthContext';
 import { AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useNotification } from '../../hooks/useNotification';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-const MAX_FILE_SIZE_MB = 2; // backend permite 2MB para perfil
+const MAX_FILE_SIZE_MB = 2;
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
-const CROP_SIZE_PX = 400; // tamaño final del recorte circular (diámetro)
-const CROP_PREVIEW_SIZE = 280; // tamaño del círculo de vista previa
+const CROP_OUTPUT_PX = 400;
+const CROP_PREVIEW_PX = 280;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-/** Dibuja la imagen recortada en círculo en un canvas y devuelve Blob. */
-function getCircularCropBlob(
-  imageSrc: string,
-  position: { x: number; y: number },
-  scale: number
-): Promise<Blob> {
+/** Misma lógica para previsualizar y exportar: centro en %, zoom (1 = sin zoom). */
+function drawCropCircle(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  centerXPercent: number,
+  centerYPercent: number,
+  zoom: number,
+  outputSize: number
+) {
+  const w = img.naturalWidth || img.width || 1;
+  const h = img.naturalHeight || img.height || 1;
+  const cx = (centerXPercent / 100) * w;
+  const cy = (centerYPercent / 100) * h;
+  const r = Math.max(1, (Math.min(w, h) / 2) / Math.max(0.5, zoom));
+  const scale = outputSize / (2 * r);
+  const drawW = w * scale;
+  const drawH = h * scale;
+  const dx = outputSize / 2 - cx * scale;
+  const dy = outputSize / 2 - cy * scale;
+  ctx.beginPath();
+  ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, 0, 0, w, h, dx, dy, drawW, drawH);
+}
+
+function cropCircleBlob(imageSrc: string, centerXPercent: number, centerYPercent: number, zoom: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const r = CROP_PREVIEW_SIZE / 2;
-      const centerImgX = (r - position.x) / scale;
-      const centerImgY = (r - position.y) / scale;
-      const cropRadius = r / scale;
-      const sx = centerImgX - cropRadius;
-      const sy = centerImgY - cropRadius;
-      const size = 2 * cropRadius;
       const canvas = document.createElement('canvas');
-      canvas.width = CROP_SIZE_PX;
-      canvas.height = CROP_SIZE_PX;
+      canvas.width = CROP_OUTPUT_PX;
+      canvas.height = CROP_OUTPUT_PX;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Canvas no disponible'));
         return;
       }
-      ctx.beginPath();
-      ctx.arc(CROP_SIZE_PX / 2, CROP_SIZE_PX / 2, CROP_SIZE_PX / 2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, CROP_SIZE_PX, CROP_SIZE_PX);
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob falló'))), 'image/jpeg', 0.92);
+      drawCropCircle(ctx, img, centerXPercent, centerYPercent, zoom, CROP_OUTPUT_PX);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob falló'))), 'image/jpeg', 0.9);
     };
     img.onerror = () => reject(new Error('Error al cargar la imagen'));
     img.src = imageSrc;
@@ -74,7 +83,7 @@ interface PerfilDialogProps {
   open: boolean;
   onClose: () => void;
   user: User | null;
-  onSaved: () => void;
+  onSaved: (updatedUserFromApi?: Record<string, unknown>) => void;
 }
 
 export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDialogProps) {
@@ -90,15 +99,33 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Recorte circular (canvas propio, sin librerías)
+  const [photoLoadError, setPhotoLoadError] = useState(false);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+
+  // Paso "Actualizar foto": zona para arrastrar o subir
+  const [showUploadStep, setShowUploadStep] = useState(false);
+  // Paso de recorte manual: imagen, posición (0–100) y zoom (1 = sin zoom, hasta 3)
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [cropScale, setCropScale] = useState(1.2);
-  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
-  const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null);
-  const [cropApplying, setCropApplying] = useState(false);
-  const [avatarDragOver, setAvatarDragOver] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
-  const [cropDragging, setCropDragging] = useState(false);
+  const [cropPosition, setCropPosition] = useState({ x: 50, y: 50 });
+  const [cropZoom, setCropZoom] = useState(1);
+  const cropDragRef = useRef<{ startX: number; startY: number; startPos: { x: number; y: number } } | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const cropImageRef = useRef<HTMLImageElement | null>(null);
+  const [cropImageLoaded, setCropImageLoaded] = useState(false);
+  const CROP_ZOOM_MIN = 0.5;
+  const CROP_ZOOM_MAX = 3;
+  const CROP_ZOOM_STEP = 0.25;
+  const [uploadZoneDragOver, setUploadZoneDragOver] = useState(false);
+  // Paso vista previa: tras "Aplicar recorte" se muestra el resultado para ver, volver a editar o usar
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewBlobFile, setPreviewBlobFile] = useState<File | null>(null);
+  // Clave para forzar recarga de la imagen al abrir el diálogo (evitar ver foto antigua en caché)
+  const [photoCacheKey, setPhotoCacheKey] = useState(0);
+
+  const getClientCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } => {
+    if ('touches' in e) return { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
+    return { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY };
+  };
 
   const processImageFile = (file: File) => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -110,14 +137,131 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
       return;
     }
     setError('');
-    setImageNaturalSize(null);
     const reader = new FileReader();
     reader.onload = () => {
-      setCropImageSrc(reader.result as string);
-      setCropScale(1.2);
-      setCropPosition({ x: 0, y: 0 });
+      const dataUrl = reader.result as string;
+      setCropImageSrc(dataUrl);
+      setCropPosition({ x: 50, y: 50 });
+      setCropZoom(1);
+      setCropImageLoaded(false);
     };
+    reader.onerror = () => setError('Error al leer el archivo.');
     reader.readAsDataURL(file);
+  };
+
+  const handleCropDragStart = useCallback((clientX: number, clientY: number) => {
+    cropDragRef.current = { startX: clientX, startY: clientY, startPos: { ...cropPosition } };
+  }, [cropPosition]);
+
+  const handleCropDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+    const ref = cropDragRef.current;
+    if (!ref) return;
+    if (e.cancelable) e.preventDefault();
+    const { x: cx, y: cy } = getClientCoords(e);
+    const dx = (cx - ref.startX) / CROP_PREVIEW_PX * 100;
+    const dy = (cy - ref.startY) / CROP_PREVIEW_PX * 100;
+    setCropPosition({
+      x: Math.max(0, Math.min(100, ref.startPos.x - dx)),
+      y: Math.max(0, Math.min(100, ref.startPos.y - dy)),
+    });
+  }, []);
+
+  const handleCropDragEnd = useCallback(() => {
+    cropDragRef.current = null;
+    window.removeEventListener('mousemove', handleCropDragMove);
+    window.removeEventListener('mouseup', handleCropDragEnd);
+    window.removeEventListener('touchmove', handleCropDragMove);
+    window.removeEventListener('touchend', handleCropDragEnd);
+  }, [handleCropDragMove]);
+
+  const handleCropPointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const { x, y } = 'touches' in e ? getClientCoords(e.nativeEvent) : { x: e.clientX, y: e.clientY };
+    handleCropDragStart(x, y);
+    window.addEventListener('mousemove', handleCropDragMove);
+    window.addEventListener('mouseup', handleCropDragEnd);
+    window.addEventListener('touchmove', handleCropDragMove, { passive: false });
+    window.addEventListener('touchend', handleCropDragEnd);
+  };
+
+  const applyCrop = () => {
+    if (!cropImageSrc) return;
+    setPhotoProcessing(true);
+    cropCircleBlob(cropImageSrc, cropPosition.x, cropPosition.y, cropZoom)
+      .then((blob) => {
+        const f = new File([blob], 'perfil.jpg', { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+        setPreviewBlobFile(f);
+        setPreviewBlobUrl(url);
+        setPhotoProcessing(false);
+      })
+      .catch((err: Error) => {
+        setError(err?.message || 'No se pudo aplicar el recorte.');
+        setPhotoProcessing(false);
+      });
+  };
+
+  const backToCrop = () => {
+    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    setPreviewBlobUrl(null);
+    setPreviewBlobFile(null);
+  };
+
+  const chooseOtherImage = () => {
+    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    setPreviewBlobUrl(null);
+    setPreviewBlobFile(null);
+    setCropImageSrc(null);
+    setShowUploadStep(true);
+  };
+
+  const useThisPhoto = () => {
+    if (previewBlobFile && previewBlobUrl) {
+      setPendingFile(previewBlobFile);
+      setFotoPerfil(previewBlobUrl);
+      setPhotoLoadError(false);
+    }
+    setPreviewBlobUrl(null);
+    setPreviewBlobFile(null);
+    setCropImageSrc(null);
+    setShowUploadStep(false);
+  };
+
+  const cancelCrop = () => {
+    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    setPreviewBlobUrl(null);
+    setPreviewBlobFile(null);
+    setCropImageSrc(null);
+    cropDragRef.current = null;
+  };
+
+  const openUploadStep = () => {
+    setShowUploadStep(true);
+    setError('');
+  };
+
+  const closeUploadStep = () => {
+    setShowUploadStep(false);
+  };
+
+  const handleUploadStepDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setUploadZoneDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
+  };
+
+  const handleUploadStepDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setUploadZoneDragOver(true);
+  };
+
+  const handleUploadStepDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setUploadZoneDragOver(false);
   };
 
   React.useEffect(() => {
@@ -127,110 +271,39 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
         if (typeof prev === 'string' && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
         return user.fotoPerfil ?? null;
       });
+      setPhotoCacheKey((k) => k + 1);
       setPasswordActual('');
       setPasswordNueva('');
       setPendingFile(null);
       setError('');
+      setPhotoLoadError(false);
       setCropImageSrc(null);
+      setCropImageLoaded(false);
+      setShowUploadStep(false);
+      setPreviewBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setPreviewBlobFile(null);
     }
   }, [open, user]);
+
+  // Vista previa del recorte: mismo cálculo que al exportar (WYSIWYG)
+  React.useEffect(() => {
+    if (!cropImageSrc || !cropImageLoaded || !previewCanvasRef.current || !cropImageRef.current) return;
+    const img = cropImageRef.current;
+    if (!img.complete) return;
+    const ctx = previewCanvasRef.current.getContext('2d');
+    if (!ctx) return;
+    previewCanvasRef.current.width = CROP_PREVIEW_PX;
+    previewCanvasRef.current.height = CROP_PREVIEW_PX;
+    drawCropCircle(ctx, img, cropPosition.x, cropPosition.y, cropZoom, CROP_PREVIEW_PX);
+  }, [cropImageSrc, cropImageLoaded, cropPosition.x, cropPosition.y, cropZoom]);
 
   const handleSelectImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processImageFile(file);
     e.target.value = '';
-  };
-
-  const handleAvatarDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAvatarDragOver(true);
-  };
-
-  const handleAvatarDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAvatarDragOver(false);
-  };
-
-  const handleAvatarDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAvatarDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processImageFile(file);
-  };
-
-  const handleCropImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const w = img.naturalWidth || img.width || 1;
-    const h = img.naturalHeight || img.height || 1;
-    setImageNaturalSize({ w, h });
-    const s = 1.2;
-    setCropPosition({
-      x: CROP_PREVIEW_SIZE / 2 - (w * s) / 2,
-      y: CROP_PREVIEW_SIZE / 2 - (h * s) / 2,
-    });
-  };
-
-  const handleCropMouseDown = (e: React.MouseEvent) => {
-    if (!imageNaturalSize) return;
-    e.preventDefault();
-    setCropDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY, posX: cropPosition.x, posY: cropPosition.y };
-  };
-
-  const handleCropMouseUp = () => {
-    dragStartRef.current = null;
-    setCropDragging(false);
-  };
-
-  useEffect(() => {
-    if (!cropImageSrc) return;
-    const onMouseUp = () => {
-      dragStartRef.current = null;
-      setCropDragging(false);
-    };
-    const onMouseMove = (e: MouseEvent) => {
-      if (!dragStartRef.current) return;
-      const dx = e.clientX - dragStartRef.current.x;
-      const dy = e.clientY - dragStartRef.current.y;
-      setCropPosition((p) => ({ x: dragStartRef.current!.posX + dx, y: dragStartRef.current!.posY + dy }));
-      dragStartRef.current = { ...dragStartRef.current, x: e.clientX, y: e.clientY, posX: dragStartRef.current.posX + dx, posY: dragStartRef.current.posY + dy };
-    };
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('mousemove', onMouseMove);
-    return () => {
-      window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('mousemove', onMouseMove);
-    };
-  }, [cropImageSrc]);
-
-  const handleAplicarCrop = async () => {
-    if (!cropImageSrc || !imageNaturalSize) {
-      setError('Espere a que cargue la imagen e intente de nuevo.');
-      return;
-    }
-    setCropApplying(true);
-    setError('');
-    try {
-      const blob = await getCircularCropBlob(cropImageSrc, cropPosition, cropScale);
-      const file = new File([blob], 'perfil.jpg', { type: 'image/jpeg' });
-      setPendingFile(file);
-      setFotoPerfil(URL.createObjectURL(blob));
-      setCropImageSrc(null);
-      setImageNaturalSize(null);
-    } catch (err: any) {
-      setError(err?.message || 'No se pudo recortar la imagen. Intente de nuevo.');
-    } finally {
-      setCropApplying(false);
-    }
-  };
-
-  const handleCancelarCrop = () => {
-    setCropImageSrc(null);
-    setImageNaturalSize(null);
-    setCropDragging(false);
   };
 
   const handleSave = async () => {
@@ -294,13 +367,13 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
         throw new Error(short || 'No se pudo guardar.');
       }
       const changedPassword = !!passwordNueva;
-      onSaved();
-      onClose();
+      onSaved(data);
       if (changedPassword) {
         showSuccess('Contraseña cambiada con éxito.');
       } else {
-        showSuccess('Perfil actualizado correctamente.');
+        showSuccess('Perfil actualizado. La foto se actualizará al cerrar.');
       }
+      setTimeout(() => onClose(), 400);
     } catch (err: any) {
       const msg = err?.message || '';
       setError(msg.length > 80 ? 'No se pudo guardar. Intente de nuevo.' : msg || 'No se pudo guardar.');
@@ -322,80 +395,12 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
     handleSave();
   };
 
+  const showingUploadStep = showUploadStep && !cropImageSrc && !previewBlobUrl;
+  const showingPreviewStep = Boolean(previewBlobUrl);
+  const showingCropStep = Boolean(cropImageSrc) && !previewBlobUrl;
+
   return (
     <>
-      {/* Diálogo de recorte circular (canvas propio) */}
-      <Dialog
-        open={!!cropImageSrc}
-        onClose={handleCancelarCrop}
-        maxWidth={false}
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            overflow: 'hidden',
-            width: 'min(95vw, 420px)',
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        }}
-      >
-        <DialogTitle sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Crop color="primary" /> Recortar foto de perfil
-        </DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 2, pb: 1 }}>
-          {cropImageSrc && (
-            <Box
-              sx={{
-                width: CROP_PREVIEW_SIZE,
-                height: CROP_PREVIEW_SIZE,
-                borderRadius: '50%',
-                overflow: 'hidden',
-                position: 'relative',
-                flexShrink: 0,
-                cursor: cropDragging ? 'grabbing' : 'grab',
-                bgcolor: '#333',
-              }}
-              onMouseDown={handleCropMouseDown}
-              onMouseLeave={handleCropMouseUp}
-              onMouseUp={handleCropMouseUp}
-            >
-              <img
-                src={cropImageSrc}
-                alt="Recortar"
-                draggable={false}
-                onLoad={handleCropImageLoad}
-                style={{
-                  position: 'absolute',
-                  left: cropPosition.x,
-                  top: cropPosition.y,
-                  width: imageNaturalSize ? imageNaturalSize.w * cropScale : undefined,
-                  height: imageNaturalSize ? imageNaturalSize.h * cropScale : undefined,
-                  pointerEvents: 'none',
-                }}
-              />
-            </Box>
-          )}
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5 }} gutterBottom>
-            Arrastre para mover · Zoom
-          </Typography>
-          <Slider
-            value={cropScale}
-            min={1}
-            max={2.5}
-            step={0.05}
-            onChange={(_, value) => setCropScale(value as number)}
-            sx={{ width: '90%', mb: 0.5 }}
-            valueLabelDisplay="auto"
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 2, py: 1.5 }}>
-          <Button onClick={handleCancelarCrop}>Cancelar</Button>
-          <Button variant="contained" onClick={handleAplicarCrop} disabled={cropApplying || !imageNaturalSize}>
-            {cropApplying ? <CircularProgress size={22} /> : 'Aplicar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       <Dialog
         open={open}
         onClose={onClose}
@@ -403,58 +408,39 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
         fullWidth
         PaperProps={{ sx: { borderRadius: 2, maxWidth: 380 } }}
       >
-      <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', py: 1.5 }}>Mi perfil</DialogTitle>
-      <form onSubmit={handleSubmit}>
-        <DialogContent dividers sx={{ pt: 1, pb: 2, px: 2 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setError('')}>
-              {error}
-            </Alert>
-          )}
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+      {showingUploadStep ? (
+        <>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PhotoCamera /> Actualizar foto
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 1, pb: 2, px: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, textAlign: 'center' }}>
+              Arrastra una imagen aquí o haz clic para seleccionar. Luego podrás elegir la zona con el círculo.
+            </Typography>
             <Box
-              onDragOver={handleAvatarDragOver}
-              onDragLeave={handleAvatarDragLeave}
-              onDrop={handleAvatarDrop}
+              onDragOver={handleUploadStepDragOver}
+              onDragLeave={handleUploadStepDragLeave}
+              onDrop={handleUploadStepDrop}
               onClick={() => fileInputRef.current?.click()}
               sx={{
-                position: 'relative',
-                borderRadius: '50%',
-                p: 0.5,
                 border: '2px dashed',
-                borderColor: avatarDragOver ? 'primary.main' : 'transparent',
-                bgcolor: avatarDragOver ? 'action.hover' : 'transparent',
-                transition: 'border-color 0.2s, background-color 0.2s',
+                borderColor: uploadZoneDragOver ? 'primary.main' : 'divider',
+                bgcolor: uploadZoneDragOver ? 'action.hover' : 'action.selected',
+                borderRadius: 2,
+                py: 4,
+                px: 2,
+                textAlign: 'center',
                 cursor: 'pointer',
+                transition: 'border-color 0.2s, background-color 0.2s',
               }}
             >
-              <Avatar
-                src={fotoPerfil || undefined}
-                sx={{
-                  width: 64,
-                  height: 64,
-                  bgcolor: 'primary.main',
-                  fontSize: '1.5rem',
-                }}
-              >
-                {!fotoPerfil && (user?.fullName?.charAt(0) || '?')}
-              </Avatar>
-              <IconButton
-                size="small"
-                sx={{
-                  position: 'absolute',
-                  bottom: 0,
-                  right: 0,
-                  bgcolor: 'background.paper',
-                  boxShadow: 1,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-                onClick={() => fileInputRef.current?.click()}
-                type="button"
-              >
-                <PhotoCamera fontSize="small" />
-              </IconButton>
+              <PhotoCamera sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                Arrastra la imagen o haz clic para subir
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                JPEG, PNG, GIF o WebP. Máx. {MAX_FILE_SIZE_MB} MB
+              </Typography>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -465,8 +451,165 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
                 aria-hidden
               />
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-              Clic o arrastre una imagen aquí. Máx. {MAX_FILE_SIZE_MB} MB. Se recortará en círculo ({CROP_SIZE_PX}×{CROP_SIZE_PX}).
+          </DialogContent>
+          <DialogActions sx={{ px: 2, py: 1.5 }}>
+            <Button type="button" onClick={closeUploadStep}>Cancelar</Button>
+          </DialogActions>
+        </>
+      ) : showingPreviewStep ? (
+        <>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', py: 1.5 }}>
+            Vista previa
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 1, pb: 2, px: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, textAlign: 'center' }}>
+              Así se verá tu foto de perfil. Si no te gusta, vuelve a editar o elige otra imagen.
+            </Typography>
+            <Box
+              sx={{
+                width: CROP_PREVIEW_PX,
+                height: CROP_PREVIEW_PX,
+                borderRadius: '50%',
+                overflow: 'hidden',
+                border: '3px solid',
+                borderColor: 'primary.main',
+                flexShrink: 0,
+              }}
+            >
+              <Box
+                component="img"
+                src={previewBlobUrl ?? ''}
+                alt="Vista previa"
+                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', mt: 2 }}>
+              <Button type="button" variant="outlined" onClick={backToCrop}>
+                Volver a editar recorte
+              </Button>
+              <Button type="button" variant="outlined" onClick={chooseOtherImage}>
+                Elegir otra imagen
+              </Button>
+              <Button type="button" variant="contained" onClick={useThisPhoto}>
+                Usar esta foto
+              </Button>
+            </Box>
+          </DialogContent>
+        </>
+      ) : showingCropStep ? (
+        <>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Crop /> Recortar foto
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 1, pb: 2, px: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Arrastra para mover y usa el zoom. Lo que ves es lo que se guardará.
+            </Typography>
+            <img
+              ref={cropImageRef}
+              src={cropImageSrc ?? ''}
+              alt=""
+              style={{ display: 'none' }}
+              onLoad={() => setCropImageLoaded(true)}
+            />
+            <Box
+              onMouseDown={handleCropPointerDown}
+              onTouchStart={handleCropPointerDown}
+              sx={{
+                width: CROP_PREVIEW_PX,
+                height: CROP_PREVIEW_PX,
+                borderRadius: '50%',
+                overflow: 'hidden',
+                cursor: 'grab',
+                border: '3px solid',
+                borderColor: 'primary.main',
+                flexShrink: 0,
+                '&:active': { cursor: 'grabbing' },
+              }}
+            >
+              <canvas
+                ref={previewCanvasRef}
+                width={CROP_PREVIEW_PX}
+                height={CROP_PREVIEW_PX}
+                style={{ width: '100%', height: '100%', display: 'block' }}
+              />
+            </Box>
+            <Box sx={{ width: '100%', maxWidth: CROP_PREVIEW_PX, mt: 2, px: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <ZoomOut sx={{ color: 'text.secondary', fontSize: 20 }} />
+                <Slider
+                  size="small"
+                  value={cropZoom}
+                  min={CROP_ZOOM_MIN}
+                  max={CROP_ZOOM_MAX}
+                  step={CROP_ZOOM_STEP}
+                  onChange={(_, value) => setCropZoom(Array.isArray(value) ? value[0] : value)}
+                  valueLabelDisplay="auto"
+                  valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
+                  sx={{ flex: 1 }}
+                />
+                <ZoomIn sx={{ color: 'text.secondary', fontSize: 20 }} />
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                Zoom: {Math.round(cropZoom * 100)}%
+              </Typography>
+            </Box>
+            {photoProcessing && (
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(255,255,255,0.8)', zIndex: 1 }}>
+                <CircularProgress />
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 2, py: 1.5 }}>
+            <Button type="button" onClick={cancelCrop} disabled={photoProcessing}>Cancelar</Button>
+            <Button type="button" variant="contained" onClick={applyCrop} disabled={photoProcessing}>
+              {photoProcessing ? <CircularProgress size={22} /> : 'Aplicar recorte'}
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+        <>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', py: 1.5 }}>Mi perfil</DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers sx={{ pt: 1, pb: 2, px: 2 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ position: 'relative', borderRadius: '50%', p: 0.5 }}>
+              <Avatar
+                src={photoLoadError ? undefined : (fotoPerfil ? `${fotoPerfil}${fotoPerfil.includes('?') ? '&' : '?'}bust=${photoCacheKey}` : undefined)}
+                onError={() => setPhotoLoadError(true)}
+                sx={{
+                  width: 80,
+                  height: 80,
+                  bgcolor: 'primary.main',
+                  fontSize: '1.75rem',
+                }}
+              >
+                {(!fotoPerfil || photoLoadError) && (user?.fullName?.charAt(0) || '?')}
+              </Avatar>
+              {photoProcessing && (
+                <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', bgcolor: 'rgba(0,0,0,0.4)' }}>
+                  <CircularProgress size={28} sx={{ color: 'white' }} />
+                </Box>
+              )}
+            </Box>
+            <Button
+              type="button"
+              variant="outlined"
+              size="small"
+              startIcon={<PhotoCamera />}
+              onClick={openUploadStep}
+              sx={{ mt: 1.5 }}
+            >
+              Actualizar foto
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+              Pulsa el botón para subir una imagen y elegir la zona con el círculo.
             </Typography>
           </Box>
 
@@ -533,6 +676,8 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
           </Button>
         </DialogActions>
       </form>
+        </>
+      )}
     </Dialog>
     </>
   );

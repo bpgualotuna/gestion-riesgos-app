@@ -56,7 +56,57 @@ import { Alert } from '@mui/material';
 import { Visibility as VisibilityIcon } from '@mui/icons-material';
 import ResumenEstadisticasMapas from '../../components/mapas/ResumenEstadisticasMapas';
 
+// Calcula calificación y posición residual global del riesgo desde sus causas con control
+// Regla: usar la causa con mayor calificación residual (misma que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO")
+const calcularResidualDesdeCausas = (riesgo: Riesgo | any) => {
+  const causas = (riesgo && Array.isArray((riesgo as any).causas)) ? (riesgo as any).causas : [];
+  if (!causas || causas.length === 0) return null;
 
+  const causasConControles = causas.filter((c: any) => {
+    const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+    return tipo === 'CONTROL' || tipo === 'AMBOS';
+  });
+  if (causasConControles.length === 0) return null;
+
+  let mejorCal = 0;
+  let mejorFrecuencia = 0;
+  let mejorImpacto = 0;
+
+  causasConControles.forEach((c: any) => {
+    const g = c.gestion && typeof c.gestion === 'object' ? c.gestion : {};
+    const fr = Number(c.frecuenciaResidual ?? g.frecuenciaResidual ?? c.frecuencia ?? 3);
+    const ir = Number(c.impactoResidual ?? g.impactoResidual ?? c.calificacionGlobalImpacto ?? 1);
+    let cal = c.calificacionResidual != null
+      ? Number(c.calificacionResidual)
+      : (c.riesgoResidual != null
+        ? Number(c.riesgoResidual)
+        : (fr === 2 && ir === 2 ? 3.99 : fr * ir));
+
+    if (isNaN(cal) || cal <= 0) return;
+
+    if (cal > mejorCal) {
+      mejorCal = cal;
+      mejorFrecuencia = fr;
+      mejorImpacto = ir;
+    }
+  });
+
+  if (mejorCal <= 0) return null;
+
+  // Mismas bandas que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO"
+  let nivel = 'Sin Calificar';
+  if (mejorCal >= 15 && mejorCal <= 25) nivel = 'Crítico';
+  else if (mejorCal >= 10 && mejorCal < 15) nivel = 'Alto';
+  else if (mejorCal >= 4 && mejorCal < 10) nivel = 'Medio';
+  else if (mejorCal >= 1 && mejorCal < 4) nivel = 'Bajo'; // incluye 3.99 (2×2)
+
+  return {
+    probabilidadResidual: mejorFrecuencia,
+    impactoResidual: mejorImpacto,
+    riesgoResidual: mejorCal,
+    nivelRiesgoResidual: nivel,
+  };
+};
 // Función para generar ID del riesgo (número + sigla)
 // Prioriza numeroIdentificacion del backend si existe, sino genera desde número
 const generarIdRiesgo = (punto: PuntoMapa): string => {
@@ -145,12 +195,12 @@ export default function MapaPage() {
   // IMPORTANTE: Esta página tiene sus propios filtros, NO usa el filtro del header (procesoSeleccionado)
   const procesoIdFiltrado = useMemo(() => {
     // Si hay filtro de proceso local, usarlo
-    if (filtroProceso && filtroProceso !== 'all') {
+      if (filtroProceso && filtroProceso !== 'all') {
       return String(filtroProceso);
-    }
+      }
     // Si hay filtro de área pero no de proceso, no filtrar por procesoId aquí
     // (se filtrará después en puntosFiltrados por área)
-    if (filtroArea && filtroArea !== 'all') {
+      if (filtroArea && filtroArea !== 'all') {
       return undefined; // Devolver undefined para filtrar después por área
     }
     // Si no hay filtros locales, mostrar todos los procesos disponibles del usuario
@@ -229,7 +279,7 @@ export default function MapaPage() {
     } 
     // Si hay filtro de área, filtrar procesos por área (pero solo de los asignados)
     else if (filtroArea && filtroArea !== 'all') {
-      procesosIds = procesosPropios
+        procesosIds = procesosPropios
         .filter(p => String(p.areaId) === String(filtroArea))
         .map(p => String(p.id));
     }
@@ -314,12 +364,9 @@ export default function MapaPage() {
     return matriz;
   }, [puntosFiltrados]);
 
-  // Crear matriz 5x5 para riesgo residual
-  // IMPORTANTE: 
-  // - Los mismos riesgos del mapa inherente deben aparecer en el residual
-  // - Si tienen clasificación residual global (riesgoResidual), se reubican según esa clasificación
-  // - Si NO tienen clasificación residual, se ponen en la misma localización que en el inherente
-  // - Cada riesgo debe aparecer SOLO UNA VEZ
+  // Crear matriz 5x5 para riesgo residual. Ejes: X = Frecuencia (probabilidad), Y = Impacto.
+  // Sin control: calificación y ubicación = misma que inherente (misma celda).
+  // Con control: se usa SIEMPRE la causa con mayor calificación residual (misma lógica que Controles y resumen).
   const matrizResidual = useMemo(() => {
     const matriz: { [key: string]: PuntoMapa[] } = {};
     const riesgosAgregados = new Set<number>(); // Track de riesgos ya agregados para evitar duplicados
@@ -331,84 +378,27 @@ export default function MapaPage() {
         return; // Ya agregado, saltar
       }
       
-      // PRIORIDAD 1: Usar valores residuales directamente del backend (ya calculados desde riesgoResidual)
-      let probabilidadResidual = punto.probabilidadResidual;
-      let impactoResidual = punto.impactoResidual;
-      
-      // PRIORIDAD 2: Si no hay valores residuales en el punto, buscar riesgoResidual en la evaluación
-      // y calcular probabilidadResidual e impactoResidual desde ahí
-      if (!probabilidadResidual || !impactoResidual) {
-        const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
-        if (riesgo && riesgo.evaluacion) {
-          // Si hay riesgoResidual en la evaluación, calcular desde ahí
-          const riesgoResidual = riesgo.evaluacion.riesgoResidual;
-          if (riesgoResidual && riesgoResidual > 0 && !isNaN(riesgoResidual)) {
-            // Convertir riesgoResidual a probabilidad e impacto (mismo algoritmo que para inherente)
-            let mejorProbRes = 1;
-            let mejorImpRes = 1;
-            let encontradoExacto = false;
-            
-            // Primero buscar coincidencia exacta
-            for (let prob = 1; prob <= 5; prob++) {
-              for (let imp = 1; imp <= 5; imp++) {
-                const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-                if (Math.abs(valor - riesgoResidual) < 0.01) {
-                  mejorProbRes = prob;
-                  mejorImpRes = imp;
-                  encontradoExacto = true;
-                  break;
-                }
-              }
-              if (encontradoExacto) break;
-            }
-            
-            // Si no hay coincidencia exacta, buscar el más cercano >= riesgoResidual
-            if (!encontradoExacto) {
-              let menorDiferencia = Infinity;
-              for (let prob = 1; prob <= 5; prob++) {
-                for (let imp = 1; imp <= 5; imp++) {
-                  const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-                  
-                  // Priorizar valores que sean >= riesgoResidual
-                  if (valor >= riesgoResidual) {
-                    const diferencia = valor - riesgoResidual;
-                    if (diferencia < menorDiferencia) {
-                      menorDiferencia = diferencia;
-                      mejorProbRes = prob;
-                      mejorImpRes = imp;
-                    }
-                  }
-                }
-              }
-              
-              // Si aún no hay valor >=, usar el más cercano
-              if (menorDiferencia === Infinity) {
-                for (let prob = 1; prob <= 5; prob++) {
-                  for (let imp = 1; imp <= 5; imp++) {
-                    const valor = prob === 2 && imp === 2 ? 3.99 : prob * imp;
-                    const diferencia = Math.abs(riesgoResidual - valor);
-                    if (diferencia < menorDiferencia) {
-                      menorDiferencia = diferencia;
-                      mejorProbRes = prob;
-                      mejorImpRes = imp;
-                    }
-                  }
-                }
-              }
-            }
-            
-            probabilidadResidual = mejorProbRes;
-            impactoResidual = mejorImpRes;
-          } else {
-            // Si no hay riesgoResidual, usar valores residuales directos de la evaluación
-            probabilidadResidual = riesgo.evaluacion.probabilidadResidual;
-            impactoResidual = riesgo.evaluacion.impactoResidual;
-          }
+      const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
+
+      // PRIORIDAD 1: usar causa con mayor calificación residual (BY/BZ) — misma lógica que Controles
+      let probabilidadResidual: number | undefined | null = undefined;
+      let impactoResidual: number | undefined | null = undefined;
+
+      if (riesgo) {
+        const desdeCausas = calcularResidualDesdeCausas(riesgo);
+        if (desdeCausas) {
+          probabilidadResidual = desdeCausas.probabilidadResidual;
+          impactoResidual = desdeCausas.impactoResidual;
         }
       }
-      
-      // PRIORIDAD 3: Si aún no hay valores residuales, usar valores inherentes
-      // (Esto es para riesgos sin controles, que deben aparecer igual en ambos mapas)
+
+      // PRIORIDAD 2: si no se pudo calcular desde causas, usar valores residuales del backend
+      if (!probabilidadResidual || !impactoResidual) {
+        probabilidadResidual = punto.probabilidadResidual;
+        impactoResidual = punto.impactoResidual;
+      }
+
+      // PRIORIDAD 3: si no hay residuales, caer a inherentes (misma celda)
       if (!probabilidadResidual || !impactoResidual) {
         probabilidadResidual = punto.probabilidad || 1;
         impactoResidual = punto.impacto || 1;
@@ -753,6 +743,7 @@ export default function MapaPage() {
     return bordes;
   };
 
+  // Matriz: X = Frecuencia/Probabilidad (columnas), Y = Impacto (filas). Clave celda = `${prob}-${imp}`.
   const renderMatrix = (matriz: { [key: string]: PuntoMapa[] }, tipo: 'inherente' | 'residual') => {
     const probabilidades = ejes?.probabilidad.map(p => p.valor) || [1, 2, 3, 4, 5];
     const impactos = ejes?.impacto.map(i => i.valor).sort((a, b) => b - a) || [5, 4, 3, 2, 1];
@@ -1031,17 +1022,22 @@ export default function MapaPage() {
       )}
 
       {/* Contenido del mapa - solo visible si tiene asignaciones */}
-      {!sinAsignaciones && (<>
+      {!sinAsignaciones && (
+        (isLoadingPuntos || isLoadingRiesgos) && !errorPuntos && !errorRiesgos ? (
+          /* Skeleton para toda la página mientras carga */
+          <Box sx={{ minHeight: '75vh', width: '100%', py: 2 }}>
+            <PageLoadingSkeleton variant="text" lines={3} />
+            <Box sx={{ mt: 3 }}>
+              <PageLoadingSkeleton variant="table" tableRows={14} />
+            </Box>
+          </Box>
+        ) : (
+        <>
         {/* Mostrar errores si existen */}
         {(errorPuntos || errorRiesgos) ? (
           <Alert severity="error" sx={{ mb: 3 }}>
             Error al cargar los datos del mapa. Por favor, intente nuevamente.
           </Alert>
-        ) : null}
-
-        {/* Mostrar skeleton mientras carga el mapa */}
-        {(isLoadingPuntos || isLoadingRiesgos) && !errorPuntos && !errorRiesgos ? (
-          <PageLoadingSkeleton variant="table" tableRows={5} />
         ) : null}
 
         {/* Mostrar mensaje si no hay datos pero no está cargando */}
@@ -1052,9 +1048,9 @@ export default function MapaPage() {
         ) : null}
 
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" gutterBottom fontWeight={700} sx={{ color: '#1976d2' }}>
-            Mapas de Calor de Riesgos
-          </Typography>
+            <Typography variant="h4" gutterBottom fontWeight={700} sx={{ color: '#1976d2' }}>
+              Mapas de Calor de Riesgos
+            </Typography>
         </Box>
 
         <Grid2 container spacing={3}>
@@ -1333,23 +1329,23 @@ export default function MapaPage() {
                               {generarIdRiesgo(punto)}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                              <Chip
+                            <Chip
                                 label={punto.nivelRiesgo || 'Sin calificar'}
-                                size="small"
-                                sx={{
+                              size="small"
+                              sx={{
                                   backgroundColor: getColorByNivelRiesgo(punto.nivelRiesgo),
-                                  color: '#fff',
+                                color: '#fff',
                                   height: 20,
                                   fontSize: '0.7rem',
-                                }}
-                              />
-                              <Chip
-                                label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
-                                size="small"
-                                color={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
+                              }}
+                            />
+                            <Chip
+                              label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                              size="small"
+                              color={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
                                 sx={{ height: 20, fontSize: '0.7rem' }}
-                              />
-                            </Box>
+                            />
+                          </Box>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
                             <CalendarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
@@ -1396,7 +1392,7 @@ export default function MapaPage() {
                                         />
                                       </Typography>
                                     )}
-                                  </Box>
+                        </Box>
                                 </CardContent>
                               </Card>
                             );
@@ -1408,19 +1404,19 @@ export default function MapaPage() {
                               <CardContent>
                                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '1rem' }}>
                                   Evaluación del Riesgo
-                                </Typography>
+                        </Typography>
                                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                  <Typography variant="body2">
+                          <Typography variant="body2">
                                     <strong>Probabilidad:</strong> {punto.probabilidad || riesgo.evaluacion.probabilidad || 1}
-                                  </Typography>
+                          </Typography>
                                   {riesgo.evaluacion.riesgoInherente && (
                                     <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 600 }}>
                                       <strong>Riesgo Inherente:</strong> {riesgo.evaluacion.riesgoInherente}
                                     </Typography>
                                   )}
-                                  <Typography variant="body2">
+                          <Typography variant="body2">
                                     <strong>Impacto Global:</strong> {punto.impacto || riesgo.evaluacion.impactoGlobal || 1}
-                                  </Typography>
+                          </Typography>
                                   {riesgo.evaluacion.nivelRiesgo && (
                                     <Chip
                                       label={riesgo.evaluacion.nivelRiesgo}
@@ -1502,62 +1498,93 @@ export default function MapaPage() {
                   
                   // Obtener información de evaluación
                   const evaluacion = riesgo?.evaluacion;
-                  
-                  // CONFIANZA TOTAL EN LOS VALORES DEL BACKEND
-                  // El backend ya calcula correctamente probabilidad e impacto desde riesgoInherente
-                  // en getPuntosMapa, así que usamos directamente los valores del punto
+
+                  // Valores inherentes (desde punto o evaluación)
                   const probabilidadInherente = punto.probabilidad || evaluacion?.probabilidad || 1;
                   const impactoInherente = punto.impacto || evaluacion?.impactoGlobal || 1;
                   const riesgoInherente = evaluacion?.riesgoInherente;
                   const nivelRiesgoInherente = evaluacion?.nivelRiesgo;
-                  
-                  const probabilidadResidual = punto.probabilidadResidual || evaluacion?.probabilidadResidual;
-                  const impactoResidual = punto.impactoResidual || evaluacion?.impactoResidual;
-                  const riesgoResidual = evaluacion?.riesgoResidual;
-                  
-                  // SIEMPRE calcular nivelRiesgoResidual desde el riesgoResidual global (no confiar en el valor guardado)
-                  // Esto asegura que el nivel siempre refleje el riesgo residual actual
-                  let nivelRiesgoResidual: string | null = null;
-                  
-                  // Prioridad 1: Calcular desde riesgoResidual (valor numérico más confiable)
-                  if (riesgoResidual !== undefined && riesgoResidual !== null) {
+
+                  // Valores residuales: priorizar SIEMPRE la causa con mayor calificación residual
+                  const residualDesdeCausas = calcularResidualDesdeCausas(riesgo);
+
+                  const probabilidadResidual = residualDesdeCausas?.probabilidadResidual
+                    ?? punto.probabilidadResidual
+                    ?? evaluacion?.probabilidadResidual
+                    ?? null;
+
+                  const impactoResidual = residualDesdeCausas?.impactoResidual
+                    ?? punto.impactoResidual
+                    ?? evaluacion?.impactoResidual
+                    ?? null;
+
+                  const riesgoResidual = residualDesdeCausas?.riesgoResidual
+                    ?? evaluacion?.riesgoResidual
+                    ?? null;
+
+                  // Calcular nivelRiesgoResidual siguiendo mismas bandas que Controles/Resumen
+                  let nivelRiesgoResidual: string | null = residualDesdeCausas?.nivelRiesgoResidual ?? null;
+
+                  // Prioridad 2: si aún no hay nivel, intentar desde riesgoResidual numérico
+                  if (!nivelRiesgoResidual && riesgoResidual !== undefined && riesgoResidual !== null) {
                     const riesgoResNum = Number(riesgoResidual);
                     if (!isNaN(riesgoResNum) && riesgoResNum > 0) {
                       if (riesgoResNum >= 15 && riesgoResNum <= 25) {
                         nivelRiesgoResidual = NIVELES_RIESGO.CRITICO;
-                      } else if (riesgoResNum >= 10 && riesgoResNum <= 14) {
+                      } else if (riesgoResNum >= 10 && riesgoResNum < 15) {
                         nivelRiesgoResidual = NIVELES_RIESGO.ALTO;
-                      } else if (riesgoResNum >= 5 && riesgoResNum <= 9) {
+                      } else if (riesgoResNum >= 4 && riesgoResNum < 10) {
                         nivelRiesgoResidual = NIVELES_RIESGO.MEDIO;
-                      } else if (riesgoResNum >= 1 && riesgoResNum <= 4) {
+                      } else if (riesgoResNum >= 1 && riesgoResNum < 4) {
                         nivelRiesgoResidual = NIVELES_RIESGO.BAJO;
                       } else {
                         nivelRiesgoResidual = 'Sin Calificar';
                       }
                     }
                   }
-                  
-                  // Prioridad 2: Si no hay riesgoResidual, calcular desde probabilidadResidual e impactoResidual
+
+                  // Prioridad 3: Si todavía no hay nivel, calcular desde probabilidadResidual e impactoResidual
                   if (!nivelRiesgoResidual && probabilidadResidual && impactoResidual) {
                     const probResNum = Number(probabilidadResidual);
                     const impResNum = Number(impactoResidual);
-                    if (!isNaN(probResNum) && !isNaN(impResNum) && 
-                        probResNum >= 1 && probResNum <= 5 && 
+                    if (!isNaN(probResNum) && !isNaN(impResNum) &&
+                        probResNum >= 1 && probResNum <= 5 &&
                         impResNum >= 1 && impResNum <= 5) {
                       nivelRiesgoResidual = calcularNivelRiesgo(probResNum, impResNum);
                     }
                   }
-                  
-                  // Prioridad 3: Fallback al valor guardado solo si no se pudo calcular
+
+                  // Prioridad 4: Fallback al valor guardado solo si no se pudo calcular
                   if (!nivelRiesgoResidual) {
                     nivelRiesgoResidual = evaluacion?.nivelRiesgoResidual || null;
                   }
                   
-                  // Obtener controles aplicados
+                  // Riesgo tiene control si alguna causa tiene CONTROL o AMBOS (con control activo)
                   const controlesAplicados = riesgo?.causas?.filter((c: any) => {
                     const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-                    return tipo === 'CONTROL';
+                    if (tipo === 'CONTROL') return true;
+                    if (tipo === 'AMBOS') {
+                      const controlActivo = (c.gestion && typeof c.gestion === 'object' && c.gestion.estadoAmbos)
+                        ? c.gestion.estadoAmbos.controlActivo !== false
+                        : true;
+                      return controlActivo;
+                    }
+                    return false;
                   }) || [];
+                  const tieneControl = controlesAplicados.length > 0;
+                  // Plan(es) de acción: causas con PLAN o AMBOS (con plan activo)
+                  const planesAccion = riesgo?.causas?.filter((c: any) => {
+                    const tipo = (c.tipoGestion || '').toUpperCase();
+                    if (tipo === 'PLAN') return true;
+                    if (tipo === 'AMBOS') {
+                      const planActivo = (c.gestion && typeof c.gestion === 'object' && c.gestion.estadoAmbos)
+                        ? c.gestion.estadoAmbos.planActivo !== false
+                        : true;
+                      return planActivo;
+                    }
+                    return false;
+                  }) || [];
+                  const tienePlanAccion = planesAccion.length > 0;
                   
                   return (
                     <Accordion
@@ -1585,15 +1612,18 @@ export default function MapaPage() {
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                               <Chip
-                                label={nivelRiesgoResidual || 'Sin calificar'}
+                                label={nivelRiesgoResidual || nivelRiesgoInherente || 'Sin calificar'}
                                 size="small"
                                 sx={{
-                                  backgroundColor: getColorByNivelRiesgo(nivelRiesgoResidual || 'Sin Calificar'),
+                                  backgroundColor: getColorByNivelRiesgo(nivelRiesgoResidual || nivelRiesgoInherente || 'Sin Calificar'),
                                   color: '#fff',
                                   height: 20,
                                   fontSize: '0.7rem',
                                 }}
                               />
+                              {!tieneControl && (
+                                <Chip label="Sin control" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                              )}
                               <Chip
                                 label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
                                 size="small"
@@ -1623,18 +1653,25 @@ export default function MapaPage() {
                               </Typography>
                               <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                                 {zona && (
-                                  <Typography variant="body2">
+                              <Typography variant="body2">
                                     <strong>Zona:</strong> {zona}
-                                  </Typography>
+                              </Typography>
                                 )}
                                 {tipologia && (
-                                  <Typography variant="body2">
+                                <Typography variant="body2">
                                     <strong>Tipología:</strong> {tipologia}
-                                  </Typography>
-                                )}
+                                </Typography>
+                              )}
                               </Box>
                             </CardContent>
                           </Card>
+
+                          {/* Sin controles: aviso y explicación */}
+                          {!tieneControl && (
+                            <Alert severity="info" sx={{ mb: 2 }}>
+                              <strong>Sin controles aplicados.</strong> La calificación residual es igual a la inherente. Este riesgo se muestra en la misma posición en ambos mapas hasta que se apliquen controles.
+                            </Alert>
+                          )}
 
                           {/* Calificación Inherente */}
                           <Card sx={{ mb: 2, bgcolor: 'rgba(211, 47, 47, 0.05)' }}>
@@ -1649,7 +1686,7 @@ export default function MapaPage() {
                                 <Typography variant="body2">
                                   <strong>Impacto Global:</strong> {impactoInherente}
                                 </Typography>
-                                {riesgoInherente && (
+                                {riesgoInherente != null && (
                                   <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 600 }}>
                                     <strong>Riesgo Inherente:</strong> {riesgoInherente}
                                   </Typography>
@@ -1669,41 +1706,80 @@ export default function MapaPage() {
                             </CardContent>
                           </Card>
 
-                          {/* Calificación Residual */}
-                          {(probabilidadResidual || impactoResidual || riesgoResidual) && (
-                            <Card sx={{ mb: 2, bgcolor: 'rgba(46, 125, 50, 0.05)' }}>
+                          {/* Calificación Residual: siempre visible en mapa residual. Sin control = igual a inherente */}
+                          <Card sx={{ mb: 2, bgcolor: 'rgba(46, 125, 50, 0.05)' }}>
+                            <CardContent>
+                              <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '1rem' }}>
+                                Calificación Residual
+                              </Typography>
+                              {!tieneControl ? (
+                                <>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    Al no tener controles, la calificación residual coincide con la inherente.
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                    <Typography variant="body2"><strong>Probabilidad:</strong> {probabilidadInherente}</Typography>
+                                    <Typography variant="body2"><strong>Impacto:</strong> {impactoInherente}</Typography>
+                                    {riesgoInherente != null && (
+                                      <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
+                                        <strong>Riesgo Residual:</strong> {riesgoInherente}
+                                      </Typography>
+                                    )}
+                                    {nivelRiesgoInherente && (
+                                      <Chip label={nivelRiesgoInherente} size="small" sx={{ backgroundColor: getColorByNivelRiesgo(nivelRiesgoInherente), color: '#fff', fontWeight: 600 }} />
+                                    )}
+                                  </Box>
+                                </>
+                              ) : (
+                                <>
+                                  {(probabilidadResidual != null || impactoResidual != null || riesgoResidual != null) && (
+                                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                                      {probabilidadResidual != null && <Typography variant="body2"><strong>Probabilidad Residual:</strong> {probabilidadResidual}</Typography>}
+                                      {impactoResidual != null && <Typography variant="body2"><strong>Impacto Residual:</strong> {impactoResidual}</Typography>}
+                                      {riesgoResidual != null && (
+                                        <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
+                                          <strong>Riesgo Residual:</strong> {riesgoResidual}
+                                        </Typography>
+                                      )}
+                                      {nivelRiesgoResidual && (
+                                        <Chip label={nivelRiesgoResidual} size="small" sx={{ backgroundColor: getColorByNivelRiesgo(nivelRiesgoResidual), color: '#fff', fontWeight: 600 }} />
+                          )}
+                        </Box>
+                                  )}
+                                  {nivelRiesgoInherente && nivelRiesgoResidual && nivelRiesgoInherente !== nivelRiesgoResidual && (
+                                    <Typography variant="body2" color="success.dark" sx={{ mt: 1 }}>
+                                      Reducción: de {nivelRiesgoInherente} a {nivelRiesgoResidual}.
+                                    </Typography>
+                                  )}
+                                </>
+                              )}
+                      </CardContent>
+                    </Card>
+
+                          {/* Plan(es) de acción: cuando tiene plan y no control, o siempre que tenga plan */}
+                          {tienePlanAccion && (
+                            <Card sx={{ mb: 2, bgcolor: 'rgba(255, 152, 0, 0.06)' }}>
                               <CardContent>
                                 <Typography variant="h6" gutterBottom fontWeight={600} sx={{ fontSize: '1rem' }}>
-                                  Calificación Residual
+                                  Plan(es) de acción ({planesAccion.length})
                                 </Typography>
-                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                  {probabilidadResidual && (
-                                    <Typography variant="body2">
-                                      <strong>Probabilidad Residual:</strong> {probabilidadResidual}
-                                    </Typography>
-                                  )}
-                                  {impactoResidual && (
-                                    <Typography variant="body2">
-                                      <strong>Impacto Residual:</strong> {impactoResidual}
-                                    </Typography>
-                                  )}
-                                  {riesgoResidual && (
-                                    <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
-                                      <strong>Riesgo Residual:</strong> {riesgoResidual}
-                                    </Typography>
-                                  )}
-                                  {nivelRiesgoResidual && (
-                                    <Chip
-                                      label={nivelRiesgoResidual}
-                                      size="small"
-                                      sx={{
-                                        backgroundColor: getColorByNivelRiesgo(nivelRiesgoResidual),
-                                        color: '#fff',
-                                        fontWeight: 600,
-                                      }}
-                                    />
-                                  )}
-                                </Box>
+                                <List dense disablePadding>
+                                  {planesAccion.map((causa: any, idx: number) => {
+                                    const g = causa.gestion && typeof causa.gestion === 'object' ? causa.gestion : {};
+                                    const desc = g.planDescripcion || causa.planDescripcion || causa.descripcion || 'Sin descripción';
+                                    const resp = g.planResponsable || causa.planResponsable || '—';
+                                    const fecha = g.planFechaEstimada || causa.planFechaEstimada || '—';
+                                    return (
+                                      <ListItem key={causa.id || idx} sx={{ flexDirection: 'column', alignItems: 'stretch', py: 1 }}>
+                                        <ListItemText primary={desc} primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }} />
+                                        <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }} component="span">
+                                          <Typography variant="caption" color="text.secondary">Responsable: {resp}</Typography>
+                                          <Typography variant="caption" color="text.secondary">Fecha est.: {typeof fecha === 'string' && fecha !== '—' ? new Date(fecha).toLocaleDateString('es-ES') : fecha}</Typography>
+                                        </Box>
+                                      </ListItem>
+                  );
+                })}
+              </List>
                               </CardContent>
                             </Card>
                           )}
@@ -1718,14 +1794,13 @@ export default function MapaPage() {
                                 <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
                                   <Table size="small">
                                     <TableHead>
-                                      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                                        <TableCell><strong>Descripción del Control</strong></TableCell>
-                                        <TableCell><strong>Tipo</strong></TableCell>
-                                        <TableCell align="center"><strong>Efectividad</strong></TableCell>
-                                        <TableCell align="center"><strong>% Mitigación</strong></TableCell>
-                                        <TableCell align="center"><strong>Calificación Residual</strong></TableCell>
-                                        <TableCell align="center"><strong>Nivel Residual</strong></TableCell>
-                                      </TableRow>
+                                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                    <TableCell><strong>Descripción del Control</strong></TableCell>
+                                    <TableCell align="center"><strong>Efectividad</strong></TableCell>
+                                    <TableCell align="center"><strong>% Mitigación</strong></TableCell>
+                                    <TableCell align="center"><strong>Calificación Residual</strong></TableCell>
+                                    <TableCell align="center"><strong>Nivel Residual</strong></TableCell>
+                                  </TableRow>
                                     </TableHead>
                                     <TableBody>
                                       {controlesAplicados.map((control: any, idx: number) => {
@@ -1805,7 +1880,6 @@ export default function MapaPage() {
                                         return (
                                           <TableRow key={control.id || idx}>
                                             <TableCell>{controlDescripcion}</TableCell>
-                                            <TableCell>{tipoControl}</TableCell>
                                             <TableCell align="center">{efectividad}</TableCell>
                                             <TableCell align="center">{porcentajeMitigacion}%</TableCell>
                                             <TableCell align="center">
@@ -1899,6 +1973,24 @@ export default function MapaPage() {
           <DialogContent>
             {riesgoSeleccionadoDetalle && puntoSeleccionadoDetalle ? (
               <Box>
+                {/* Para mapa residual: saber si tiene control o solo plan */}
+                {tipoMapaDetalle === 'residual' && (() => {
+                  const causas = (riesgoSeleccionadoDetalle.causas as any) || [];
+                  const tieneControlDetalle = causas.some((c: any) => {
+                    const t = (c.tipoGestion || '').toUpperCase();
+                    if (t === 'CONTROL') return true;
+                    if (t === 'AMBOS') return (c.gestion?.estadoAmbos?.controlActivo !== false);
+                    return false;
+                  });
+                  if (!tieneControlDetalle) {
+                    return (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        <strong>Sin controles aplicados.</strong> La calificación residual es igual a la inherente.
+                      </Alert>
+                    );
+                  }
+                  return null;
+                })()}
                 {/* Nivel y descripción (clasificación correcta en Evaluación del Riesgo más abajo) */}
                 <Card sx={{ mb: 2, bgcolor: 'rgba(25, 118, 210, 0.05)' }}>
                   <CardContent>
@@ -1926,13 +2018,13 @@ export default function MapaPage() {
                         const zonaRaw = puntoSeleccionadoDetalle?.zona || riesgoSeleccionadoDetalle.zona;
                         const zona = zonaRaw && zonaRaw.trim() && !zonaRaw.toLowerCase().includes('rural') ? zonaRaw : null;
                         return zona ? (
-                          <Typography variant="body2">
+                      <Typography variant="body2">
                             <strong>Zona:</strong> {zona}
-                          </Typography>
+                      </Typography>
                         ) : null;
                       })()}
                       {(puntoSeleccionadoDetalle?.tipologiaNivelI || riesgoSeleccionadoDetalle.tipologiaNivelI) && (
-                        <Typography variant="body2">
+                      <Typography variant="body2">
                           <strong>Tipología:</strong> {puntoSeleccionadoDetalle?.tipologiaNivelI || riesgoSeleccionadoDetalle.tipologiaNivelI}
                         </Typography>
                       )}
@@ -1949,32 +2041,32 @@ export default function MapaPage() {
                       if (procesoId) {
                         const procesoRiesgo = procesos.find(p => String(p.id) === String(procesoId));
                         return (
-                          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                              Información del Proceso
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              <Typography variant="body2">
+                        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                            Información del Proceso
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Typography variant="body2">
                                 <strong>Proceso:</strong> {procesoNombre}
-                              </Typography>
+                            </Typography>
                               {procesoRiesgo?.responsableNombre && (
-                                <Typography variant="body2">
-                                  <strong>Responsable (Dueño del Proceso):</strong>{' '}
-                                  <Chip
-                                    label={procesoRiesgo.responsableNombre}
-                                    size="small"
-                                    color="primary"
-                                    sx={{ ml: 0.5 }}
-                                  />
-                                </Typography>
-                              )}
+                              <Typography variant="body2">
+                                <strong>Responsable (Dueño del Proceso):</strong>{' '}
+                                <Chip
+                                  label={procesoRiesgo.responsableNombre}
+                                  size="small"
+                                  color="primary"
+                                  sx={{ ml: 0.5 }}
+                                />
+                              </Typography>
+                            )}
                               {procesoRiesgo?.areaNombre && (
-                                <Typography variant="body2">
-                                  <strong>Área:</strong> {procesoRiesgo.areaNombre}
-                                </Typography>
-                              )}
-                            </Box>
+                              <Typography variant="body2">
+                                <strong>Área:</strong> {procesoRiesgo.areaNombre}
+                              </Typography>
+                            )}
                           </Box>
+                        </Box>
                         );
                       }
                       return null;
@@ -2115,8 +2207,8 @@ export default function MapaPage() {
                   </Accordion>
                 )}
 
-                {/* Información Residual - Expandible */}
-                {evaluacionRiesgo && ((evaluacionRiesgo as any).probabilidadResidual || (evaluacionRiesgo as any).impactoResidual) && (
+                {/* Información Residual - Expandible (siempre en mapa residual; si no hay control, valores = inherentes) */}
+                {evaluacionRiesgo && tipoMapaDetalle === 'residual' && (
                   <Accordion 
                     expanded={seccionesExpandidas.residual}
                     onChange={() => setSeccionesExpandidas(prev => ({ ...prev, residual: !prev.residual }))}
@@ -2125,42 +2217,42 @@ export default function MapaPage() {
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Typography variant="h6" fontWeight={600}>
                         Evaluación Residual
-                      </Typography>
+              </Typography>
                     </AccordionSummary>
                     <AccordionDetails>
                       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Probabilidad Residual</Typography>
                           <Typography variant="h6" fontWeight={600}>
-                            {(evaluacionRiesgo as any).probabilidadResidual || puntoSeleccionadoDetalle?.probabilidadResidual || 'N/A'}
+                            {(evaluacionRiesgo as any).probabilidadResidual ?? puntoSeleccionadoDetalle?.probabilidadResidual ?? evaluacionRiesgo.probabilidad ?? 'N/A'}
                           </Typography>
-                        </Box>
+            </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Impacto Residual</Typography>
                           <Typography variant="h6" fontWeight={600}>
-                            {(evaluacionRiesgo as any).impactoResidual || puntoSeleccionadoDetalle?.impactoResidual || 'N/A'}
+                            {(evaluacionRiesgo as any).impactoResidual ?? puntoSeleccionadoDetalle?.impactoResidual ?? evaluacionRiesgo.impactoGlobal ?? 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Riesgo Residual</Typography>
                           <Typography variant="h6" fontWeight={600} color="success.main">
-                            {(evaluacionRiesgo as any).riesgoResidual || 'N/A'}
+                            {(evaluacionRiesgo as any).riesgoResidual ?? evaluacionRiesgo.riesgoInherente ?? 'N/A'}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">Nivel Riesgo Residual</Typography>
-                          <Chip
-                            label={(evaluacionRiesgo as any).nivelRiesgoResidual || 'N/A'}
-                            size="small"
-                            sx={{
-                              backgroundColor: getColorByNivelRiesgo((evaluacionRiesgo as any).nivelRiesgoResidual),
-                              color: '#fff',
-                              fontWeight: 600,
+                            <Chip
+                            label={(evaluacionRiesgo as any).nivelRiesgoResidual || evaluacionRiesgo.nivelRiesgo || 'N/A'}
+                              size="small"
+                              sx={{
+                              backgroundColor: getColorByNivelRiesgo((evaluacionRiesgo as any).nivelRiesgoResidual || evaluacionRiesgo.nivelRiesgo),
+                                color: '#fff',
+                                fontWeight: 600,
                               mt: 0.5,
                             }}
                           />
+                          </Box>
                         </Box>
-                      </Box>
                     </AccordionDetails>
                   </Accordion>
                 )}
@@ -2256,8 +2348,8 @@ export default function MapaPage() {
                       </TableContainer>
                     </AccordionDetails>
                   </Accordion>
-                )}
-              </Box>
+                        )}
+                      </Box>
             ) : null}
           </DialogContent>
           <DialogActions>
@@ -2278,7 +2370,9 @@ export default function MapaPage() {
           filtroProceso={filtroProceso}
           puntosFiltrados={puntosFiltrados}
         />
-      </>)}
+      </>
+        )
+      )}
     </Box>
   );
 }

@@ -35,7 +35,8 @@ import {
 import SimpleCatalog from './SimpleCatalog';
 import ImpactosCatalog from './ImpactosCatalog';
 import AppPageLayout from '../../components/layout/AppPageLayout';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import { useNotification } from '../../hooks/useNotification';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import {
     useGetOrigenesQuery,
@@ -83,10 +84,11 @@ function SubtiposCatalog({
     onDeleteSubtipo,
 }: {
     tiposRiesgo: TipoRiesgo[];
-    onCreateSubtipo: (data: { tipoRiesgoId: number; nombre: string; descripcion?: string; codigo?: string }) => Promise<void>;
-    onUpdateSubtipo: (data: { id: number; nombre?: string; descripcion?: string; codigo?: string }) => Promise<void>;
+    onCreateSubtipo: (data: { tipoRiesgoId: number; nombre: string; descripcion?: string }) => Promise<void>;
+    onUpdateSubtipo: (data: { id: number; nombre?: string; descripcion?: string }) => Promise<void>;
     onDeleteSubtipo: (id: number) => Promise<void>;
 }) {
+    const { showError, showSuccess } = useNotification();
     const [tipoSeleccionado, setTipoSeleccionado] = useState<number | null>(tiposRiesgo[0]?.id ?? null);
 
     const subtipos = useMemo(() => {
@@ -96,26 +98,37 @@ function SubtiposCatalog({
 
     const handleSaveSubtipo = async (item: any) => {
         if (!tipoSeleccionado) return;
-        if (item.id) {
-            await onUpdateSubtipo({
-                id: Number(item.id),
-                nombre: item.nombre,
-                descripcion: item.descripcion,
-                codigo: item.codigo
-            });
-        } else {
-            await onCreateSubtipo({
-                tipoRiesgoId: tipoSeleccionado,
-                nombre: item.nombre,
-                descripcion: item.descripcion,
-                codigo: item.codigo
-            });
+        try {
+            if (item.id) {
+                await onUpdateSubtipo({
+                    id: Number(item.id),
+                    nombre: item.nombre,
+                    descripcion: item.descripcion
+                });
+                showSuccess('Subtipo actualizado.');
+            } else {
+                await onCreateSubtipo({
+                    tipoRiesgoId: tipoSeleccionado,
+                    nombre: item.nombre,
+                    descripcion: item.descripcion
+                });
+                showSuccess('Subtipo creado. El código se asignó automáticamente.');
+            }
+        } catch (err: any) {
+            const msg = err?.data?.error || err?.message || 'No se pudo guardar el subtipo.';
+            showError(msg);
         }
     };
 
     const handleDeleteSubtipo = async (id: number) => {
-        if (!window.confirm('¿Confirma eliminación del subtipo?')) return;
-        await onDeleteSubtipo(id);
+        if (!(await confirmDelete('el subtipo'))) return;
+        try {
+            await onDeleteSubtipo(id);
+            showSuccess('Subtipo eliminado.');
+        } catch (err: any) {
+            const msg = err?.data?.error || err?.message || 'No se pudo eliminar.';
+            showError(msg);
+        }
     };
 
     return (
@@ -141,11 +154,12 @@ function SubtiposCatalog({
                 itemLabel="Subtipo"
                 data={subtipos}
                 columns={[
+                    { field: 'id', headerName: 'ID', width: 80, editable: false },
                     { field: 'nombre', headerName: 'Nombre', flex: 1 },
                     { field: 'descripcion', headerName: 'Descripción', flex: 2 },
-                    { field: 'codigo', headerName: 'Código', width: 120, editable: false },
                 ]}
-                defaultItem={{ nombre: '', descripcion: '', codigo: '' }}
+                defaultItem={{ nombre: '', descripcion: '' }}
+                initialPageSize={50}
                 onSave={handleSaveSubtipo}
                 onDelete={handleDeleteSubtipo}
             />
@@ -154,6 +168,7 @@ function SubtiposCatalog({
 }
 
 export default function ParametrosCalificacionPage() {
+    const { confirmDelete } = useConfirm();
     const [tabValue, setTabValue] = useState(0);
     const [subTabValue, setSubTabValue] = useState<{ [key: number]: number }>({ 0: 0, 1: 0, 2: 0, 3: 0 });
 
@@ -313,7 +328,7 @@ export default function ParametrosCalificacionPage() {
         currentList: any[] = []
     ) => {
         return async (id: any) => {
-            if (!confirmarEliminar()) return;
+            if (!(await confirmDelete())) return;
                 try {
                     const newList = currentList.filter(i => i.id !== id);
                     await updateService(newList);
@@ -334,7 +349,7 @@ export default function ParametrosCalificacionPage() {
     };
 
     const handleDeleteTiposRiesgo = async (id: number) => {
-        if (!confirmarEliminar('esta tipología')) return;
+        if (!(await confirmDelete('esta tipología'))) return;
         try {
             await deleteTipologia(id as any).unwrap();
         } catch {
@@ -411,7 +426,7 @@ export default function ParametrosCalificacionPage() {
     ], []);
 
     const tiposRiesgoColumns = useMemo(() => [
-        { field: 'codigo', headerName: 'Código', width: 120 },
+        { field: 'id', headerName: 'ID', width: 80 },
         { field: 'nombre', headerName: 'Nombre', flex: 1 },
         { field: 'descripcion', headerName: 'Descripción', flex: 2 }
     ], []);
@@ -589,7 +604,7 @@ export default function ParametrosCalificacionPage() {
                                 itemLabel="Tipo"
                                 data={filteredTiposRiesgo}
                                 columns={tiposRiesgoColumns}
-                                defaultItem={{ codigo: '', nombre: '', descripcion: '' }}
+                                defaultItem={{ nombre: '', descripcion: '' }}
                                 onSave={handleSaveTiposRiesgo}
                                 onDelete={handleDeleteTiposRiesgo}
                             />
@@ -605,7 +620,7 @@ export default function ParametrosCalificacionPage() {
                                     await updateSubtipo(data).unwrap();
                                 }}
                                 onDeleteSubtipo={async (id) => {
-                                    if (!confirmarEliminar('este subtipo')) return;
+                                    if (!(await confirmDelete('este subtipo'))) return;
                                     await deleteSubtipo(id).unwrap();
                                 }}
                             />
@@ -642,7 +657,7 @@ export default function ParametrosCalificacionPage() {
                                     }
                                 }}
                                 onDelete={async (id) => {
-                                    if (!confirmarEliminar('este objetivo')) return;
+                                    if (!(await confirmDelete('este objetivo'))) return;
                                     await deleteObjetivo(id).unwrap();
                                 }}
                             />
@@ -773,7 +788,7 @@ export default function ParametrosCalificacionPage() {
                                 await createImpactoTipo(data).unwrap();
                             }}
                             onDeleteTipo={async (tipoId) => {
-                                if (!confirmarEliminar('este tipo de impacto')) return;
+                                if (!(await confirmDelete('este tipo de impacto'))) return;
                                 await deleteImpactoTipo(tipoId).unwrap();
                             }}
                         />
@@ -869,8 +884,8 @@ export default function ParametrosCalificacionPage() {
                                     setFormulas((prev) => [...prev, created]);
                                 }
                             }}
-                            onDelete={(id) => {
-                                if (!confirmarEliminar('esta fórmula')) return;
+                            onDelete={async (id) => {
+                                if (!(await confirmDelete('esta fórmula'))) return;
                                 mockService.deleteMockFormula(id);
                                 setFormulas((prev) => prev.filter((f) => f.id !== id));
                             }}

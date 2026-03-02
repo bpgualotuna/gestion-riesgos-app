@@ -246,10 +246,49 @@ export default function ResumenEstadisticasMapas({
           </Grid2>
         </Grid2>
 
-        {/* Tabla Detallada de Riesgos con paginación */}
+        {/* Tabla Detallada de Riesgos con paginación arriba */}
         <Typography variant="h6" gutterBottom sx={{ mt: 3, mb: 2 }}>
           Detalle: Cambios por Riesgo
         </Typography>
+        {estadisticas.riesgosComparativa.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+              mb: 1,
+              px: 0,
+              py: 0.5,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'grey.50',
+              borderRadius: '8px 8px 0 0',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Mostrando {pageComparativa * rowsPerPageComparativa + 1} -{' '}
+              {Math.min((pageComparativa + 1) * rowsPerPageComparativa, estadisticas.riesgosComparativa.length)} de{' '}
+              {estadisticas.riesgosComparativa.length}
+            </Typography>
+            <TablePagination
+              component="div"
+              count={estadisticas.riesgosComparativa.length}
+              page={pageComparativa}
+              onPageChange={(_, newPage) => setPageComparativa(newPage)}
+              rowsPerPage={rowsPerPageComparativa}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageComparativa(Number(e.target.value));
+                setPageComparativa(0);
+              }}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Mostrar"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+              sx={{ border: 'none', '.MuiTablePagination-toolbar': { flexWrap: 'wrap', px: 1, minHeight: 40 } }}
+            />
+          </Box>
+        )}
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 400 }}>
             <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
@@ -338,20 +377,6 @@ export default function ResumenEstadisticasMapas({
               ))}
             </TableBody>
           </Table>
-          <TablePagination
-            component="div"
-            count={estadisticas.riesgosComparativa.length}
-            page={pageComparativa}
-            onPageChange={(_, newPage) => setPageComparativa(newPage)}
-            rowsPerPage={rowsPerPageComparativa}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPageComparativa(Number(e.target.value));
-              setPageComparativa(0);
-            }}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="Mostrar"
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-          />
         </TableContainer>
 
         {/* Resumen Narrativo */}

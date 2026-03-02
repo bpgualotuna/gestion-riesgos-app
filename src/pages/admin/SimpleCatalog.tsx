@@ -30,6 +30,7 @@ interface SimpleCatalogProps {
     onDelete: (id: any) => void;
     itemLabel: string;
     defaultItem: any;
+    initialPageSize?: number;
 }
 
 export default function SimpleCatalog({
@@ -39,7 +40,8 @@ export default function SimpleCatalog({
     onSave,
     onDelete,
     itemLabel,
-    defaultItem
+    defaultItem,
+    initialPageSize
 }: SimpleCatalogProps) {
     const [open, setOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
@@ -110,6 +112,7 @@ export default function SimpleCatalog({
                 columns={allColumns}
                 getRowId={(row) => row.id}
                 onRowClick={(params) => handleOpenDetailDialog(params.row)}
+                initialState={initialPageSize != null ? { pagination: { paginationModel: { pageSize: initialPageSize } } } : undefined}
             />
 
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>

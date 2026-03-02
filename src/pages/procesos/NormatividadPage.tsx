@@ -28,7 +28,8 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
-import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO, confirmarEliminar } from "../../utils/constants";
+import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO } from "../../utils/constants";
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { formatDate } from '../../utils/formatters';
 
 interface Normatividad {
@@ -52,6 +53,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 
 export default function NormatividadPage() {
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
@@ -79,7 +81,7 @@ export default function NormatividadPage() {
   const handleEliminar = async (e: React.MouseEvent, row: Normatividad) => {
     e.stopPropagation();
     if (!procesoSeleccionado) return;
-    if (!confirmarEliminar('esta normatividad')) return;
+    if (!(await confirmDelete('esta normatividad'))) return;
     const updatedList = normatividades
       .filter(n => n.id !== row.id)
       .map((n, idx) => ({ ...n, numero: idx + 1 }));

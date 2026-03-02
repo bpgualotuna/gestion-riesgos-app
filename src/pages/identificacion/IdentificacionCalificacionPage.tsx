@@ -63,7 +63,7 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import api from '../../services/api';
 
-import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, useCreateRiesgoMutation, riesgosApi, useGetRiesgosQuery } from '../../api/services/riesgosApi';
+import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, useCreateRiesgoMutation, useLazyGetNextNumeroRiesgoQuery, riesgosApi, useGetRiesgosQuery } from '../../api/services/riesgosApi';
   import { useAppDispatch } from '../../app/hooks';
   // fuentes de causa: default vacío (backend/seed debe proveer en futuro)
 
@@ -135,9 +135,10 @@ const DEFAULT_TIPOS_PROCESO: any[] = [];
 const DEFAULT_CONSECUENCIAS: any[] = [];
 const DEFAULT_NIVELES_RIESGO: any[] = [];
 const DEFAULT_CLASIFICACIONES_RIESGO: any[] = [];
-import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO, confirmarEliminar } from '../../utils/constants';
+import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, DIMENSIONES_IMPACTO, LABELS_IMPACTO } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
@@ -207,14 +208,13 @@ const mapImpactosArrayToObject = (impactosArray?: any[]) => {
 };
 
 const getSubtipoCodigo = (subtipo: any): string => {
-  // Usar nombre como codigo si existe, ya que es lo que se muestra en admin
-  return (subtipo?.codigo ?? subtipo?.nombre ?? subtipo?.id ?? '').toString();
+  return (subtipo?.nombre ?? subtipo?.codigo ?? subtipo?.id ?? '').toString();
 };
 
 const normalizarTiposRiesgos = (data?: any[]) => {
   return (data || []).map((tipo) => ({
     ...tipo,
-    codigo: (tipo?.codigo ?? tipo?.id ?? tipo?.nombre ?? '').toString(),
+    codigo: (tipo?.nombre ?? tipo?.codigo ?? tipo?.id ?? '').toString(),
     subtipos: (tipo?.subtipos || []).map((subtipo: any) => ({
       ...subtipo,
       codigo: getSubtipoCodigo(subtipo),
@@ -252,6 +252,7 @@ export default function IdentificacionPage() {
   
   // OPTIMIZADO: Usar mutación de RTK Query para crear riesgos
   const [createRiesgoMutation] = useCreateRiesgoMutation();
+  const [getNextNumero] = useLazyGetNextNumeroRiesgoQuery();
   
   // OPTIMIZADO: Paginación - Estado para controlar página actual (por defecto 10 por página)
   const [currentPage, setCurrentPage] = useState(1);
@@ -310,6 +311,7 @@ export default function IdentificacionPage() {
   const totalPages = riesgosRTKData?.totalPages ?? Math.ceil(totalRiesgos / pageSize);
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const dispatch = useAppDispatch();
 
   // Backend catalog hooks - OPTIMIZADO: skip si no hay proceso seleccionado (para dueños de proceso)
@@ -556,7 +558,7 @@ export default function IdentificacionPage() {
     direction: 'asc' | 'desc';
   }>({
     field: 'id',
-    direction: 'asc',
+    direction: 'desc', // Nuevos riesgos (id mayor) aparecen arriba
   });
 
   // Causas pendientes (solo en memoria hasta "Guardar" en el riesgo): declarar antes de riesgosParaRender
@@ -757,6 +759,8 @@ export default function IdentificacionPage() {
         objetivo: objetivoTexto || '',
         tipoRiesgo: r.tipoRiesgo || '',
         subtipoRiesgo: r.subtipoRiesgo || '',
+        tipoRiesgoId: (r as any).tipoRiesgoId ?? null,
+        subtipoRiesgoId: (r as any).subtipoRiesgoId ?? null,
         tipoProceso: r.proceso?.tipo || procesoSel?.tipo || 'Operacional',
         impactos: r.evaluacion ? {
           economico: r.evaluacion.impactoEconomico || 1,
@@ -1010,7 +1014,9 @@ export default function IdentificacionPage() {
     if (Array.isArray(gerenciasApi)) {
       gerenciasApi.forEach((g: any) => {
         if (g && (g.nombre || g.sigla)) {
-          siglas.push({ nombre: g.nombre ?? String(g), sigla: (g.sigla ?? '') });
+          const nombre = g.nombre ?? String(g);
+          const sigla = g.sigla ?? (nombre ? nombre.split(' ').map((p: string) => p[0]?.toUpperCase()).join('').substring(0, 4) : '');
+          siglas.push({ nombre, sigla });
         }
       });
     }
@@ -1149,13 +1155,9 @@ export default function IdentificacionPage() {
         showError('Seleccione un proceso antes de crear un riesgo');
         return;
       }
-      // Calcular el siguiente número de riesgo disponible para este proceso
-      // para evitar colisiones con la restricción única (procesoId, numero) en backend.
-      const numerosExistentes = riesgos
-        .filter((r: any) => String((r as any).procesoId ?? procesoSeleccionado.id) === String(procesoSeleccionado.id))
-        .map((r: any) => Number(r.numero ?? 0) || 0);
-      const maxNumeroExistente = numerosExistentes.length > 0 ? Math.max(...numerosExistentes) : 0;
-      const siguienteNumero = maxNumeroExistente + 1;
+      // Obtener el siguiente número disponible desde el backend (evita duplicados con paginación)
+      const result = await getNextNumero(Number(procesoSeleccionado.id));
+      const siguienteNumero = result?.data?.nextNumero ?? 1;
       // Obtener datos de gerencia del proceso seleccionado
       let gerenciaNombre = '';
       let gerenciaSigla = '';
@@ -1170,7 +1172,7 @@ export default function IdentificacionPage() {
           );
           if (gerenciaEnCatalogo) {
             gerenciaNombre = gerenciaEnCatalogo.nombre || '';
-            gerenciaSigla = gerenciaEnCatalogo.sigla || '';
+            gerenciaSigla = gerenciaEnCatalogo.sigla || (gerenciaEnCatalogo.nombre ? gerenciaEnCatalogo.nombre.split(' ').map((s: string) => s[0]?.toUpperCase()).join('').substring(0, 4) : '');
             vicepresidenciaNombre = gerenciaEnCatalogo.subdivision || '';
             // Generar sigla de vicepresidencia si no existe
             if (vicepresidenciaNombre && !vicepresidenciaSigla) {
@@ -1205,21 +1207,15 @@ export default function IdentificacionPage() {
       
       const payload = {
         procesoId: procesoSeleccionado?.id,
-        // Usar siempre un número secuencial garantizado para evitar duplicados
         numero: siguienteNumero,
-        numeroIdentificacion: numeroIdentificacionFinal, // ID completo con sigla del proceso (ej: "1PF")
+        numeroIdentificacion: numeroIdentificacionFinal,
         descripcion: nuevoRiesgo.descripcionRiesgo || 'Nuevo Riesgo',
         clasificacion: 'Negativa',
         origen: 'Interno',
-        zona: 'Rural',
-        tipologiaNivelI: '',
-        tipologiaNivelII: '',
-        causaRiesgo: '',
-        fuenteCausa: '',
         vicepresidenciaGerenciaAlta: vicepresidenciaNombre,
-        siglaVicepresidencia: vicepresidenciaSigla,
         gerencia: gerenciaNombre,
-        siglaGerencia: gerenciaSigla,
+        tipoRiesgoId: (nuevoRiesgo as any).tipoRiesgoId ?? null,
+        subtipoRiesgoId: (nuevoRiesgo as any).subtipoRiesgoId ?? null,
         objetivoId: procesoSeleccionado?.objetivos?.[0] ? Number(procesoSeleccionado.objetivos[0]) : null,
         evaluacion: {
           impactoPersonas: 1,
@@ -1239,6 +1235,8 @@ export default function IdentificacionPage() {
 
       const creado = await createRiesgoMutation(payload).unwrap();
       showSuccess('Riesgo creado exitosamente');
+      setCurrentPage(1);
+      setRiesgosExpandidos((prev) => ({ ...prev, [String(creado.id)]: true }));
       await refetchRiesgosRTK();
       await cargarRiesgosMemo(procesoSeleccionado?.id);
       try { iniciarVer(creado as any); } catch { /* noop */ }
@@ -1250,7 +1248,7 @@ export default function IdentificacionPage() {
 
   // Eliminar riesgo: actualizar lista y mapa sin tener que guardar en otro riesgo
   const handleEliminarRiesgo = async (riesgoId: string | number) => {
-    if (!confirmarEliminar('este riesgo')) return;
+    if (!(await confirmDelete('este riesgo'))) return;
     try {
       await eliminarRiesgoApi(Number(riesgoId));
       showSuccess('Riesgo eliminado');
@@ -1323,20 +1321,26 @@ export default function IdentificacionPage() {
       const pendientes = causasPendientes[riesgoId];
       if (pendientes) {
         const riesgoIdNum = Number(riesgoId);
-        for (const causaId of Object.keys(pendientes.toDelete || {})) {
-          if (!causaId.startsWith('temp-')) await api.riesgos.causas.delete(Number(causaId));
-        }
-        for (const [causaId, data] of Object.entries(pendientes.toUpdate || {})) {
-          await api.riesgos.causas.update(Number(causaId), data);
-        }
-        for (const a of pendientes.toAdd || []) {
-          await api.riesgos.causas.create({
-            riesgoId: riesgoIdNum,
-            descripcion: a.descripcion,
-            fuenteCausa: a.fuenteCausa || null,
-            frecuencia: a.frecuencia,
-            seleccionada: true,
-          });
+        try {
+          for (const causaId of Object.keys(pendientes.toDelete || {})) {
+            if (!causaId.startsWith('temp-')) await api.riesgos.causas.delete(Number(causaId));
+          }
+          for (const [causaId, data] of Object.entries(pendientes.toUpdate || {})) {
+            await api.riesgos.causas.update(Number(causaId), data);
+          }
+          for (const a of pendientes.toAdd || []) {
+            await api.riesgos.causas.create({
+              riesgoId: riesgoIdNum,
+              descripcion: String(a.descripcion ?? '').trim() || 'Causa',
+              fuenteCausa: a.fuenteCausa ?? null,
+              frecuencia: a.frecuencia ?? 3,
+              seleccionada: true,
+            });
+          }
+        } catch (errCausas: any) {
+          const msg = errCausas?.message || errCausas?.data?.error || 'Error al guardar las causas. Revise los datos e intente de nuevo.';
+          showError(msg);
+          throw errCausas;
         }
         setCausasPendientes(prev => {
           const next = { ...prev };
@@ -1351,12 +1355,22 @@ export default function IdentificacionPage() {
 
       const payload: any = {};
 
+      // Construir el riesgo actualizado con los cambios para pasarlo al recálculo (antes de usarlo en payload)
+      const riesgoActualizado = {
+        ...riesgoActual,
+        ...cambios,
+        impactos: cambios.impactos
+          ? { ...riesgoActual.impactos, ...cambios.impactos }
+          : riesgoActual.impactos
+      };
+
       // Mapear actualizaciones a estructura de Backend (solo si hay cambios)
       if (cambios.descripcionRiesgo !== undefined) payload.descripcion = cambios.descripcionRiesgo;
-      if (cambios.tipoRiesgo !== undefined) payload.tipoRiesgo = cambios.tipoRiesgo;
-      if (cambios.subtipoRiesgo !== undefined) payload.subtipoRiesgo = cambios.subtipoRiesgo;
+      if (cambios.tipoRiesgoId !== undefined) payload.tipoRiesgoId = cambios.tipoRiesgoId;
+      if (cambios.subtipoRiesgoId !== undefined) payload.subtipoRiesgoId = cambios.subtipoRiesgoId;
       if (cambios.origenRiesgo !== undefined) payload.origen = cambios.origenRiesgo;
-      if (cambios.consecuencia !== undefined) payload.clasificacion = cambios.consecuencia;
+      // Siempre enviar clasificación con el valor actual del formulario para que no se pierda al guardar
+      payload.clasificacion = riesgoActualizado.consecuencia ?? riesgoActual.consecuencia ?? 'Negativa';
       
       // Objetivo: guardar como texto completo (código + descripción)
       if (cambios.objetivo !== undefined) {
@@ -1368,16 +1382,7 @@ export default function IdentificacionPage() {
           payload.objetivoId = objetivoEncontrado.id;
         }
       }
-      
-      // Construir el riesgo actualizado con los cambios para pasarlo al recálculo
-      const riesgoActualizado = {
-        ...riesgoActual,
-        ...cambios,
-        impactos: cambios.impactos 
-          ? { ...riesgoActual.impactos, ...cambios.impactos }
-          : riesgoActual.impactos
-      };
-      
+
       if (cambios.impactos) {
         payload.evaluacion = {
           ...(riesgoActual as any).evaluacion,
@@ -1393,9 +1398,12 @@ export default function IdentificacionPage() {
         };
       }
 
-      // 1. Guardar cambios en el backend solo si hay cambios de formulario
+      // 1. Guardar cambios en el backend si hay cambios de formulario o si se acaban de persistir causas (sincronizar clasificación)
       if (hayCambiosForm) {
         await actualizarRiesgoApi(Number(riesgoId), payload);
+      } else if (pendientes) {
+        // Tras guardar solo causas, sincronizar al menos la clasificación actual del formulario
+        await actualizarRiesgoApi(Number(riesgoId), { clasificacion: payload.clasificacion });
       }
 
       // 2. SIEMPRE recalcular y guardar calificación inherente al usar "Guardar" (aunque no haya cambios de formulario, p. ej. tras añadir/editar causas)
@@ -1421,6 +1429,7 @@ export default function IdentificacionPage() {
       // Mensaje de éxito se muestra en handleSave
     } catch (e: any) {
       showError(e?.data?.error || e?.message || 'Error al guardar riesgo');
+      throw e;
     }
   }, [riesgos, cambiosPendientes, causasPendientes, objetivos, procesoSeleccionado, actualizarRiesgoApi, recalcularYGuardarCalificacionInherenteGlobal, cargarRiesgosMemo, dispatch, showSuccess, showError]);
 
@@ -1562,6 +1571,46 @@ export default function IdentificacionPage() {
           </Card>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+            {/* Paginación arriba: total y pasar página por página */}
+            {totalRiesgos > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', gap: 1.5, mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel>Mostrar</InputLabel>
+                    <Select
+                      value={pageSize}
+                      label="Mostrar"
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <MenuItem value={5}>5 por página</MenuItem>
+                      <MenuItem value={10}>10 por página</MenuItem>
+                      <MenuItem value={25}>25 por página</MenuItem>
+                      <MenuItem value={50}>50 por página</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Typography variant="body2" color="text.secondary">
+                    Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRiesgos)} de {totalRiesgos} riesgos
+                  </Typography>
+                </Box>
+                {totalPages > 1 && (
+                  <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={(event, value) => {
+                      setCurrentPage(value);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    color="primary"
+                    size="small"
+                    showFirstButton
+                    showLastButton
+                  />
+                )}
+              </Box>
+            )}
             {/* Contenedor con scroll horizontal en móvil para que la tabla no se aplaste */}
             <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: { xs: -0.5, sm: 0 } }}>
               <Box sx={{ minWidth: { xs: 720, sm: '100%' } }}>
@@ -1997,6 +2046,10 @@ export default function IdentificacionPage() {
 
                       {/* Resumen de Calificaciones */}
                       {(() => {
+                        const defaultImpactos = {
+                          economico: 1, procesos: 1, legal: 1, confidencialidadSGSI: 1,
+                          reputacion: 1, disponibilidadSGSI: 1, personas: 1, integridadSGSI: 1, ambiental: 1,
+                        };
                         // Ordenar causas por ID ascendente para numeración consistente
                         const causasOrdenadas = [...(riesgo.causas || [])].sort((a, b) => {
                           const idA = Number(a.id) || 0;
@@ -2004,10 +2057,24 @@ export default function IdentificacionPage() {
                           return idA - idB;
                         });
 
+                        // Asegurar que cada causa tenga calificación global impacto e inherente (p. ej. causas recién añadidas o sin normalizar)
+                        const causasConCalificacion = causasOrdenadas.map((causa: any) => {
+                          const cgi = causa.calificacionGlobalImpacto != null && !Number.isNaN(Number(causa.calificacionGlobalImpacto))
+                            ? Number(causa.calificacionGlobalImpacto)
+                            : calcularCalificacionGlobalImpacto(riesgo.impactos || defaultImpactos);
+                          const pesoFrec = obtenerPesoFrecuencia(causa.frecuencia, frecuenciasApi || []);
+                          const cipcExistente = causa.calificacionInherentePorCausa;
+                          const cipc = (typeof cipcExistente === 'number' && !Number.isNaN(cipcExistente))
+                            ? cipcExistente
+                            : (cipcExistente != null && typeof cipcExistente === 'object' && typeof (cipcExistente as any).resultado === 'number')
+                              ? (cipcExistente as any).resultado
+                              : calcularCalificacionInherentePorCausaSync(pesoFrec, cgi).resultado;
+                          return { ...causa, calificacionGlobalImpacto: cgi, calificacionInherentePorCausa: cipc };
+                        });
+
                         // Calcular la calificación inherente global (máximo de todas las causas)
-                        // Extraer número por si viene como { resultado } del servicio
-                        const calificacionesInherentes = causasOrdenadas
-                          .map(causa => {
+                        const calificacionesInherentes = causasConCalificacion
+                          .map((causa: any) => {
                             const c = causa.calificacionInherentePorCausa;
                             if (typeof c === 'number' && !Number.isNaN(c)) return c;
                             if (c != null && typeof c === 'object' && typeof (c as any).resultado === 'number') return (c as any).resultado;
@@ -2075,7 +2142,7 @@ export default function IdentificacionPage() {
                             </Typography>
 
                             {/* Tabla de calificaciones por causa */}
-                            {causasOrdenadas.length > 0 ? (
+                            {causasConCalificacion.length > 0 ? (
                               <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
                                 <Table size="small">
                                   <TableHead>
@@ -2087,7 +2154,7 @@ export default function IdentificacionPage() {
                                     </TableRow>
                                   </TableHead>
                                   <TableBody>
-                                    {causasOrdenadas.map((causa, index) => (
+                                    {causasConCalificacion.map((causa: any, index: number) => (
                                       <TableRow key={causa.id}>
                                         <TableCell>
                                           <Typography variant="body2">
@@ -2171,47 +2238,6 @@ export default function IdentificacionPage() {
                 </Card>
               );
             })}
-            
-            {/* Paginación: por defecto 10 por página, usuario puede elegir 10/25/50 */}
-            {totalRiesgos > 0 && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 3, mb: 2, gap: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 2 }}>
-                  <FormControl size="small" sx={{ minWidth: 140 }}>
-                    <InputLabel>Mostrar</InputLabel>
-                    <Select
-                      value={pageSize}
-                      label="Mostrar"
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <MenuItem value={5}>5 por página</MenuItem>
-                  <MenuItem value={10}>10 por página</MenuItem>
-                      <MenuItem value={25}>25 por página</MenuItem>
-                      <MenuItem value={50}>50 por página</MenuItem>
-                    </Select>
-                  </FormControl>
-                  {totalPages > 1 && (
-                    <Pagination
-                      count={totalPages}
-                      page={currentPage}
-                      onChange={(event, value) => {
-                        setCurrentPage(value);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      color="primary"
-                      size="large"
-                      showFirstButton
-                      showLastButton
-                    />
-                  )}
-                </Box>
-                <Typography variant="body2" color="text.secondary" align="center">
-                  Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRiesgos)} de {totalRiesgos} riesgos
-                </Typography>
-              </Box>
-            )}
               </Box>
             </Box>
           </Box>
@@ -2676,20 +2702,19 @@ export default function IdentificacionPage() {
                       frecuenciaInherente,
                       impactoInherente,
                       porcentajeMitigacion,
-                      criteriosEvaluacion.tipoMitigacion
+                      criteriosEvaluacion.tipoMitigacion,
+                      evaluacionDefinitiva
                     );
 
                     const impactoResidual = calcularImpactoResidualAvanzado(
                       impactoInherente,
                       frecuenciaInherente,
                       porcentajeMitigacion,
-                      criteriosEvaluacion.tipoMitigacion
+                      criteriosEvaluacion.tipoMitigacion,
+                      evaluacionDefinitiva
                     );
 
-                    const calificacionResidual = calcularCalificacionResidual(
-                      frecuenciaResidual,
-                      impactoResidual
-                    );
+                    const calificacionResidual = (frecuenciaResidual === 2 && impactoResidual === 2) ? 3.99 : calcularCalificacionResidual(frecuenciaResidual, impactoResidual);
 
                     return {
                       ...c,
@@ -3068,19 +3093,19 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                           <Autocomplete
                             value={riesgo.tipoRiesgo ? (() => {
                               // Buscar por codigo (texto) o por id (número) para compatibilidad
-                              const tipo = (tiposRiesgos ||  []).find(t => 
-                                t.codigo === riesgo.tipoRiesgo || 
-                                t.nombre === riesgo.tipoRiesgo ||
+                              const tipo = (tiposRiesgos || []).find((t: any) => 
+                                String(t.id) === String((riesgo as any).tipoRiesgoId) ||
+                                t.nombre === riesgo.tipoRiesgo || 
+                                t.codigo === riesgo.tipoRiesgo ||
                                 String(t.id) === riesgo.tipoRiesgo
                               );
                               return tipo || null;
                             })() : null}
                             onChange={(_, newValue) => {
                               if (newValue) {
-                                // Guardar el nombre (texto) en lugar del ID
-                                actualizarRiesgo(riesgo.id, { tipoRiesgo: newValue.nombre || newValue.codigo, subtipoRiesgo: '' });
+                                actualizarRiesgo(riesgo.id, { tipoRiesgoId: newValue.id, tipoRiesgo: newValue.nombre || newValue.codigo, subtipoRiesgoId: null, subtipoRiesgo: '' });
                               } else {
-                                actualizarRiesgo(riesgo.id, { tipoRiesgo: '', subtipoRiesgo: '' });
+                                actualizarRiesgo(riesgo.id, { tipoRiesgoId: null, tipoRiesgo: '', subtipoRiesgoId: null, subtipoRiesgo: '' });
                               }
                             }}
                             options={tiposRiesgos || []}
@@ -3174,27 +3199,25 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         <TableCell>
                           {riesgo.tipoRiesgo && tipoRiesgoSeleccionado ? (
                             <Autocomplete
-                              value={riesgo.subtipoRiesgo ? (()  => {
-                                const tipoObj = (tiposRiesgos || []).find(t => 
+                              value={riesgo.subtipoRiesgo || (riesgo as any).subtipoRiesgoId ? (()  => {
+                                const tipoObj = (tiposRiesgos || []).find((t: any) => 
+                                  String(t.id) === String((riesgo as any).tipoRiesgoId) ||
                                   t.nombre === riesgo.tipoRiesgo || 
-                                  t.codigo === riesgo.tipoRiesgo ||
-                                  String(t.id) === String(riesgo.tipoRiesgo)
+                                  t.codigo === riesgo.tipoRiesgo
                                 );
                                 if (!tipoObj) return null;
-                                // Buscar subtipo por nombre, codigo o id
                                 return tipoObj.subtipos.find((s: any) => 
+                                  String(s.id) === String((riesgo as any).subtipoRiesgoId) ||
                                   s.nombre === riesgo.subtipoRiesgo ||
                                   s.codigo === riesgo.subtipoRiesgo ||
-                                  getSubtipoCodigo(s) === riesgo.subtipoRiesgo ||
-                                  String(s.id) === String(riesgo.subtipoRiesgo)
+                                  getSubtipoCodigo(s) === riesgo.subtipoRiesgo
                                 ) || null;
                               })() : null}
                               onChange={(_, newValue) => {
                                 if (newValue) {
-                                  // Guardar el nombre (texto) en lugar del ID
-                                  actualizarRiesgo(riesgo.id, { subtipoRiesgo: newValue.nombre || newValue.codigo });
+                                  actualizarRiesgo(riesgo.id, { subtipoRiesgoId: newValue.id, subtipoRiesgo: newValue.nombre || newValue.codigo });
                                 } else {
-                                  actualizarRiesgo(riesgo.id, { subtipoRiesgo: '' });
+                                  actualizarRiesgo(riesgo.id, { subtipoRiesgoId: null, subtipoRiesgo: '' });
                                 }
                               }}
                               options={tipoRiesgoSeleccionado.subtipos}

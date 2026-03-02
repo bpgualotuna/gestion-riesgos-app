@@ -29,13 +29,15 @@ import {
   Tabs,
   Tab,
   Alert,
+  Backdrop,
+  CircularProgress,
 } from '@mui/material';
 import {
   Save as SaveIcon,
+  Refresh as RefreshIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -43,7 +45,7 @@ import { useNotification } from '../../hooks/useNotification';
 import {
   useGetConfiguracionResidualQuery,
   useUpdateConfiguracionResidualMutation,
-  useRecalcularRiesgosResidualesMutation,
+  useRecalcularClasificacionResidualMutation,
 } from '../../api/services/riesgosApi';
 
 interface TabPanelProps {
@@ -69,7 +71,7 @@ export default function ConfiguracionResidualPage() {
   // RTK Query hooks
   const { data: configData, isLoading, error } = useGetConfiguracionResidualQuery();
   const [updateConfig, { isLoading: isSaving }] = useUpdateConfiguracionResidualMutation();
-  const [recalcular, { isLoading: isRecalculating }] = useRecalcularRiesgosResidualesMutation();
+  const [recalcularClasificacion, { isLoading: isRecalculating }] = useRecalcularClasificacionResidualMutation();
 
   // Estados locales (se inicializan con datos de la API)
   const [pesosCriterios, setPesosCriterios] = useState<any[]>([]);
@@ -77,6 +79,7 @@ export default function ConfiguracionResidualPage() {
   const [tablaMitigacion, setTablaMitigacion] = useState<any[]>([]);
   const [opcionesCriterios, setOpcionesCriterios] = useState<any[]>([]);
   const [rangosNivelRiesgo, setRangosNivelRiesgo] = useState<any[]>([]);
+  const [porcentajeReduccionDimensionCruzada, setPorcentajeReduccionDimensionCruzada] = useState<number | ''>(0.34);
 
   // Cargar datos cuando llegan de la API
   // IMPORTANTE: Crear copias profundas para evitar mutación de datos inmutables de RTK Query
@@ -87,6 +90,8 @@ export default function ConfiguracionResidualPage() {
       setTablaMitigacion(JSON.parse(JSON.stringify(configData.tablaMitigacion || [])));
       setOpcionesCriterios(JSON.parse(JSON.stringify(configData.opcionesCriterios || [])));
       setRangosNivelRiesgo(JSON.parse(JSON.stringify(configData.rangosNivelRiesgo || [])));
+      const p = configData.porcentajeReduccionDimensionCruzada;
+      setPorcentajeReduccionDimensionCruzada(p != null && p >= 0 && p <= 1 ? p : 0.34);
     }
   }, [configData]);
 
@@ -99,11 +104,17 @@ export default function ConfiguracionResidualPage() {
         return;
       }
 
-      await updateConfig({
+      const pCruz = porcentajeReduccionDimensionCruzada === '' ? undefined : Number(porcentajeReduccionDimensionCruzada);
+      if (pCruz !== undefined && (pCruz < 0 || pCruz > 1)) {
+        showError('El porcentaje de reducción en dimensión cruzada debe estar entre 0 y 1 (ej. 0.34).');
+        return;
+      }
+      const result = await updateConfig({
         id: configData.id,
         nombre: configData.nombre,
         descripcion: configData.descripcion,
         activa: configData.activa,
+        porcentajeReduccionDimensionCruzada: pCruz,
         pesosCriterios,
         rangosEvaluacion,
         tablaMitigacion,
@@ -111,30 +122,26 @@ export default function ConfiguracionResidualPage() {
         rangosNivelRiesgo,
       }).unwrap();
 
-      showSuccess('Configuración guardada exitosamente');
+      const recalc = result?.recalc;
+      const msg = recalc
+        ? `Configuración guardada. Se recalculó la clasificación de ${recalc.causasActualizadas ?? 0} causas y ${recalc.riesgosActualizados ?? 0} riesgos.`
+        : (result?.message || 'Configuración guardada. Clasificación residual de todos los controles recalculada.');
+      showSuccess(msg);
     } catch (error: any) {
       showError(error?.data?.message || 'Error al guardar la configuración');
     }
   };
 
-  const handleRecalcular = async (preview: boolean = true) => {
+  const handleRecalcular = async () => {
     try {
-      const result = await recalcular({ 
-        preview, 
-        confirmacion: !preview 
-      }).unwrap();
-
-      if (preview) {
-        showSuccess(
-          `Preview completado: ${result.resultado.causasActualizadas} causas y ${result.resultado.riesgosActualizados} riesgos se actualizarían`
-        );
-      } else {
-        showSuccess(
-          `Recálculo completado: ${result.resultado.causasActualizadas} causas y ${result.resultado.riesgosActualizados} riesgos actualizados`
-        );
-      }
+      const result = await recalcularClasificacion({ confirmacion: true }).unwrap();
+      const r = result?.resultado;
+      const msg = r
+        ? `Clasificación residual recalculada: ${r.causasActualizadas ?? 0} causas y ${r.riesgosActualizados ?? 0} riesgos actualizados.`
+        : 'Recálculo completado.';
+      showSuccess(msg);
     } catch (error: any) {
-      showError(error?.data?.message || 'Error al recalcular riesgos residuales');
+      showError(error?.data?.message || 'Error al recalcular la clasificación residual');
     }
   };
 
@@ -182,8 +189,7 @@ export default function ConfiguracionResidualPage() {
         </Typography>
 
         <Alert severity="info" sx={{ mb: 3 }}>
-          Esta configuración controla cómo se calcula la calificación residual de los riesgos después de aplicar controles.
-          Los cambios se aplicarán a todos los riesgos con controles al guardar.
+          Esta configuración controla cómo se calcula la calificación residual. Al guardar, se recalculan automáticamente todos los residuales con la nueva configuración.
         </Alert>
 
         {/* Tabs */}
@@ -198,6 +204,28 @@ export default function ConfiguracionResidualPage() {
 
           {/* Tab 1: Pesos de Criterios */}
           <TabPanel value={tabValue} index={0}>
+            <Card sx={{ mb: 3, p: 2 }}>
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                Parámetros generales
+              </Typography>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Reducción dimensión cruzada (0-1)"
+                    helperText="Cuando el control aplica a la otra dimensión (ej. 0.34 = 34%). Por defecto 0.34 (Excel)."
+                    type="number"
+                    value={porcentajeReduccionDimensionCruzada}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPorcentajeReduccionDimensionCruzada(v === '' ? '' : parseFloat(v));
+                    }}
+                    inputProps={{ step: 0.01, min: 0, max: 1 }}
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+            </Card>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Pesos de Criterios de Evaluación
             </Typography>
@@ -850,41 +878,32 @@ export default function ConfiguracionResidualPage() {
           </TabPanel>
         </Paper>
 
-        {/* Botones de Acción */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => handleRecalcular(true)}
-              disabled={isRecalculating}
-              color="info"
-            >
-              {isRecalculating ? 'Calculando...' : 'Preview Recálculo'}
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                if (window.confirm('¿Estás seguro de ejecutar el recálculo REAL? Esto modificará los datos en la base de datos.')) {
-                  handleRecalcular(false);
-                }
-              }}
-              disabled={isRecalculating}
-              color="warning"
-            >
-              Recalcular REAL
-            </Button>
-          </Box>
+        {/* Guardar (recalcula con nueva config) y Recalcular (solo actualiza clasificaciones con config actual) */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button
+            variant="outlined"
+            startIcon={isRecalculating ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+            onClick={handleRecalcular}
+            disabled={isRecalculating || isSaving}
+          >
+            {isRecalculating ? 'Recalculando...' : 'Recalcular'}
+          </Button>
           <Button
             variant="contained"
-            startIcon={<SaveIcon />}
+            startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || isRecalculating}
           >
-            {isSaving ? 'Guardando...' : 'Guardar Configuración'}
+            {isSaving ? 'Guardando y recalculando residuales...' : 'Guardar Configuración'}
           </Button>
         </Box>
+
+        <Backdrop open={isSaving || isRecalculating} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, flexDirection: 'column', gap: 2 }}>
+          <CircularProgress color="inherit" />
+          <Typography variant="h6" sx={{ color: 'white' }}>
+            {isRecalculating ? 'Recalculando clasificación residual de todos los controles...' : 'Guardando y recalculando clasificación residual de todos los controles...'}
+          </Typography>
+        </Backdrop>
       </Box>
     </AppPageLayout>
   );

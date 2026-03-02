@@ -56,7 +56,8 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetImpactosQuery } from '../../api/services/riesgosApi';
 import { useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation, useGetRiesgosQuery } from '../../api/services/riesgosApi';
-import { LABELS_IMPACTO, confirmarEliminar } from '../../utils/constants';
+import { LABELS_IMPACTO } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -121,6 +122,7 @@ interface Incidencia {
 export default function IncidenciasPage() {
   const { esAdmin } = useAuth();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const { procesoSeleccionado } = useProceso();
   const [incidenciasLocal, setIncidenciasLocal] = useState<Incidencia[]>([]);
   const [tabValue, setTabValue] = useState(0);
@@ -230,25 +232,27 @@ export default function IncidenciasPage() {
     */
 
 
-    // Solo crear nueva incidencia (el formulario inline no soporta edición)
-    await createIncidencia({
-      codigo: `INC-${Date.now()}`,
-      riesgoId: formData.riesgoId,
-      procesoId: procesoSeleccionado.id,
-      titulo: formData.titulo,
-      descripcion: formData.descripcion,
-      estado: formData.estado,
-      fechaOcurrencia: formData.fechaOcurrencia,
-      fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
-      reportadoPor: 'Usuario Actual',
-      impactosMaterializacion: impactos,
-    }).unwrap();
-
-    showSuccess('Incidencia creada exitosamente');
+    try {
+      await createIncidencia({
+        codigo: `INC-${Date.now()}`,
+        riesgoId: formData.riesgoId,
+        procesoId: procesoSeleccionado.id,
+        titulo: formData.titulo,
+        descripcion: formData.descripcion,
+        estado: formData.estado,
+        fechaOcurrencia: formData.fechaOcurrencia,
+        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+        reportadoPor: 'Usuario Actual',
+        impactosMaterializacion: impactos,
+      }).unwrap();
+      showSuccess('Incidencia creada exitosamente');
+    } catch (e: any) {
+      showError(e?.data?.error || e?.message || 'Error al crear la incidencia');
+    }
   };
 
   const handleEliminar = async (id: string) => {
-    if (!confirmarEliminar('esta incidencia')) return;
+    if (!(await confirmDelete('esta incidencia'))) return;
     try {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');

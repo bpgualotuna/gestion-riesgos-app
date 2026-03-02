@@ -43,6 +43,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { Area, CreateAreaDto, Usuario, Proceso } from '../../types';
 import {
@@ -59,7 +60,7 @@ import {
     useUpdateResponsablesProcesoMutation
 } from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
     const { children, value, index, ...other } = props;
@@ -509,6 +510,12 @@ export default function AreasPage() {
             title="Configuración de Áreas y Responsables"
             description="Gestione las áreas de la organización y asigne responsables a los procesos."
         >
+            {loadingAreas ? (
+                <Box sx={{ py: 2 }}>
+                    <PageLoadingSkeleton variant="table" tableRows={8} />
+                </Box>
+            ) : (
+            <>
             <Box sx={{ mt: -2 }}>
                 <Tabs
                     value={tabValue}
@@ -813,6 +820,8 @@ export default function AreasPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
+            </>
+            )}
         </AppPageLayout>
     );
 }

@@ -226,6 +226,12 @@ export default function MainLayout() {
   const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
   const [modoManagerDialogOpen, setModoManagerDialogOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
+  const [profileImgError, setProfileImgError] = useState(false);
+  const [profilePhotoVersion, setProfilePhotoVersion] = useState(0);
+
+  useEffect(() => {
+    setProfileImgError(false);
+  }, [user?.id, user?.fotoPerfil]);
 
   // Obtener asignaciones del supervisor/dueño de procesos (misma lógica que el selector de proceso)
   const { areas: areasAsignadas, procesos: procesosAsignados, loading: loadingAsignaciones } = useAreasProcesosAsignados();
@@ -493,10 +499,7 @@ export default function MainLayout() {
                             onClick={() => {
                               if (child.path && !isChildDisabled) {
                                 handleMenuClick(child.path);
-                                // Con el panel colapsado no cerrar submenús: evita parpadeo/recarga
-                                if (!sidebarCollapsed) {
-                                  setOpenMenus({});
-                                }
+                                // No cerrar los menús al navegar: evita que el menú se encoja y vuelva a abrir
                               }
                             }}
                             sx={() => {
@@ -1042,11 +1045,14 @@ export default function MainLayout() {
                     }}
                     aria-label="Menú de usuario"
                   >
-                    {user.fotoPerfil ? (
+                    {(user.fotoPerfil && !profileImgError) ? (
                       <Avatar
-                        src={user.fotoPerfil}
+                        src={`${user.fotoPerfil}${user.fotoPerfil.includes('?') ? '&' : '?'}v=${profilePhotoVersion}`}
+                        onError={() => setProfileImgError(true)}
                         sx={{ width: 40, height: 40, border: '2px solid #1976d2', objectFit: 'cover' }}
-                      />
+                      >
+                        {user.fullName?.charAt(0)}
+                      </Avatar>
                     ) : (
                       <AccountCircleIcon sx={{ color: '#1976d2', fontSize: 28 }} />
                     )}
@@ -1205,7 +1211,8 @@ export default function MainLayout() {
                     </Typography>
                   </Box>
                   <Avatar
-                    src={user.fotoPerfil || undefined}
+                    src={profileImgError ? undefined : (user.fotoPerfil ? `${user.fotoPerfil}${user.fotoPerfil.includes('?') ? '&' : '?'}v=${profilePhotoVersion}` : undefined)}
+                    onError={() => setProfileImgError(true)}
                     sx={{
                       width: 38,
                       height: 38,
@@ -1215,7 +1222,7 @@ export default function MainLayout() {
                       objectFit: 'cover',
                     }}
                   >
-                    {!user.fotoPerfil && user.fullName?.charAt(0)}
+                    {(!user.fotoPerfil || profileImgError) && user.fullName?.charAt(0)}
                   </Avatar>
                 </Box>
               )}
@@ -1339,7 +1346,11 @@ export default function MainLayout() {
             open={perfilOpen}
             onClose={() => setPerfilOpen(false)}
             user={user}
-            onSaved={refreshUser}
+            onSaved={(data) => {
+              setProfileImgError(false);
+              setProfilePhotoVersion((v) => v + 1);
+              refreshUser(data ?? undefined);
+            }}
           />
         </Toolbar>
       </AppBar>

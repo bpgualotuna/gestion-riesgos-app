@@ -41,7 +41,7 @@ import {
     Security as SecurityIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { Usuario, Cargo, Gerencia } from '../../types';
 import {
@@ -53,6 +53,7 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { Typography as MuiTypography } from '@mui/material';
 
 interface TabPanelProps {
@@ -84,6 +85,7 @@ function TabPanel(props: TabPanelProps) {
 export default function UsuariosPage() {
     const { esAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
+    const { confirmDelete } = useConfirm();
     const [currentTab, setCurrentTab] = useState(0);
 
     // Queries
@@ -149,7 +151,6 @@ export default function UsuariosPage() {
     });
     const [gerenciaFormData, setGerenciaFormData] = useState<any>({
         nombre: '',
-        sigla: '',
         subdivision: '',
     });
     const [showPassword, setShowPassword] = useState(false);
@@ -202,7 +203,6 @@ export default function UsuariosPage() {
     const filteredGerencias = useMemo(() => {
         return (gerenciasData as Gerencia[]).filter(g =>
             g.nombre.toLowerCase().includes(searchGerencias.toLowerCase()) ||
-            (g.sigla && g.sigla.toLowerCase().includes(searchGerencias.toLowerCase())) ||
             (g.subdivision && g.subdivision.toLowerCase().includes(searchGerencias.toLowerCase()))
         );
     }, [gerenciasData, searchGerencias]);
@@ -341,7 +341,7 @@ export default function UsuariosPage() {
     };
 
     const handleDeleteRole = async (id: string | number) => {
-        if (confirmarEliminar('este rol')) {
+        if (await confirmDelete('este rol')) {
             try {
                 await deleteRole(id as any).unwrap();
                 showSuccess('Rol eliminado correctamente');
@@ -389,14 +389,12 @@ export default function UsuariosPage() {
             setEditingGerencia(gerencia);
             setGerenciaFormData({
                 nombre: gerencia.nombre,
-                sigla: gerencia.sigla || '',
                 subdivision: gerencia.subdivision || '',
             });
         } else {
             setEditingGerencia(null);
             setGerenciaFormData({
                 nombre: '',
-                sigla: '',
                 subdivision: '',
             });
         }
@@ -439,7 +437,7 @@ export default function UsuariosPage() {
     };
 
     const handleDeleteGerencia = async (id: string | number) => {
-        if (confirmarEliminar('esta gerencia')) {
+        if (await confirmDelete('esta gerencia')) {
             try {
                 await deleteGerencia(id as any).unwrap();
                 showSuccess('Gerencia eliminada correctamente');
@@ -470,7 +468,7 @@ export default function UsuariosPage() {
     };
 
     const handleDeleteCargo = async (id: string | number) => {
-        if (confirmarEliminar('este cargo')) {
+        if (await confirmDelete('este cargo')) {
             try {
                 await deleteCargo(id as any).unwrap();
                 showSuccess('Cargo eliminado correctamente');
@@ -501,7 +499,7 @@ export default function UsuariosPage() {
     };
 
     const handleDelete = async (id: string | number) => {
-        if (confirmarEliminar('este usuario')) {
+        if (await confirmDelete('este usuario')) {
             try {
                 await deleteUsuario(id as any).unwrap();
                 showSuccess('Usuario eliminado correctamente');
@@ -566,11 +564,19 @@ export default function UsuariosPage() {
         },
     ];
 
+    const loadingActual = currentTab === 0 ? loadingUsuarios : currentTab === 1 ? loadingCargos : currentTab === 2 ? loadingGerencias : loadingRoles;
+
     return (
         <AppPageLayout
             title="Gestión de Usuarios"
             description="Administre los usuarios del sistema, sus roles, cargos y estados."
         >
+            {loadingActual ? (
+                <Box sx={{ py: 2 }}>
+                    <PageLoadingSkeleton variant="table" tableRows={8} />
+                </Box>
+            ) : (
+            <>
             <Box sx={{ mt: -2 }}>
                 <Tabs
                     value={currentTab}
@@ -834,7 +840,6 @@ export default function UsuariosPage() {
                             columns={[
                                 { field: 'id', headerName: 'ID', flex: 0.5 },
                                 { field: 'nombre', headerName: 'Nombre', flex: 1 },
-                                { field: 'sigla', headerName: 'Sigla', flex: 0.75 },
                                 { field: 'subdivision', headerName: 'Subdivisión', flex: 1.5 },
                                 {
                                     field: 'actions',
@@ -1083,12 +1088,6 @@ export default function UsuariosPage() {
                             required
                         />
                         <TextField
-                            label="Sigla"
-                            fullWidth
-                            value={gerenciaFormData.sigla}
-                            onChange={(e) => setGerenciaFormData({ ...gerenciaFormData, sigla: e.target.value })}
-                        />
-                        <TextField
                             label="Subdivisión"
                             fullWidth
                             value={gerenciaFormData.subdivision}
@@ -1211,10 +1210,6 @@ export default function UsuariosPage() {
                                 <Typography variant="body1">{selectedGerenciaDetail.nombre}</Typography>
                             </Box>
                             <Box>
-                                <Typography variant="body2" color="text.secondary">Sigla</Typography>
-                                <Typography variant="body1">{selectedGerenciaDetail.sigla || '-'}</Typography>
-                            </Box>
-                            <Box>
                                 <Typography variant="body2" color="text.secondary">Subdivisión</Typography>
                                 <Typography variant="body1">{selectedGerenciaDetail.subdivision || '-'}</Typography>
                             </Box>
@@ -1287,6 +1282,8 @@ export default function UsuariosPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
+            </>
+            )}
         </AppPageLayout>
     );
 }

@@ -32,7 +32,7 @@ import {
   Collapse,
   Tooltip
 } from '@mui/material';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import {
   Save as SaveIcon,
@@ -119,6 +119,7 @@ interface EvaluacionControl {
 export default function EvaluacionControlPage() {
   const { procesoSeleccionado } = useProceso();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
 
   const [evaluaciones, setEvaluaciones] = useState<EvaluacionControl[]>([]);
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
@@ -337,33 +338,30 @@ export default function EvaluacionControlPage() {
       id: contextoFormulario.causaId,
       ...controlData
     })
+      .unwrap()
       .then(() => {
         showSuccess('Control guardado correctamente');
         setDialogOpen(false);
       })
-      .catch(() => {
-        showError('Error al guardar el control');
+      .catch((err) => {
+        showError((err as any)?.data?.error || (err as any)?.message || 'Error al guardar el control');
       });
   };
 
-  const handleEliminar = (id: string) => {
-    if (confirmarEliminar('este control')) {
-      const causaToDelete = causasById.get(id);
-      if (causaToDelete) {
-        updateCausa({
-          id: id,
-          tipoGestion: null,
-          gestion: null
-        })
-          .then(() => {
-            const nuevasEvaluaciones = evaluaciones.filter(e => e.id !== id);
-            setEvaluaciones(nuevasEvaluaciones);
-            showSuccess('Control eliminado');
-          })
-          .catch((error) => {
-            showError((error as any)?.data?.error || 'Error al eliminar el control');
-          });
-      }
+  const handleEliminar = async (id: string) => {
+    if (!(await confirmDelete('este control'))) return;
+    const causaToDelete = causasById.get(id);
+    if (!causaToDelete) return;
+    try {
+      await updateCausa({
+        id: id,
+        tipoGestion: null,
+        gestion: null
+      }).unwrap();
+      setEvaluaciones(prev => prev.filter(e => e.id !== id));
+      showSuccess('Control eliminado');
+    } catch (error: any) {
+      showError(error?.data?.error || error?.message || 'Error al eliminar el control');
     }
   };
 

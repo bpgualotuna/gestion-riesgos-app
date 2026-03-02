@@ -53,7 +53,7 @@ interface AuthContextType {
   esGerenteGeneral: boolean;
   gerenteGeneralMode: GerenteGeneralMode | null;
   setGerenteGeneralMode: (mode: GerenteGeneralMode | null) => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: (updatedUserFromApi?: Record<string, unknown> | null) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -167,7 +167,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setGerenteModeState(mode === 'director' ? 'supervisor' : mode === 'proceso' ? 'dueño' : null);
   };
 
-  const refreshUser = async () => {
+  const refreshUser = async (updatedUserFromApi?: Record<string, unknown> | null) => {
+    if (updatedUserFromApi && user) {
+      setUser({
+        ...user,
+        fullName: (updatedUserFromApi.fullName as string) ?? user.fullName,
+        fotoPerfil: updatedUserFromApi.fotoPerfil !== undefined ? (updatedUserFromApi.fotoPerfil as string | null) : user.fotoPerfil,
+      });
+      return;
+    }
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
     if (!token || !user) return;
     try {

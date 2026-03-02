@@ -148,16 +148,17 @@ export const riesgosApi = createApi({
     // ============================================
     // RIESGOS
     // ============================================
-    getRiesgos: builder.query<PaginatedResponse<Riesgo>, FiltrosRiesgo & { page?: number; pageSize?: number }>({
+    getRiesgos: builder.query<PaginatedResponse<Riesgo>, (FiltrosRiesgo & { page?: number; pageSize?: number }) | undefined>({
       query: (params) => {
+        const p = params ?? {};
         const raw: Record<string, unknown> = {
-          procesoId: params.procesoId,
-          clasificacion: params.clasificacion && params.clasificacion !== 'all' ? params.clasificacion : undefined,
-          busqueda: params.busqueda,
-          zona: params.zona,
-          includeCausas: (params as any).includeCausas,
-          page: params.page,
-          pageSize: params.pageSize,
+          procesoId: p.procesoId,
+          clasificacion: p.clasificacion && p.clasificacion !== 'all' ? p.clasificacion : undefined,
+          busqueda: p.busqueda,
+          zona: p.zona,
+          includeCausas: (p as any).includeCausas,
+          page: p.page != null && Number(p.page) >= 1 ? Number(p.page) : 1,
+          pageSize: p.pageSize != null && Number(p.pageSize) >= 1 ? Math.min(100, Number(p.pageSize)) : 50,
         };
         const paramsClean = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== null));
         return { url: 'riesgos', params: paramsClean };
@@ -168,6 +169,11 @@ export const riesgosApi = createApi({
     getRiesgoById: builder.query<Riesgo, string>({
       query: (id) => `riesgos/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'Riesgo', id }],
+    }),
+
+    getNextNumeroRiesgo: builder.query<{ nextNumero: number }, number | string>({
+      query: (procesoId) => ({ url: 'riesgos/next-numero', params: { procesoId } }),
+      providesTags: ['Riesgo'],
     }),
 
     createRiesgo: builder.mutation<Riesgo, CreateRiesgoDto>({
@@ -1277,18 +1283,22 @@ export const riesgosApi = createApi({
         method: 'PUT',
         body,
       }),
-      invalidatesTags: ['Configuracion'],
+      invalidatesTags: ['Configuracion', 'Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas'],
     }),
 
-    recalcularRiesgosResiduales: builder.mutation<any, { preview?: boolean; confirmacion?: boolean }>({
-      query: ({ preview = false, confirmacion = false }) => ({
-        url: `configuracion-residual/recalcular?preview=${preview}`,
+    /** Recalcular clasificación residual de todos los controles ya registrados (sin guardar config). */
+    recalcularClasificacionResidual: builder.mutation<
+      { success: boolean; preview: boolean; resultado: { causasActualizadas: number; riesgosActualizados: number; errores: string[] } },
+      { confirmacion?: boolean }
+    >({
+      query: (body = {}) => ({
+        url: 'configuracion-residual/recalcular',
         method: 'POST',
-        body: { confirmacion },
+        body: { confirmacion: true, ...body },
       }),
-      invalidatesTags: (_result, _error, { preview }) => 
-        preview ? [] : ['Riesgo', 'Evaluacion', 'Causa'],
+      invalidatesTags: ['Configuracion', 'Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas'],
     }),
+
   }),
 });
 
@@ -1308,6 +1318,7 @@ export const {
   // Riesgos
   useGetRiesgosQuery,
   useGetRiesgoByIdQuery,
+  useLazyGetNextNumeroRiesgoQuery,
   useCreateRiesgoMutation,
   useUpdateRiesgoMutation,
   useDeleteRiesgoMutation,
@@ -1470,7 +1481,7 @@ export const {
   // Configuración Residual
   useGetConfiguracionResidualQuery,
   useUpdateConfiguracionResidualMutation,
-  useRecalcularRiesgosResidualesMutation,
+  useRecalcularClasificacionResidualMutation,
 } = riesgosApi;
 
 // Alias para compatibilidad con código existente

@@ -121,8 +121,12 @@ export default function MapaResidualPage() {
         .map(p => {
           const f = p.probabilidadResidual || 1;
           const i = p.impactoResidual || 1;
-          const cal = f * i;
-          const zona = determinarZonaRiesgo(f, i);
+          // Usar calificación y nivel del backend para coincidir con resumen y encima del riesgo
+          const calBackend = p.riesgoResidual;
+          const calCalculada = f === 2 && i === 2 ? 3.99 : f * i;
+          const cal = calBackend != null && !isNaN(Number(calBackend)) ? Number(calBackend) : calCalculada;
+          const zonaBackend = p.nivelRiesgoResidual ? String(p.nivelRiesgoResidual).trim() : '';
+          const zona = zonaBackend ? (zonaBackend.charAt(0).toUpperCase() + zonaBackend.slice(1).toLowerCase().replace(/nivel\s*/i, '')) : determinarZonaRiesgo(f, i);
 
           return {
             numeroIdentificacion: p.numeroIdentificacion || p.numero.toString(),
@@ -378,9 +382,6 @@ export default function MapaResidualPage() {
                   <TableCell align="center" sx={{ fontWeight: 600 }}>
                     Zona
                   </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 600 }}>
-                    Tipo
-                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -398,9 +399,6 @@ export default function MapaResidualPage() {
                     </TableCell>
                     <TableCell align="center">
                       <Chip label={riesgo.zonaRiesgo} sx={{ backgroundColor: getColorZona(riesgo.zonaRiesgo), color: '#fff', fontWeight: 600 }} />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip label={riesgo.consecuencia} variant="outlined" size="small" />
                     </TableCell>
                   </TableRow>
                 ))}

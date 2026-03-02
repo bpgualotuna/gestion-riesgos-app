@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { GridColDef } from '@mui/x-data-grid';
+import AppDataGrid from '../ui/AppDataGrid';
 
 interface TablaPlanesAccionProps {
     planes: any[];
@@ -44,13 +45,9 @@ const TablaPlanesAccion: React.FC<TablaPlanesAccionProps> = ({ planes }) => {
                     Planes de Acción
                 </Typography>
                 <Box sx={{ height: 400, width: '100%' }}>
-                    <DataGrid
+                    <AppDataGrid
                         rows={planes}
                         columns={columns}
-                        pageSizeOptions={[5, 10, 25, 50]}
-                        initialState={{
-                            pagination: { paginationModel: { pageSize: 5 } },
-                        }}
                     />
                 </Box>
             </CardContent>

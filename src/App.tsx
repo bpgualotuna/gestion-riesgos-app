@@ -15,6 +15,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProcesoProvider } from './contexts/ProcesoContext';
 import { RiesgoProvider } from './contexts/RiesgoContext';
 import { NotificacionProvider } from './contexts/NotificacionContext';
+import { ConfirmProvider } from './contexts/ConfirmContext';
 import { RiesgosProvider } from './contexts/RiesgosContext-NUEVO';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -29,6 +30,7 @@ function App() {
         <CssBaseline />
         <AuthProvider>
           <NotificacionProvider>
+            <ConfirmProvider>
             <ProcesoProvider>
               <RiesgoProvider>
                 <RiesgosProvider>
@@ -38,6 +40,7 @@ function App() {
                 </RiesgosProvider>
               </RiesgoProvider>
             </ProcesoProvider>
+            </ConfirmProvider>
           </NotificacionProvider>
         </AuthProvider>
       </ThemeProvider>

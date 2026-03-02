@@ -38,10 +38,19 @@ const getHeaders = (): HeadersInit => {
 
 async function handleResponse(response: Response) {
     if (!response.ok) {
-        const error = await response.text()
-        throw new Error(`[${response.status}] ${response.statusText}: ${error}`)
+        const text = await response.text();
+        let parsed: { error?: string; message?: string } = {};
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            parsed = {};
+        }
+        const msg = parsed.error || parsed.message || text || response.statusText;
+        const err = new Error(`[${response.status}] ${msg}`) as Error & { data?: { error?: string } };
+        err.data = { error: msg };
+        throw err;
     }
-    return response.json()
+    return response.json();
 }
 
 // ============================================

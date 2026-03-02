@@ -38,7 +38,7 @@ import {
   Badge,
   Autocomplete,
 } from '@mui/material';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -182,6 +182,7 @@ export default function PlanAccionPage() {
   const { riesgoSeleccionado: riesgoSeleccionadoContext, iniciarVer } = useRiesgo();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   
   // Estado local para el riesgo seleccionado en esta página
   const [riesgoSeleccionadoLocal, setRiesgoSeleccionadoLocal] = useState<any>(riesgoSeleccionadoContext);
@@ -376,11 +377,10 @@ export default function PlanAccionPage() {
     setPlanDialogOpen(false);
   };
 
-  const handleEliminarPlan = (planId: string) => {
-    if (confirmarEliminar('este plan de acción')) {
-      setPlanesAccion(planesAccion.filter((plan) => plan.id !== planId));
-      showSuccess('Plan de acción eliminado exitosamente');
-    }
+  const handleEliminarPlan = async (planId: string) => {
+    if (!(await confirmDelete('este plan de acción'))) return;
+    setPlanesAccion(planesAccion.filter((plan) => plan.id !== planId));
+    showSuccess('Plan de acción eliminado exitosamente');
   };
 
   const handleCrearTarea = (plan: PlanAccion) => {
@@ -499,21 +499,20 @@ export default function PlanAccionPage() {
     showSuccess('Avance de tarea actualizado');
   };
 
-  const handleEliminarTarea = (planId: string, tareaId: string) => {
-    if (confirmarEliminar('esta tarea')) {
-      const planesActualizados = planesAccion.map((plan) =>
-        plan.id === planId
-          ? {
-              ...plan,
-              tareas: plan.tareas.filter((tarea) => tarea.id !== tareaId),
-              porcentajeAvance: calcularAvancePlan(plan),
-              updatedAt: new Date().toISOString(),
-            }
-          : plan
-      );
-      setPlanesAccion(planesActualizados);
-      showSuccess('Tarea eliminada exitosamente');
-    }
+  const handleEliminarTarea = async (planId: string, tareaId: string) => {
+    if (!(await confirmDelete('esta tarea'))) return;
+    const planesActualizados = planesAccion.map((plan) =>
+      plan.id === planId
+        ? {
+            ...plan,
+            tareas: plan.tareas.filter((tarea) => tarea.id !== tareaId),
+            porcentajeAvance: calcularAvancePlan(plan),
+            updatedAt: new Date().toISOString(),
+          }
+        : plan
+    );
+    setPlanesAccion(planesActualizados);
+    showSuccess('Tarea eliminada exitosamente');
   };
 
   // Validación removida - permite cargar sin proceso seleccionado

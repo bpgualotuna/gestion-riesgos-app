@@ -47,7 +47,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import { useNotification } from '../../hooks/useNotification';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useRevisionProceso } from '../../hooks/useRevisionProceso';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -66,6 +66,7 @@ export default function ProcesosPage() {
   const [createProceso, { isLoading: isCreating }] = useCreateProcesoMutation();
   const [deleteProceso] = useDeleteProcesoMutation();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const {
     enviarARevision,
     aprobarProceso,
@@ -288,7 +289,7 @@ export default function ProcesosPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirmarEliminar('este proceso')) {
+    if (await confirmDelete('este proceso')) {
       try {
         await deleteProceso(id).unwrap();
         showSuccess('Proceso eliminado exitosamente');
@@ -302,7 +303,7 @@ export default function ProcesosPage() {
           }
         }
       } catch (error) {
-        showError((e as any)?.data?.error || 'Error al eliminar el proceso');
+        showError((error as any)?.data?.error || 'Error al eliminar el proceso');
       }
     }
   };

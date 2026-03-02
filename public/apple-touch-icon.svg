@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F9A01B"/>
+      <stop offset="30%" style="stop-color:#D4DF38"/>
+      <stop offset="70%" style="stop-color:#3BB3C3"/>
+      <stop offset="100%" style="stop-color:#0066B3"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" fill="#FCFAF2" rx="24"/>
+  <path d="M90 40 A 50 50 0 1 1 90 140" stroke="url(#grad)" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <circle cx="75" cy="72" r="4" fill="#F9A01B"/>
+  <circle cx="82" cy="62" r="4" fill="#F9A01B"/>
+  <circle cx="92" cy="55" r="4" fill="#F9A01B"/>
+  <text x="45" y="105" font-family="Segoe UI,Arial,sans-serif" font-weight="700" font-size="28" fill="#333">COM</text>
+  <text x="98" y="105" font-family="Segoe UI,Arial,sans-serif" font-weight="600" font-size="28" fill="#666">WARE</text>
+</svg>

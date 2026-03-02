@@ -276,6 +276,10 @@ export interface PuntoMapa {
   numeroIdentificacion?: string;
   probabilidadResidual?: number;
   impactoResidual?: number;
+  /** Calificación residual del riesgo (máx. causas con control) — misma que resumen y mapa */
+  riesgoResidual?: number;
+  /** Nivel residual del riesgo — misma que encima del riesgo y resumen */
+  nivelRiesgoResidual?: string | null;
   procesoId?: number | string;
   procesoNombre?: string;
   zona?: string | null;
@@ -363,14 +367,16 @@ export interface CausaRiesgo {
 }
 
 export interface SubtipoRiesgo {
-  codigo: string;
-  descripcion: string;
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  tipoRiesgoId?: number;
 }
 
 export interface TipoRiesgo {
-  codigo: string;
+  id: number;
   nombre: string;
-  descripcion: string;
+  descripcion?: string | null;
   subtipos: SubtipoRiesgo[];
 }
 
@@ -422,6 +428,8 @@ export interface RiesgoFormData {
   consecuencia: string;
   tipoRiesgo: string;
   subtipoRiesgo: string;
+  tipoRiesgoId?: number | null;
+  subtipoRiesgoId?: number | null;
   objetivo: string;
   causas: CausaRiesgo[];
   impactos: {

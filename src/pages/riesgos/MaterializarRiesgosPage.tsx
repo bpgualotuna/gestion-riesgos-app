@@ -57,7 +57,8 @@ import { useRiesgo } from '../../contexts/RiesgoContext';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetImpactosQuery, useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useDeleteIncidenciaMutation } from '../../api/services/riesgosApi';
-import { LABELS_IMPACTO, confirmarEliminar } from '../../utils/constants';
+import { LABELS_IMPACTO } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -123,6 +124,7 @@ interface Incidencia {
 export default function MaterializarRiesgosPage() {
   const { esAdmin, esDueñoProcesos, esSupervisorRiesgos } = useAuth();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
   const [incidenciasLocal, setIncidenciasLocal] = useState<Incidencia[]>([]);
@@ -196,12 +198,15 @@ export default function MaterializarRiesgosPage() {
   
   useEffect(() => {
     if (!incidenciasApi) return;
-    const apiData = incidenciasApi as Incidencia[];
+    const apiData = (incidenciasApi as any[]).map((inc: any) => ({
+      ...inc,
+      causaId: inc.causaRiesgoId ?? inc.causaId,
+      causaNombre: inc.causaRiesgo?.descripcion ?? inc.causaNombre,
+    })) as Incidencia[];
     const prevData = prevIncidenciasRef.current;
     const apiIds = apiData.map(inc => inc.id).sort().join(',');
     const prevIds = prevData.map(inc => inc.id).sort().join(',');
     if (apiIds === prevIds) return;
-    // Diferir actualización para no bloquear el hilo principal y evitar "página no responde"
     const rafId = requestAnimationFrame(() => {
       setIncidenciasLocal(apiData);
       prevIncidenciasRef.current = apiData;
@@ -376,32 +381,36 @@ export default function MaterializarRiesgosPage() {
     // OPTIMIZADO: Usar búsqueda directa en array (ya está filtrado por proceso)
     const riesgoSeleccionado = riesgosDelProceso.find((r: any) => String(r.id) === String(formData.riesgoId));
 
-    await createIncidencia({
-      codigo: `INC-${Date.now()}`,
-      riesgoId: formData.riesgoId,
-      procesoId: procesoSeleccionado.id,
-      titulo: formData.titulo,
-      descripcion: formData.descripcion,
-      estado: formData.estado,
-      fechaOcurrencia: formData.fechaOcurrencia,
-      fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
-      reportadoPor: 'Usuario Actual',
-      impactosMaterializacion: impactos,
-    }).unwrap();
-
-    showSuccess('Incidencia creada exitosamente');
+    try {
+      await createIncidencia({
+        codigo: `INC-${Date.now()}`,
+        riesgoId: formData.riesgoId,
+        causaRiesgoId: formData.causaId || undefined,
+        procesoId: procesoSeleccionado.id,
+        titulo: formData.titulo,
+        descripcion: formData.descripcion,
+        estado: formData.estado,
+        fechaOcurrencia: formData.fechaOcurrencia,
+        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+        reportadoPor: 'Usuario Actual',
+        impactosMaterializacion: impactos,
+      }).unwrap();
+      showSuccess('Incidencia creada exitosamente');
+    } catch (e: any) {
+      showError(e?.data?.error || e?.message || 'Error al crear la incidencia');
+    }
   }, [formData, procesoSeleccionado, riesgosDelProceso, createIncidencia, showError, showSuccess]);
 
   // OPTIMIZADO: useCallback para evitar re-crear función en cada render
   const handleEliminar = useCallback(async (id: string) => {
-    if (!confirmarEliminar('esta incidencia')) return;
+    if (!(await confirmDelete('esta incidencia'))) return;
     try {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');
     } catch (error) {
       showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }
-  }, [deleteIncidencia, showSuccess, showError]);
+  }, [deleteIncidencia, showSuccess, showError, confirmDelete]);
 
   // OPTIMIZADO: useMemo para función que no cambia
   const obtenerColorEstado = useCallback((estado: string) => {

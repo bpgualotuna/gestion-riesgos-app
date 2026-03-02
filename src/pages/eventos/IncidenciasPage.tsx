@@ -43,7 +43,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -82,6 +82,7 @@ export default function IncidenciasPage() {
   const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos } = useAuth();
   const { procesoSeleccionado } = useProceso();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
   
   // OPTIMIZADO: Filtrar riesgos desde el backend y usar caché agresivo
@@ -281,41 +282,41 @@ export default function IncidenciasPage() {
       return;
     }
 
-    if (modoEdicion && incidenciaSeleccionada) {
-      await updateIncidencia({ id: incidenciaSeleccionada.id, ...formData }).unwrap();
-      showSuccess('Incidencia actualizada exitosamente');
-    } else {
-      const riesgoSeleccionado = riesgosDisponibles.find((r: any) => r.id === formData.riesgoId);
-      const causaSeleccionada = causasDelRiesgo.find((c: any) => c.id === formData.causaId);
+    try {
+      if (modoEdicion && incidenciaSeleccionada) {
+        await updateIncidencia({ id: incidenciaSeleccionada.id, ...formData }).unwrap();
+        showSuccess('Incidencia actualizada exitosamente');
+      } else {
+        const created = await createIncidencia({
+          codigo: `INC-${Date.now()}`,
+          riesgoId: formData.riesgoId,
+          procesoId: procesoSeleccionado.id,
+          titulo: formData.titulo,
+          descripcion: formData.descripcion,
+          estado: formData.estado,
+          fechaOcurrencia: formData.fechaOcurrencia,
+          fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+          reportadoPor: 'Usuario Actual',
+        }).unwrap();
 
-      const created = await createIncidencia({
-        codigo: `INC-${Date.now()}`,
-        riesgoId: formData.riesgoId,
-        procesoId: procesoSeleccionado.id,
-        titulo: formData.titulo,
-        descripcion: formData.descripcion,
-        estado: formData.estado,
-        fechaOcurrencia: formData.fechaOcurrencia,
-        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
-        reportadoPor: 'Usuario Actual',
-      }).unwrap();
+        await createPlanAccion({
+          incidenciaId: created.id,
+          descripcion: formData.descripcion,
+          responsable: planData.responsable,
+          fechaProgramada: planData.fechaEstimada,
+          estado: 'pendiente'
+        }).unwrap();
 
-      await createPlanAccion({
-        incidenciaId: created.id,
-        descripcion: formData.descripcion,
-        responsable: planData.responsable,
-        fechaProgramada: planData.fechaEstimada,
-        estado: 'pendiente'
-      }).unwrap();
-
-      showSuccess('Incidencia creada y plan de acción anclado');
+        showSuccess('Incidencia creada y plan de acción anclado');
+      }
+      handleCerrarDialog();
+    } catch (e: any) {
+      showError(e?.data?.error || e?.message || 'Error al guardar la incidencia');
     }
-
-    handleCerrarDialog();
   };
 
   const handleEliminar = async (id: string) => {
-    if (!confirmarEliminar('esta incidencia')) return;
+    if (!(await confirmDelete('esta incidencia'))) return;
     try {
       await deleteIncidencia(id).unwrap();
       showSuccess('Incidencia eliminada exitosamente');

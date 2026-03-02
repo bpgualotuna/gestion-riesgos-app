@@ -537,63 +537,61 @@ export function obtenerPorcentajeMitigacionAvanzado(evaluacionDefinitiva: string
 }
 
 /**
- * CÁLCULO RESIDUAL AVANZADO - Frecuencia
- * Fórmula Excel: SI.ERROR(REDONDEAR.MAS(SI(BH11="FRECUENCIA";W11-(BX11*W11);SI(BH11="AMBAS";W11-(BX11*W11);...));0);W11)
- * 
- * Lógica:
- * - Si tipoMitigacion = "FRECUENCIA" o "AMBAS" → aplicar mitigación a frecuencia
- * - Si tipoMitigacion = "IMPACTO" → mantener frecuencia igual
- * - Si error → devolver frecuencia inherente
+ * CÁLCULO RESIDUAL AVANZADO - Frecuencia (BY). Alineado con Excel.
+ * Fórmula Excel: SI(BH="FRECUENCIA", W-(BX*W), SI(BH="AMBAS", W-(BX*W), SI(Y(BH="IMPACTO", BW="Efectivo"/"Altamente Efectivo"), W-(W*0,34), W)))); REDONDEAR.MAS(...,0)
+ * - Si tipoMitigacion = "FRECUENCIA" o "AMBAS" → reducir por porcentajeMitigacion.
+ * - Si tipoMitigacion = "IMPACTO" y evaluación Efectivo/Altamente Efectivo → reducción por porcentajeDimensionCruzada (admin, ej. 0.34).
+ * - Si no → mantener frecuencia inherente. Resultado entero 1..5.
  */
 export function calcularFrecuenciaResidualAvanzada(
   frecuenciaInherente: number,
-  impactoInherente: number,
+  _impactoInherente: number,
   porcentajeMitigacion: number,
-  tipoMitigacion: 'FRECUENCIA' | 'IMPACTO' | 'AMBAS' = 'AMBAS'
+  tipoMitigacion: 'FRECUENCIA' | 'IMPACTO' | 'AMBAS' = 'AMBAS',
+  evaluacionDefinitiva?: string,
+  porcentajeDimensionCruzada: number = 0.34
 ): number {
   try {
     if (tipoMitigacion === 'FRECUENCIA' || tipoMitigacion === 'AMBAS') {
-      // Aplicar mitigación a frecuencia
       const residual = frecuenciaInherente - frecuenciaInherente * porcentajeMitigacion;
-      return Math.max(1, Math.ceil(residual));
-    } else if (tipoMitigacion === 'IMPACTO') {
-      // Si es solo IMPACTO, mantener frecuencia igual
-      return frecuenciaInherente;
+      return Math.max(1, Math.min(5, Math.ceil(residual)));
     }
-
-    return frecuenciaInherente;
-  } catch (error) {
-    return frecuenciaInherente;
+    if (tipoMitigacion === 'IMPACTO' && (evaluacionDefinitiva === 'Efectivo' || evaluacionDefinitiva === 'Altamente Efectivo')) {
+      const residual = frecuenciaInherente - frecuenciaInherente * porcentajeDimensionCruzada;
+      return Math.max(1, Math.min(5, Math.ceil(residual)));
+    }
+    return Math.max(1, Math.min(5, Math.ceil(frecuenciaInherente)));
+  } catch {
+    return Math.max(1, Math.min(5, Math.ceil(frecuenciaInherente)));
   }
 }
 
 /**
- * CÁLCULO RESIDUAL AVANZADO - Impacto
- * Fórmula Excel: SI.ERROR(REDONDEAR.MAS(SI(BH11="IMPACTO";AD11-(AD11*BX11);SI(BH11="AMBAS";AD11-(AD11*BX11);...));0);AD11)
- * 
- * Lógica:
- * - Si tipoMitigacion = "IMPACTO" o "AMBAS" → aplicar mitigación a impacto
- * - Si tipoMitigacion = "FRECUENCIA" → mantener impacto igual
- * - Si error → devolver impacto inherente
+ * CÁLCULO RESIDUAL AVANZADO - Impacto (BZ). Alineado con Excel.
+ * Fórmula Excel: SI(BH="IMPACTO", AD-(AD*BX), SI(BH="AMBAS", AD-(AD*BX), SI(Y(BH="FRECUENCIA", BW="Efectivo"/"Altamente Efectivo"), AD-(AD*0,34), AD)))); REDONDEAR.MAS(...,0)
+ * - Si tipoMitigacion = "IMPACTO" o "AMBAS" → reducir por porcentajeMitigacion.
+ * - Si tipoMitigacion = "FRECUENCIA" y evaluación Efectivo/Altamente Efectivo → reducción por porcentajeDimensionCruzada (admin, ej. 0.34).
+ * - Si no → mantener impacto inherente. Resultado entero 1..5.
  */
 export function calcularImpactoResidualAvanzado(
   impactoInherente: number,
-  frecuenciaInherente: number,
+  _frecuenciaInherente: number,
   porcentajeMitigacion: number,
-  tipoMitigacion: 'FRECUENCIA' | 'IMPACTO' | 'AMBAS' = 'AMBAS'
+  tipoMitigacion: 'FRECUENCIA' | 'IMPACTO' | 'AMBAS' = 'AMBAS',
+  evaluacionDefinitiva?: string,
+  porcentajeDimensionCruzada: number = 0.34
 ): number {
   try {
     if (tipoMitigacion === 'IMPACTO' || tipoMitigacion === 'AMBAS') {
-      // Aplicar mitigación a impacto
       const residual = impactoInherente - impactoInherente * porcentajeMitigacion;
-      return Math.max(1, Math.ceil(residual));
-    } else if (tipoMitigacion === 'FRECUENCIA') {
-      // Si es solo FRECUENCIA, mantener impacto igual
-      return impactoInherente;
+      return Math.max(1, Math.min(5, Math.ceil(residual)));
     }
-
-    return impactoInherente;
-  } catch (error) {
-    return impactoInherente;
+    if (tipoMitigacion === 'FRECUENCIA' && (evaluacionDefinitiva === 'Efectivo' || evaluacionDefinitiva === 'Altamente Efectivo')) {
+      const residual = impactoInherente - impactoInherente * porcentajeDimensionCruzada;
+      return Math.max(1, Math.min(5, Math.ceil(residual)));
+    }
+    return Math.max(1, Math.min(5, Math.ceil(impactoInherente)));
+  } catch {
+    return Math.max(1, Math.min(5, Math.ceil(impactoInherente)));
   }
 }

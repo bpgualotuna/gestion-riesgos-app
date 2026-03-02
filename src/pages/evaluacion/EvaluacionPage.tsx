@@ -229,10 +229,10 @@ export default function EvaluacionPage() {
 
     if (causaEditando) {
       setCausas(causas.map((c) => (c.id === causaEditando.id ? { ...causa, id: causaEditando.id } : c)));
-      showSuccess('Causa actualizada exitosamente');
+      showSuccess('Causa actualizada en la lista. Guarde la evaluación para persistir.');
     } else {
       setCausas([...causas, causa]);
-      showSuccess('Causa agregada exitosamente');
+      showSuccess('Causa agregada a la lista. Guarde la evaluación para persistir.');
     }
 
     setCausaDialogOpen(false);
@@ -258,9 +258,8 @@ export default function EvaluacionPage() {
 
   const handleEliminarCausa = (causaId: string) => {
     setCausas(causas.filter((c) => c.id !== causaId));
-    // También eliminar controles asociados
     setControles(controles.filter((c) => c.causaRiesgoId !== causaId));
-    showSuccess('Causa eliminada exitosamente');
+    showSuccess('Causa quitada de la lista. Guarde la evaluación para persistir.');
   };
 
   const handleAgregarControl = () => {
@@ -315,10 +314,10 @@ export default function EvaluacionPage() {
 
     if (controlEditando) {
       setControles(controles.map((c) => (c.id === controlEditando.id ? { ...control, id: controlEditando.id } : c)));
-      showSuccess('Control actualizado exitosamente');
+      showSuccess('Control actualizado en la lista. Guarde la evaluación para persistir.');
     } else {
       setControles([...controles, control]);
-      showSuccess('Control agregado exitosamente');
+      showSuccess('Control agregado a la lista. Guarde la evaluación para persistir.');
     }
 
     setControlDialogOpen(false);
@@ -357,7 +356,7 @@ export default function EvaluacionPage() {
 
   const handleEliminarControl = (controlId: string) => {
     setControles(controles.filter((c) => c.id !== controlId));
-    showSuccess('Control eliminado exitosamente');
+    showSuccess('Control quitado de la lista. Guarde la evaluación para persistir.');
   };
 
   const handleSave = async () => {
