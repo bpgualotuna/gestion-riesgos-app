@@ -595,3 +595,28 @@ export function calcularImpactoResidualAvanzado(
     return Math.max(1, Math.min(5, Math.ceil(impactoInherente)));
   }
 }
+
+/**
+ * Resuelve la frecuencia de la causa (catálogo) a un valor 1-5 para usar como frecuencia inherente (BY).
+ * Versión frontend alineada con backend (recalculoResidual.service.ts).
+ */
+export type FrecuenciaCatalogItem = { id: number; label?: string | null; peso?: number | null };
+
+export function resolverFrecuenciaCausaA1_5(
+  causaFrecuencia: string | number | null | undefined,
+  frecuenciasCatalog: FrecuenciaCatalogItem[]
+): number | null {
+  if (causaFrecuencia == null || String(causaFrecuencia).trim() === '') return null;
+  const s = String(causaFrecuencia).trim();
+  if (/^\d+$/.test(s)) {
+    const freqId = parseInt(s, 10);
+    const f = frecuenciasCatalog.find((fc) => fc.id === freqId);
+    const p = (f?.peso ?? f?.id ?? freqId) as number;
+    return Math.max(1, Math.min(5, Math.round(Number(p))));
+  }
+  const f = frecuenciasCatalog.find(
+    (fc) => fc.label && fc.label.toLowerCase() === s.toLowerCase()
+  );
+  const p = (f?.peso ?? f?.id ?? 3) as number;
+  return Math.max(1, Math.min(5, Math.round(Number(p))));
+}

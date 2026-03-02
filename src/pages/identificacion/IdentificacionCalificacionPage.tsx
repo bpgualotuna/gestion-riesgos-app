@@ -1749,20 +1749,22 @@ export default function IdentificacionPage() {
               );
 
               return (
-                <Card key={riesgo.id} sx={{ mb: 2 }}>
+                <Card key={riesgo.id} sx={{ mb: 1.5 }}>
                   {/* Header colapsable */}
                   <Box
                     sx={{
                       display: 'grid',
                       gridTemplateColumns: '45px 90px 1fr 120px 120px 120px 100px 50px',
                       gap: 1,
-                      p: 1.5,
+                      px: 2,
+                      py: 1.5,
                       cursor: 'pointer',
                       bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'transparent',
                       transition: 'all 0.2s',
                       '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)' },
                       alignItems: 'center',
-                      width: '100%'
+                      width: '100%',
+                      minHeight: 64,
                     }}
                     onClick={() => handleToggleExpandir(riesgo.id)}
                   >
@@ -1776,19 +1778,23 @@ export default function IdentificacionPage() {
                       {riesgo.numeroIdentificacion || 'Sin ID'}
                     </Typography>
 
-                    <Typography variant="body2" sx={{
-                      fontWeight: 500,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 5,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      lineHeight: 1.4,
-                      fontSize: '0.8rem',
-                      color: 'text.primary',
-                      wordBreak: 'break-word',
-                      pr: 1
-                    }}>
-                      {riesgo.descripcionRiesgo || 'Sin descripción'}
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 500,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.4,
+                        fontSize: '0.8rem',
+                        color: 'text.primary',
+                        wordBreak: 'break-word',
+                        pr: 1,
+                        textAlign: 'justify',
+                      }}
+                    >
+                      {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

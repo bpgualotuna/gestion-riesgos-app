@@ -162,7 +162,7 @@ const VirtualAssistantDemo: React.FC = () => {
                 }}
               >
                 <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
-                  En la primera versión podrá:
+                  En la primera versión podrás:
                 </Typography>
                 <ul style={{ margin: '4px 0 0 16px', padding: 0, fontSize: '0.8rem' }}>
                   <li>Guiarte por las pantallas del sistema.</li>
@@ -235,7 +235,7 @@ const VirtualAssistantDemo: React.FC = () => {
               },
             }}
           >
-            ¿Necesitas ayuda? <strong>CORA IA</strong> (demo) llega pronto.
+            ¿Necesitas ayuda? <strong>CORA IA</strong>  llega pronto.
           </Box>
         )}
         <Box

@@ -763,7 +763,8 @@ export default function IncidenciasPage() {
               value={planData.decision}
               onChange={(e) => setPlanData({ ...planData, decision: e.target.value })}
               fullWidth
-              required
+              multiline
+              minRows={2}
             />
             <TextField
               label="Fecha estimada de finalización"

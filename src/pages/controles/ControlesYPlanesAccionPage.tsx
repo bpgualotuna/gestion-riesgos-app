@@ -57,6 +57,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Warning as WarningIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -64,7 +65,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
-import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, useGetConfiguracionResidualQuery, riesgosApi } from '../../api/services/riesgosApi';
+import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, useGetConfiguracionResidualQuery, useGetFrecuenciasQuery, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO } from '../../utils/constants';
 import {
@@ -77,7 +78,9 @@ import {
   determinarEvaluacionDefinitiva,
   calcularFrecuenciaResidualAvanzada,
   calcularImpactoResidualAvanzado,
-  determinarNivelRiesgo
+  determinarNivelRiesgo,
+  resolverFrecuenciaCausaA1_5,
+  type FrecuenciaCatalogItem,
 } from '../../utils/calculations';
 import { RiesgoFormData } from '../../types';
 
@@ -145,6 +148,17 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { showSuccess, showError } = useNotification();
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState(0);
+  const [tabsFloating, setTabsFloating] = useState(false);
+  // Flotar la barra de pestañas cuando hay scroll vertical en la ventana
+  useEffect(() => {
+    const handleScroll = () => {
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      setTabsFloating(y > 220);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Estados Clasificación Existente
   const [clasificaciones, setClasificaciones] = useState<ClasificacionCausa[]>([]);
@@ -153,7 +167,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [causaDetalleView, setCausaDetalleView] = useState<{ riesgoId: string; causa: any } | null>(null);
   const [dialogDetailOpen, setDialogDetailOpen] = useState(false);
   const [itemDetalle, setItemDetalle] = useState<ClasificacionCausa | null>(null);
-  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS' | string>('seleccion');
+  const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
@@ -197,7 +211,6 @@ export default function ControlesYPlanesAccionPageNueva() {
       refetchOnMountOrArgChange: false, // OPTIMIZADO: No refetch si ya está en caché
       refetchOnFocus: false,
       refetchOnReconnect: false,
-      keepUnusedDataFor: 600 // 10 minutos de caché
     }
   );
 
@@ -206,6 +219,7 @@ export default function ControlesYPlanesAccionPageNueva() {
 
   // Configuración residual desde admin (todo el cálculo usa esta config, sin datos quemados)
   const { data: configResidual } = useGetConfiguracionResidualQuery();
+  const { data: frecuenciasCatalog = [] } = useGetFrecuenciasQuery();
 
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
@@ -427,55 +441,91 @@ export default function ControlesYPlanesAccionPageNueva() {
     setRiesgoIdEvaluacion(riesgoId);
     setCausaIdEvaluacion(causa.id);
 
-    // Initial load for Plan if exists
-    if (causa.planDescripcion || (causa.tipoGestion && causa.tipoGestion.toUpperCase() === 'PLAN')) {
+    // Fuente principal de datos guardados: gestion (backend guarda ahí todo lo del control/plan)
+    const gestion = causa.gestion || {};
+    const fuenteControl = gestion && Object.keys(gestion).length > 0 ? gestion : causa;
+
+    // Initial load for Plan si ya existe (en causa o en gestion)
+    const tienePlan =
+      causa.planDescripcion ||
+      gestion.planDescripcion ||
+      (causa.tipoGestion && causa.tipoGestion.toUpperCase() === 'PLAN') ||
+      (gestion.tipo === 'plan' || gestion.tipo === 'PLAN');
+
+    if (tienePlan) {
       setFormPlan({
-        descripcion: causa.planDescripcion || '',
-        detalle: causa.planDetalle || '',
-        responsable: causa.planResponsable || (user as any)?.fullName || '',
-        decision: causa.planDecision || causa.gestion?.planDecision || '',
-        fechaEstimada: causa.planFechaEstimada || '',
-        estado: causa.planEstado || 'pendiente'
+        descripcion: causa.planDescripcion || gestion.planDescripcion || '',
+        detalle: causa.planDetalle || gestion.planDetalle || '',
+        responsable:
+          causa.planResponsable ||
+          gestion.planResponsable ||
+          (user as any)?.fullName ||
+          '',
+        decision: causa.planDecision || gestion.planDecision || '',
+        fechaEstimada: causa.planFechaEstimada || gestion.planFechaEstimada || '',
+        estado: causa.planEstado || gestion.planEstado || 'pendiente',
       });
     } else {
-      setFormPlan({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' });
+      setFormPlan({
+        descripcion: '',
+        detalle: '',
+        responsable: (user as any)?.fullName || '',
+        decision: '',
+        fechaEstimada: '',
+        estado: 'pendiente',
+      });
     }
 
-    // Load existing if present
-    if (causa.puntajeTotal !== undefined) {
+    // Cargar criterios del control si ya hubo evaluación previa
+    if (fuenteControl.puntajeTotal !== undefined) {
       setCriteriosEvaluacion({
-        aplicabilidad: causa.aplicabilidad || '',
-        puntajeAplicabilidad: causa.puntajeAplicabilidad || 0,
-        cobertura: causa.cobertura || '',
-        puntajeCobertura: causa.puntajeCobertura || 0,
-        facilidadUso: causa.facilidadUso || '',
-        puntajeFacilidad: causa.puntajeFacilidad || 0,
-        segregacion: causa.segregacion || '',
-        puntajeSegregacion: causa.puntajeSegregacion || 0,
-        naturaleza: causa.naturaleza || '',
-        puntajeNaturaleza: causa.puntajeNaturaleza || 0,
-        desviaciones: causa.desviaciones || 'A',
-        tipoMitigacion: causa.tipoMitigacion || 'AMBAS',
-        recomendacion: causa.recomendacion || '',
-        descripcionControl: causa.controlDescripcion || '',
-        responsable: causa.controlResponsable || (user as any)?.fullName || '',
-        tieneControl: causa.tieneControl !== undefined ? causa.tieneControl : true
+        aplicabilidad: fuenteControl.aplicabilidad || '',
+        puntajeAplicabilidad: fuenteControl.puntajeAplicabilidad || 0,
+        cobertura: fuenteControl.cobertura || '',
+        puntajeCobertura: fuenteControl.puntajeCobertura || 0,
+        facilidadUso: fuenteControl.facilidadUso || '',
+        puntajeFacilidad: fuenteControl.puntajeFacilidad || 0,
+        segregacion: fuenteControl.segregacion || '',
+        puntajeSegregacion: fuenteControl.puntajeSegregacion || 0,
+        naturaleza: fuenteControl.naturaleza || '',
+        puntajeNaturaleza: fuenteControl.puntajeNaturaleza || 0,
+        // En versiones nuevas se guarda como controlDesviaciones, en otras como desviaciones
+        desviaciones: fuenteControl.desviaciones || fuenteControl.controlDesviaciones || 'A',
+        tipoMitigacion: fuenteControl.tipoMitigacion || 'AMBAS',
+        recomendacion: fuenteControl.recomendacion || '',
+        descripcionControl: fuenteControl.controlDescripcion || '',
+        responsable:
+          fuenteControl.controlResponsable ||
+          fuenteControl.responsable ||
+          (user as any)?.fullName ||
+          '',
+        tieneControl:
+          fuenteControl.tieneControl !== undefined ? fuenteControl.tieneControl : true,
       });
     } else {
+      // Valores por defecto cuando aún no hay evaluación
       setCriteriosEvaluacion({
-        aplicabilidad: '', puntajeAplicabilidad: 0,
-        cobertura: '', puntajeCobertura: 0,
-        facilidadUso: '', puntajeFacilidad: 0,
-        segregacion: '', puntajeSegregacion: 0,
-        naturaleza: '', puntajeNaturaleza: 0,
+        aplicabilidad: '',
+        puntajeAplicabilidad: 0,
+        cobertura: '',
+        puntajeCobertura: 0,
+        facilidadUso: '',
+        puntajeFacilidad: 0,
+        segregacion: '',
+        puntajeSegregacion: 0,
+        naturaleza: '',
+        puntajeNaturaleza: 0,
         desviaciones: 'A',
-        tipoMitigacion: 'AMBAS', recomendacion: '',
-        descripcionControl: '', responsable: (user as any)?.fullName || '',
-        tieneControl: true
+        tipoMitigacion: 'AMBAS',
+        recomendacion: '',
+        descripcionControl: '',
+        responsable: (user as any)?.fullName || '',
+        tieneControl: true,
       });
     }
+
     setEvaluacionExpandida({ riesgoId, causaId: causa.id });
-    setDialogEvaluacionOpen(false); // Ensure dialog is closed if previously used
+    setDialogEvaluacionOpen(false); // Asegurar que el diálogo modal no interfiera
   };
 
   // Handlers Clasificación
@@ -506,29 +556,36 @@ export default function ControlesYPlanesAccionPageNueva() {
     // ... Validations simplified for brevity ...
     const nuevaClasificacion: ClasificacionCausa = {
       id: clasificacion?.id || `clas-${Date.now()}-${causa.id}`,
-      causaId: causa.id, riesgoId, tipo: tipoClasificacion,
+      causaId: causa.id,
+      riesgoId,
+      tipo: tipoClasificacion as any,
+      // Datos de control (modo simple)
       controlDescripcion: tipoClasificacion === 'control' ? formControl.descripcion : undefined,
       controlTipo: tipoClasificacion === 'control' ? formControl.tipo : undefined,
       impactosResiduales: tipoClasificacion === 'control' ? impactosResiduales : undefined,
       frecuenciaResidual: tipoClasificacion === 'control' ? frecuenciaResidual : undefined,
+      // Datos de plan (incluye decisión del riesgo)
       planDescripcion: tipoClasificacion === 'plan' ? formPlan.descripcion : undefined,
       planDetalle: tipoClasificacion === 'plan' ? formPlan.detalle : undefined,
       planResponsable: tipoClasificacion === 'plan' ? formPlan.responsable : undefined,
+      planDecision: tipoClasificacion === 'plan' ? formPlan.decision : undefined,
       planFechaEstimada: tipoClasificacion === 'plan' ? formPlan.fechaEstimada : undefined,
       procesoId: String(procesoSeleccionado!.id),
-      createdAt: clasificacion?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+      createdAt: clasificacion?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     if (clasificacion) setClasificaciones(clasificaciones.map(c => c.id === clasificacion.id ? nuevaClasificacion : c));
     else setClasificaciones([...clasificaciones, nuevaClasificacion]);
     try {
-      await updateCausa({
+      const payloadClasificacion = {
         id: causa.id,
         tipoGestion: tipoClasificacion.toUpperCase(),
         gestion: {
           ...nuevaClasificacion,
           tipoGestion: tipoClasificacion.toUpperCase()
         }
-      }).unwrap();
+      };
+      await updateCausa(payloadClasificacion).unwrap();
       showSuccess('Causa clasificada correctamente');
       setCausaEnEdicion(null);
     } catch (e: any) {
@@ -548,7 +605,21 @@ export default function ControlesYPlanesAccionPageNueva() {
     const causasUpd = riesgo.causas.map((c: any) => {
       if (c.id === causaIdEvaluacion) {
         const tipoActual = (c.tipoGestion || '').toUpperCase();
-        
+        // Misma base que el panel azul: frecuencia e impacto inherentes del riesgo/causa
+        const freqFromCausa = resolverFrecuenciaCausaA1_5(
+          c.frecuencia as string | number | null | undefined,
+          (frecuenciasCatalog as FrecuenciaCatalogItem[]) || [],
+        );
+        const inherentProb = freqFromCausa ?? riesgo.evaluacion?.probabilidad ?? 1;
+        const impactoEval =
+          riesgo.evaluacion?.impactoGlobal != null
+            ? Number(riesgo.evaluacion.impactoGlobal)
+            : riesgo.evaluacion?.impactoMaximo;
+        const inherentImp = Math.max(
+          1,
+          Math.min(5, Math.round(impactoEval as number) || 1),
+        );
+
         // Si es AMBOS, reactivar la parte que se está agregando
         if (tipoActual === 'AMBOS') {
           const estadoAmbosActual = c.gestion?.estadoAmbos || { controlActivo: true, planActivo: true };
@@ -575,10 +646,36 @@ export default function ControlesYPlanesAccionPageNueva() {
               mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
             }
 
-            const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-            const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-            const calRes = (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes);
-            const nivelResidualCausa = getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes);
+            const fRes = calcularFrecuenciaResidualAvanzada(
+              inherentProb,
+              inherentImp,
+              mit,
+              criteriosEvaluacion.tipoMitigacion,
+              def,
+              (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                ? configResidual.porcentajeReduccionDimensionCruzada
+                : 0.34,
+            );
+            const iRes = calcularImpactoResidualAvanzado(
+              inherentImp,
+              inherentProb,
+              mit,
+              criteriosEvaluacion.tipoMitigacion,
+              def,
+              (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                ? configResidual.porcentajeReduccionDimensionCruzada
+                : 0.34,
+            );
+            const calRes =
+              fRes === 2 && iRes === 2 ? 3.99 : calcularCalificacionResidual(fRes, iRes);
+            const nivelResidualCausa = getNivelResidualFromRangos(
+              configResidual?.rangosNivelRiesgo,
+              calRes,
+            );
 
             causaActualizada = {
               ...c,
@@ -599,6 +696,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: formPlan.descripcion,
               planDetalle: formPlan.detalle,
               planResponsable: formPlan.responsable,
+              planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
               gestion: {
                 ...(c.gestion || {}),
@@ -622,10 +720,36 @@ export default function ControlesYPlanesAccionPageNueva() {
               mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
             }
 
-            const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-            const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-            const calRes = (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes);
-            const nivelResidualCausa = getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes);
+            const fRes = calcularFrecuenciaResidualAvanzada(
+              inherentProb,
+              inherentImp,
+              mit,
+              criteriosEvaluacion.tipoMitigacion,
+              def,
+              (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                ? configResidual.porcentajeReduccionDimensionCruzada
+                : 0.34,
+            );
+            const iRes = calcularImpactoResidualAvanzado(
+              inherentImp,
+              inherentProb,
+              mit,
+              criteriosEvaluacion.tipoMitigacion,
+              def,
+              (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                ? configResidual.porcentajeReduccionDimensionCruzada
+                : 0.34,
+            );
+            const calRes =
+              fRes === 2 && iRes === 2 ? 3.99 : calcularCalificacionResidual(fRes, iRes);
+            const nivelResidualCausa = getNivelResidualFromRangos(
+              configResidual?.rangosNivelRiesgo,
+              calRes,
+            );
 
             causaActualizada = {
               ...c,
@@ -646,6 +770,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: c.planDescripcion,
               planDetalle: c.planDetalle,
               planResponsable: c.planResponsable,
+              planDecision: c.planDecision,
               planFechaEstimada: c.planFechaEstimada,
               gestion: {
                 ...(c.gestion || {}),
@@ -660,6 +785,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDescripcion: formPlan.descripcion,
               planDetalle: formPlan.detalle,
               planResponsable: formPlan.responsable,
+              planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
               // ← PRESERVAR datos del control existente
               ...criteriosEvaluacion,
@@ -703,8 +829,8 @@ export default function ControlesYPlanesAccionPageNueva() {
             mit = 0;
           }
 
-          const fRes = calcularFrecuenciaResidualAvanzada(c.frecuencia || 1, c.calificacionGlobalImpacto || 1, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-          const iRes = calcularImpactoResidualAvanzado(c.calificacionGlobalImpacto || 1, c.frecuencia || 1, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
+          const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
+          const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
           const calRes = (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes);
           const nivelResidualCausa = getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes);
 
@@ -738,8 +864,10 @@ export default function ControlesYPlanesAccionPageNueva() {
             planDescripcion: formPlan.descripcion,
             planDetalle: formPlan.detalle,
             planResponsable: formPlan.responsable,
+            planDecision: formPlan.decision,
             planFechaEstimada: formPlan.fechaEstimada,
-            puntajeTotal: undefined, porcentajeMitigacion: 0
+            puntajeTotal: undefined,
+            porcentajeMitigacion: 0
           };
           return causaActualizada;
         }
@@ -839,11 +967,12 @@ export default function ControlesYPlanesAccionPageNueva() {
 
       try {
         if (causaActualizada) {
-          await updateCausa({
+          const payloadEvaluacion = {
             id: causaActualizada.id,
             tipoGestion: causaActualizada.tipoGestion,
             gestion: causaActualizada
-          }).unwrap();
+          };
+          await updateCausa(payloadEvaluacion).unwrap();
         }
 
         await actualizarRiesgoApi(riesgoIdEvaluacion, {
@@ -980,14 +1109,49 @@ export default function ControlesYPlanesAccionPageNueva() {
       description="Gestionar controles y planes asociados a los riesgos identificados."
       topContent={<FiltroProcesoSupervisor />}
     >
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-          <Tab icon={<FactCheckIcon />} label="CLASIFICACIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
-          <Tab icon={<ShieldIcon />} label="CONTROLES" iconPosition="start" sx={{ fontWeight: 600, color: '#2e7d32', '&.Mui-selected': { color: '#1b5e20' } }} />
-          <Tab icon={<AssignmentIcon />} label="PLANES DE ACCIÓN" iconPosition="start" sx={{ fontWeight: 600, color: '#1976d2', '&.Mui-selected': { color: '#0d47a1' } }} />
-        </Tabs>
+      {/* Barra de pestañas: en su sitio; al hacer scroll flota arriba (fixed) */}
+      <Box sx={{ position: 'relative', mb: 2 }}>
+        {/* En flujo: se oculta cuando la barra flotante está activa para no duplicar */}
+        <Box
+          sx={{
+            visibility: tabsFloating ? 'hidden' : 'visible',
+            bgcolor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          }}
+        >
+          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+            <Tab icon={<FactCheckIcon />} label="CLASIFICACIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
+            <Tab icon={<ShieldIcon />} label="CONTROLES" iconPosition="start" sx={{ fontWeight: 600, color: '#2e7d32', '&.Mui-selected': { color: '#1b5e20' } }} />
+            <Tab icon={<AssignmentIcon />} label="PLANES DE ACCIÓN" iconPosition="start" sx={{ fontWeight: 600, color: '#1976d2', '&.Mui-selected': { color: '#0d47a1' } }} />
+          </Tabs>
+        </Box>
+        {/* Barra flotante: visible solo cuando hiciste scroll */}
+        {tabsFloating && (
+          <Box
+            sx={{
+              position: 'fixed',
+              top: { xs: 96, sm: 100, md: 70 },
+              left: { xs: 0, md: 280 },
+              right: 0,
+              zIndex: 1100,
+              bgcolor: 'background.paper',
+              borderBottom: 1,
+              borderColor: 'divider',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+            }}
+          >
+            <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+              <Tab icon={<FactCheckIcon />} label="CLASIFICACIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
+              <Tab icon={<ShieldIcon />} label="CONTROLES" iconPosition="start" sx={{ fontWeight: 600, color: '#2e7d32', '&.Mui-selected': { color: '#1b5e20' } }} />
+              <Tab icon={<AssignmentIcon />} label="PLANES DE ACCIÓN" iconPosition="start" sx={{ fontWeight: 600, color: '#1976d2', '&.Mui-selected': { color: '#0d47a1' } }} />
+            </Tabs>
+          </Box>
+        )}
       </Box>
 
+      <Box sx={{ pt: 2 }}>
       {/* TAB 0: CLASIFICACIÓN Y GESTIÓN */}
       <TabPanel value={activeTab} index={0}>
         <Box>
@@ -1007,18 +1171,23 @@ export default function ControlesYPlanesAccionPageNueva() {
               </Alert>
 
               {/* Column Headers */}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
-                gap: 2,
-                px: 3,
-                py: 1.5,
-                mb: 1,
-                bgcolor: '#f8f9fa',
-                borderRadius: '8px',
-                border: '1px solid #e0e0e0',
-                alignItems: 'center'
-              }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
+                  gap: 2,
+                  px: 3,
+                  py: 1.5,
+                  mb: 1,
+                  bgcolor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #e0e0e0',
+                  alignItems: 'center',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 15,
+                }}
+              >
                 <Box /> {/* Spacer for icon */}
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
@@ -1081,18 +1250,20 @@ export default function ControlesYPlanesAccionPageNueva() {
               {riesgosPendientesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
-                  <Card key={riesgo.id} sx={{ mb: 2 }}>
+                  <Card key={riesgo.id} sx={{ mb: 1.5 }}>
                     <Box
                       sx={{
                         display: 'grid',
                         gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
                         gap: 2,
-                        p: 2,
+                        px: 3,
+                        py: 1.5,
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
                         transition: 'all 0.2s',
                         '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' },
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        minHeight: 64,
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -1104,12 +1275,23 @@ export default function ControlesYPlanesAccionPageNueva() {
                         {riesgo.numeroIdentificacion || riesgo.id}
                       </Typography>
 
-                      <Typography variant="body2" sx={{
-                        fontWeight: 500,
-                        lineHeight: 1.4,
-                        py: 0.5
-                      }}>
-                        {riesgo.descripcionRiesgo || riesgo.nombre}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 500,
+                          lineHeight: 1.4,
+                          py: 0.5,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {riesgo.descripcionRiesgo ||
+                          riesgo.descripcion ||
+                          riesgo.nombre ||
+                          'Sin descripción'}
                       </Typography>
 
                       <Typography variant="body2" color="text.secondary">
@@ -1449,8 +1631,20 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                 {(tipoClasificacion === 'CONTROL' || tipoClasificacion === 'control' || tipoClasificacion === 'AMBOS' || (!tipoClasificacion && !causaIdEvaluacion)) && (
                                                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                                     {(() => {
-                                                      const inherentProb = Number(causa.frecuencia || riesgo.evaluacion?.probabilidad || 1);
-                                                      const inherentImp = Number(causa.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 1);
+                                                      const freqFromCausa = resolverFrecuenciaCausaA1_5(
+                                                        causa.frecuencia as string | number | null | undefined,
+                                                        (frecuenciasCatalog as FrecuenciaCatalogItem[]) || [],
+                                                      );
+                                                      const inherentProb =
+                                                        freqFromCausa ?? (riesgo.evaluacion?.probabilidad ?? 1);
+                                                      const impactoEval =
+                                                        riesgo.evaluacion?.impactoGlobal != null
+                                                          ? Number(riesgo.evaluacion.impactoGlobal)
+                                                          : riesgo.evaluacion?.impactoMaximo;
+                                                      const inherentImp = Math.max(
+                                                        1,
+                                                        Math.min(5, Math.round(impactoEval as number) || 1),
+                                                      );
                                                       let pt = 0;
                                                       let def = 'Inefectivo';
                                                       let mit = 0;
@@ -1462,10 +1656,59 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
                                                       }
 
-                                                      const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-                                                      const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-                                                      const calRes = (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes);
-                                                      const nivelRes = getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes) || determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+                                                      const fRes = calcularFrecuenciaResidualAvanzada(
+                                                        inherentProb,
+                                                        inherentImp,
+                                                        mit,
+                                                        criteriosEvaluacion.tipoMitigacion,
+                                                        def,
+                                                        (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                                                          configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                                                          configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                                                          ? configResidual.porcentajeReduccionDimensionCruzada
+                                                          : 0.34,
+                                                      );
+                                                      const iRes = calcularImpactoResidualAvanzado(
+                                                        inherentImp,
+                                                        inherentProb,
+                                                        mit,
+                                                        criteriosEvaluacion.tipoMitigacion,
+                                                        def,
+                                                        (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                                                          configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                                                          configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                                                          ? configResidual.porcentajeReduccionDimensionCruzada
+                                                          : 0.34,
+                                                      );
+                                                      const calRes =
+                                                        fRes === 2 && iRes === 2 ? 3.99 : calcularCalificacionResidual(fRes, iRes);
+                                                      const nivelRes =
+                                                        getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes) ||
+                                                        determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+
+                                                      // Valores a mostrar: priorizar lo guardado en la causa/gestión (BD),
+                                                      // y usar el cálculo local solo como fallback previo al guardado.
+                                                      const displayDef =
+                                                        causa.gestion?.evaluacionDefinitiva ?? def;
+                                                      const displayMit =
+                                                        causa.gestion?.porcentajeMitigacion ?? mit;
+
+                                                      const displayFrecuenciaResidual =
+                                                        causa.frecuenciaResidual ??
+                                                        causa.gestion?.frecuenciaResidual ??
+                                                        fRes;
+                                                      const displayImpactoResidual =
+                                                        causa.impactoResidual ??
+                                                        causa.gestion?.impactoResidual ??
+                                                        iRes;
+                                                      const displayCalificacionResidual =
+                                                        causa.calificacionResidual ??
+                                                        causa.gestion?.calificacionResidual ??
+                                                        calRes;
+                                                      const displayNivelResidual =
+                                                        causa.nivelRiesgoResidual ??
+                                                        causa.gestion?.nivelRiesgoResidual ??
+                                                        nivelRes;
 
                                                       const getColorNivel = (n: string) => {
                                                         if (n === NIVELES_RIESGO.CRITICO) return '#d32f2f';
@@ -1634,46 +1877,66 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                           )}
 
                                                           {/* RESULTADOS CALCULADOS */}
-                                                          <Box sx={{ mt: 3, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
+                                                          <Box
+                                                            id={`panel-residual-${riesgo.id}-${causa.id}`}
+                                                            sx={{ mt: 3, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}
+                                                          >
                                                             <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">
                                                               CALIFICACIÓN DEL RIESGO RESIDUAL
                                                             </Typography>
                                                             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, textAlign: 'center' }}>
                                                               <Box>
-                                                                <Typography variant="caption" display="block" color="text.secondary">Eficacia Control</Typography>
+                                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                                  Eficacia del Control
+                                                                </Typography>
                                                                 <Typography variant="body2" fontWeight="bold">
-                                                                  {criteriosEvaluacion.tieneControl ? def : 'Inefectivo (Sin Control)'}
+                                                                  {criteriosEvaluacion.tieneControl ? displayDef : 'Inefectivo (Sin Control)'}
                                                                 </Typography>
                                                                 {criteriosEvaluacion.tieneControl && (
                                                                   <Typography variant="caption">({pt.toFixed(0)} pts)</Typography>
                                                                 )}
                                                               </Box>
                                                               <Box>
-                                                                <Typography variant="caption" display="block" color="text.secondary">% Mitigación</Typography>
+                                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                                  % Mitigación
+                                                                </Typography>
                                                                 <Typography variant="h6" color="primary">
-                                                                  {(mit * 100).toFixed(0)}%
+                                                                  {(displayMit * 100).toFixed(0)}%
                                                                 </Typography>
                                                               </Box>
                                                               <Box>
-                                                                <Typography variant="caption" display="block" color="text.secondary">Frec. Residual</Typography>
+                                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                                  Calificación residual de la frecuencia
+                                                                </Typography>
                                                                 <Typography variant="h6">
                                                                   {fRes}
                                                                 </Typography>
                                                               </Box>
                                                               <Box>
-                                                                <Typography variant="caption" display="block" color="text.secondary">Imp. Residual</Typography>
+                                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                                  Calificación residual del impacto
+                                                                </Typography>
                                                                 <Typography variant="h6">
                                                                   {iRes}
                                                                 </Typography>
                                                               </Box>
                                                               <Box>
-                                                                <Paper elevation={0} sx={{
-                                                                  p: 1,
-                                                                  bgcolor: getColorNivel(nivelRes),
-                                                                  color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(nivelRes.toUpperCase()) ? 'white' : 'black',
-                                                                  borderRadius: 1
-                                                                }}>
-                                                                  <Typography variant="caption" display="block" fontWeight="bold">Riesgo Residual</Typography>
+                                                                <Paper
+                                                                  elevation={0}
+                                                                  sx={{
+                                                                    p: 1,
+                                                                    bgcolor: getColorNivel(nivelRes),
+                                                                    color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(
+                                                                      nivelRes.toUpperCase()
+                                                                    )
+                                                                      ? 'white'
+                                                                      : 'black',
+                                                                    borderRadius: 1,
+                                                                  }}
+                                                                >
+                                                                  <Typography variant="caption" display="block" fontWeight="bold">
+                                                                    Calificación de la causa residual
+                                                                  </Typography>
                                                                   <Typography variant="h5" fontWeight="bold">
                                                                     {calRes}
                                                                   </Typography>
@@ -1748,18 +2011,23 @@ export default function ControlesYPlanesAccionPageNueva() {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {/* Column Headers */}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
-                gap: 1,
-                px: 2,
-                py: 1.5,
-                mb: 1,
-                bgcolor: '#f8f9fa',
-                borderRadius: '8px',
-                border: '1px solid #e0e0e0',
-                alignItems: 'center'
-              }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
+                  gap: 1,
+                  px: 2,
+                  py: 1.5,
+                  mb: 1,
+                  bgcolor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #e0e0e0',
+                  alignItems: 'center',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 15,
+                }}
+              >
                 <Box />
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
@@ -1822,7 +2090,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {riesgosConControlesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
-                  <Card key={riesgo.id} sx={{ mb: 2 }}>
+                  <Card key={riesgo.id} sx={{ mb: 1.5 }}>
                     <Box
                       sx={{
                         display: 'grid',
@@ -1832,7 +2100,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
                         alignItems: 'center',
-                        width: '100%'
+                        width: '100%',
+                        minHeight: 64,
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -1968,7 +2237,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   calificacionGlobalImpacto: causa.calificacionGlobalImpacto,
                                   controlDescripcion: causa.controlDescripcion || causa.gestion?.controlDescripcion,
                                   controlTipo: causa.controlTipo || causa.gestion?.controlTipo,
-                                  evaluacionDefinitiva: causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva,
+                                  // La fuente de verdad es siempre gestion.evaluacionDefinitiva; usar campo plano solo como fallback
+                                  evaluacionDefinitiva: causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva,
                                   puntajeTotal: causa.puntajeTotal || causa.gestion?.puntajeTotal,
                                   porcentajeMitigacion: causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
                                   frecuenciaResidual: causa.frecuenciaResidual || causa.gestion?.frecuenciaResidual,
@@ -1982,6 +2252,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 return (
                                 <Fragment key={causa.id}>
                                 <TableRow
+                                  id={`causa-residual-${riesgo.id}-${causa.id}`}
                                   sx={{ cursor: 'pointer' }}
                                   onClick={() => {
                                       setItemDetalle(detalleControl);
@@ -1992,7 +2263,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
                                   <TableCell>{causa.controlDescripcion || causa.gestion?.controlDescripcion || 'Sin descripción'}</TableCell>
                                   <TableCell align="center">
-                                    {causa.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || 'Sin evaluar'}
+                                    {causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva || 'Sin evaluar'}
                                   </TableCell>
                                   <TableCell align="center">
                                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
@@ -2049,8 +2320,20 @@ export default function ControlesYPlanesAccionPageNueva() {
                                               Evaluar Efectividad del Control
                                             </Typography>
                                             {(() => {
-                                              const inherentProb = Number(causa.frecuencia || riesgo.evaluacion?.probabilidad || 1);
-                                              const inherentImp = Number(causa.calificacionGlobalImpacto || riesgo.evaluacion?.impactoMaximo || 1);
+                                              const freqFromCausa = resolverFrecuenciaCausaA1_5(
+                                                causa.frecuencia as string | number | null | undefined,
+                                                (frecuenciasCatalog as FrecuenciaCatalogItem[]) || [],
+                                              );
+                                              const inherentProb =
+                                                freqFromCausa ?? (riesgo.evaluacion?.probabilidad ?? 1);
+                                              const impactoEval =
+                                                riesgo.evaluacion?.impactoGlobal != null
+                                                  ? Number(riesgo.evaluacion.impactoGlobal)
+                                                  : riesgo.evaluacion?.impactoMaximo;
+                                              const inherentImp = Math.max(
+                                                1,
+                                                Math.min(5, Math.round(impactoEval as number) || 1),
+                                              );
                                               let pt = 0;
                                               let def = 'Inefectivo';
                                               let mit = 0;
@@ -2062,10 +2345,52 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                 mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
                                               }
 
-                                              const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-                                              const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-                                              const calRes = (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes);
-                                              const nivelRes = getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes) || determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+                                              const fRes = calcularFrecuenciaResidualAvanzada(
+                                                inherentProb,
+                                                inherentImp,
+                                                mit,
+                                                criteriosEvaluacion.tipoMitigacion,
+                                                def,
+                                                (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                                                  configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                                                  configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                                                  ? configResidual.porcentajeReduccionDimensionCruzada
+                                                  : 0.34,
+                                              );
+                                              const iRes = calcularImpactoResidualAvanzado(
+                                                inherentImp,
+                                                inherentProb,
+                                                mit,
+                                                criteriosEvaluacion.tipoMitigacion,
+                                                def,
+                                                (configResidual?.porcentajeReduccionDimensionCruzada != null &&
+                                                  configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
+                                                  configResidual.porcentajeReduccionDimensionCruzada <= 1)
+                                                  ? configResidual.porcentajeReduccionDimensionCruzada
+                                                  : 0.34,
+                                              );
+                                              const calRes =
+                                                fRes === 2 && iRes === 2 ? 3.99 : calcularCalificacionResidual(fRes, iRes);
+                                              const nivelRes =
+                                                getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes) ||
+                                                determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+
+                                              const displayFrecuenciaResidual =
+                                                causa.frecuenciaResidual ??
+                                                causa.gestion?.frecuenciaResidual ??
+                                                fRes;
+                                              const displayImpactoResidual =
+                                                causa.impactoResidual ??
+                                                causa.gestion?.impactoResidual ??
+                                                iRes;
+                                              const displayCalificacionResidual =
+                                                causa.calificacionResidual ??
+                                                causa.gestion?.calificacionResidual ??
+                                                calRes;
+                                              const displayNivelResidual =
+                                                causa.nivelRiesgoResidual ??
+                                                causa.gestion?.nivelRiesgoResidual ??
+                                                nivelRes;
 
                                               const getColorNivel = (n: string) => {
                                                 if (n === NIVELES_RIESGO.CRITICO) return '#d32f2f';
@@ -2226,7 +2551,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                           </Box>
                                                         </Box>
 
-                                                        <Box sx={{ mt: 3, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
+                                                        <Box
+                                                          id={`panel-residual-${riesgo.id}-${causa.id}`}
+                                                          sx={{ mt: 3, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}
+                                                        >
                                                           <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">
                                                             CALIFICACIÓN DEL RIESGO RESIDUAL
                                                           </Typography>
@@ -2261,8 +2589,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                             <Box>
                                                               <Paper elevation={0} sx={{
                                                                 p: 1,
-                                                                bgcolor: getColorNivel(nivelRes),
-                                                                color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(nivelRes.toUpperCase()) ? 'white' : 'black',
+                                                                bgcolor: getColorNivel(displayNivelResidual),
+                                                                color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(displayNivelResidual.toUpperCase()) ? 'white' : 'black',
                                                                 borderRadius: 1
                                                               }}>
                                                                 <Typography variant="caption" display="block" fontWeight="bold">Riesgo Residual</Typography>
@@ -2301,21 +2629,43 @@ export default function ControlesYPlanesAccionPageNueva() {
 
                         {/* Resumen de calificaciones residuales (por causa y final, como en Identificación) */}
                         {(() => {
-                          const causasConResidual = (riesgo.causas || []).map((c: any) => {
-                            const fr = Number(c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual ?? c.frecuencia ?? 3);
-                            const ir = Number(c.impactoResidual ?? c.gestion?.impactoResidual ?? c.calificacionGlobalImpacto ?? 1);
-                            const calNum = c.calificacionResidual != null ? Number(c.calificacionResidual) : (c.riesgoResidual != null ? Number(c.riesgoResidual) : (fr === 2 && ir === 2 ? 3.99 : fr * ir));
-                            let nivel = c.nivelRiesgoResidual ?? c.gestion?.nivelRiesgoResidual;
-                            if (!nivel && !isNaN(calNum)) {
-                              if (calNum >= 15 && calNum <= 25) nivel = 'Crítico';
-                              else if (calNum >= 10 && calNum <= 14) nivel = 'Alto';
-                              else if (calNum >= 4 && calNum < 10) nivel = 'Medio';
-                              else if (calNum >= 1 && calNum < 4) nivel = 'Bajo'; // incluye 3.99 (excepción 2×2)
-                              else nivel = 'Sin Calificar';
-                            }
-                            return { ...c, frecuenciaResidual: fr, impactoResidual: ir, calificacionResidualNum: calNum, nivelRiesgoResidual: nivel || 'Sin Calificar' };
-                          });
-                          const calificacionesResiduales = causasConResidual.map((c: any) => c.calificacionResidualNum).filter((cal: number) => !isNaN(cal) && cal > 0);
+                          // Solo trabajar con datos residuales reales (BD). Si una causa no tiene
+                          // frecuencia/impacto residual, se omite del resumen.
+                          const causasConResidual = (riesgo.causas || [])
+                            .map((c: any) => {
+                              const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual;
+                              const irRaw = c.impactoResidual ?? c.gestion?.impactoResidual;
+                              if (frRaw == null || irRaw == null) {
+                                return null;
+                              }
+                              const fr = Number(frRaw);
+                              const ir = Number(irRaw);
+                              const calRaw =
+                                c.calificacionResidual ??
+                                c.gestion?.calificacionResidual ??
+                                (fr === 2 && ir === 2 ? 3.99 : fr * ir);
+                              const calNum = Number(calRaw);
+                              let nivel = c.nivelRiesgoResidual ?? c.gestion?.nivelRiesgoResidual;
+                              if (!nivel && !isNaN(calNum)) {
+                                if (calNum >= 15 && calNum <= 25) nivel = 'Crítico';
+                                else if (calNum >= 10 && calNum < 15) nivel = 'Alto';
+                                else if (calNum >= 4 && calNum < 10) nivel = 'Medio';
+                                else if (calNum >= 1 && calNum < 4) nivel = 'Bajo'; // incluye 3.99 (excepción 2×2)
+                                else nivel = 'Sin Calificar';
+                              }
+                              return {
+                                ...c,
+                                frecuenciaResidual: fr,
+                                impactoResidual: ir,
+                                calificacionResidualNum: calNum,
+                                nivelRiesgoResidual: nivel || 'Sin Calificar',
+                              };
+                            })
+                            .filter(Boolean);
+
+                          const calificacionesResiduales = (causasConResidual as any[])
+                            .map((c: any) => c.calificacionResidualNum)
+                            .filter((cal: number) => !isNaN(cal) && cal > 0);
                           const calificacionResidualFinal = calificacionesResiduales.length > 0 ? Math.max(...calificacionesResiduales) : 0;
                           let nivelFinal = 'Sin Calificar';
                           if (calificacionResidualFinal > 0) {
@@ -2354,7 +2704,29 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       {causasConResidual.map((causa: any, idx: number) => {
                                         const { color, bg } = getColorNivel(causa.nivelRiesgoResidual);
                                         return (
-                                          <TableRow key={causa.id}>
+                                          <TableRow
+                                            key={causa.id}
+                                            sx={{
+                                              cursor: 'pointer',
+                                              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.08)' },
+                                            }}
+                                            onClick={() => {
+                                              const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
+                                              setTipoClasificacion(tipoGestion as any);
+                                              handleEvaluarControl(riesgo.id, causa);
+
+                                              setTimeout(() => {
+                                                const panel = document.getElementById(`panel-residual-${riesgo.id}-${causa.id}`);
+                                                if (panel) {
+                                                  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                  return;
+                                                }
+                                                const fila = document.getElementById(`causa-residual-${riesgo.id}-${causa.id}`);
+                                                if (fila) fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                              }, 150);
+                                            }}
+                                            title="Ir directo a CALIFICACIÓN DEL RIESGO RESIDUAL de esta causa"
+                                          >
                                             <TableCell sx={{ maxWidth: 280 }}>
                                               <Typography variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                                 {causa.descripcion?.length > 80 ? `${causa.descripcion.substring(0, 80)}...` : causa.descripcion || '—'}
@@ -2448,18 +2820,23 @@ export default function ControlesYPlanesAccionPageNueva() {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {/* Column Headers */}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
-                gap: 1,
-                px: 2,
-                py: 1.5,
-                mb: 1,
-                bgcolor: '#f8f9fa',
-                borderRadius: '8px',
-                border: '1px solid #e0e0e0',
-                alignItems: 'center'
-              }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
+                  gap: 1,
+                  px: 2,
+                  py: 1.5,
+                  mb: 1,
+                  bgcolor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #e0e0e0',
+                  alignItems: 'center',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 15,
+                }}
+              >
                 <Box />
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
@@ -2511,7 +2888,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {riesgosConPlanesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
-                  <Card key={riesgo.id} sx={{ mb: 2 }}>
+                  <Card key={riesgo.id} sx={{ mb: 1.5 }}>
                     <Box
                       sx={{
                         display: 'grid',
@@ -2521,7 +2898,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
                         alignItems: 'center',
-                        width: '100%'
+                        width: '100%',
+                        minHeight: 64,
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -2689,29 +3067,67 @@ export default function ControlesYPlanesAccionPageNueva() {
         </Box>
       </TabPanel>
 
+      </Box>
+
       {/* DIALOG DETALLE CAUSA/CONTROL (Mejorado) */}
-      <Dialog open={dialogDetailOpen} onClose={() => { setDialogDetailOpen(false); setCausaDetalleView(null); }} maxWidth="lg" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
-              {itemDetalle && (((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') || ((itemDetalle as any).tipo === 'AMBOS'))
-                ? 'Detalle del Control' 
-                : 'Detalle del Plan de Acción'}
-            </Typography>
-            {itemDetalle && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Chip
-                  label={((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') ? 'Control' : ((itemDetalle as any).tipo === 'AMBOS') ? 'Control y Plan de Acción' : 'Plan de Acción'}
-                  color={((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') ? 'primary' : ((itemDetalle as any).tipo === 'AMBOS') ? 'secondary' : 'info'}
-                  size="small"
-                />
-                {(itemDetalle as any).tipo === 'AMBOS' && (
-                  <Typography variant="caption" color="text.secondary">
-                    Existe control · Existe plan de acción
-                  </Typography>
-                )}
-              </Box>
-            )}
+      <Dialog
+        open={dialogDetailOpen}
+        onClose={() => {
+          setDialogDetailOpen(false);
+          setCausaDetalleView(null);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                {itemDetalle &&
+                (((itemDetalle as any).tipo === 'control') ||
+                  ((itemDetalle as any).tipo === 'CONTROL') ||
+                  ((itemDetalle as any).tipo === 'AMBOS'))
+                  ? 'Detalle del Control'
+                  : 'Detalle del Plan de Acción'}
+              </Typography>
+              {itemDetalle && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                  <Chip
+                    label={
+                      ((itemDetalle as any).tipo === 'control') ||
+                      ((itemDetalle as any).tipo === 'CONTROL')
+                        ? 'Control'
+                        : (itemDetalle as any).tipo === 'AMBOS'
+                        ? 'Control y Plan de Acción'
+                        : 'Plan de Acción'
+                    }
+                    color={
+                      ((itemDetalle as any).tipo === 'control') ||
+                      ((itemDetalle as any).tipo === 'CONTROL')
+                        ? 'primary'
+                        : (itemDetalle as any).tipo === 'AMBOS'
+                        ? 'secondary'
+                        : 'info'
+                    }
+                    size="small"
+                  />
+                  {(itemDetalle as any).tipo === 'AMBOS' && (
+                    <Typography variant="caption" color="text.secondary">
+                      Existe control · Existe plan de acción
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setDialogDetailOpen(false);
+                setCausaDetalleView(null);
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -2863,20 +3279,48 @@ export default function ControlesYPlanesAccionPageNueva() {
                         {(itemDetalle as any).planDetalle || (itemDetalle as any).gestion?.planDetalle || causaDetalleView?.causa?.planDetalle || 'N/A'}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">Responsable</Typography>
-                        <Typography variant="body2" sx={{ mb: 2 }}>
-                          {(itemDetalle as any).planResponsable || (itemDetalle as any).gestion?.planResponsable || causaDetalleView?.causa?.planResponsable || 'N/A'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">Fecha Estimada</Typography>
-                        <Typography variant="body2" sx={{ mb: 2 }}>
-                          {(itemDetalle as any).planFechaEstimada || (itemDetalle as any).gestion?.planFechaEstimada || causaDetalleView?.causa?.planFechaEstimada || 'N/A'}
-                        </Typography>
-                      </Box>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Responsable
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {(itemDetalle as any).planResponsable ||
+                          (itemDetalle as any).gestion?.planResponsable ||
+                          causaDetalleView?.causa?.planResponsable ||
+                          'N/A'}
+                      </Typography>
                     </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Fecha Estimada
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {(itemDetalle as any).planFechaEstimada ||
+                          (itemDetalle as any).gestion?.planFechaEstimada ||
+                          causaDetalleView?.causa?.planFechaEstimada ||
+                          'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Decisión
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          mb: 2,
+                          whiteSpace: 'pre-wrap',
+                          textAlign: 'justify',
+                        }}
+                      >
+                        {(itemDetalle as any).planDecision ||
+                          (itemDetalle as any).gestion?.planDecision ||
+                          causaDetalleView?.causa?.planDecision ||
+                          'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
                   </Box>
                 </Box>
               )}
@@ -2903,18 +3347,55 @@ export default function ControlesYPlanesAccionPageNueva() {
           )}
         </DialogContent>
         <DialogActions>
+          {causaDetalleView && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                const causa = causaDetalleView.causa;
+                const riesgoId = causaDetalleView.riesgoId;
+                const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
+                setTipoClasificacion(tipoGestion as any);
+                setDialogDetailOpen(false);
+                setCausaDetalleView(null);
+
+                handleEvaluarControl(riesgoId, causa);
+
+                setTimeout(() => {
+                  const panel = document.getElementById(`panel-residual-${riesgoId}-${causa.id}`);
+                  if (panel) {
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                  }
+                  const fila = document.getElementById(`causa-residual-${riesgoId}-${causa.id}`);
+                  if (fila) fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 150);
+              }}
+            >
+              Editar
+            </Button>
+          )}
           <Button onClick={() => { setDialogDetailOpen(false); setCausaDetalleView(null); }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
       {/* DIALOG CLASIFICACION CAUSA (Existing) - Solo se abre cuando se hace clic en "Clasificar" o desde el tab CLASIFICACIÓN */}
-      <Dialog 
-        open={!!causaEnEdicion && !evaluacionExpandida} 
-        onClose={() => setCausaEnEdicion(null)} 
-        maxWidth="md" 
+      <Dialog
+        open={!!causaEnEdicion && !evaluacionExpandida}
+        onClose={() => setCausaEnEdicion(null)}
+        maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Clasificar Causa</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Typography variant="h6" fontWeight={600}>
+              Clasificar Causa
+            </Typography>
+            <IconButton size="small" onClick={() => setCausaEnEdicion(null)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
         <DialogContent>
           {/* ... Simplified Form ... */}
           <FormControl fullWidth sx={{ mt: 2 }}>
@@ -2927,10 +3408,28 @@ export default function ControlesYPlanesAccionPageNueva() {
           </FormControl>
           {tipoClasificacion === 'control' && <TextField fullWidth label="Descripción Control" value={formControl.descripcion} onChange={e => setFormControl({ ...formControl, descripcion: e.target.value })} sx={{ mt: 2 }} />}
           {tipoClasificacion === 'plan' && (
-            <>
-              <TextField fullWidth label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} sx={{ mt: 2 }} />
-              <TextField fullWidth label="Descripción detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} sx={{ mt: 2 }} />
-            </>
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Nombre del Plan / Acción"
+                value={formPlan.descripcion}
+                onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })}
+              />
+              <TextField
+                fullWidth
+                label="Descripción detallada"
+                multiline
+                rows={3}
+                value={formPlan.detalle || ''}
+                onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })}
+              />
+              <TextField
+                fullWidth
+                label="Decisión del riesgo (Aceptar, Mitigar, Transferir, etc.)"
+                value={formPlan.decision}
+                onChange={e => setFormPlan({ ...formPlan, decision: e.target.value })}
+              />
+            </Box>
           )}
         </DialogContent>
         <DialogActions>
@@ -2938,8 +3437,6 @@ export default function ControlesYPlanesAccionPageNueva() {
           <Button onClick={handleGuardarClasificacion} variant="contained">Guardar</Button>
         </DialogActions>
       </Dialog>
-
-
 
     </AppPageLayout>
   );

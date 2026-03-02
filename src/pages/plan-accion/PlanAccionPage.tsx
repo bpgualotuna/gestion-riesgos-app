@@ -257,19 +257,50 @@ export default function PlanAccionPage() {
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom fontWeight={700}>Controles y Planes de Acción</Typography>
+        <Typography variant="h4" gutterBottom fontWeight={700}>
+          Controles y Planes de Acción
+        </Typography>
 
         {/* Tabs Principales */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, bgcolor: 'white', borderRadius: 1 }}>
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            mb: 3,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+          }}
+        >
           <Tabs
             value={activeTab}
             onChange={(_, val) => setActiveTab(val)}
             indicatorColor="primary"
             textColor="primary"
           >
-            <Tab key="clasif" label="CLASIFICACIÓN DE CAUSA" icon={<FactCheckIcon />} iconPosition="start" sx={{ fontWeight: 600 }} />
-            <Tab key="residual" label="CALIFICACIÓN RESIDUAL" icon={<SecurityIcon />} iconPosition="start" sx={{ fontWeight: 600 }} />
-            <Tab key="planes" label="PLANES DE ACCIÓN" icon={<AssignmentIcon />} iconPosition="start" sx={{ fontWeight: 600 }} />
+            <Tab
+              key="clasif"
+              label="CLASIFICACIÓN DE CAUSA"
+              icon={<FactCheckIcon />}
+              iconPosition="start"
+              sx={{ fontWeight: 600 }}
+            />
+            <Tab
+              key="residual"
+              label="CALIFICACIÓN RESIDUAL"
+              icon={<SecurityIcon />}
+              iconPosition="start"
+              sx={{ fontWeight: 600 }}
+            />
+            <Tab
+              key="planes"
+              label="PLANES DE ACCIÓN"
+              icon={<AssignmentIcon />}
+              iconPosition="start"
+              sx={{ fontWeight: 600 }}
+            />
           </Tabs>
         </Box>
 
