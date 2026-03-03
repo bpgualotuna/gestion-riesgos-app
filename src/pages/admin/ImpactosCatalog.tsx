@@ -23,6 +23,7 @@ import {
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef } from '@mui/x-data-grid';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ImpactosCatalogProps {
     tipos: { id: number; clave: string; nombre: string }[];
@@ -39,6 +40,8 @@ export default function ImpactosCatalog({
     onAddTipo,
     onDeleteTipo,
 }: ImpactosCatalogProps) {
+    const { puedeEditar } = useAuth();
+    const canEdit = puedeEditar !== false;
     const [open, setOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [descriptions, setDescriptions] = useState<Record<number, string>>({});
@@ -133,13 +136,14 @@ export default function ImpactosCatalog({
             width: 150,
             renderCell: (params) => (
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton size="small" onClick={() => handleOpen(params.row)} title="Editar">
+                    <IconButton size="small" onClick={() => handleOpen(params.row)} title="Editar" disabled={!canEdit}>
                         <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />
                     </IconButton>
                     <IconButton 
                         size="small" 
                         onClick={() => handleDeleteImpact(params.row)} 
                         title="Eliminar"
+                        disabled={!canEdit}
                     >
                         <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
                     </IconButton>
@@ -157,14 +161,16 @@ export default function ImpactosCatalog({
                         Edite las descripciones para cada nivel de impacto (1-5) según el tipo.
                     </Typography>
                 </Box>
-                <Button 
-                    variant="contained" 
-                    startIcon={<AddIcon />}
-                    onClick={handleOpenNew}
-                    size="small"
-                >
-                    Agregar Tipo
-                </Button>
+                {canEdit && (
+                    <Button 
+                        variant="contained" 
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenNew}
+                        size="small"
+                    >
+                        Agregar Tipo
+                    </Button>
+                )}
             </Box>
 
             <AppDataGrid
@@ -195,7 +201,7 @@ export default function ImpactosCatalog({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
@@ -229,12 +235,12 @@ export default function ImpactosCatalog({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseNew} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleAddNewImpact} variant="contained" startIcon={<AddIcon />}>Agregar</Button>
+                    <Button onClick={handleAddNewImpact} variant="contained" startIcon={<AddIcon />} disabled={!canEdit}>Agregar</Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Tipo de Impacto</DialogTitle>
                 <DialogContent>
                     {selectedDetailId !== null && (
@@ -280,7 +286,7 @@ export default function ImpactosCatalog({
                             handleOpen(row);
                             handleCloseDetailDialog();
                         }
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
                         Editar
                     </Button>
                 </DialogActions>

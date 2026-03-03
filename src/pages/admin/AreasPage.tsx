@@ -57,7 +57,8 @@ import {
     useGetResponsablesByProcesoQuery,
     useAddResponsableToProcesoMutation,
     useRemoveResponsableFromProcesoMutation,
-    useUpdateResponsablesProcesoMutation
+    useUpdateResponsablesProcesoMutation,
+    useGetRolesQuery,
 } from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -74,10 +75,11 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
 }
 
 export default function AreasPage() {
-    const { esAdmin } = useAuth();
+    const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
     const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
     const { data: usuariosData = [] } = useGetUsuariosQuery();
+    const { data: rolesData = [] } = useGetRolesQuery();
     const { data: procesosData = [] } = useGetProcesosQuery();
     const [procesos, setProcesos] = useState<Proceso[]>([]);
 
@@ -138,16 +140,16 @@ export default function AreasPage() {
     // Detectar si el usuario seleccionado es Gerente (ya no se usa localStorage, solo para UI)
     const esGerenteGeneral = selectedUserForAssignment?.role === 'gerente';
 
-    // Obtener roles únicos de los usuarios
+    // Obtener lista de roles desde la base (tabla Role)
     const rolesUnicos = useMemo(() => {
         const rolesSet = new Set<string>();
-        usuarios.forEach((u: any) => {
-            if (u.role) {
-                rolesSet.add(u.role);
+        (rolesData as any[]).forEach((r: any) => {
+            if (r.codigo) {
+                rolesSet.add(r.codigo);
             }
         });
         return Array.from(rolesSet).sort();
-    }, [usuarios]);
+    }, [rolesData]);
 
     // Filtrar usuarios por rol
     const usuariosFiltrados = useMemo(() => {
@@ -283,10 +285,10 @@ export default function AreasPage() {
             sortable: false,
             renderCell: (params) => (
                 <Box>
-                    <IconButton size="small" onClick={() => handleOpenAreaDialog(params.row)} color="primary">
+                    <IconButton size="small" onClick={() => handleOpenAreaDialog(params.row)} color="primary" disabled={!puedeEditarAdmin}>
                         <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => handleDeleteArea(params.row.id)} color="error">
+                    <IconButton size="small" onClick={() => handleDeleteArea(params.row.id)} color="error" disabled={!puedeEditarAdmin}>
                         <DeleteIcon fontSize="small" />
                     </IconButton>
                 </Box>
@@ -568,7 +570,7 @@ export default function AreasPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenAreaDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenAreaDialog()} disabled={!puedeEditarAdmin}>
                                 Nueva Área
                             </Button>
                         </Box>
@@ -643,7 +645,7 @@ export default function AreasPage() {
                                             size="small"
                                         />
                                     </Box>
-                                    <Button variant="contained" startIcon={<SaveIcon />} onClick={saveAssignments}>
+                                    <Button variant="contained" startIcon={<SaveIcon />} onClick={saveAssignments} disabled={!puedeEditarAdmin}>
                                         Guardar Cambios
                                     </Button>
                                 </Box>
@@ -677,6 +679,7 @@ export default function AreasPage() {
                                                                 checked={checked}
                                                                 indeterminate={indeterminate}
                                                                 onChange={(e) => handleAreaToggle(area.id, e.target.checked)}
+                                                                disabled={!puedeEditarAdmin}
                                                             />
                                                         }
                                                         label={<Typography fontWeight="bold">{area.nombre}</Typography>}
@@ -704,6 +707,7 @@ export default function AreasPage() {
                                                                                 <Checkbox
                                                                                     checked={isOwned}
                                                                                     onChange={(e) => handleProcessToggle(proceso.id, e.target.checked)}
+                                                                                    disabled={!puedeEditarAdmin}
                                                                                 />
                                                                             }
                                                                             label={proceso.nombre}
@@ -750,7 +754,7 @@ export default function AreasPage() {
             </Box>
 
             {/* Dialogo Crea/Edita Area */}
-            <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" fullWidth>
+            <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 500 } }}>
                 <DialogTitle>{editingArea ? 'Editar Área' : 'Nueva Área'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -781,12 +785,12 @@ export default function AreasPage() {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseAreaDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL ÁREA */}
-            <Dialog open={areaDetailDialogOpen} onClose={handleCloseAreaDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={areaDetailDialogOpen} onClose={handleCloseAreaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Área</DialogTitle>
                 <DialogContent>
                     {selectedAreaDetail && (
@@ -815,7 +819,7 @@ export default function AreasPage() {
                     <Button onClick={() => {
                         handleOpenAreaDialog(selectedAreaDetail!);
                         handleCloseAreaDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>

@@ -22,7 +22,8 @@ import type { Proceso, Usuario } from '../../types';
 import { useGetProcesosQuery, useGetUsuariosQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 
 export default function PermisosPage() {
-    const { esAdmin } = useAuth();
+    const { esAdmin, puedeEditar } = useAuth();
+    const canEdit = puedeEditar !== false;
     const { showSuccess, showError } = useNotification();
 
     const { data: procesos = [] } = useGetProcesosQuery();
@@ -121,7 +122,7 @@ export default function PermisosPage() {
                         variant="contained"
                         startIcon={<SaveIcon />}
                         onClick={handleSave}
-                        disabled={!procesoId}
+                        disabled={!canEdit || !procesoId}
                         size="large"
                     >
                         Guardar Permisos

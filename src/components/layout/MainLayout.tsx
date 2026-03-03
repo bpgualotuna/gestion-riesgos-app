@@ -210,6 +210,7 @@ export default function MainLayout() {
     esAdmin,
     esDueñoProcesos,
     esSupervisorRiesgos,
+    ambito,
     gerenteGeneralMode,
     setGerenteGeneralMode,
     esGerenteGeneral,
@@ -235,8 +236,11 @@ export default function MainLayout() {
   // Obtener asignaciones del supervisor/dueño de procesos (misma lógica que el selector de proceso)
   const { areas: areasAsignadas, procesos: procesosAsignados, loading: loadingAsignaciones } = useAreasProcesosAsignados();
   const tieneAsignaciones = areasAsignadas.length > 0 || procesosAsignados.length > 0;
+
+  // Cualquier usuario operativo (no admin, ámbito OPERATIVO) requiere asignaciones
+  const esOperativoSinAdmin = !esAdmin && ambito === 'OPERATIVO';
   const debeBloquearPanelPorSinAsignaciones =
-    (esDueñoProcesos || esSupervisorRiesgos) && !loadingAsignaciones && !tieneAsignaciones;
+    esOperativoSinAdmin && !loadingAsignaciones && !tieneAsignaciones;
 
   // Función para obtener el nombre del rol en español
   const getNombreRol = (): string => {

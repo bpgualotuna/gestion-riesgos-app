@@ -76,7 +76,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function ProcesosDefinicionPage() {
-    const { esAdmin } = useAuth();
+    const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
     const { confirmDelete } = useConfirm();
     const [currentTab, setCurrentTab] = useState(0);
@@ -365,14 +365,18 @@ export default function ProcesosDefinicionPage() {
             width: 120,
             getActions: (params) => [
                 <GridActionsCellItem
+                    key="edit"
                     icon={<EditIcon sx={{ color: '#2196f3' }} />}
                     label="Editar"
                     onClick={() => handleOpenDialog(params.row)}
+                    disabled={!puedeEditarAdmin}
                 />,
                 <GridActionsCellItem
+                    key="delete"
                     icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                     label="Eliminar"
                     onClick={() => handleDelete(params.row.id)}
+                    disabled={!puedeEditarAdmin}
                 />,
             ],
         },
@@ -447,7 +451,7 @@ export default function ProcesosDefinicionPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()} disabled={!puedeEditarAdmin}>
                                 Nuevo Proceso
                             </Button>
                         </Box>
@@ -479,7 +483,7 @@ export default function ProcesosDefinicionPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenTipoDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenTipoDialog()} disabled={!puedeEditarAdmin}>
                                 Nuevo Tipo de Proceso
                             </Button>
                         </Box>
@@ -496,14 +500,18 @@ export default function ProcesosDefinicionPage() {
                                     width: 120,
                                     getActions: (params) => [
                                         <GridActionsCellItem
+                                            key="edit"
                                             icon={<EditIcon sx={{ color: '#2196f3' }} />}
                                             label="Editar"
                                             onClick={() => handleOpenTipoDialog(params.row)}
+                                            disabled={!puedeEditarAdmin}
                                         />,
                                         <GridActionsCellItem
+                                            key="delete"
                                             icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                                             label="Eliminar"
                                             onClick={() => handleDeleteTipo(params.row.id)}
+                                            disabled={!puedeEditarAdmin}
                                         />,
                                     ],
                                 },
@@ -516,7 +524,7 @@ export default function ProcesosDefinicionPage() {
                 </TabPanel>
             </Box>
 
-            <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+            <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 500 } }}>
                 <DialogTitle>{editingProceso ? 'Editar Proceso' : 'Nuevo Proceso'}</DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
@@ -631,11 +639,11 @@ export default function ProcesosDefinicionPage() {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={tipoDialogOpen} onClose={handleCloseTipoDialog} maxWidth="sm" fullWidth>
+            <Dialog open={tipoDialogOpen} onClose={handleCloseTipoDialog} maxWidth="xs" fullWidth>
                 <DialogTitle>{editingTipo ? 'Editar Tipo de Proceso' : 'Nuevo Tipo de Proceso'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -658,12 +666,12 @@ export default function ProcesosDefinicionPage() {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseTipoDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveTipo} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleSaveTipo} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL PROCESO */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Proceso</DialogTitle>
                 <DialogContent>
                     {selectedProcessDetail && (
@@ -727,14 +735,14 @@ export default function ProcesosDefinicionPage() {
                     <Button onClick={() => {
                         handleOpenDialog(selectedProcessDetail!);
                         handleCloseDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL TIPO DE PROCESO */}
-            <Dialog open={tipoDetailDialogOpen} onClose={handleCloseTipoDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={tipoDetailDialogOpen} onClose={handleCloseTipoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Tipo de Proceso</DialogTitle>
                 <DialogContent>
                     {selectedTipoDetail && (
@@ -759,7 +767,7 @@ export default function ProcesosDefinicionPage() {
                     <Button onClick={() => {
                         handleOpenTipoDialog(selectedTipoDetail!);
                         handleCloseTipoDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>

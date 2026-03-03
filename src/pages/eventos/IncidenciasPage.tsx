@@ -631,7 +631,7 @@ export default function IncidenciasPage() {
       </Box>
 
       {/* Dialog para crear/editar incidencia */}
-      <Dialog open={dialogOpen} onClose={handleCerrarDialog} maxWidth="md" fullWidth>
+      <Dialog open={dialogOpen} onClose={handleCerrarDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 500 } }}>
         <DialogTitle>
           {modoEdicion ? 'Editar Incidencia' : 'Nueva Incidencia'}
         </DialogTitle>

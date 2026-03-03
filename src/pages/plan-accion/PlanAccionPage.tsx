@@ -534,7 +534,7 @@ export default function PlanAccionPage() {
       </Box>
 
       {/* DIALOG CLASIFICACION */}
-      <Dialog open={clasificacionDialogOpen} onClose={() => setClasificacionDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={clasificacionDialogOpen} onClose={() => setClasificacionDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Gestionar Causa</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2 }}>Causa: <strong>{causaSeleccionada?.descripcion}</strong></Typography>
@@ -551,7 +551,7 @@ export default function PlanAccionPage() {
       </Dialog>
 
       {/* DIALOG PLAN */}
-      <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 480 } }}>
         <DialogTitle>Nuevo Plan de Acción</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -610,7 +610,7 @@ export default function PlanAccionPage() {
       </Dialog>
 
       {/* DIALOG DETALLE PLAN */}
-      <Dialog open={planDetalleOpen} onClose={() => setPlanDetalleOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={planDetalleOpen} onClose={() => setPlanDetalleOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>Detalle del Plan de Acción</DialogTitle>
         <DialogContent dividers>
           {planSeleccionadoDetalle && (
@@ -674,7 +674,7 @@ export default function PlanAccionPage() {
       </Dialog>
 
       {/* DIALOG EVALUACIÓN CONTROL (Residual) */}
-      <Dialog open={dialogEvaluacionOpen} onClose={() => setDialogEvaluacionOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogEvaluacionOpen} onClose={() => setDialogEvaluacionOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Evaluación de Control</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>

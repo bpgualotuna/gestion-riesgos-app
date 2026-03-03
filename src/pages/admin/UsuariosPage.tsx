@@ -52,6 +52,7 @@ import {
 } from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
+import { isValidEmail } from '../../utils/validation';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { Typography as MuiTypography } from '@mui/material';
@@ -61,6 +62,9 @@ interface TabPanelProps {
     index: number;
     value: number;
 }
+
+/** Códigos de roles del sistema: no se pueden eliminar; el código no es editable al editar */
+const ROLES_SISTEMA_CODIGOS = ['admin', 'dueño_procesos', 'gerente', 'supervisor'];
 
 function TabPanel(props: TabPanelProps) {
     const { children, value, index, ...other } = props;
@@ -83,7 +87,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function UsuariosPage() {
-    const { esAdmin } = useAuth();
+    const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
     const { confirmDelete } = useConfirm();
     const [currentTab, setCurrentTab] = useState(0);
@@ -143,6 +147,7 @@ export default function UsuariosPage() {
         codigo: '',
         nombre: '',
         descripcion: '',
+        ambito: 'OPERATIVO',
         permisos: { 
             visualizar: true,
             editar: false
@@ -270,6 +275,7 @@ export default function UsuariosPage() {
                 codigo: role.codigo || '',
                 nombre: role.nombre || '',
                 descripcion: role.descripcion || '',
+                ambito: role.ambito === 'SISTEMA' || role.ambito === 'OPERATIVO' ? role.ambito : 'OPERATIVO',
                 permisos: {
                     visualizar: permisosExistentes.visualizar !== false,
                     editar: permisosExistentes.editar || false
@@ -282,6 +288,7 @@ export default function UsuariosPage() {
                 codigo: '',
                 nombre: '',
                 descripcion: '',
+                ambito: 'OPERATIVO',
                 permisos: { 
                     visualizar: true,
                     editar: false
@@ -483,13 +490,22 @@ export default function UsuariosPage() {
             showError('El nombre es requerido');
             return;
         }
+        if (!formData.email?.trim()) {
+            showError('El correo es requerido');
+            return;
+        }
+        if (!isValidEmail(formData.email.trim())) {
+            showError('El correo no tiene un formato válido. Puede usar dominios como .com, .co, .com.co, etc.');
+            return;
+        }
 
         try {
+            const payload = { ...formData, email: formData.email.trim() };
             if (editingUsuario) {
-                await updateUsuario({ id: editingUsuario.id as any, ...formData }).unwrap();
+                await updateUsuario({ id: editingUsuario.id as any, ...payload }).unwrap();
                 showSuccess('Usuario actualizado correctamente');
             } else {
-                await createUsuario(formData).unwrap();
+                await createUsuario(payload).unwrap();
                 showSuccess('Usuario creado correctamente');
             }
             handleCloseDialog();
@@ -551,14 +567,18 @@ export default function UsuariosPage() {
             width: 100,
             getActions: (params) => [
                 <GridActionsCellItem
+                    key="edit"
                     icon={<EditIcon sx={{ color: '#2196f3' }} />}
                     label="Editar"
                     onClick={() => handleOpenDialog(params.row)}
+                    disabled={!puedeEditarAdmin}
                 />,
                 <GridActionsCellItem
+                    key="delete"
                     icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                     label="Eliminar"
                     onClick={() => handleDelete(params.row.id)}
+                    disabled={!puedeEditarAdmin}
                 />,
             ],
         },
@@ -647,7 +667,7 @@ export default function UsuariosPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()} disabled={!puedeEditarAdmin}>
                                 Nuevo Usuario
                             </Button>
                         </Box>
@@ -678,7 +698,7 @@ export default function UsuariosPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenRoleDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenRoleDialog()} disabled={!puedeEditarAdmin}>
                                 Nuevo Rol
                             </Button>
                         </Box>
@@ -739,18 +759,25 @@ export default function UsuariosPage() {
                                     type: 'actions',
                                     headerName: 'Acciones',
                                     width: 150,
-                                    getActions: (params) => [
-                                        <GridActionsCellItem
-                                            icon={<EditIcon sx={{ color: '#2196f3' }} />}
-                                            label="Editar"
-                                            onClick={() => handleOpenRoleDialog(params.row)}
-                                        />,
-                                        <GridActionsCellItem
-                                            icon={<DeleteIcon sx={{ color: '#f44336' }} />}
-                                            label="Eliminar"
-                                            onClick={() => handleDeleteRole(params.row.id)}
-                                        />,
-                                    ],
+                                    getActions: (params) => {
+                                        const esRolSistema = ROLES_SISTEMA_CODIGOS.includes(params.row.codigo);
+                                        return [
+                                            <GridActionsCellItem
+                                                key="edit"
+                                                icon={<EditIcon sx={{ color: '#2196f3' }} />}
+                                                label="Editar"
+                                                onClick={() => handleOpenRoleDialog(params.row)}
+                                                disabled={!puedeEditarAdmin}
+                                            />,
+                                            <GridActionsCellItem
+                                                key="delete"
+                                                icon={<DeleteIcon sx={{ color: '#f44336' }} />}
+                                                label="Eliminar"
+                                                onClick={() => handleDeleteRole(params.row.id)}
+                                                disabled={!puedeEditarAdmin || esRolSistema}
+                                            />,
+                                        ];
+                                    },
                                 },
                             ]}
                             getRowId={(row) => row.id}
@@ -778,7 +805,7 @@ export default function UsuariosPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenCargoDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenCargoDialog()} disabled={!puedeEditarAdmin}>
                                 Nuevo Cargo
                             </Button>
                         </Box>
@@ -795,14 +822,18 @@ export default function UsuariosPage() {
                                     width: 100,
                                     getActions: (params) => [
                                         <GridActionsCellItem
+                                            key="edit"
                                             icon={<EditIcon sx={{ color: '#2196f3' }} />}
                                             label="Editar"
                                             onClick={() => handleOpenCargoDialog(params.row)}
+                                            disabled={!puedeEditarAdmin}
                                         />,
                                         <GridActionsCellItem
+                                            key="delete"
                                             icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                                             label="Eliminar"
                                             onClick={() => handleDeleteCargo(params.row.id)}
+                                            disabled={!puedeEditarAdmin}
                                         />,
                                     ],
                                 },
@@ -831,7 +862,7 @@ export default function UsuariosPage() {
                                 }}
                                 sx={{ flex: 1, maxWidth: '300px' }}
                             />
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenGerenciaDialog()}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenGerenciaDialog()} disabled={!puedeEditarAdmin}>
                                 Nueva Gerencia
                             </Button>
                         </Box>
@@ -848,14 +879,18 @@ export default function UsuariosPage() {
                                     width: 100,
                                     getActions: (params) => [
                                         <GridActionsCellItem
+                                            key="edit"
                                             icon={<EditIcon sx={{ color: '#2196f3' }} />}
                                             label="Editar"
                                             onClick={() => handleOpenGerenciaDialog(params.row)}
+                                            disabled={!puedeEditarAdmin}
                                         />,
                                         <GridActionsCellItem
+                                            key="delete"
                                             icon={<DeleteIcon sx={{ color: '#f44336' }} />}
                                             label="Eliminar"
                                             onClick={() => handleDeleteGerencia(params.row.id)}
+                                            disabled={!puedeEditarAdmin}
                                         />,
                                     ],
                                 },
@@ -867,7 +902,13 @@ export default function UsuariosPage() {
                 </TabPanel>
             </Box>
 
-            <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+            <Dialog
+                open={dialogOpen}
+                onClose={handleCloseDialog}
+                fullWidth
+                maxWidth="md"
+                PaperProps={{ sx: { width: 720, maxWidth: '90vw' } }}
+            >
                 <DialogTitle>{editingUsuario ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -955,7 +996,7 @@ export default function UsuariosPage() {
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={roleDialogOpen} onClose={handleCloseRoleDialog} maxWidth="md" fullWidth>
+            <Dialog open={roleDialogOpen} onClose={handleCloseRoleDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 460 } }}>
                 <DialogTitle>{editingRole ? 'Editar Rol' : 'Nuevo Rol'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -965,7 +1006,8 @@ export default function UsuariosPage() {
                             value={roleFormData.codigo}
                             onChange={(e) => setRoleFormData({ ...roleFormData, codigo: e.target.value.toLowerCase().trim() })}
                             required
-                            helperText="Código único del rol (ej: 'admin', 'gerente', 'supervisor', 'dueño_procesos')"
+                            disabled={!!editingRole}
+                            helperText={editingRole ? 'El código no se puede modificar al editar.' : "Código único del rol (ej: 'admin', 'gerente', 'supervisor'). Los roles del sistema (admin, dueño_procesos, gerente, supervisor) no se pueden eliminar."}
                             inputProps={{ maxLength: 50 }}
                         />
                         <TextField
@@ -984,6 +1026,21 @@ export default function UsuariosPage() {
                             value={roleFormData.descripcion}
                             onChange={(e) => setRoleFormData({ ...roleFormData, descripcion: e.target.value })}
                         />
+                        <FormControl fullWidth>
+                            <InputLabel id="role-ambito-label">Ámbito</InputLabel>
+                            <Select
+                                labelId="role-ambito-label"
+                                label="Ámbito"
+                                value={roleFormData.ambito || 'OPERATIVO'}
+                                onChange={(e) => setRoleFormData({ ...roleFormData, ambito: e.target.value })}
+                            >
+                                <MenuItem value="OPERATIVO">Operativo (riesgos, controles, planes)</MenuItem>
+                                <MenuItem value="SISTEMA">Sistema (administración y configuración)</MenuItem>
+                            </Select>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                                Operativo: acceso al sistema de riesgos. Sistema: acceso al panel de Administración.
+                            </Typography>
+                        </FormControl>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>Permisos del Rol</Typography>
                             
@@ -1049,7 +1106,7 @@ export default function UsuariosPage() {
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={cargoDialogOpen} onClose={handleCloseCargoDialog} maxWidth="sm" fullWidth>
+            <Dialog open={cargoDialogOpen} onClose={handleCloseCargoDialog} maxWidth="xs" fullWidth>
                 <DialogTitle>{editingCargo ? 'Editar Cargo' : 'Nuevo Cargo'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1076,7 +1133,7 @@ export default function UsuariosPage() {
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={gerenciaDialogOpen} onClose={handleCloseGerenciaDialog} maxWidth="sm" fullWidth>
+            <Dialog open={gerenciaDialogOpen} onClose={handleCloseGerenciaDialog} maxWidth="xs" fullWidth>
                 <DialogTitle>{editingGerencia ? 'Editar Gerencia' : 'Nueva Gerencia'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1102,7 +1159,13 @@ export default function UsuariosPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DEL USUARIO */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseUserDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog
+                open={detailDialogOpen}
+                onClose={handleCloseUserDetailDialog}
+                fullWidth
+                maxWidth="md"
+                PaperProps={{ sx: { width: 620, maxWidth: '90vw' } }}
+            >
                 <DialogTitle>Información del Usuario</DialogTitle>
                 <DialogContent>
                     {selectedUserDetail && (
@@ -1157,14 +1220,14 @@ export default function UsuariosPage() {
                     <Button onClick={() => {
                         handleOpenDialog(selectedUserDetail!);
                         handleCloseUserDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL CARGO */}
-            <Dialog open={cargoDetailDialogOpen} onClose={handleCloseCargoDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={cargoDetailDialogOpen} onClose={handleCloseCargoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Cargo</DialogTitle>
                 <DialogContent>
                     {selectedCargoDetail && (
@@ -1189,14 +1252,14 @@ export default function UsuariosPage() {
                     <Button onClick={() => {
                         handleOpenCargoDialog(selectedCargoDetail!);
                         handleCloseCargoDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DE LA GERENCIA */}
-            <Dialog open={gerenciaDetailDialogOpen} onClose={handleCloseGerenciaDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={gerenciaDetailDialogOpen} onClose={handleCloseGerenciaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información de la Gerencia</DialogTitle>
                 <DialogContent>
                     {selectedGerenciaDetail && (
@@ -1221,14 +1284,14 @@ export default function UsuariosPage() {
                     <Button onClick={() => {
                         handleOpenGerenciaDialog(selectedGerenciaDetail!);
                         handleCloseGerenciaDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL ROL */}
-            <Dialog open={roleDetailDialogOpen} onClose={handleCloseRoleDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={roleDetailDialogOpen} onClose={handleCloseRoleDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Rol</DialogTitle>
                 <DialogContent>
                     {selectedRoleDetail && (
@@ -1239,7 +1302,12 @@ export default function UsuariosPage() {
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Código</Typography>
-                                <Typography variant="body1">{selectedRoleDetail.codigo}</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    <Typography variant="body1">{selectedRoleDetail.codigo}</Typography>
+                                    {ROLES_SISTEMA_CODIGOS.includes(selectedRoleDetail.codigo) && (
+                                        <Chip label="Rol del sistema (no eliminable)" size="small" color="primary" variant="outlined" />
+                                    )}
+                                </Box>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Nombre</Typography>
@@ -1248,6 +1316,10 @@ export default function UsuariosPage() {
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Descripción</Typography>
                                 <Typography variant="body1">{selectedRoleDetail.descripcion || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Ámbito</Typography>
+                                <Typography variant="body1">{selectedRoleDetail.ambito === 'SISTEMA' ? 'Sistema (administración)' : 'Operativo (riesgos, controles, planes)'}</Typography>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Permisos</Typography>
@@ -1277,7 +1349,7 @@ export default function UsuariosPage() {
                     <Button onClick={() => {
                         handleOpenRoleDialog(selectedRoleDetail);
                         handleCloseRoleDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
                         Editar
                     </Button>
                 </DialogActions>

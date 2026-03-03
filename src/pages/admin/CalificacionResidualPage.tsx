@@ -56,8 +56,11 @@ import {
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function CalificacionResidualPage() {
+  const { puedeEditar } = useAuth();
+  const canEdit = puedeEditar !== false;
   const { showSuccess, showError } = useNotification();
   const { data: config, isLoading, refetch } = useGetCalificacionResidualActivaQuery();
   const { data: niveles } = useGetNivelesRiesgoQuery();
@@ -545,7 +548,7 @@ export default function CalificacionResidualPage() {
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
-            disabled={isUpdating}
+            disabled={!canEdit || isUpdating}
           >
             {isUpdating ? 'Guardando...' : 'Guardar configuración'}
           </Button>

@@ -29,6 +29,7 @@ import {
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../contexts/AuthContext';
 
 
 // Tipos para la configuración
@@ -294,6 +295,8 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
 };
 
 export default function MapasConfigPage({ embedded = false }: { embedded?: boolean }) {
+    const { puedeEditar } = useAuth();
+    const canEdit = puedeEditar !== false;
     const [tabValue, setTabValue] = useState<MapaTabType>('inherente');
     const [searchTerm, setSearchTerm] = useState('');
     const { data: configDataRaw, isLoading: isLoadingConfig } = useGetMapaConfigQuery();
@@ -402,7 +405,7 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                                     type={tabValue}
                                     config={localConfig}
                                     niveles={nivelesData}
-                                    onUpdate={handleUpdateConfig}
+                                    onUpdate={canEdit ? handleUpdateConfig : () => {}}
                                 />
                             </Box>
                             <Box sx={{ flex: 1, minWidth: '250px' }}>
@@ -414,7 +417,7 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                                         color="primary"
                                         fullWidth
                                         onClick={handleSave}
-                                        disabled={isUpdating}
+                                        disabled={!canEdit || isUpdating}
                                     >
                                         {isUpdating ? 'Guardando...' : 'Guardar Cambios'}
                                     </Button>

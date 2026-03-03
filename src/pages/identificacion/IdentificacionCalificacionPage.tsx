@@ -2268,7 +2268,7 @@ export default function IdentificacionPage() {
         }
         setNuevaCausaFuente(primeraFuente);
         setNuevaCausaFrecuencia(3);
-      }} maxWidth="sm" fullWidth>
+      }} maxWidth="xs" fullWidth>
         <DialogTitle>{causaEditando ? 'Editar Causa' : 'Agregar Causa'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -2388,7 +2388,7 @@ export default function IdentificacionPage() {
       </Dialog>
 
       {/* Diálogo para Evaluación de Control por Causa */}
-      <Dialog open={dialogEvaluacionOpen} onClose={() => setDialogEvaluacionOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogEvaluacionOpen} onClose={() => setDialogEvaluacionOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>
           Evaluación de Control - Causa
         </DialogTitle>
@@ -2749,7 +2749,7 @@ export default function IdentificacionPage() {
       </Dialog>
 
       {/* DIALOG DETALLE CAUSA */}
-      <Dialog open={causaDetalleOpen} onClose={() => setCausaDetalleOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={causaDetalleOpen} onClose={() => setCausaDetalleOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white' }}>Detalle de la Causa</DialogTitle>
         <DialogContent dividers>
           {causaSeleccionadaDetalle && (

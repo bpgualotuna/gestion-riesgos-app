@@ -47,18 +47,18 @@ export default function LoginPage() {
         setIsLoading(false);
 
         if (result.success) {
-            // Redirigir según el rol del usuario
+            // Redirigir según ámbito: SISTEMA → administración; OPERATIVO → dashboard/sistema de riesgos
             const userData = result.user || user;
-            if (userData?.role === 'admin') {
+            if (userData?.ambito === 'SISTEMA') {
                 navigate(ROUTES.ADMINISTRACION);
                 return;
             }
+            // Operativo (o sin ámbito): según rol dentro del sistema de riesgos
             if (userData?.role === 'supervisor') {
                 navigate(ROUTES.DASHBOARD_SUPERVISOR);
                 return;
             }
             if (userData?.role === 'gerente') {
-                // Los gerentes deben seleccionar su modo de acceso
                 navigate(ROUTES.MODO_GERENTE_GENERAL);
                 return;
             }

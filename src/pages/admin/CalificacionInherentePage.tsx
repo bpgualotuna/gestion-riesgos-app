@@ -45,8 +45,11 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 import { invalidarCache, getConfigActiva } from '../../services/calificacionInherenteService';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function CalificacionInherentePage() {
+  const { puedeEditar } = useAuth();
+  const canEdit = puedeEditar !== false;
   const { showSuccess, showError } = useNotification();
   const { data: config, isLoading, refetch } = useGetCalificacionInherenteActivaQuery();
   const { data: niveles } = useGetNivelesRiesgoQuery();
@@ -365,6 +368,7 @@ export default function CalificacionInherentePage() {
                   setExcepcionDialog(true);
                 }}
                 size="small"
+                disabled={!canEdit}
               >
                 Agregar Excepción
               </Button>
@@ -406,6 +410,7 @@ export default function CalificacionInherentePage() {
                             size="small"
                             onClick={() => handleEditarExcepcion(index)}
                             color="primary"
+                            disabled={!canEdit}
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -413,6 +418,7 @@ export default function CalificacionInherentePage() {
                             size="small"
                             onClick={() => handleEliminarExcepcion(index)}
                             color="error"
+                            disabled={!canEdit}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -584,7 +590,7 @@ export default function CalificacionInherentePage() {
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
-            disabled={isUpdating}
+            disabled={!canEdit || isUpdating}
           >
             {isUpdating ? 'Guardando...' : 'Guardar Configuración'}
           </Button>
@@ -659,7 +665,7 @@ export default function CalificacionInherentePage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setExcepcionDialog(false)}>Cancelar</Button>
-            <Button variant="contained" onClick={handleAgregarExcepcion}>
+            <Button variant="contained" onClick={handleAgregarExcepcion} disabled={!canEdit}>
               {excepcionEditando !== null ? 'Actualizar' : 'Agregar'}
             </Button>
           </DialogActions>

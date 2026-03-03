@@ -28,6 +28,7 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef } from '@mui/x-data-grid';
 import { TipoRiesgo } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface RiesgosCatalogProps {
     data: TipoRiesgo[];
@@ -35,6 +36,8 @@ interface RiesgosCatalogProps {
 }
 
 export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
+    const { puedeEditar } = useAuth();
+    const canEdit = puedeEditar !== false;
     const [open, setOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<TipoRiesgo | null>(null);
     const [formData, setFormData] = useState<TipoRiesgo>({
@@ -131,10 +134,10 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
             width: 120,
             renderCell: (params) => (
                 <Box>
-                    <IconButton size="small" onClick={() => handleOpen(params.row)}>
+                    <IconButton size="small" onClick={() => handleOpen(params.row)} disabled={!canEdit}>
                         <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />
                     </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(params.row.codigo)}>
+                    <IconButton size="small" onClick={() => handleDelete(params.row.codigo)} disabled={!canEdit}>
                         <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
                     </IconButton>
                 </Box>
@@ -149,9 +152,11 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         <Box>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6">Tipos de Riesgo</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-                    Nuevo Tipo
-                </Button>
+                {canEdit && (
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+                        Nuevo Tipo
+                    </Button>
+                )}
             </Box>
 
             <AppDataGrid
@@ -211,7 +216,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                         value={newSubtipo.descripcion}
                                         onChange={(e) => setNewSubtipo({ ...newSubtipo, descripcion: e.target.value })}
                                     />
-                                    <IconButton onClick={handleAddSubtipo} color="primary" disabled={!newSubtipo.codigo || !newSubtipo.descripcion}>
+                                    <IconButton onClick={handleAddSubtipo} color="primary" disabled={!canEdit || !newSubtipo.codigo || !newSubtipo.descripcion}>
                                         <AddIcon />
                                     </IconButton>
                                 </Box>
@@ -220,7 +225,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                         <ListItem key={index}>
                                             <ListItemText primary={sub.codigo} secondary={sub.descripcion} />
                                             <ListItemSecondaryAction>
-                                                <IconButton edge="end" onClick={() => handleRemoveSubtipo(index)} size="small" color="error">
+                                                <IconButton edge="end" onClick={() => handleRemoveSubtipo(index)} size="small" color="error" disabled={!canEdit}>
                                                     <DeleteIcon fontSize="small" />
                                                 </IconButton>
                                             </ListItemSecondaryAction>
@@ -238,12 +243,12 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del Tipo de Riesgo</DialogTitle>
                 <DialogContent>
                     {selectedDetail && (
@@ -282,7 +287,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                     <Button onClick={() => {
                         handleOpen(selectedDetail!);
                         handleCloseDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
                         Editar
                     </Button>
                 </DialogActions>

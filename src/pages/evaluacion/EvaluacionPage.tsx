@@ -1049,7 +1049,7 @@ export default function EvaluacionPage() {
       )}
 
       {/* Dialog para Agregar/Editar Causa */}
-      <Dialog open={causaDialogOpen} onClose={() => setCausaDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={causaDialogOpen} onClose={() => setCausaDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 480 } }}>
         <DialogTitle>{causaEditando ? 'Editar Causa' : 'Agregar Causa'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1096,7 +1096,7 @@ export default function EvaluacionPage() {
       </Dialog>
 
       {/* Dialog para Agregar/Editar Control */}
-      <Dialog open={controlDialogOpen} onClose={() => setControlDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={controlDialogOpen} onClose={() => setControlDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 480 } }}>
         <DialogTitle>{controlEditando ? 'Editar Control' : 'Agregar Control'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>

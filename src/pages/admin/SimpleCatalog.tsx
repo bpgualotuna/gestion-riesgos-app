@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef } from '@mui/x-data-grid';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SimpleCatalogProps {
     title: string;
@@ -31,6 +32,7 @@ interface SimpleCatalogProps {
     itemLabel: string;
     defaultItem: any;
     initialPageSize?: number;
+    canEdit?: boolean;
 }
 
 export default function SimpleCatalog({
@@ -41,8 +43,11 @@ export default function SimpleCatalog({
     onDelete,
     itemLabel,
     defaultItem,
-    initialPageSize
+    initialPageSize,
+    canEdit: canEditProp
 }: SimpleCatalogProps) {
+    const { puedeEditar } = useAuth();
+    const canEdit = canEditProp !== false && puedeEditar !== false;
     const [open, setOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
     const [formData, setFormData] = useState<any>(defaultItem);
@@ -86,15 +91,15 @@ export default function SimpleCatalog({
         width: 120,
         renderCell: (params) => (
             <Box>
-                <IconButton size="small" onClick={() => handleOpen(params.row)}>
+                <IconButton size="small" onClick={() => handleOpen(params.row)} disabled={!canEdit}>
                     <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />
                 </IconButton>
-                <IconButton size="small" onClick={() => onDelete(params.row.id)}>
+                <IconButton size="small" onClick={() => onDelete(params.row.id)} disabled={!canEdit}>
                     <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
                 </IconButton>
             </Box>
         ),
-    }), [handleOpen, onDelete]);
+    }), [handleOpen, onDelete, canEdit]);
 
     const allColumns = useMemo(() => [...columns, actionColumn], [columns, actionColumn]);
 
@@ -102,9 +107,11 @@ export default function SimpleCatalog({
         <Box>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6">{title}</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-                    Nuevo {itemLabel}
-                </Button>
+                {canEdit && (
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+                        Nuevo {itemLabel}
+                    </Button>
+                )}
             </Box>
 
             <AppDataGrid
@@ -148,12 +155,12 @@ export default function SimpleCatalog({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
                 </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" fullWidth>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
                 <DialogTitle>Información del {itemLabel}</DialogTitle>
                 <DialogContent>
                     {selectedDetail && (
@@ -174,7 +181,7 @@ export default function SimpleCatalog({
                     <Button onClick={() => {
                         handleOpen(selectedDetail!);
                         handleCloseDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />}>
+                    }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
                         Editar
                     </Button>
                 </DialogActions>

@@ -18,6 +18,7 @@ import {
     Paper,
     InputAdornment,
     Skeleton,
+    IconButton,
 } from '@mui/material';
 import {
     Assessment as AssessmentIcon,
@@ -67,6 +68,7 @@ import {
 } from '../../api/services/riesgosApi';
 import { TipoRiesgo, SubtipoRiesgo } from '../../types';
 import { DIMENSIONES_IMPACTO } from '../../utils/constants';
+import { useAuth } from '../../contexts/AuthContext';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
     const { children, value, index, ...other } = props;
@@ -168,6 +170,8 @@ function SubtiposCatalog({
 }
 
 export default function ParametrosCalificacionPage() {
+    const { puedeEditar } = useAuth();
+    const canEdit = puedeEditar !== false;
     const { confirmDelete } = useConfirm();
     const [tabValue, setTabValue] = useState(0);
     const [subTabValue, setSubTabValue] = useState<{ [key: number]: number }>({ 0: 0, 1: 0, 2: 0, 3: 0 });
@@ -393,13 +397,9 @@ export default function ParametrosCalificacionPage() {
             width: 100,
             renderCell: (params: any) => (
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <EditIcon
-                        sx={{
-                            color: '#2196f3',
-                            cursor: 'pointer',
-                            fontSize: '20px',
-                            '&:hover': { opacity: 0.7 }
-                        }}
+                    <IconButton
+                        size="small"
+                        disabled={!canEdit}
                         onClick={() => {
                             setPesoEditing({
                                 key: params.row.key,
@@ -408,11 +408,13 @@ export default function ParametrosCalificacionPage() {
                             });
                             setPesoDialogOpen(true);
                         }}
-                    />
+                    >
+                        <EditIcon sx={{ color: '#2196f3', fontSize: '20px' }} />
+                    </IconButton>
                 </Box>
             ),
         },
-    ], []);
+    ], [canEdit]);
 
     // Memoized column definitions for all SimpleCatalog instances
     const origenesColumns = useMemo(() => [
@@ -979,7 +981,7 @@ export default function ParametrosCalificacionPage() {
                 </TabPanel>
             </Box>
 
-            <Dialog open={pesoDialogOpen} onClose={() => setPesoDialogOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={pesoDialogOpen} onClose={() => setPesoDialogOpen(false)} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ fontSize: '20px', fontWeight: 'bold' }}>Editar peso de impacto</DialogTitle>
                 <DialogContent sx={{ pt: 3 }}>
                     <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
@@ -1057,6 +1059,7 @@ export default function ParametrosCalificacionPage() {
                     <Button onClick={() => setPesoDialogOpen(false)}>Cancelar</Button>
                     <Button
                         variant="contained"
+                        disabled={!canEdit}
                         onClick={async () => {
                             if (!pesoEditing) return;
                             const next = impactoPesos.map((p) => (p.key === pesoEditing.key ? { ...p, porcentaje: pesoEditing.porcentaje } : p));
@@ -1101,7 +1104,7 @@ export default function ParametrosCalificacionPage() {
             <Dialog 
                 open={recalculandoModalOpen} 
                 onClose={() => {}} // No permitir cerrar mientras recalcula
-                maxWidth="sm" 
+                maxWidth="xs" 
                 fullWidth
                 disableEscapeKeyDown
             >

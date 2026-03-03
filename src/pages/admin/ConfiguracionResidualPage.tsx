@@ -42,6 +42,7 @@ import {
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   useGetConfiguracionResidualQuery,
   useUpdateConfiguracionResidualMutation,
@@ -65,6 +66,8 @@ function TabPanel(props: TabPanelProps) {
 
 
 export default function ConfiguracionResidualPage() {
+  const { puedeEditar } = useAuth();
+  const canEdit = puedeEditar !== false;
   const { showSuccess, showError } = useNotification();
   const [tabValue, setTabValue] = useState(0);
 
@@ -884,7 +887,7 @@ export default function ConfiguracionResidualPage() {
             variant="outlined"
             startIcon={isRecalculating ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
             onClick={handleRecalcular}
-            disabled={isRecalculating || isSaving}
+            disabled={!canEdit || isRecalculating || isSaving}
           >
             {isRecalculating ? 'Recalculando...' : 'Recalcular'}
           </Button>
@@ -892,7 +895,7 @@ export default function ConfiguracionResidualPage() {
             variant="contained"
             startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
             onClick={handleSave}
-            disabled={isSaving || isRecalculating}
+            disabled={!canEdit || isSaving || isRecalculating}
           >
             {isSaving ? 'Guardando y recalculando residuales...' : 'Guardar Configuración'}
           </Button>

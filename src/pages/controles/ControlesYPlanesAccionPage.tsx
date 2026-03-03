@@ -3076,8 +3076,9 @@ export default function ControlesYPlanesAccionPageNueva() {
           setDialogDetailOpen(false);
           setCausaDetalleView(null);
         }}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { maxWidth: 520 } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
@@ -3383,7 +3384,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       <Dialog
         open={!!causaEnEdicion && !evaluacionExpandida}
         onClose={() => setCausaEnEdicion(null)}
-        maxWidth="sm"
+        maxWidth="xs"
         fullWidth
       >
         <DialogTitle sx={{ pb: 1 }}>
