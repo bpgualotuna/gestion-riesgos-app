@@ -37,6 +37,7 @@ import {
   LinearProgress,
   Collapse,
   TablePagination,
+  Tooltip as MuiTooltip,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -1240,24 +1241,33 @@ export default function DashboardSupervisorPage() {
                                   </Typography>
                                 </Box>
 
-                                {/* Fila 2: Descripción truncada */}
+                                {/* Fila 2: Descripción (máx 2 líneas, sin cortar bruscamente) */}
                                 <Typography
                                   variant="body2"
                                   sx={{
                                     fontSize: '0.78rem',
                                     color: '#444',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
                                     lineHeight: 1.3,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
                                   }}
                                   title={riesgo.descripcion}
                                 >
                                   {riesgo.descripcion}
                                 </Typography>
 
-                                {/* Fila 3: Niveles + reducción + causas */}
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                {/* Fila 3: Niveles + reducción */}
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                    flexWrap: 'wrap',
+                                    mt: 0.3,
+                                  }}
+                                >
                                   <Chip
                                     label={`Inh: ${riesgo.nivelInherente.label} (${riesgo.inherente})`}
                                     size="small"
@@ -1285,27 +1295,35 @@ export default function DashboardSupervisorPage() {
                                   />
 
                                   {/* Barra de reducción */}
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
-                                    <Box sx={{ width: 40, height: 6, borderRadius: 3, backgroundColor: '#f0f0f0', overflow: 'hidden' }}>
-                                      <Box sx={{
-                                        width: `${Math.max(riesgo.reduccion, 0)}%`,
-                                        height: '100%',
-                                        backgroundColor: riesgo.reduccion >= 50 ? '#4caf50' : riesgo.reduccion >= 25 ? '#ff9800' : '#f44336',
-                                        borderRadius: 3,
-                                        transition: 'width 0.4s ease',
-                                      }} />
+                                  <MuiTooltip
+                                    title={`Este riesgo disminuyó aproximadamente un ${Math.max(
+                                      Math.min(riesgo.reduccion, 100),
+                                      0
+                                    )}% gracias a los controles y planes implementados.`}
+                                    arrow
+                                  >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                      <Box sx={{ width: 56, height: 6, borderRadius: 3, backgroundColor: '#f0f0f0', overflow: 'hidden', flexShrink: 0 }}>
+                                        <Box sx={{
+                                          width: `${Math.max(riesgo.reduccion, 0)}%`,
+                                          height: '100%',
+                                          backgroundColor: riesgo.reduccion >= 50 ? '#4caf50' : riesgo.reduccion >= 25 ? '#ff9800' : '#f44336',
+                                          borderRadius: 3,
+                                          transition: 'width 0.4s ease',
+                                        }} />
+                                      </Box>
+                                      <Typography
+                                        variant="caption"
+                                        fontWeight={700}
+                                        sx={{
+                                          fontSize: '0.7rem',
+                                          color: riesgo.reduccion >= 50 ? '#2e7d32' : riesgo.reduccion >= 25 ? '#e65100' : '#c62828',
+                                        }}
+                                      >
+                                        -{riesgo.reduccion}%
+                                      </Typography>
                                     </Box>
-                                    <Typography
-                                      variant="caption"
-                                      fontWeight={700}
-                                      sx={{
-                                        fontSize: '0.7rem',
-                                        color: riesgo.reduccion >= 50 ? '#2e7d32' : riesgo.reduccion >= 25 ? '#e65100' : '#c62828',
-                                      }}
-                                    >
-                                      -{riesgo.reduccion}%
-                                    </Typography>
-                                  </Box>
+                                  </MuiTooltip>
                                 </Box>
                               </Box>
                             </Box>
