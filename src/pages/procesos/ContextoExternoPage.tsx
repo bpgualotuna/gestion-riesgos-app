@@ -21,6 +21,8 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 interface ContextoExterno {
   economico: string;
@@ -54,6 +56,19 @@ export default function ContextoExternoPage() {
     otrosFactores: '',
   });
 
+  const [initialFormData, setInitialFormData] = useState<ContextoExterno>(formData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios
+  const hasFormChanges = useFormChanges(initialFormData, formData);
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en el análisis de contexto externo.',
+    disabled: isReadOnly,
+  });
+
   useEffect(() => {
     if (procesoData && procesoData.contextos) {
       const contextoMap: any = {};
@@ -68,7 +83,9 @@ export default function ContextoExternoPage() {
         if (c.tipo === 'EXTERNO_MEGATENDENCIAS') contextoMap.megatendencias = c.descripcion;
         if (c.tipo === 'EXTERNO_OTROSFACTORES') contextoMap.otrosFactores = c.descripcion;
       });
-      setFormData(prev => ({ ...prev, ...contextoMap }));
+      const newData = { ...formData, ...contextoMap };
+      setFormData(newData);
+      setInitialFormData(newData);
     }
   }, [procesoData]);
 
@@ -100,14 +117,31 @@ export default function ContextoExternoPage() {
     const existingInternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('INTERNO_')) || [];
 
     try {
+      setIsSaving(true);
       await updateProceso({
         id: procesoSeleccionado.id,
         contextos: [...existingInternos, ...contextos]
       }).unwrap();
+      
+      setInitialFormData(formData);
+      markAsSaved();
+      
       showSuccess('Análisis de contexto externo guardado exitosamente');
     } catch {
       showError('Error al guardar el contexto externo');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) forceNavigate();
+  };
+
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
   };
 
   if (!procesoSeleccionado) {
@@ -125,7 +159,18 @@ export default function ContextoExternoPage() {
   }
 
   return (
-    <AppPageLayout
+    <>
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en el análisis de contexto externo."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Análisis de Contexto Externo"
       description="Análisis de factores externos que afectan el proceso"
       topContent={<FiltroProcesoSupervisor />}
@@ -152,12 +197,13 @@ export default function ContextoExternoPage() {
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={handleSave}
+              disabled={isSaving || !hasFormChanges}
               sx={{
                 background: '#1976d2',
                 color: '#fff',
               }}
             >
-              Guardar Análisis
+              {isSaving ? 'Guardando...' : 'Guardar Análisis'}
             </Button>
           )}
         </Box>
@@ -271,6 +317,7 @@ export default function ContextoExternoPage() {
         />
       </Box>
     </AppPageLayout>
+    </>
   );
 }
 

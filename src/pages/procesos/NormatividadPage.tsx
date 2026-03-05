@@ -31,6 +31,8 @@ import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { ESTADOS_NORMATIVIDAD, NIVELES_CUMPLIMIENTO, CLASIFICACION_RIESGO } from "../../utils/constants";
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { formatDate } from '../../utils/formatters';
+import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 interface Normatividad {
   id: string;
@@ -61,10 +63,24 @@ export default function NormatividadPage() {
   const [updateProceso] = useUpdateProcesoMutation();
 
   const [normatividades, setNormatividades] = useState<Normatividad[]>([]);
+  const [initialNormatividades, setInitialNormatividades] = useState<Normatividad[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios en el array
+  const hasArrayChanges = useArrayChanges(initialNormatividades, normatividades);
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasArrayChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en el inventario de normatividad.',
+    disabled: isReadOnly,
+  });
 
   useEffect(() => {
     if (procesoData && procesoData.normatividades) {
-      setNormatividades(procesoData.normatividades);
+      const data = procesoData.normatividades;
+      setNormatividades(data);
+      setInitialNormatividades(data);
     }
   }, [procesoData]);
 
@@ -86,16 +102,46 @@ export default function NormatividadPage() {
       .filter(n => n.id !== row.id)
       .map((n, idx) => ({ ...n, numero: idx + 1 }));
     try {
+      setIsSaving(true);
       setNormatividades(updatedList);
       await updateProceso({
         id: procesoSeleccionado.id,
         normatividades: updatedList
       }).unwrap();
+      setInitialNormatividades(updatedList);
+      markAsSaved();
       showSuccess('Normatividad eliminada correctamente');
     } catch {
       setNormatividades(normatividades); // revert on error
       showError('Error al eliminar normatividad');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    if (!procesoSeleccionado) return;
+    try {
+      setIsSaving(true);
+      await updateProceso({
+        id: procesoSeleccionado.id,
+        normatividades: normatividades
+      }).unwrap();
+      setInitialNormatividades(normatividades);
+      markAsSaved();
+      showSuccess('Cambios guardados exitosamente');
+      forceNavigate();
+    } catch {
+      showError('Error al guardar cambios');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setNormatividades(initialNormatividades);
+    forceNavigate();
   };
 
   const columns: GridColDef[] = [
@@ -215,7 +261,19 @@ export default function NormatividadPage() {
   }
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en el inventario de normatividad."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Inventario de Normatividad"
       description="Catálogo de normativas aplicables al proceso"
       topContent={<FiltroProcesoSupervisor />}
@@ -436,16 +494,21 @@ export default function NormatividadPage() {
             : [...normatividades, newItem];
 
           try {
+            setIsSaving(true);
             // Optimistic update
             setNormatividades(updatedList);
             await updateProceso({
               id: procesoSeleccionado.id,
               normatividades: updatedList
             }).unwrap();
+            setInitialNormatividades(updatedList);
+            markAsSaved();
             showSuccess('Normatividad guardada exitosamente');
             setDialogOpen(false);
           } catch {
             showError('Error al guardar normatividad');
+          } finally {
+            setIsSaving(false);
           }
         }}>
           <DialogTitle>
@@ -599,6 +662,7 @@ export default function NormatividadPage() {
         </form>
       </Dialog>
     </AppPageLayout>
+    </>
   );
 }
 

@@ -63,6 +63,8 @@ import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 // Opciones de impacto desde constants (no quemadas)
 const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => ({
@@ -355,6 +357,22 @@ export default function MaterializarRiesgosPage() {
     },
   });
 
+  // Estado inicial para detectar cambios
+  const [initialFormData, setInitialFormData] = useState<Partial<Incidencia>>(formData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios en el formulario
+  const hasFormChanges = useFormChanges(initialFormData, formData, {
+    deepCompare: true,
+  });
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && !isReadOnly && formularioExpandido !== null,
+    message: 'Tiene cambios sin guardar en el formulario de incidencia.',
+    disabled: isReadOnly || formularioExpandido === null,
+  });
+
   // OPTIMIZADO: useCallback para evitar re-crear función en cada render
   const handleGuardar = useCallback(async () => {
     if (!formData.titulo || !formData.descripcion) {
@@ -382,6 +400,7 @@ export default function MaterializarRiesgosPage() {
     const riesgoSeleccionado = riesgosDelProceso.find((r: any) => String(r.id) === String(formData.riesgoId));
 
     try {
+      setIsSaving(true);
       await createIncidencia({
         codigo: `INC-${Date.now()}`,
         riesgoId: formData.riesgoId,
@@ -395,11 +414,18 @@ export default function MaterializarRiesgosPage() {
         reportadoPor: 'Usuario Actual',
         impactosMaterializacion: impactos,
       }).unwrap();
+      
+      // Actualizar estado inicial y marcar como guardado
+      setInitialFormData(formData);
+      markAsSaved();
+      
       showSuccess('Incidencia creada exitosamente');
     } catch (e: any) {
       showError(e?.data?.error || e?.message || 'Error al crear la incidencia');
+    } finally {
+      setIsSaving(false);
     }
-  }, [formData, procesoSeleccionado, riesgosDelProceso, createIncidencia, showError, showSuccess]);
+  }, [formData, procesoSeleccionado, riesgosDelProceso, createIncidencia, showError, showSuccess, markAsSaved]);
 
   // OPTIMIZADO: useCallback para evitar re-crear función en cada render
   const handleEliminar = useCallback(async (id: string) => {
@@ -445,16 +471,17 @@ export default function MaterializarRiesgosPage() {
         setFormularioExpandido({ riesgoId, causaId });
         if (incidenteExistente) {
           setFormData({ ...incidenteExistente });
+          setInitialFormData({ ...incidenteExistente });
         } else {
           const riesgo = riesgosDelProceso.find((r: any) => String(r.id) === String(riesgoId));
-          setFormData({
+          const newFormData = {
             titulo: `Materialización: ${causaDescripcion.substring(0, 50)}...`,
             riesgoId: riesgoId,
             riesgoNombre: riesgo?.nombre,
             causaId: causaId,
             causaNombre: causaDescripcion,
             descripcion: '',
-            estado: 'abierta',
+            estado: 'abierta' as EstadoIncidencia,
             fechaOcurrencia: new Date().toISOString().split('T')[0],
             fechaReporte: new Date().toISOString().split('T')[0],
             accionesCorrectivas: '',
@@ -463,7 +490,7 @@ export default function MaterializarRiesgosPage() {
             planFechaInicio: new Date().toISOString().split('T')[0],
             planFechaLimite: '',
             planAvance: 0,
-            planEstado: 'borrador',
+            planEstado: 'borrador' as const,
             impactosMaterializacion: {
               economico: 1,
               reputacional: 1,
@@ -477,11 +504,26 @@ export default function MaterializarRiesgosPage() {
               tecnologico: 1,
               cumplimiento: 1,
             },
-          });
+          };
+          setFormData(newFormData);
+          setInitialFormData(newFormData);
         }
       }
     });
   }, [formularioExpandido, riesgosDelProceso]);
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleGuardar();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
+  };
 
   // OPTIMIZADO: Memoizar columns para evitar recreación en cada render
   // OPTIMIZADO: Memoizar columns para evitar recreación en cada render
@@ -531,7 +573,19 @@ export default function MaterializarRiesgosPage() {
   ], [obtenerColorEstado]);
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en el formulario de incidencia."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Materialización de Riesgos"
       description="Gestión y registro de eventos donde los riesgos se han materializado."
       topContent={
@@ -1216,5 +1270,6 @@ export default function MaterializarRiesgosPage() {
         </DialogActions>
       </Dialog>
     </AppPageLayout>
+    </>
   );
 }

@@ -145,6 +145,8 @@ import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
 import type { Riesgo, FiltrosRiesgo, CausaRiesgo, RiesgoFormData } from '../../types';
 import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente, determinarNivelRiesgo, generarIdConContador, setSiglasConfig } from '../../utils/calculations';
 import { determinarNivelRiesgoSync, calcularCalificacionInherentePorCausaSync, agregarCalificacionInherenteGlobalSync } from '../../services/calificacionInherenteService';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import {
   obtenerPorcentajeMitigacion,
   calcularFrecuenciaResidual,
@@ -1278,6 +1280,21 @@ export default function IdentificacionPage() {
 
   // Estado para cambios pendientes (solo en memoria, no se guarda hasta que el usuario presione Guardar)
   const [cambiosPendientes, setCambiosPendientes] = useState<Record<string, Partial<RiesgoFormData>>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar si hay cambios pendientes (riesgos o causas)
+  const hasUnsavedChanges = useMemo(() => {
+    const hasCambiosRiesgos = Object.keys(cambiosPendientes).length > 0;
+    const hasCambiosCausas = Object.keys(causasPendientes).length > 0;
+    return hasCambiosRiesgos || hasCambiosCausas;
+  }, [cambiosPendientes, causasPendientes]);
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasUnsavedChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en la identificación y calificación de riesgos.',
+    disabled: isReadOnly,
+  });
 
   // Actualizar riesgo SOLO en estado local (sin guardar en backend)
   // Esto permite editar sin recálculos costosos hasta que se guarde
@@ -1311,6 +1328,7 @@ export default function IdentificacionPage() {
   // Guardar riesgo en backend y recalcular (solo cuando el usuario presiona Guardar)
   const guardarRiesgo = useCallback(async (riesgoId: string) => {
     try {
+      setIsSaving(true);
       const riesgoActual = riesgos.find(r => r.id === riesgoId);
       if (!riesgoActual) {
         showError('Riesgo no encontrado');
@@ -1426,10 +1444,17 @@ export default function IdentificacionPage() {
       // 5. Disparar evento para que el mapa se actualice
       window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: Number(riesgoId) } }));
 
+      // Marcar como guardado si no hay más cambios pendientes
+      if (Object.keys(cambiosPendientes).length === 1 && Object.keys(causasPendientes).length === 0) {
+        markAsSaved();
+      }
+
       // Mensaje de éxito se muestra en handleSave
     } catch (e: any) {
       showError(e?.data?.error || e?.message || 'Error al guardar riesgo');
       throw e;
+    } finally {
+      setIsSaving(false);
     }
   }, [riesgos, cambiosPendientes, causasPendientes, objetivos, procesoSeleccionado, actualizarRiesgoApi, recalcularYGuardarCalificacionInherenteGlobal, cargarRiesgosMemo, dispatch, showSuccess, showError]);
 
@@ -1502,8 +1527,54 @@ export default function IdentificacionPage() {
     }
   }, [guardarRiesgo, showSuccess]);
 
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveAllFromDialog = async () => {
+    // Guardar todos los riesgos con cambios pendientes
+    const riesgosConCambios = Object.keys(cambiosPendientes);
+    for (const riesgoId of riesgosConCambios) {
+      try {
+        await guardarRiesgo(riesgoId);
+      } catch {
+        // Error ya mostrado por guardarRiesgo
+      }
+    }
+    
+    // Guardar todas las causas pendientes
+    const causasConCambios = Object.keys(causasPendientes);
+    for (const riesgoId of causasConCambios) {
+      try {
+        await guardarRiesgo(riesgoId);
+      } catch {
+        // Error ya mostrado por guardarRiesgo
+      }
+    }
+    
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    // Limpiar todos los cambios pendientes
+    setCambiosPendientes({});
+    setCausasPendientes({});
+    forceNavigate();
+  };
+
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveAllFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en la identificación y calificación de riesgos."
+        description="¿Desea guardar todos los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="IDENTIFICACIÓN Y CALIFICACIÓN INHERENTE"
       description="Identifique y califique el riesgo inherente de su proceso basándose en su frecuencia e impacto."
       topContent={<FiltroProcesoSupervisor />}
@@ -2868,6 +2939,7 @@ export default function IdentificacionPage() {
         </DialogActions>
       </Dialog>
     </AppPageLayout>
+    </>
   );
 }
 

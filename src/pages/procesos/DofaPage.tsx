@@ -53,6 +53,8 @@ import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../ho
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 
 
@@ -146,14 +148,33 @@ export default function DofaPage() {
 
   useEffect(() => {
     if (procesoData && procesoData.dofaItems) {
-      setFortalezas(procesoData.dofaItems.filter((i: any) => i.tipo === 'FORTALEZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setOportunidades(procesoData.dofaItems.filter((i: any) => i.tipo === 'OPORTUNIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setDebilidades(procesoData.dofaItems.filter((i: any) => i.tipo === 'DEBILIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setAmenazas(procesoData.dofaItems.filter((i: any) => i.tipo === 'AMENAZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setEstrategiasFO(procesoData.dofaItems.filter((i: any) => i.tipo === 'FO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setEstrategiasFA(procesoData.dofaItems.filter((i: any) => i.tipo === 'FA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setEstrategiasDO(procesoData.dofaItems.filter((i: any) => i.tipo === 'DO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
-      setEstrategiasDA(procesoData.dofaItems.filter((i: any) => i.tipo === 'DA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion })));
+      const fortalezasData = procesoData.dofaItems.filter((i: any) => i.tipo === 'FORTALEZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const oportunidadesData = procesoData.dofaItems.filter((i: any) => i.tipo === 'OPORTUNIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const debilidadesData = procesoData.dofaItems.filter((i: any) => i.tipo === 'DEBILIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const amenazasData = procesoData.dofaItems.filter((i: any) => i.tipo === 'AMENAZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const estrategiasFOData = procesoData.dofaItems.filter((i: any) => i.tipo === 'FO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const estrategiasFAData = procesoData.dofaItems.filter((i: any) => i.tipo === 'FA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const estrategiasDOData = procesoData.dofaItems.filter((i: any) => i.tipo === 'DO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      const estrategiasDAData = procesoData.dofaItems.filter((i: any) => i.tipo === 'DA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+      
+      setFortalezas(fortalezasData);
+      setOportunidades(oportunidadesData);
+      setDebilidades(debilidadesData);
+      setAmenazas(amenazasData);
+      setEstrategiasFO(estrategiasFOData);
+      setEstrategiasFA(estrategiasFAData);
+      setEstrategiasDO(estrategiasDOData);
+      setEstrategiasDA(estrategiasDAData);
+      
+      // Actualizar estados iniciales
+      setInitialFortalezas(fortalezasData);
+      setInitialOportunidades(oportunidadesData);
+      setInitialDebilidades(debilidadesData);
+      setInitialAmenazas(amenazasData);
+      setInitialEstrategiasFO(estrategiasFOData);
+      setInitialEstrategiasFA(estrategiasFAData);
+      setInitialEstrategiasDO(estrategiasDOData);
+      setInitialEstrategiasDA(estrategiasDAData);
     }
   }, [procesoData]);
 
@@ -167,6 +188,45 @@ export default function DofaPage() {
   const [estrategiasFA, setEstrategiasFA] = useState<DofaItem[]>([]);
   const [estrategiasDO, setEstrategiasDO] = useState<DofaItem[]>([]);
   const [estrategiasDA, setEstrategiasDA] = useState<DofaItem[]>([]);
+
+  // Estados iniciales para detectar cambios
+  const [initialOportunidades, setInitialOportunidades] = useState<DofaItem[]>([]);
+  const [initialAmenazas, setInitialAmenazas] = useState<DofaItem[]>([]);
+  const [initialFortalezas, setInitialFortalezas] = useState<DofaItem[]>([]);
+  const [initialDebilidades, setInitialDebilidades] = useState<DofaItem[]>([]);
+  const [initialEstrategiasFO, setInitialEstrategiasFO] = useState<DofaItem[]>([]);
+  const [initialEstrategiasFA, setInitialEstrategiasFA] = useState<DofaItem[]>([]);
+  const [initialEstrategiasDO, setInitialEstrategiasDO] = useState<DofaItem[]>([]);
+  const [initialEstrategiasDA, setInitialEstrategiasDA] = useState<DofaItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios en cada array
+  const hasOportunidadesChanges = useArrayChanges(initialOportunidades, oportunidades);
+  const hasAmenazasChanges = useArrayChanges(initialAmenazas, amenazas);
+  const hasFortalezasChanges = useArrayChanges(initialFortalezas, fortalezas);
+  const hasDebilidadesChanges = useArrayChanges(initialDebilidades, debilidades);
+  const hasEstrategiasFOChanges = useArrayChanges(initialEstrategiasFO, estrategiasFO);
+  const hasEstrategiasFAChanges = useArrayChanges(initialEstrategiasFA, estrategiasFA);
+  const hasEstrategiasDOChanges = useArrayChanges(initialEstrategiasDO, estrategiasDO);
+  const hasEstrategiasDAChanges = useArrayChanges(initialEstrategiasDA, estrategiasDA);
+
+  // Combinar todos los cambios
+  const hasAnyChanges = 
+    hasOportunidadesChanges || 
+    hasAmenazasChanges || 
+    hasFortalezasChanges || 
+    hasDebilidadesChanges || 
+    hasEstrategiasFOChanges || 
+    hasEstrategiasFAChanges || 
+    hasEstrategiasDOChanges || 
+    hasEstrategiasDAChanges;
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasAnyChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en la matriz DOFA.',
+    disabled: isReadOnly,
+  });
 
   // Estado para confirmar eliminación (MOVED TO TOP)
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
@@ -291,15 +351,50 @@ export default function DofaPage() {
     ];
 
     try {
+      setIsSaving(true);
       await updateProceso({
         id: procesoSeleccionado.id,
         dofaItems: allItems
       }).unwrap();
+      
+      // Actualizar estados iniciales después de guardar
+      setInitialOportunidades(oportunidades);
+      setInitialAmenazas(amenazas);
+      setInitialFortalezas(fortalezas);
+      setInitialDebilidades(debilidades);
+      setInitialEstrategiasFO(estrategiasFO);
+      setInitialEstrategiasFA(estrategiasFA);
+      setInitialEstrategiasDO(estrategiasDO);
+      setInitialEstrategiasDA(estrategiasDA);
+      
+      markAsSaved();
       showSuccess('Matriz DOFA guardada exitosamente');
     } catch {
       // showError('Error al guardar'); 
       // check useNotification hooks. showSuccess available.
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setOportunidades(initialOportunidades);
+    setAmenazas(initialAmenazas);
+    setFortalezas(initialFortalezas);
+    setDebilidades(initialDebilidades);
+    setEstrategiasFO(initialEstrategiasFO);
+    setEstrategiasFA(initialEstrategiasFA);
+    setEstrategiasDO(initialEstrategiasDO);
+    setEstrategiasDA(initialEstrategiasDA);
+    forceNavigate();
   };
 
   const handleVerDetalle = (
@@ -466,7 +561,19 @@ export default function DofaPage() {
   );
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en la matriz DOFA."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Matriz DOFA"
       description="Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas del proceso."
       topContent={<FiltroProcesoSupervisor />}
@@ -1896,6 +2003,7 @@ export default function DofaPage() {
         </DialogActions>
       </Dialog>
     </AppPageLayout>
+    </>
   );
 }
 

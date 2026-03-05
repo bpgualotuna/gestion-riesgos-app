@@ -20,6 +20,8 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 interface ContextoInterno {
   financieros: string;
@@ -55,6 +57,19 @@ export default function ContextoInternoPage() {
     gruposInteresInternos: '',
   });
 
+  const [initialFormData, setInitialFormData] = useState<ContextoInterno>(formData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios
+  const hasFormChanges = useFormChanges(initialFormData, formData);
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en el análisis de contexto interno.',
+    disabled: isReadOnly,
+  });
+
   useEffect(() => {
     if (procesoData && procesoData.contextos) {
       const contextoMap: any = {};
@@ -70,7 +85,9 @@ export default function ContextoInternoPage() {
         if (c.tipo === 'INTERNO_IMPUESTOS') contextoMap.impuestos = c.descripcion;
         if (c.tipo === 'INTERNO_GRUPOSINTERESINTERNOS') contextoMap.gruposInteresInternos = c.descripcion;
       });
-      setFormData(prev => ({ ...prev, ...contextoMap }));
+      const newData = { ...formData, ...contextoMap };
+      setFormData(newData);
+      setInitialFormData(newData);
     }
   }, [procesoData]);
 
@@ -103,14 +120,31 @@ export default function ContextoInternoPage() {
     const existingExternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('EXTERNO_')) || [];
 
     try {
+      setIsSaving(true);
       await updateProceso({
         id: procesoSeleccionado.id,
         contextos: [...contextos, ...existingExternos]
       }).unwrap();
+      
+      setInitialFormData(formData);
+      markAsSaved();
+      
       showSuccess('Análisis de contexto interno guardado exitosamente');
     } catch {
       showError('Error al guardar el contexto interno');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) forceNavigate();
+  };
+
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
   };
 
   if (!procesoSeleccionado) {
@@ -128,164 +162,175 @@ export default function ContextoInternoPage() {
   }
 
   return (
-    <AppPageLayout
-      title="Análisis de Contexto Interno"
-      description="Análisis de factores internos de la organización que afectan el proceso"
-      topContent={<FiltroProcesoSupervisor />}
-      action={
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isReadOnly && (
-            <Chip
-              icon={<VisibilityIcon />}
-              label="Modo Visualización"
-              color="info"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {modoProceso === 'editar' && (
-            <Chip
-              icon={<EditIcon />}
-              label="Modo Edición"
-              color="warning"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {!isReadOnly && (
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              sx={{
-                background: '#1976d2',
-                color: '#fff',
-              }}
-            >
-              Guardar Análisis
-            </Button>
-          )}
+    <>
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en el análisis de contexto interno."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
+        title="Análisis de Contexto Interno"
+        description="Análisis de factores internos de la organización que afectan el proceso"
+        topContent={<FiltroProcesoSupervisor />}
+        action={
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            {isReadOnly && (
+              <Chip
+                icon={<VisibilityIcon />}
+                label="Modo Visualización"
+                color="info"
+                sx={{ fontWeight: 600 }}
+              />
+            )}
+            {modoProceso === 'editar' && (
+              <Chip
+                icon={<EditIcon />}
+                label="Modo Edición"
+                color="warning"
+                sx={{ fontWeight: 600 }}
+              />
+            )}
+            {!isReadOnly && (
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                disabled={isSaving || !hasFormChanges}
+                sx={{
+                  background: '#1976d2',
+                  color: '#fff',
+                }}
+              >
+                {isSaving ? 'Guardando...' : 'Guardar Análisis'}
+              </Button>
+            )}
+          </Box>
+        }
+        alert={
+          isReadOnly && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Está en modo visualización. Solo puede ver la información.
+            </Alert>
+          )
+        }
+      >
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+          <TextField
+            fullWidth
+            label="Financieros"
+            value={formData.financieros}
+            onChange={handleChange('financieros')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Gente"
+            value={formData.gente}
+            onChange={handleChange('gente')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Procesos"
+            value={formData.procesos}
+            onChange={handleChange('procesos')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Activos Físicos"
+            value={formData.activosFisicos}
+            onChange={handleChange('activosFisicos')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Cadena de Suministro"
+            value={formData.cadenaSuministro}
+            onChange={handleChange('cadenaSuministro')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Información"
+            value={formData.informacion}
+            onChange={handleChange('informacion')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Sistemas/Tecnología"
+            value={formData.sistemas}
+            onChange={handleChange('sistemas')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Proyectos"
+            value={formData.proyectos}
+            onChange={handleChange('proyectos')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Impuestos"
+            value={formData.impuestos}
+            onChange={handleChange('impuestos')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
+
+          <TextField
+            fullWidth
+            label="Grupos de Interés Internos"
+            value={formData.gruposInteresInternos}
+            onChange={handleChange('gruposInteresInternos')}
+            disabled={isReadOnly}
+            multiline
+            rows={4}
+            variant="outlined"
+          />
         </Box>
-      }
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Está en modo visualización. Solo puede ver la información.
-          </Alert>
-        )
-      }
-    >
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
-        <TextField
-          fullWidth
-          label="Financieros"
-          value={formData.financieros}
-          onChange={handleChange('financieros')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Gente"
-          value={formData.gente}
-          onChange={handleChange('gente')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Procesos"
-          value={formData.procesos}
-          onChange={handleChange('procesos')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Activos Físicos"
-          value={formData.activosFisicos}
-          onChange={handleChange('activosFisicos')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Cadena de Suministro"
-          value={formData.cadenaSuministro}
-          onChange={handleChange('cadenaSuministro')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Información"
-          value={formData.informacion}
-          onChange={handleChange('informacion')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Sistemas/Tecnología"
-          value={formData.sistemas}
-          onChange={handleChange('sistemas')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Proyectos"
-          value={formData.proyectos}
-          onChange={handleChange('proyectos')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Impuestos"
-          value={formData.impuestos}
-          onChange={handleChange('impuestos')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-
-        <TextField
-          fullWidth
-          label="Grupos de Interés Internos"
-          value={formData.gruposInteresInternos}
-          onChange={handleChange('gruposInteresInternos')}
-          disabled={isReadOnly}
-          multiline
-          rows={4}
-          variant="outlined"
-        />
-      </Box>
-    </AppPageLayout>
+      </AppPageLayout>
+    </>
   );
 }
-
-

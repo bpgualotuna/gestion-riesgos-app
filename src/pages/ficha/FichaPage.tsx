@@ -37,6 +37,8 @@ import { useEffect } from 'react';
 import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 
 interface FichaData {
@@ -213,6 +215,24 @@ export default function FichaPage() {
     };
   });
 
+  // Estado inicial para detectar cambios
+  const [initialFormData, setInitialFormData] = useState<FichaData>(formData);
+
+  // Detectar cambios en el formulario
+  const hasFormChanges = useFormChanges(initialFormData, formData, {
+    ignoreFields: ['area', 'responsable'], // Campos de solo lectura
+    deepCompare: false,
+  });
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en la ficha del proceso.',
+    disabled: isReadOnly,
+  });
+
+  const [isSaving, setIsSaving] = useState(false);
+
   // Actualizar formData cuando cambie el proceso seleccionado
   useEffect(() => {
     if (procesoActual) {
@@ -220,7 +240,7 @@ export default function FichaPage() {
       const gerenciaObj = gerencias?.find((g: any) => String(g.id) === String(procesoActual.gerencia));
       const gerenciaSigla = gerenciaObj?.sigla || '';
       
-      setFormData({
+      const newData = {
         vicepresidencia: procesoActual.vicepresidencia || '',
         gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
         sigla: (procesoActual as any).sigla || '',
@@ -230,9 +250,12 @@ export default function FichaPage() {
         fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         // En backend el campo se llama "objetivo"
         objetivoProceso: (procesoActual as any).objetivo || '',
-      });
+      };
+      
+      setFormData(newData);
+      setInitialFormData(newData);
     }
-  }, [procesoActual, gerencias]);
+  }, [procesoActual, gerencias, getGerenciaNombre]);
 
   const handleChange = (field: keyof FichaData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -255,6 +278,8 @@ export default function FichaPage() {
         return;
       }
 
+      setIsSaving(true);
+
       // Actualizar solo los campos editables
       await updateProceso({
         // Es obligatorio enviar el ID del proceso; si no, el endpoint se llama como /procesos/undefined
@@ -270,10 +295,30 @@ export default function FichaPage() {
         }),
       }).unwrap();
 
+      // Marcar como guardado y actualizar estado inicial
+      setInitialFormData(formData);
+      markAsSaved();
+      
       showSuccess('Ficha del proceso guardada exitosamente');
     } catch (error: any) {
       showError(error?.data?.message || 'Error al guardar la ficha');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Handler para guardar desde el diálogo
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  // Handler para descartar cambios
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
   };
 
   if (!procesoActual && mostrarFiltrosProceso) {
@@ -379,7 +424,19 @@ export default function FichaPage() {
   }
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en la ficha del proceso."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Ficha del Proceso"
       description="Formulario de diligenciamiento obligatorio con información básica del proceso"
       action={
@@ -563,6 +620,7 @@ export default function FichaPage() {
               size="large"
               startIcon={<SaveIcon />}
               onClick={handleSave}
+              disabled={isSaving || !hasFormChanges}
               sx={{
                 borderRadius: 2,
                 px: 5,
@@ -575,12 +633,13 @@ export default function FichaPage() {
                 transition: 'all 0.3s ease',
               }}
             >
-              Guardar Ficha
+              {isSaving ? 'Guardando...' : 'Guardar Ficha'}
             </Button>
           </Box>
         )}
       </Box>
     </AppPageLayout>
+    </>
   );
 }
 

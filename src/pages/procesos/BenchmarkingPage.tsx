@@ -28,8 +28,9 @@ import { CLASIFICACION_RIESGO } from '../../utils/constants';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useGetBenchmarkingByProcesoQuery, useSetBenchmarkingByProcesoMutation } from '../../api/services/riesgosApi';
-
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 interface BenchmarkingItem {
   id: string;
@@ -46,11 +47,24 @@ export default function BenchmarkingPage() {
   const isReadOnly = modoProceso === 'visualizar';
   const [empresas] = useState(['Empresa 1', 'Empresa 2', 'Empresa 3']);
   const [benchmarking, setBenchmarking] = useState<BenchmarkingItem[]>([]);
+  const [initialBenchmarking, setInitialBenchmarking] = useState<BenchmarkingItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  
   const { data: benchmarkingApi = [] } = useGetBenchmarkingByProcesoQuery(
     procesoSeleccionado?.id ? String(procesoSeleccionado.id) : '',
     { skip: !procesoSeleccionado?.id }
   );
   const [setBenchmarkingByProceso] = useSetBenchmarkingByProcesoMutation();
+
+  // Detectar cambios en el array
+  const hasArrayChanges = useArrayChanges(initialBenchmarking, benchmarking);
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasArrayChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en el benchmarking.',
+    disabled: isReadOnly,
+  });
 
   useEffect(() => {
     if (!benchmarkingApi || !Array.isArray(benchmarkingApi)) return;
@@ -84,6 +98,9 @@ export default function BenchmarkingPage() {
       }
       return mapped;
     });
+    
+    // Actualizar estado inicial
+    setInitialBenchmarking(mapped);
   }, [benchmarkingApi]);
 
   const handleAdd = (empresa: string) => {
@@ -111,8 +128,31 @@ export default function BenchmarkingPage() {
       showError('Seleccione un proceso');
       return;
     }
-    await setBenchmarkingByProceso({ procesoId: procesoSeleccionado.id, items: benchmarking }).unwrap();
-    showSuccess('Datos de benchmarking guardados exitosamente');
+    
+    try {
+      setIsSaving(true);
+      await setBenchmarkingByProceso({ procesoId: procesoSeleccionado.id, items: benchmarking }).unwrap();
+      setInitialBenchmarking(benchmarking);
+      markAsSaved();
+      showSuccess('Datos de benchmarking guardados exitosamente');
+    } catch {
+      showError('Error al guardar benchmarking');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setBenchmarking(initialBenchmarking);
+    forceNavigate();
   };
 
   const empresasData = empresas.map((empresa) => ({
@@ -135,7 +175,19 @@ export default function BenchmarkingPage() {
   }
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en el benchmarking."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Benchmarking"
       description="Comparación de riesgos identificados con otras empresas del sector"
       topContent={<FiltroProcesoSupervisor />}
@@ -261,6 +313,7 @@ export default function BenchmarkingPage() {
         ))}
       </Box>
     </AppPageLayout>
+    </>
   );
 }
 
