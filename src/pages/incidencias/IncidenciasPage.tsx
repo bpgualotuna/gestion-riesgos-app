@@ -61,6 +61,8 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 // Opciones de impacto desde constants (no quemadas)
 const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => ({
@@ -203,6 +205,22 @@ export default function IncidenciasPage() {
     },
   });
 
+  const [initialFormData, setInitialFormData] = useState<Partial<Incidencia>>(formData);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formularioExpandido, setFormularioExpandido] = useState<string | null>(null);
+
+  // Detectar cambios en el formulario
+  const hasFormChanges = useFormChanges(initialFormData, formData, {
+    deepCompare: true,
+  });
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && formularioExpandido !== null,
+    message: 'Tiene cambios sin guardar en el formulario de incidencia.',
+    disabled: formularioExpandido === null,
+  });
+
   const handleGuardar = async () => {
     if (!formData.titulo || !formData.descripcion) {
       showError('Por favor complete todos los campos requeridos');
@@ -233,6 +251,7 @@ export default function IncidenciasPage() {
 
 
     try {
+      setIsSaving(true);
       await createIncidencia({
         codigo: `INC-${Date.now()}`,
         riesgoId: formData.riesgoId,
@@ -245,10 +264,27 @@ export default function IncidenciasPage() {
         reportadoPor: 'Usuario Actual',
         impactosMaterializacion: impactos,
       }).unwrap();
+      setInitialFormData(formData);
+      markAsSaved();
       showSuccess('Incidencia creada exitosamente');
     } catch (e: any) {
       showError(e?.data?.error || e?.message || 'Error al crear la incidencia');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleGuardar();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
   };
 
   const handleEliminar = async (id: string) => {
@@ -322,7 +358,19 @@ export default function IncidenciasPage() {
   ];
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en el formulario de incidencia."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Materializar Riesgos"
       description={`Gestión de eventos y materialización de riesgos residuales para el proceso: ${procesoSeleccionado?.nombre || 'No seleccionado'}`}
       alert={
@@ -1007,5 +1055,6 @@ export default function IncidenciasPage() {
         </DialogActions>
       </Dialog>
     </AppPageLayout>
+    </>
   );
 }

@@ -46,6 +46,8 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 import { invalidarCache, getConfigActiva } from '../../services/calificacionInherenteService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 export default function CalificacionInherentePage() {
   const { puedeEditar } = useAuth();
@@ -112,6 +114,21 @@ export default function CalificacionInherentePage() {
     },
   });
 
+  const [initialFormData, setInitialFormData] = useState(formData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios en el formulario
+  const hasFormChanges = useFormChanges(initialFormData, formData, {
+    deepCompare: true,
+  });
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && canEdit,
+    message: 'Tiene cambios sin guardar en la configuración de calificación inherente.',
+    disabled: !canEdit,
+  });
+
   const [excepcionDialog, setExcepcionDialog] = useState(false);
   const [excepcionEditando, setExcepcionEditando] = useState<number | null>(null);
   const [excepcionTemp, setExcepcionTemp] = useState({
@@ -124,7 +141,7 @@ export default function CalificacionInherentePage() {
 
   useEffect(() => {
     if (config) {
-      setFormData({
+      const newData = {
         nombre: config.nombre || '',
         descripcion: config.descripcion || '',
         activa: config.activa ?? true,
@@ -142,7 +159,9 @@ export default function CalificacionInherentePage() {
           tablaOrigen: 'CausaRiesgo',
           campoOrigen: 'calificacionInherente',
         },
-      });
+      };
+      setFormData(newData);
+      setInitialFormData(newData);
     }
   }, [config]);
 
@@ -153,6 +172,7 @@ export default function CalificacionInherentePage() {
         return;
       }
 
+      setIsSaving(true);
       await updateConfig({
         id: config.id,
         ...formData,
@@ -172,10 +192,27 @@ export default function CalificacionInherentePage() {
         }));
       }, 100);
       
+      setInitialFormData(formData);
+      markAsSaved();
       showSuccess('Configuración guardada exitosamente. Los cambios se aplicarán inmediatamente.');
     } catch (error: any) {
       showError(error?.data?.error || 'Error al guardar configuración');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
   };
 
   const handleAgregarExcepcion = () => {
@@ -252,8 +289,17 @@ export default function CalificacionInherentePage() {
   }
 
   return (
-    <AppPageLayout>
-      <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+    <>
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en la configuración de calificación inherente."
+      />
+      <AppPageLayout>
+        <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
         <Typography variant="h4" fontWeight={700} gutterBottom sx={{ mb: 3, color: '#1976d2' }}>
           Configuración de Calificación Inherente
         </Typography>
@@ -670,8 +716,9 @@ export default function CalificacionInherentePage() {
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
-    </AppPageLayout>
+        </Box>
+      </AppPageLayout>
+    </>
   );
 }
 

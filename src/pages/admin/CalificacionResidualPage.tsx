@@ -57,6 +57,8 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 export default function CalificacionResidualPage() {
   const { puedeEditar } = useAuth();
@@ -113,9 +115,24 @@ export default function CalificacionResidualPage() {
     evaluacionPriorizacion: [] as EvaluacionPriorizacionItem[],
   });
 
+  const [initialFormData, setInitialFormData] = useState(formData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios en el formulario
+  const hasFormChanges = useFormChanges(initialFormData, formData, {
+    deepCompare: true,
+  });
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasFormChanges && canEdit,
+    message: 'Tiene cambios sin guardar en la configuración de calificación residual.',
+    disabled: !canEdit,
+  });
+
   useEffect(() => {
     if (config) {
-      setFormData({
+      const newData = {
         nombre: config.nombre ?? '',
         descripcion: config.descripcion ?? '',
         activa: config.activa ?? true,
@@ -137,7 +154,9 @@ export default function CalificacionResidualPage() {
         evaluacionControl: Array.isArray(config.evaluacionControl) ? config.evaluacionControl : [],
         criteriosPriorizacion: Array.isArray(config.criteriosPriorizacion) ? config.criteriosPriorizacion : [],
         evaluacionPriorizacion: Array.isArray(config.evaluacionPriorizacion) ? config.evaluacionPriorizacion : [],
-      });
+      };
+      setFormData(newData);
+      setInitialFormData(newData);
     }
   }, [config]);
 
@@ -147,18 +166,36 @@ export default function CalificacionResidualPage() {
         showError('No hay configuración para actualizar');
         return;
       }
+      setIsSaving(true);
       await updateConfig({
         id: config.id,
         ...formData,
       }).unwrap();
       await refetch();
+      setInitialFormData(formData);
+      markAsSaved();
       window.dispatchEvent(
         new CustomEvent('calificacion-residual-updated', { detail: { timestamp: Date.now() } })
       );
       showSuccess('Configuración de calificación residual guardada.');
     } catch (error: any) {
       showError(error?.data?.error || 'Error al guardar');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setFormData(initialFormData);
+    forceNavigate();
   };
 
   const handleActualizarRango = (index: number, campo: string, valor: unknown) => {
@@ -184,8 +221,17 @@ export default function CalificacionResidualPage() {
   }
 
   return (
-    <AppPageLayout>
-      <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+    <>
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en la configuración de calificación residual."
+      />
+      <AppPageLayout>
+        <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
         <Typography variant="h4" fontWeight={700} gutterBottom sx={{ mb: 3, color: '#1976d2' }}>
           Configuración de Calificación Residual
         </Typography>
@@ -555,5 +601,6 @@ export default function CalificacionResidualPage() {
         </Box>
       </Box>
     </AppPageLayout>
+    </>
   );
 }

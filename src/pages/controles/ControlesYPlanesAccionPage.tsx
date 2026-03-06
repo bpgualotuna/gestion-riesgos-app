@@ -83,6 +83,8 @@ import {
   type FrecuenciaCatalogItem,
 } from '../../utils/calculations';
 import { RiesgoFormData } from '../../types';
+import { useUnsavedChanges, useFormChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 // Helpers que usan la configuración residual del admin (API), sin datos quemados
 function getEvaluacionPreliminarFromRangos(rangos: any[] | undefined, puntajeTotal: number): string {
@@ -162,6 +164,7 @@ export default function ControlesYPlanesAccionPageNueva() {
 
   // Estados Clasificación Existente
   const [clasificaciones, setClasificaciones] = useState<ClasificacionCausa[]>([]);
+  const [initialClasificaciones, setInitialClasificaciones] = useState<ClasificacionCausa[]>([]);
   const [riesgoExpandido, setRiesgoExpandido] = useState<string | null>(null);
   const [causaEnEdicion, setCausaEnEdicion] = useState<{ riesgoId: string; causa: any; clasificacion?: ClasificacionCausa; } | null>(null);
   const [causaDetalleView, setCausaDetalleView] = useState<{ riesgoId: string; causa: any } | null>(null);
@@ -169,9 +172,37 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [itemDetalle, setItemDetalle] = useState<ClasificacionCausa | null>(null);
   const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
+  const [initialFormControl, setInitialFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
+  const [initialFormPlan, setInitialFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
+  const [initialImpactosResiduales, setInitialImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [frecuenciaResidual, setFrecuenciaResidual] = useState(1);
+  const [initialFrecuenciaResidual, setInitialFrecuenciaResidual] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios en los diferentes formularios
+  const hasClasificacionesChanges = useArrayChanges(initialClasificaciones, clasificaciones);
+  const hasFormControlChanges = useFormChanges(initialFormControl, formControl);
+  const hasFormPlanChanges = useFormChanges(initialFormPlan, formPlan);
+  const hasImpactosChanges = useFormChanges(initialImpactosResiduales, impactosResiduales);
+  const hasFrecuenciaChanges = initialFrecuenciaResidual !== frecuenciaResidual;
+
+  // Combinar todos los cambios
+  const hasAnyChanges = 
+    hasClasificacionesChanges || 
+    hasFormControlChanges || 
+    hasFormPlanChanges || 
+    hasImpactosChanges || 
+    hasFrecuenciaChanges ||
+    causaEnEdicion !== null; // Si hay un formulario abierto
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasAnyChanges,
+    message: 'Tiene cambios sin guardar en controles y planes de acción.',
+    disabled: false,
+  });
 
   // Estados Evaluación Residual (COPIADO)
   const [riesgosExpandidosResidual, setRiesgosExpandidosResidual] = useState<Record<string, boolean>>({});
@@ -1101,10 +1132,53 @@ export default function ControlesYPlanesAccionPageNueva() {
     }
   };
 
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    // Guardar cualquier formulario abierto
+    if (causaEnEdicion) {
+      await handleGuardarClasificacion();
+    }
+    
+    // Actualizar estados iniciales
+    setInitialClasificaciones(clasificaciones);
+    setInitialFormControl(formControl);
+    setInitialFormPlan(formPlan);
+    setInitialImpactosResiduales(impactosResiduales);
+    setInitialFrecuenciaResidual(frecuenciaResidual);
+    
+    markAsSaved();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    // Revertir todos los cambios
+    setClasificaciones(initialClasificaciones);
+    setFormControl(initialFormControl);
+    setFormPlan(initialFormPlan);
+    setImpactosResiduales(initialImpactosResiduales);
+    setFrecuenciaResidual(initialFrecuenciaResidual);
+    setCausaEnEdicion(null);
+    forceNavigate();
+  };
+
   if (!procesoSeleccionado) return <Box sx={{ p: 3 }}><Alert severity="info">Por favor selecciona un proceso.</Alert></Box>;
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en controles y planes de acción."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Controles y Planes de Acción"
       description="Gestionar controles y planes asociados a los riesgos identificados."
       topContent={<FiltroProcesoSupervisor />}
@@ -3440,5 +3514,6 @@ export default function ControlesYPlanesAccionPageNueva() {
       </Dialog>
 
     </AppPageLayout>
+    </>
   );
 }

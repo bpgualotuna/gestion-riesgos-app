@@ -67,6 +67,8 @@ import {
   calcularFrecuenciaResidualAvanzada,
   calcularImpactoResidualAvanzado,
 } from '../../utils/calculations';
+import { useUnsavedChanges, useFormChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 // Tipos locales para Plan de Acción (Mock)
 interface PlanAccion {
@@ -111,9 +113,19 @@ export default function PlanAccionPage() {
     tipoMitigacion: 'AMBAS' as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
     recomendacion: '',
   });
+  const [initialCriteriosEvaluacion, setInitialCriteriosEvaluacion] = useState({
+    aplicabilidad: '', puntajeAplicabilidad: 0,
+    cobertura: '', puntajeCobertura: 0,
+    facilidadUso: '', puntajeFacilidad: 0,
+    segregacion: '', puntajeSegregacion: 0,
+    naturaleza: '', puntajeNaturaleza: 0,
+    tipoMitigacion: 'AMBAS' as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
+    recomendacion: '',
+  });
 
   // Mock Planes
   const [planesAccion, setPlanesAccion] = useState<PlanAccion[]>([]);
+  const [initialPlanesAccion, setInitialPlanesAccion] = useState<PlanAccion[]>([]);
   const { data: planesResponse, isLoading: isLoadingPlanes } = useGetPlanesQuery({ page: 1, pageSize: 50 });
   const planesApi = planesResponse?.data ?? [];
   const [createPlanAccion] = useCreatePlanAccionMutation();
@@ -131,6 +143,34 @@ export default function PlanAccionPage() {
     responsableNombre: '',
     presupuesto: 0,
     observaciones: ''
+  });
+  const [initialFormPlan, setInitialFormPlan] = useState({
+    nombre: '',
+    descripcion: '',
+    objetivo: '',
+    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    responsableNombre: '',
+    presupuesto: 0,
+    observaciones: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Detectar cambios
+  const hasCriteriosChanges = useFormChanges(initialCriteriosEvaluacion, criteriosEvaluacion);
+  const hasPlanesChanges = useArrayChanges(initialPlanesAccion, planesAccion);
+  const hasFormPlanChanges = useFormChanges(initialFormPlan, formPlan);
+
+  const hasAnyChanges = 
+    hasCriteriosChanges || 
+    hasPlanesChanges || 
+    (hasFormPlanChanges && planDialogOpen);
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasAnyChanges,
+    message: 'Tiene cambios sin guardar en planes de acción.',
+    disabled: false,
   });
 
   // Carga de Riesgos filtrada en backend por proceso
@@ -254,8 +294,39 @@ export default function PlanAccionPage() {
     }
   };
 
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    setInitialCriteriosEvaluacion(criteriosEvaluacion);
+    setInitialPlanesAccion(planesAccion);
+    setInitialFormPlan(formPlan);
+    markAsSaved();
+    if (!isSaving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setCriteriosEvaluacion(initialCriteriosEvaluacion);
+    setPlanesAccion(initialPlanesAccion);
+    setFormPlan(initialFormPlan);
+    setPlanDialogOpen(false);
+    forceNavigate();
+  };
+
   return (
-    <Box>
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={isSaving}
+        message="Tiene cambios sin guardar en planes de acción."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <Box>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom fontWeight={700}>
           Controles y Planes de Acción
@@ -789,5 +860,6 @@ export default function PlanAccionPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </>
   );
 }
