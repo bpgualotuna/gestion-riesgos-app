@@ -46,6 +46,8 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
+import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 export default function AnalisisProcesoPage() {
   const theme = useTheme();
@@ -60,17 +62,27 @@ export default function AnalisisProcesoPage() {
   const [descripcion, setDescripcion] = useState('');
   const [savedFile, setSavedFile] = useState<{ name: string; url: string; date: string } | null>(null);
 
+  // Estados iniciales para detectar cambios
+  const [initialDescripcion, setInitialDescripcion] = useState('');
+  const [initialSavedFile, setInitialSavedFile] = useState<{ name: string; url: string; date: string } | null>(null);
+
   useEffect(() => {
     if (procesoData) {
-      setDescripcion(procesoData.analisis || '');
+      const desc = procesoData.analisis || '';
+      setDescripcion(desc);
+      setInitialDescripcion(desc);
+      
       if (procesoData.documentoUrl) {
-        setSavedFile({
+        const file = {
           name: procesoData.documentoNombre || 'Documento adjunto',
           url: procesoData.documentoUrl,
           date: new Date().toISOString()
-        });
+        };
+        setSavedFile(file);
+        setInitialSavedFile(file);
       } else {
         setSavedFile(null);
+        setInitialSavedFile(null);
       }
     }
   }, [procesoData]);
@@ -79,6 +91,22 @@ export default function AnalisisProcesoPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | null>(null);
+
+  // Detectar cambios en descripción
+  const hasDescripcionChanges = useFormChanges(initialDescripcion, descripcion);
+  
+  // Detectar cambios en archivo (si hay archivo seleccionado o si el archivo guardado cambió)
+  const hasFileChanges = selectedFile !== null || 
+    JSON.stringify(initialSavedFile) !== JSON.stringify(savedFile);
+
+  const hasAnyChanges = hasDescripcionChanges || hasFileChanges;
+
+  // Sistema de cambios no guardados
+  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
+    hasUnsavedChanges: hasAnyChanges && !isReadOnly,
+    message: 'Tiene cambios sin guardar en el análisis de proceso.',
+    disabled: isReadOnly,
+  });
 
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<'selected' | 'saved' | null>(null);
@@ -221,15 +249,38 @@ export default function AnalisisProcesoPage() {
       }).unwrap();
 
       if (documentoUrl && documentoNombre) {
-        setSavedFile({ name: documentoNombre, url: documentoUrl, date: new Date().toISOString() });
+        const newFile = { name: documentoNombre, url: documentoUrl, date: new Date().toISOString() };
+        setSavedFile(newFile);
+        setInitialSavedFile(newFile);
+      } else {
+        setSavedFile(null);
+        setInitialSavedFile(null);
       }
+      
       setSelectedFile(null);
+      setInitialDescripcion(descripcion);
+      markAsSaved();
       showSuccess('Análisis de proceso y documentación guardados exitosamente');
     } catch (error) {
       showError('Error al guardar el análisis');
     } finally {
       setSaving(false);
     }
+  };
+
+  // Handlers para el diálogo de cambios no guardados
+  const handleSaveFromDialog = async () => {
+    await handleSave();
+    if (!saving) {
+      forceNavigate();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setDescripcion(initialDescripcion);
+    setSavedFile(initialSavedFile);
+    setSelectedFile(null);
+    forceNavigate();
   };
 
   const handlePreview = (url: string, name: string) => {
@@ -285,7 +336,19 @@ export default function AnalisisProcesoPage() {
   }
 
   return (
-    <AppPageLayout
+    <>
+      {/* Diálogo de cambios no guardados */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        onSave={handleSaveFromDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={() => blocker.reset?.()}
+        isSaving={saving}
+        message="Tiene cambios sin guardar en el análisis de proceso."
+        description="¿Desea guardar los cambios antes de salir?"
+      />
+
+      <AppPageLayout
       title="Análisis de Proceso"
       description="Documentación del análisis del proceso mediante diagramas y descripciones"
       topContent={<FiltroProcesoSupervisor />}
@@ -660,6 +723,7 @@ export default function AnalisisProcesoPage() {
           )}
         </DialogContent>
       </Dialog>
+      </AppPageLayout>
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -691,6 +755,6 @@ export default function AnalisisProcesoPage() {
           </Box>
         )}
       </Dialog>
-    </AppPageLayout>
+    </>
   );
 }

@@ -118,8 +118,9 @@ export default function DofaPage() {
     return procesos;
   }, [procesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, areasAsignadas, procesosAsignados, user]);
 
-  // Supervisor/gerente director/gerente proceso siempre en modo solo lectura
-  const isReadOnly = modoProceso === 'visualizar' || esSupervisorRiesgos || esGerenteGeneralDirector || esGerenteGeneralProceso;
+  // Supervisor/gerente director siempre en modo solo lectura
+  // Gerente General Proceso puede editar igual que Dueño de Proceso
+  const isReadOnly = modoProceso === 'visualizar' || esSupervisorRiesgos || esGerenteGeneralDirector;
 
   // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
   if (esDueñoProcesos && !procesoSeleccionado?.id) {

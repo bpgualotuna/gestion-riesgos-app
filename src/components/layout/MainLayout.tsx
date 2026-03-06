@@ -109,6 +109,7 @@ const MAIN_MENU_KEYS: Record<string, string> = {
   'Identificación y Calificación': 'identificacion',
   'Controles y Planes de Acción': 'controles',
   'Materializar Riesgos': 'materializarRiesgos',
+  'Historial': 'historial',
   'Usuarios': 'usuarios',
   'Áreas y Asignaciones': 'areasAsignaciones',
   'Conf. Mapa Riesgos': 'confMapaRiesgos',
@@ -155,6 +156,11 @@ const menuItems: MenuItemType[] = [
     text: 'Materializar Riesgos',
     icon: <WarningIcon />,
     path: ROUTES.INCIDENCIAS,
+  },
+  {
+    text: 'Historial',
+    icon: <HistoryIcon />,
+    path: ROUTES.HISTORIAL,
   },
 ];
 
@@ -805,13 +811,13 @@ export default function MainLayout() {
               .filter((item) => {
                 // Filtrar items según el rol
                 if (esSupervisorRiesgos) {
-                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos'];
+                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos, Historial
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos', 'Historial'];
                   return allowedMenus.includes(item.text);
                 }
                 if (esDueñoProcesos) {
-                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos'];
+                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos, Historial
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos', 'Historial'];
                   return allowedMenus.includes(item.text);
                 }
                 if (esGerenteGeneral && !gerenteGeneralMode) {
@@ -1346,19 +1352,6 @@ export default function MainLayout() {
               <PersonIcon sx={{ mr: 1.5, fontSize: 20 }} />
               Ver perfil
             </MenuItem>
-            {esAdmin && (
-              <MenuItem
-                key="admin-panel"
-                onClick={() => {
-                  handleUserMenuClose();
-                  navigate('/admin-panel');
-                }}
-                sx={{ py: 1.5, color: '#1976d2' }}
-              >
-                <SettingsIcon sx={{ mr: 1.5, fontSize: 20 }} />
-                Panel Administrativo
-              </MenuItem>
-            )}
             {esGerenteGeneral && (
               <>
                 <Divider />

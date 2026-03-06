@@ -33,6 +33,7 @@ import type { GridColDef } from '@mui/x-data-grid';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import axios from 'axios';
 import { AUTH_TOKEN_KEY } from '../../utils/constants';
+import { useAuth } from '../../contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -119,6 +120,7 @@ interface Usuario {
 }
 
 export default function HistorialPage() {
+  const { user, esAdmin, esGerenteGeneral } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,10 +139,18 @@ export default function HistorialPage() {
 
   const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
 
+  // Admin y Gerente General pueden ver todos los usuarios
+  const puedeVerTodos = esAdmin || esGerenteGeneral;
+
+  // Si no es admin ni gerente general, filtrar automáticamente por el usuario actual
+  const usuarioIdFiltro = puedeVerTodos ? filtros.usuarioId : (user?.id ? String(user.id) : '');
+
   useEffect(() => {
-    cargarUsuarios();
+    if (puedeVerTodos) {
+      cargarUsuarios();
+    }
     cargarHistorial();
-  }, [paginacion.page, paginacion.pageSize]);
+  }, [paginacion.page, paginacion.pageSize, puedeVerTodos]);
 
   const cargarUsuarios = async () => {
     try {
@@ -158,7 +168,8 @@ export default function HistorialPage() {
     setError(null);
     try {
       const params = new URLSearchParams();
-      if (filtros.usuarioId) params.append('usuarioId', filtros.usuarioId);
+      // Si no es admin, siempre filtrar por el usuario actual
+      if (usuarioIdFiltro) params.append('usuarioId', usuarioIdFiltro);
       params.append('page', String(paginacion.page));
       params.append('pageSize', String(paginacion.pageSize));
 
@@ -411,62 +422,71 @@ export default function HistorialPage() {
         </Grid>
       </Grid>
 
-      {/* Filtros */}
-      <Accordion 
-        expanded={filtrosExpandidos}
-        onChange={(e, isExpanded) => setFiltrosExpandidos(isExpanded)}
-        sx={{ mb: 2 }}
-      >
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <FilterIcon sx={{ mr: 1 }} />
-          <Typography fontWeight={500}>Filtros de Búsqueda</Typography>
-        </AccordionSummary>
-        <AccordionDetails sx={{ pt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                select
-                fullWidth
-                label="Filtrar por Usuario"
-                value={filtros.usuarioId}
-                onChange={(e) => setFiltros({ ...filtros, usuarioId: e.target.value })}
-                size="small"
-                slotProps={{
-                  select: {
-                    displayEmpty: true,
-                  },
-                }}
-              >
-                <MenuItem value="">Todos los usuarios</MenuItem>
-                {usuarios.map((usuario) => (
-                  <MenuItem key={usuario.id} value={String(usuario.id)}>
-                    {usuario.nombre} ({usuario.email})
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <Stack direction="row" spacing={2}>
-                <Button
-                  variant="contained"
-                  onClick={cargarHistorial}
+      {/* Mensaje informativo para usuarios no admin ni gerente general */}
+      {!puedeVerTodos && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Mostrando únicamente su historial de cambios. Solo los administradores y gerentes generales pueden ver el historial de todos los usuarios.
+        </Alert>
+      )}
+
+      {/* Filtros - Solo visible para administradores y gerentes generales */}
+      {puedeVerTodos && (
+        <Accordion 
+          expanded={filtrosExpandidos}
+          onChange={(e, isExpanded) => setFiltrosExpandidos(isExpanded)}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <FilterIcon sx={{ mr: 1 }} />
+            <Typography fontWeight={500}>Filtros de Búsqueda</Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  select
                   fullWidth
-                  disabled={loading}
+                  label="Filtrar por Usuario"
+                  value={filtros.usuarioId}
+                  onChange={(e) => setFiltros({ ...filtros, usuarioId: e.target.value })}
+                  size="small"
+                  slotProps={{
+                    select: {
+                      displayEmpty: true,
+                    },
+                  }}
                 >
-                  Aplicar Filtros
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={handleLimpiarFiltros}
-                  fullWidth
-                >
-                  Limpiar
-                </Button>
-              </Stack>
+                  <MenuItem value="">Todos los usuarios</MenuItem>
+                  {usuarios.map((usuario) => (
+                    <MenuItem key={usuario.id} value={String(usuario.id)}>
+                      {usuario.nombre} ({usuario.email})
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="contained"
+                    onClick={cargarHistorial}
+                    fullWidth
+                    disabled={loading}
+                  >
+                    Aplicar Filtros
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={handleLimpiarFiltros}
+                    fullWidth
+                  >
+                    Limpiar
+                  </Button>
+                </Stack>
+              </Grid>
             </Grid>
-          </Grid>
-        </AccordionDetails>
-      </Accordion>
+          </AccordionDetails>
+        </Accordion>
+      )}
 
       {/* Tabla */}
       <Paper elevation={2}>
