@@ -473,12 +473,12 @@ export const riesgosApi = createApi({
     }),
 
     // ============================================
-    // HISTORIAL
+    // HISTORIAL / AUDITORÍA
     // ============================================
     getHistorial: builder.query<any[], string>({
-      query: (procesoId) => ({
-        url: 'utilidades/historial',
-        params: { procesoId }
+      query: (params) => ({
+        url: 'audit/logs',
+        params: params ? JSON.parse(params) : {}
       }),
       providesTags: ['Historial'],
     }),

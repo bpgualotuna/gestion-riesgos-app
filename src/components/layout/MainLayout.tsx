@@ -67,6 +67,7 @@ import {
   Notifications as NotificationsIcon,
   Functions as FunctionsIcon,
   ViewList as ViewListIcon,
+  Badge,
 
   ExpandLess,
   ExpandMore,
@@ -89,6 +90,8 @@ import { useGetProcesosQuery } from "../../api/services/riesgosApi";
 import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from "../../hooks/useAsignaciones";
 import VirtualAssistantDemo from "../common/VirtualAssistantDemo";
+import NotificationsMenu from "../common/NotificationsMenu";
+import { useAuditNotifications } from "../../hooks/useAuditNotifications";
 const DRAWER_WIDTH = 280;
 const DRAWER_WIDTH_COLLAPSED = 70;
 
@@ -112,6 +115,7 @@ const MAIN_MENU_KEYS: Record<string, string> = {
   'Parámetros de Calificación': 'parametrosCalificacion',
   'Calificación Inherente': 'calificacionInherente',
   'Calificación Residual': 'calificacionResidual',
+  'Historial': 'historial',
 };
 const DEFAULT_MENU_COLOR = '#1976d2';
 
@@ -228,6 +232,15 @@ export default function MainLayout() {
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [profileImgError, setProfileImgError] = useState(false);
   const [profilePhotoVersion, setProfilePhotoVersion] = useState(0);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Hook de notificaciones solo para administradores
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    clearNotifications,
+  } = useAuditNotifications(esAdmin);
 
   useEffect(() => {
     setProfileImgError(false);
@@ -643,6 +656,15 @@ export default function MainLayout() {
     setAnchorEl(null);
   };
 
+  const handleNotificationsOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationsAnchorEl(event.currentTarget);
+    markAsRead(); // Marcar como leídas al abrir
+  };
+
+  const handleNotificationsClose = () => {
+    setNotificationsAnchorEl(null);
+  };
+
   const handleLogout = () => {
     handleUserMenuClose();
     logout();
@@ -721,6 +743,7 @@ export default function MainLayout() {
                 { text: 'Parámetros de Calificación', icon: <SettingsIcon />, path: '/admin/parametros-calificacion' },
                 { text: 'Calificación Inherente', icon: <SettingsIcon />, path: '/admin/calificacion-inherente' },
                 { text: 'Calificación Residual', icon: <SettingsIcon />, path: ROUTES.ADMIN_CALIFICACION_RESIDUAL },
+                { text: 'Historial', icon: <HistoryIcon />, path: ROUTES.HISTORIAL },
               ].map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
@@ -1036,6 +1059,21 @@ export default function MainLayout() {
                   />
                 )}
                 <Box sx={{ flexGrow: 1, minWidth: 8 }} />
+                {/* Notificaciones - Solo para administradores */}
+                {esAdmin && (
+                  <IconButton
+                    onClick={handleNotificationsOpen}
+                    sx={{
+                      flexShrink: 0,
+                      mr: 1,
+                    }}
+                    aria-label="Notificaciones"
+                  >
+                    <Badge badgeContent={unreadCount} color="error" max={99}>
+                      <NotificationsIcon sx={{ color: '#1976d2', fontSize: 24 }} />
+                    </Badge>
+                  </IconButton>
+                )}
                 {user && (
                   <IconButton
                     onClick={handleUserMenuOpen}
@@ -1189,6 +1227,21 @@ export default function MainLayout() {
               )}
 
               <Box sx={{ flexGrow: 1 }} />
+
+              {/* Notificaciones - Solo para administradores */}
+              {esAdmin && (
+                <IconButton
+                  onClick={handleNotificationsOpen}
+                  sx={{
+                    mr: 1,
+                  }}
+                  aria-label="Notificaciones"
+                >
+                  <Badge badgeContent={unreadCount} color="error" max={99}>
+                    <NotificationsIcon sx={{ color: '#1976d2', fontSize: 26 }} />
+                  </Badge>
+                </IconButton>
+              )}
 
               {user && (
                 <Box
@@ -1355,6 +1408,17 @@ export default function MainLayout() {
               refreshUser(data ?? undefined);
             }}
           />
+
+          {/* Menú de Notificaciones - Solo para administradores */}
+          {esAdmin && (
+            <NotificationsMenu
+              anchorEl={notificationsAnchorEl}
+              open={Boolean(notificationsAnchorEl)}
+              onClose={handleNotificationsClose}
+              notifications={notifications}
+              onClear={clearNotifications}
+            />
+          )}
         </Toolbar>
       </AppBar>
 

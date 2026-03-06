@@ -106,12 +106,13 @@ export default function UnsavedChangesDialog({
     <Dialog
       open={open}
       onClose={onCancel}
-      maxWidth="sm"
-      fullWidth
+      maxWidth="xs"
       PaperProps={{
         sx: {
           borderRadius: 2,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          minWidth: 450,
+          maxWidth: 500,
         },
       }}
     >
