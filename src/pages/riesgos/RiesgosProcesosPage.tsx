@@ -249,7 +249,7 @@ export default function RiesgosProcesosPage() {
               Modo Creación Activado
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Complete los pasos del proceso: Ficha ? Análisis ? Normatividad ? Contexto Externo ? Contexto Interno ? DOFA ? Benchmarking ? Identificación ? Evaluación ? Mapa ? Priorización
+              Complete los pasos del proceso: Ficha ? Análisis ? Normatividad ? Contexto Externo ? Contexto Interno ? DOFA ? Identificación ? Evaluación ? Mapa ? Priorización
             </Typography>
           </CardContent>
         </Card>

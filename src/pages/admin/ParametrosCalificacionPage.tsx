@@ -107,26 +107,26 @@ function SubtiposCatalog({
                     nombre: item.nombre,
                     descripcion: item.descripcion
                 });
-                showSuccess('Subtipo actualizado.');
+                showSuccess('Tipología tipo II actualizada.');
             } else {
                 await onCreateSubtipo({
                     tipoRiesgoId: tipoSeleccionado,
                     nombre: item.nombre,
                     descripcion: item.descripcion
                 });
-                showSuccess('Subtipo creado. El código se asignó automáticamente.');
+                showSuccess('Tipología tipo II creada. El código se asignó automáticamente.');
             }
         } catch (err: any) {
-            const msg = err?.data?.error || err?.message || 'No se pudo guardar el subtipo.';
+            const msg = err?.data?.error || err?.message || 'No se pudo guardar la tipología tipo II.';
             showError(msg);
         }
     };
 
     const handleDeleteSubtipo = async (id: number) => {
-        if (!(await confirmDelete('el subtipo'))) return;
+        if (!(await confirmDelete('la tipología tipo II'))) return;
         try {
             await onDeleteSubtipo(id);
-            showSuccess('Subtipo eliminado.');
+            showSuccess('Tipología tipo II eliminada.');
         } catch (err: any) {
             const msg = err?.data?.error || err?.message || 'No se pudo eliminar.';
             showError(msg);
@@ -136,10 +136,10 @@ function SubtiposCatalog({
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <FormControl size="small" sx={{ maxWidth: 320 }}>
-                <InputLabel id="tipo-riesgo-select">Tipo de Riesgo</InputLabel>
+                <InputLabel id="tipo-riesgo-select">Tipología tipo I</InputLabel>
                 <Select
                     labelId="tipo-riesgo-select"
-                    label="Tipo de Riesgo"
+                    label="Tipología tipo I"
                     value={tipoSeleccionado ?? ''}
                     onChange={(e) => setTipoSeleccionado(Number(e.target.value))}
                 >
@@ -152,8 +152,8 @@ function SubtiposCatalog({
             </FormControl>
 
             <SimpleCatalog
-                title="Subtipos de Riesgo"
-                itemLabel="Subtipo"
+                title="Tipologías tipo II del riesgo"
+                itemLabel="Tipología tipo II"
                 data={subtipos}
                 columns={[
                     { field: 'id', headerName: 'ID', width: 80, editable: false },
@@ -515,7 +515,7 @@ export default function ParametrosCalificacionPage() {
                                 <Tab label="Orígenes" />
                                 <Tab label="Consecuencias" />
                                 <Tab label="Tipos de Riesgo" />
-                                <Tab label="Subtipos" />
+                                <Tab label="Tipologías tipo II" />
                                 <Tab label="Objetivos" />
                             </Tabs>
                         </Box>
@@ -622,7 +622,7 @@ export default function ParametrosCalificacionPage() {
                                     await updateSubtipo(data).unwrap();
                                 }}
                                 onDeleteSubtipo={async (id) => {
-                                    if (!(await confirmDelete('este subtipo'))) return;
+                                    if (!(await confirmDelete('esta tipología tipo II'))) return;
                                     await deleteSubtipo(id).unwrap();
                                 }}
                             />

@@ -131,7 +131,6 @@ export const ROUTES = {
   CONTEXTO_INTERNO: '/contexto-interno',
   DOFA: '/dofa',
   ANALISIS_PROCESO: '/analisis-proceso',
-  BENCHMARKING: '/benchmarking',
   AYUDA: '/ayuda',
   LOGIN: '/login',
   PROCESOS: '/procesos',

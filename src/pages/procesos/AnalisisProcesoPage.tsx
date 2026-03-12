@@ -60,34 +60,45 @@ export default function AnalisisProcesoPage() {
   const [updateProceso] = useUpdateProcesoMutation();
 
   const [descripcion, setDescripcion] = useState('');
-  const [savedFile, setSavedFile] = useState<{ name: string; url: string; date: string } | null>(null);
+  const [savedCaracterizacion, setSavedCaracterizacion] = useState<{ name: string; url: string; date: string } | null>(null);
+  const [savedFlujoGrama, setSavedFlujoGrama] = useState<{ name: string; url: string; date: string } | null>(null);
 
-  // Estados iniciales para detectar cambios
   const [initialDescripcion, setInitialDescripcion] = useState('');
-  const [initialSavedFile, setInitialSavedFile] = useState<{ name: string; url: string; date: string } | null>(null);
+  const [initialSavedCaracterizacion, setInitialSavedCaracterizacion] = useState<{ name: string; url: string; date: string } | null>(null);
+  const [initialSavedFlujoGrama, setInitialSavedFlujoGrama] = useState<{ name: string; url: string; date: string } | null>(null);
 
   useEffect(() => {
     if (procesoData) {
       const desc = procesoData.analisis || '';
       setDescripcion(desc);
       setInitialDescripcion(desc);
-      
-      if (procesoData.documentoUrl) {
-        const file = {
-          name: procesoData.documentoNombre || 'Documento adjunto',
-          url: procesoData.documentoUrl,
-          date: new Date().toISOString()
-        };
-        setSavedFile(file);
-        setInitialSavedFile(file);
+      // Caracterización: usar nuevo campo o, si no existe, archivo antiguo (documentoUrl) para no perderlo
+      if (procesoData.documentoCaracterizacionUrl) {
+        const f = { name: procesoData.documentoCaracterizacionNombre || 'Caracterización', url: procesoData.documentoCaracterizacionUrl, date: new Date().toISOString() };
+        setSavedCaracterizacion(f);
+        setInitialSavedCaracterizacion(f);
+      } else if (procesoData.documentoUrl) {
+        const f = { name: procesoData.documentoNombre || 'Documento (caracterización)', url: procesoData.documentoUrl, date: new Date().toISOString() };
+        setSavedCaracterizacion(f);
+        setInitialSavedCaracterizacion(f);
       } else {
-        setSavedFile(null);
-        setInitialSavedFile(null);
+        setSavedCaracterizacion(null);
+        setInitialSavedCaracterizacion(null);
+      }
+      if (procesoData.documentoFlujoGramaUrl) {
+        const f = { name: procesoData.documentoFlujoGramaNombre || 'Flujo grama', url: procesoData.documentoFlujoGramaUrl, date: new Date().toISOString() };
+        setSavedFlujoGrama(f);
+        setInitialSavedFlujoGrama(f);
+      } else {
+        setSavedFlujoGrama(null);
+        setInitialSavedFlujoGrama(null);
       }
     }
   }, [procesoData]);
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedCaracterizacion, setSelectedCaracterizacion] = useState<File | null>(null);
+  const [selectedFlujoGrama, setSelectedFlujoGrama] = useState<File | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | null>(null);
@@ -95,9 +106,11 @@ export default function AnalisisProcesoPage() {
   // Detectar cambios en descripción
   const hasDescripcionChanges = useFormChanges(initialDescripcion, descripcion);
   
-  // Detectar cambios en archivo (si hay archivo seleccionado o si el archivo guardado cambió)
-  const hasFileChanges = selectedFile !== null || 
-    JSON.stringify(initialSavedFile) !== JSON.stringify(savedFile);
+  const hasFileChanges =
+    selectedCaracterizacion !== null ||
+    selectedFlujoGrama !== null ||
+    JSON.stringify(initialSavedCaracterizacion) !== JSON.stringify(savedCaracterizacion) ||
+    JSON.stringify(initialSavedFlujoGrama) !== JSON.stringify(savedFlujoGrama);
 
   const hasAnyChanges = hasDescripcionChanges || hasFileChanges;
 
@@ -109,17 +122,17 @@ export default function AnalisisProcesoPage() {
   });
 
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState<'selected' | 'saved' | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
   const [deleteModalLoading, setDeleteModalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [dragOver, setDragOver] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
-  const setFileIfValid = (file: File) => {
+  const setFileIfValid = (file: File, target: 'caracterizacion' | 'flujoGrama') => {
     if (file.size > MAX_FILE_SIZE) {
       showError('El archivo es demasiado grande. Máximo 5MB.');
       return;
@@ -128,59 +141,62 @@ export default function AnalisisProcesoPage() {
       showError('Formato no permitido. Use PDF, PNG, JPG o DOCX.');
       return;
     }
-    setSelectedFile(file);
+    if (target === 'caracterizacion') setSelectedCaracterizacion(file);
+    else setSelectedFlujoGrama(file);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) setFileIfValid(file);
+    if (file && uploadTarget) {
+      setFileIfValid(file, uploadTarget);
+      setUploadTarget(null);
+    }
     event.target.value = '';
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, target: 'caracterizacion' | 'flujoGrama') => {
     e.preventDefault();
     e.stopPropagation();
-    if (!savedFile && e.dataTransfer.types.includes('Files')) setDragOver(true);
+    if (e.dataTransfer.types.includes('Files')) setDragOver(target);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragOver(false);
+    setDragOver(null);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent, target: 'caracterizacion' | 'flujoGrama') => {
     e.preventDefault();
     e.stopPropagation();
-    setDragOver(false);
-    if (savedFile) {
-      showError('Solo se permite un archivo a la vez. Elimine el archivo guardado para subir otro.');
-      return;
-    }
+    setDragOver(null);
     const file = e.dataTransfer.files?.[0];
-    if (file) setFileIfValid(file);
+    if (file) setFileIfValid(file, target);
   };
 
-  const handleRequestDelete = (type: 'selected' | 'saved') => {
+  const handleRequestDelete = (type: 'caracterizacion' | 'flujoGrama') => {
     setFileToDelete(type);
     setDeleteConfirmationOpen(true);
   };
 
   const handleConfirmDelete = async () => {
+    if (!fileToDelete || !procesoSeleccionado?.id) {
+      setDeleteConfirmationOpen(false);
+      setFileToDelete(null);
+      setDeleteModalLoading(false);
+      return;
+    }
     setDeleteModalLoading(true);
     try {
-      if (fileToDelete === 'selected') {
-        setSelectedFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        setDeleteConfirmationOpen(false);
-        setFileToDelete(null);
-        setDeleteModalLoading(false);
-        return;
-      }
-      if (fileToDelete === 'saved' && savedFile && procesoSeleccionado?.id) {
-        const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(savedFile.url)}`;
+      const isCaracterizacion = fileToDelete === 'caracterizacion';
+      const saved = isCaracterizacion ? savedCaracterizacion : savedFlujoGrama;
+      const selected = isCaracterizacion ? selectedCaracterizacion : selectedFlujoGrama;
+      if (selected) {
+        if (isCaracterizacion) setSelectedCaracterizacion(null);
+        else setSelectedFlujoGrama(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } else if (saved) {
+        const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(saved.url)}`;
         const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
         const res = await fetch(deleteUrl, {
           method: 'DELETE',
@@ -188,21 +204,27 @@ export default function AnalisisProcesoPage() {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok || res.status === 404) {
-          await updateProceso({
-            id: procesoSeleccionado.id,
-            analisis: descripcion,
-            documentoUrl: null,
-            documentoNombre: null,
-          }).unwrap();
-          setSavedFile(null);
-          setDeleteConfirmationOpen(false);
-          setFileToDelete(null);
+          const payload: any = { id: String(procesoSeleccionado.id), analisis: descripcion };
+          if (isCaracterizacion) {
+            payload.documentoCaracterizacionUrl = null;
+            payload.documentoCaracterizacionNombre = null;
+            setSavedCaracterizacion(null);
+            setInitialSavedCaracterizacion(null);
+          } else {
+            payload.documentoFlujoGramaUrl = null;
+            payload.documentoFlujoGramaNombre = null;
+            setSavedFlujoGrama(null);
+            setInitialSavedFlujoGrama(null);
+          }
+          await updateProceso(payload).unwrap();
           showSuccess('Archivo eliminado');
         } else {
           const data = await res.json().catch(() => ({}));
           showError(data?.error || 'Error al eliminar el archivo');
         }
       }
+      setDeleteConfirmationOpen(false);
+      setFileToDelete(null);
     } catch (e) {
       showError('Error al eliminar el archivo');
     } finally {
@@ -217,52 +239,72 @@ export default function AnalisisProcesoPage() {
     }
     setSaving(true);
     try {
-      let documentoUrl: string | null = savedFile ? savedFile.url : null;
-      let documentoNombre: string | null = savedFile ? savedFile.name : null;
+      let docCarUrl: string | null = savedCaracterizacion?.url ?? null;
+      let docCarNombre: string | null = savedCaracterizacion?.name ?? null;
+      let docFlujoUrl: string | null = savedFlujoGrama?.url ?? null;
+      let docFlujoNombre: string | null = savedFlujoGrama?.name ?? null;
 
-      if (selectedFile) {
+      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+      const uploadOne = async (file: File): Promise<{ url: string; nombre: string }> => {
         const formData = new FormData();
-        formData.append('archivo', selectedFile);
-        const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-        const uploadRes = await fetch(`${API_BASE_URL}/upload/archivo`, {
+        formData.append('archivo', file);
+        const res = await fetch(`${API_BASE_URL}/upload/archivo`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json().catch(() => ({}));
-          showError(err?.error || 'Error al subir el archivo');
-          setSaving(false);
-          return;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Error al subir el archivo');
         }
-        const uploadData = await uploadRes.json();
-        documentoUrl = uploadData.url;
-        documentoNombre = uploadData.nombre ?? selectedFile.name;
+        const data = await res.json();
+        return { url: data.url, nombre: data.nombre ?? file.name };
+      };
+
+      if (selectedCaracterizacion) {
+        const u = await uploadOne(selectedCaracterizacion);
+        docCarUrl = u.url;
+        docCarNombre = u.nombre;
+      }
+      if (selectedFlujoGrama) {
+        const u = await uploadOne(selectedFlujoGrama);
+        docFlujoUrl = u.url;
+        docFlujoNombre = u.nombre;
       }
 
-      await updateProceso({
-        id: procesoSeleccionado.id,
+      const payload: Record<string, unknown> = {
+        id: String(procesoSeleccionado.id),
         analisis: descripcion,
-        documentoUrl,
-        documentoNombre,
-      }).unwrap();
-
-      if (documentoUrl && documentoNombre) {
-        const newFile = { name: documentoNombre, url: documentoUrl, date: new Date().toISOString() };
-        setSavedFile(newFile);
-        setInitialSavedFile(newFile);
-      } else {
-        setSavedFile(null);
-        setInitialSavedFile(null);
+        documentoCaracterizacionUrl: docCarUrl,
+        documentoCaracterizacionNombre: docCarNombre,
+        documentoFlujoGramaUrl: docFlujoUrl,
+        documentoFlujoGramaNombre: docFlujoNombre,
+      };
+      // Si el proceso tenía archivo en el campo antiguo (documentoUrl) y ahora está en Caracterización, limpiar campos viejos
+      if (procesoData?.documentoUrl && !procesoData?.documentoCaracterizacionUrl) {
+        payload.documentoUrl = null;
+        payload.documentoNombre = null;
       }
-      
-      setSelectedFile(null);
+      await updateProceso(payload as any).unwrap();
+
+      if (docCarUrl && docCarNombre) {
+        const f = { name: docCarNombre, url: docCarUrl, date: new Date().toISOString() };
+        setSavedCaracterizacion(f);
+        setInitialSavedCaracterizacion(f);
+      }
+      if (docFlujoUrl && docFlujoNombre) {
+        const f = { name: docFlujoNombre, url: docFlujoUrl, date: new Date().toISOString() };
+        setSavedFlujoGrama(f);
+        setInitialSavedFlujoGrama(f);
+      }
+      setSelectedCaracterizacion(null);
+      setSelectedFlujoGrama(null);
       setInitialDescripcion(descripcion);
       markAsSaved();
       showSuccess('Análisis de proceso y documentación guardados exitosamente');
-    } catch (error) {
-      showError('Error al guardar el análisis');
+    } catch (error: any) {
+      showError(error?.message || 'Error al guardar el análisis');
     } finally {
       setSaving(false);
     }
@@ -278,8 +320,10 @@ export default function AnalisisProcesoPage() {
 
   const handleDiscardChanges = () => {
     setDescripcion(initialDescripcion);
-    setSavedFile(initialSavedFile);
-    setSelectedFile(null);
+    setSavedCaracterizacion(initialSavedCaracterizacion);
+    setSavedFlujoGrama(initialSavedFlujoGrama);
+    setSelectedCaracterizacion(null);
+    setSelectedFlujoGrama(null);
     forceNavigate();
   };
 
@@ -304,11 +348,8 @@ export default function AnalisisProcesoPage() {
     }
   };
 
-  const handleUploadClick = () => {
-    if (savedFile || selectedFile) {
-      alert('Solo se permite subir un único archivo. Por favor, elimine el archivo actual (guardado o seleccionado) antes de subir uno nuevo.');
-      return;
-    }
+  const handleUploadClick = (target: 'caracterizacion' | 'flujoGrama') => {
+    setUploadTarget(target);
     fileInputRef.current?.click();
   };
 
@@ -504,17 +545,78 @@ export default function AnalisisProcesoPage() {
                   />
                 </Box>
 
+                {/* 1. Flujograma (primer apartado: lo ya subido se muestra aquí) */}
                 <Box>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Flujograma</Typography>
                   <Paper
                     elevation={0}
-                    onDragOver={handleDragOver}
+                    onDragOver={(e) => handleDragOver(e, 'flujoGrama')}
                     onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
+                    onDrop={(e) => handleDrop(e, 'flujoGrama')}
                     sx={{
                       p: 2.5,
-                      backgroundColor: dragOver ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 165, 0, 0.05)',
+                      backgroundColor: dragOver === 'flujoGrama' ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 165, 0, 0.05)',
                       border: '2px dashed',
-                      borderColor: dragOver ? 'primary.main' : '#FFA500',
+                      borderColor: dragOver === 'flujoGrama' ? 'primary.main' : '#FFA500',
+                      borderRadius: 2,
+                      transition: 'background-color 0.2s, border-color 0.2s',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
+                      <TimelineIcon sx={{ color: '#FFA500', mt: 0.5 }} />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" color="text.secondary" paragraph>
+                          PDF, PNG, JPG, DOCX. Máx. 5MB.
+                        </Typography>
+                        {savedFlujoGrama && (
+                          <Box sx={{ mt: 1, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <DescriptionIcon color="primary" />
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle2" fontWeight={600}>{savedFlujoGrama.name}</Typography>
+                                <Chip label="Guardado" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
+                              </Box>
+                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(savedFlujoGrama.url, savedFlujoGrama.name)}>Ver</Button>
+                              {!isReadOnly && (
+                                <IconButton size="small" color="error" onClick={() => handleRequestDelete('flujoGrama')} title="Eliminar"><DeleteIcon fontSize="small" /></IconButton>
+                              )}
+                            </Box>
+                          </Box>
+                        )}
+                        {selectedFlujoGrama && (
+                          <Box sx={{ mt: 1, p: 2, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc80' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <UploadIcon color="warning" />
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle2" fontWeight={600}>{selectedFlujoGrama.name} ({(selectedFlujoGrama.size / 1024).toFixed(1)} KB)</Typography>
+                                <Chip label="Por subir" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />
+                              </Box>
+                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(URL.createObjectURL(selectedFlujoGrama), selectedFlujoGrama.name)}>Ver</Button>
+                              <IconButton size="small" color="error" onClick={() => handleRequestDelete('flujoGrama')} title="Quitar"><DeleteIcon fontSize="small" /></IconButton>
+                            </Box>
+                          </Box>
+                        )}
+                        {!isReadOnly && (
+                          <Button variant="outlined" size="small" startIcon={<UploadIcon />} onClick={() => handleUploadClick('flujoGrama')} sx={{ mt: 1 }}>Subir flujograma</Button>
+                        )}
+                      </Box>
+                    </Box>
+                  </Paper>
+                </Box>
+
+                {/* 2. Caracterización (segundo apartado, debajo) */}
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Caracterización</Typography>
+                  <Paper
+                    elevation={0}
+                    onDragOver={(e) => handleDragOver(e, 'caracterizacion')}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, 'caracterizacion')}
+                    sx={{
+                      p: 2.5,
+                      backgroundColor: dragOver === 'caracterizacion' ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 165, 0, 0.05)',
+                      border: '2px dashed',
+                      borderColor: dragOver === 'caracterizacion' ? 'primary.main' : '#FFA500',
                       borderRadius: 2,
                       transition: 'background-color 0.2s, border-color 0.2s',
                     }}
@@ -522,113 +624,50 @@ export default function AnalisisProcesoPage() {
                     <Box sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
                       <SettingsIcon sx={{ color: '#FFA500', mt: 0.5 }} />
                       <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" fontWeight={600} gutterBottom>
-                          Archivos Adjuntos
-                        </Typography>
                         <Typography variant="body2" color="text.secondary" paragraph>
-                          Arrastre un archivo aquí desde el escritorio o use el botón para seleccionar. PDF, PNG, JPG, DOCX. Máx. 5MB. Un archivo a la vez.
+                          PDF, PNG, JPG, DOCX. Máx. 5MB.
                         </Typography>
-
-                        {/* Saved File Display */}
-                        {savedFile && (
-                          <Box sx={{ mt: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
+                        {savedCaracterizacion && (
+                          <Box sx={{ mt: 1, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <DescriptionIcon color="primary" />
                               <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                  {savedFile.name}
-                                </Typography>
+                                <Typography variant="subtitle2" fontWeight={600}>{savedCaracterizacion.name}</Typography>
                                 <Chip label="Guardado" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
                               </Box>
-                              <Box>
-                                <Button
-                                  size="small"
-                                  startIcon={<VisibilityIcon />}
-                                  onClick={() => handlePreview(savedFile.url, savedFile.name)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Ver
-                                </Button>
-                                {!isReadOnly && (
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => handleRequestDelete('saved')}
-                                    title="Eliminar archivo"
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                )}
-                              </Box>
+                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(savedCaracterizacion.url, savedCaracterizacion.name)}>Ver</Button>
+                              {!isReadOnly && (
+                                <IconButton size="small" color="error" onClick={() => handleRequestDelete('caracterizacion')} title="Eliminar"><DeleteIcon fontSize="small" /></IconButton>
+                              )}
                             </Box>
                           </Box>
                         )}
-
-                        {/* Selected File Display */}
-                        {selectedFile && (
-                          <Box sx={{ mt: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc80' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        {selectedCaracterizacion && (
+                          <Box sx={{ mt: 1, p: 2, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc80' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <UploadIcon color="warning" />
                               <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 600 }}>
-                                  {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                                </Typography>
+                                <Typography variant="subtitle2" fontWeight={600}>{selectedCaracterizacion.name} ({(selectedCaracterizacion.size / 1024).toFixed(1)} KB)</Typography>
                                 <Chip label="Por subir" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />
                               </Box>
-                              <Box>
-                                <Button
-                                  size="small"
-                                  startIcon={<VisibilityIcon />}
-                                  onClick={() => handlePreview(URL.createObjectURL(selectedFile), selectedFile.name)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Ver
-                                </Button>
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleRequestDelete('selected')}
-                                  title="Quitar archivo"
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Box>
+                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(URL.createObjectURL(selectedCaracterizacion), selectedCaracterizacion.name)}>Ver</Button>
+                              <IconButton size="small" color="error" onClick={() => handleRequestDelete('caracterizacion')} title="Quitar"><DeleteIcon fontSize="small" /></IconButton>
                             </Box>
                           </Box>
                         )}
-
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          style={{ display: 'none' }}
-                          onChange={handleFileSelect}
-                          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                        />
+                        {!isReadOnly && (
+                          <Button variant="outlined" size="small" startIcon={<UploadIcon />} onClick={() => handleUploadClick('caracterizacion')} sx={{ mt: 1 }}>Subir caracterización</Button>
+                        )}
                       </Box>
                     </Box>
                   </Paper>
                 </Box>
 
+                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" />
+
                 {!isReadOnly && (
                   <Box>
                     <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
-                      <Button
-                        variant="outlined"
-                        startIcon={<UploadIcon />}
-                        onClick={handleUploadClick}
-                        sx={{
-                          borderRadius: 2,
-                          px: 3,
-                          borderColor: '#C8D900',
-                          color: '#C8D900',
-                          '&:hover': {
-                            borderColor: '#B8C800',
-                            backgroundColor: 'rgba(200, 217, 0, 0.08)',
-                          },
-                        }}
-                      >
-                        Adjuntar Archivos
-                      </Button>
                       <Button
                         variant="contained"
                         startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
@@ -661,13 +700,14 @@ export default function AnalisisProcesoPage() {
       <Dialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        maxWidth="lg"
+        maxWidth="md"
         fullWidth
         fullScreen={isMobile}
         PaperProps={{
           sx: {
             height: isMobile ? '100%' : '90vh',
             maxHeight: isMobile ? '100%' : '90vh',
+            maxWidth: isMobile ? '100%' : 900,
             borderRadius: isMobile ? 0 : 2,
           }
         }}

@@ -649,8 +649,8 @@ export default function MaterializarRiesgosPage() {
                 <Box />
                 <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPO RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">SUBTIPO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA TIPO I</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA TIPO II</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
               </Box>
@@ -691,11 +691,11 @@ export default function MaterializarRiesgosPage() {
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary">
-                      {riesgo.tipologiaNivelI || riesgo.tipoRiesgo || '02 Operacional'}
+                      {riesgo.tipologiaNivelI || riesgo.tipoRiesgo || 'Sin tipología I'}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary">
-                      {riesgo.tipologiaNivelII || riesgo.subtipoRiesgo || 'Sin subtipo'}
+                      {riesgo.tipologiaNivelII || riesgo.subtipoRiesgo || 'Sin tipología II'}
                     </Typography>
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -1178,7 +1178,7 @@ export default function MaterializarRiesgosPage() {
 
 
       {/* DIALOG DETALLE INCIDENCIA */}
-      <Dialog open={detalleDialogOpen} onClose={() => setDetalleDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={detalleDialogOpen} onClose={() => setDetalleDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle sx={{ bgcolor: 'warning.main', color: 'white' }}>Detalle de Incidencia / Materialización</DialogTitle>
         <DialogContent dividers>
           {incidenciaSeleccionada && (

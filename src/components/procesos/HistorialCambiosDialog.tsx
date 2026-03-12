@@ -102,7 +102,6 @@ export default function HistorialCambiosDialog({
       contextoInterno: 'Contexto Interno',
       contextoExterno: 'Contexto Externo',
       dofa: 'DOFA',
-      benchmarking: 'Benchmarking',
     };
     return nombres[seccion] || seccion;
   };
@@ -126,7 +125,7 @@ export default function HistorialCambiosDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <HistoryIcon color="primary" />

@@ -33,6 +33,7 @@ import {
   Button,
   Alert,
   Collapse,
+  Badge,
 } from '@mui/material';
 import ListItemText from '@mui/material/ListItemText';
 import Chip from '@mui/material/Chip';
@@ -67,7 +68,6 @@ import {
   Notifications as NotificationsIcon,
   Functions as FunctionsIcon,
   ViewList as ViewListIcon,
-  Badge,
 
   ExpandLess,
   ExpandMore,
@@ -86,85 +86,20 @@ import { useAuth } from '../../contexts/AuthContext';
 import PerfilDialog from '../profile/PerfilDialog';
 import { useRiesgo } from "../../contexts/RiesgoContext";
 import { useProceso } from "../../contexts/ProcesoContext";
-import { useGetProcesosQuery } from "../../api/services/riesgosApi";
 import { useNotification } from "../../hooks/useNotification";
-import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from "../../hooks/useAsignaciones";
+import { useAreasProcesosAsignados, useProcesosVisibles } from "../../hooks/useAsignaciones";
 import VirtualAssistantDemo from "../common/VirtualAssistantDemo";
 import NotificationsMenu from "../common/NotificationsMenu";
 import { useAuditNotifications } from "../../hooks/useAuditNotifications";
-const DRAWER_WIDTH = 280;
-const DRAWER_WIDTH_COLLAPSED = 70;
-
-interface MenuItemType {
-  text: string;
-  icon: React.ReactNode;
-  path?: string;
-  children?: MenuItemType[];
-}
-
-/** Mapeo texto menú → clave en theme.palette.sidebar.mainMenu */
-const MAIN_MENU_KEYS: Record<string, string> = {
-  'Dashboard': 'dashboard',
-  'Procesos': 'procesos',
-  'Identificación y Calificación': 'identificacion',
-  'Controles y Planes de Acción': 'controles',
-  'Materializar Riesgos': 'materializarRiesgos',
-  'Historial': 'historial',
-  'Usuarios': 'usuarios',
-  'Áreas y Asignaciones': 'areasAsignaciones',
-  'Conf. Mapa Riesgos': 'confMapaRiesgos',
-  'Parámetros de Calificación': 'parametrosCalificacion',
-  'Calificación Inherente': 'calificacionInherente',
-  'Calificación Residual': 'calificacionResidual',
-  'Historial': 'historial',
-};
-const DEFAULT_MENU_COLOR = '#1976d2';
-
-const menuItems: MenuItemType[] = [
-  {
-    text: 'Dashboard',
-    icon: <DashboardIcon />,
-    children: [
-      { text: 'Estadísticas', icon: <TrendingUpIcon />, path: ROUTES.DASHBOARD_SUPERVISOR },
-      { text: 'Mapa de Riesgo', icon: <MapIcon />, path: ROUTES.MAPA },
-    ],
-  },
-  {
-    text: 'Procesos',
-    icon: <AccountTreeIcon />,
-    children: [
-      { text: 'Ficha del Proceso', icon: <DescriptionIcon />, path: ROUTES.FICHA },
-      { text: 'Análisis de Proceso', icon: <AccountTreeIcon />, path: ROUTES.ANALISIS_PROCESO },
-      { text: 'Normatividad', icon: <DescriptionIcon />, path: ROUTES.NORMATIVIDAD },
-      { text: 'Contexto Interno', icon: <BusinessIcon />, path: ROUTES.CONTEXTO_INTERNO },
-      { text: 'Contexto Externo', icon: <PublicIcon />, path: ROUTES.CONTEXTO_EXTERNO },
-      { text: 'DOFA', icon: <AnalyticsIcon />, path: ROUTES.DOFA },
-      { text: 'Benchmarking', icon: <CompareArrowsIcon />, path: ROUTES.BENCHMARKING },
-    ],
-  },
-  {
-    text: 'Identificación y Calificación',
-    icon: <AssessmentIcon />,
-    path: ROUTES.IDENTIFICACION,
-  },
-  {
-    text: 'Controles y Planes de Acción',
-    icon: <SecurityIcon />,
-    path: ROUTES.PLAN_ACCION,
-  },
-  {
-    text: 'Materializar Riesgos',
-    icon: <WarningIcon />,
-    path: ROUTES.INCIDENCIAS,
-  },
-  {
-    text: 'Historial',
-    icon: <HistoryIcon />,
-    path: ROUTES.HISTORIAL,
-  },
-];
-
 import { useCalificacionInherenteConfig } from '../../hooks/useCalificacionInherenteConfig';
+import {
+  DRAWER_WIDTH,
+  DRAWER_WIDTH_COLLAPSED,
+  menuItems,
+  MAIN_MENU_KEYS,
+  DEFAULT_MENU_COLOR,
+  type MenuItemType,
+} from './menuConfig';
 
 export default function MainLayout() {
   // Inicializar cache de configuración de calificación inherente
@@ -303,25 +238,8 @@ export default function MainLayout() {
       setModoManagerDialogOpen(false);
     }
   }, [esManager, managerMode]);
-  const { data: procesos = [] } = useGetProcesosQuery();
+  const { procesosVisibles: procesosDisponibles } = useProcesosVisibles();
   const { showSuccess, showError } = useNotification();
-
-  // Filtrar procesos según el rol del usuario
-  const procesosDisponibles = useMemo(() => {
-    if (esAdmin) {
-      return procesos;
-    } else if (esSupervisorRiesgos && user && !esGerenteGeneral) {
-      // Director solo ve procesos de sus áreas asignadas
-      return procesos.filter((p) => p.directorId === user.id);
-    } else if (esGerenteGeneralProceso) {
-      // Gerente General Proceso ve procesos asignados desde AreasPage
-      return procesos.filter((p) => procesosAsignados.includes(String(p.id)));
-    } else if (esDueñoProcesos) {
-      // Dueño del proceso (incluye Gerente General en modo Dueño)
-      return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
-    }
-    return procesos;
-  }, [procesos, esAdmin, esSupervisorRiesgos, esGerenteGeneralProceso, procesosAsignados, esGerenteGeneral, user]);
 
   const handleSelectGerenteMode = (mode: 'director' | 'proceso') => {
     setGerenteGeneralMode(mode);

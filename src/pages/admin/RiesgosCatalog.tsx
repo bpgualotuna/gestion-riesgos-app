@@ -95,7 +95,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     };
 
     const handleDelete = (codigo: string) => {
-        if (confirmarEliminar('este tipo de riesgo')) {
+        if (confirmarEliminar('esta tipología tipo I')) {
             const newData = data.filter(d => d.codigo !== codigo);
             onSave(newData);
         }
@@ -124,7 +124,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         { field: 'descripcion', headerName: 'Descripción', flex: 2 },
         {
             field: 'subtipos',
-            headerName: 'Subtipos',
+            headerName: 'Tipologías tipo II',
             width: 100,
             valueGetter: (value, row) => row.subtipos?.length || 0
         },
@@ -151,7 +151,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     return (
         <Box>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6">Tipos de Riesgo</Typography>
+                <Typography variant="h6">Tipologías tipo I</Typography>
                 {canEdit && (
                     <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
                         Nuevo Tipo
@@ -165,8 +165,8 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                 onRowClick={(params) => handleOpenDetailDialog(params.row)}
             />
 
-            <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-                <DialogTitle>{editingItem ? 'Editar Tipo de Riesgo' : 'Nuevo Tipo de Riesgo'}</DialogTitle>
+            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
+                <DialogTitle>{editingItem ? 'Editar Tipología tipo I' : 'Nueva Tipología tipo I'}</DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         <Grid2 xs={12} md={4}>
@@ -200,17 +200,17 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                         </Grid2>
 
                         <Grid2 xs={12}>
-                            <Typography variant="subtitle1" gutterBottom>Subtipos</Typography>
+                            <Typography variant="subtitle1" gutterBottom>Tipologías tipo II</Typography>
                             <Paper variant="outlined" sx={{ p: 2 }}>
                                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                                     <TextField
-                                        label="Código Subtipo"
+                                        label="Código Tipología tipo II"
                                         size="small"
                                         value={newSubtipo.codigo}
                                         onChange={(e) => setNewSubtipo({ ...newSubtipo, codigo: e.target.value })}
                                     />
                                     <TextField
-                                        label="Descripción Subtipo"
+                                        label="Descripción Tipología tipo II"
                                         size="small"
                                         fullWidth
                                         value={newSubtipo.descripcion}
@@ -233,7 +233,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                     ))}
                                     {formData.subtipos.length === 0 && (
                                         <Typography variant="body2" color="text.secondary" align="center">
-                                            No hay subtipos agregados
+                                            No hay tipologías tipo II agregadas
                                         </Typography>
                                     )}
                                 </List>
@@ -248,8 +248,8 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
             </Dialog>
 
             {/* MODAL DE DETALLE */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
-                <DialogTitle>Información del Tipo de Riesgo</DialogTitle>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
+                <DialogTitle>Información de la Tipología tipo I</DialogTitle>
                 <DialogContent>
                     {selectedDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -266,7 +266,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                                 <Typography variant="body1">{selectedDetail.descripcion || '-'}</Typography>
                             </Box>
                             <Box>
-                                <Typography variant="body2" color="text.secondary">Subtipos</Typography>
+                                <Typography variant="body2" color="text.secondary">Tipologías tipo II</Typography>
                                 {selectedDetail.subtipos && selectedDetail.subtipos.length > 0 ? (
                                     <List dense>
                                         {selectedDetail.subtipos.map((sub, index) => (

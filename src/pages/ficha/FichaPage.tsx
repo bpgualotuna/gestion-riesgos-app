@@ -32,9 +32,9 @@ import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as Vis
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdateProcesoMutation, useGetProcesosQuery, useGetGerenciasQuery } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation, useGetGerenciasQuery } from '../../api/services/riesgosApi';
 import { useEffect } from 'react';
-import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
+import { useProcesosFiltradosPorArea } from '../../hooks/useAsignaciones';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
@@ -55,12 +55,18 @@ interface FichaData {
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
-  const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, user } = useAuth();
+  const { user, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso } = useAuth();
   const [updateProceso] = useUpdateProcesoMutation();
-  const { data: procesos = [] } = useGetProcesosQuery();
+  const {
+    procesosVisibles: procesosDisponibles,
+    areasDisponibles,
+    procesosFiltrados,
+    procesosFiltradosUnicos,
+    filtroArea,
+    setFiltroArea,
+  } = useProcesosFiltradosPorArea('all');
   const { data: gerencias = [] } = useGetGerenciasQuery();
   const { procesoId } = useParams<{ procesoId?: string }>();
-  const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
 
   // Memoizar gerencia map para evitar recalcular constantemente
   const gerenciaMap = useMemo(() => {
@@ -84,7 +90,7 @@ export default function FichaPage() {
 
   // Obtener proceso del parámetro de ruta o del contexto
   const procesoActual = procesoId
-    ? procesos.find(p => String(p.id) === String(procesoId))
+    ? procesosDisponibles.find((p: any) => String(p.id) === String(procesoId))
     : procesoSeleccionado;
 
   // Dueño de Proceso: si no tiene proceso seleccionado (ni por URL ni por header), mostrar solo mensaje
@@ -102,59 +108,7 @@ export default function FichaPage() {
     );
   }
 
-  const procesosDisponibles = useMemo(() => {
-    if (esAdmin) return procesos;
-
-    // Gerente General Director o Supervisor
-    if (esGerenteGeneralDirector || esSupervisorRiesgos) {
-      if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
-      return procesos.filter((p: any) => {
-        if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
-        return false;
-      });
-    }
-
-    // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
-    // Ve solo sus procesos como responsable (igual que dueño de proceso)
-    if (esGerenteGeneralProceso) {
-      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user?.id));
-    }
-
-    // Dueño de Proceso (incluye Gerente General en modo Dueño)
-    if (esDueñoProcesos) {
-      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
-    }
-
-    return procesos;
-  }, [procesos, esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, areasAsignadas, procesosAsignados, user]);
-
-  const [filtroArea, setFiltroArea] = useState<string>('all');
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
-
-  const areasDisponibles = useMemo(() => {
-    const map = new Map<string, string>();
-    procesosDisponibles.forEach((p: any) => {
-      if (p.areaId) map.set(p.areaId, p.areaNombre || `Área ${p.areaId}`);
-    });
-    return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [procesosDisponibles]);
-
-  const procesosFiltrados = useMemo(() => {
-    let filtrados = procesosDisponibles;
-    if (filtroArea !== 'all') {
-      filtrados = filtrados.filter((p: any) => p.areaId === filtroArea);
-    }
-    return filtrados;
-  }, [procesosDisponibles, filtroArea]);
-
-  const procesosFiltradosUnicos = useMemo(() => {
-    const map = new Map<string, any>();
-    procesosFiltrados.forEach((p: any) => {
-      if (!map.has(p.id)) map.set(p.id, p);
-    });
-    return Array.from(map.values());
-  }, [procesosFiltrados]);
 
   const procesosPorArea = useMemo(() => {
     const grouped: Record<string, { areaId: string; areaNombre: string; procesos: any[] }> = {};

@@ -58,9 +58,10 @@ export function useUnsavedChanges(options: UseUnsavedChangesOptions): UseUnsaved
   const [shouldBlock, setShouldBlock] = useState(false);
   const hasUnsavedRef = useRef(hasUnsavedChanges);
 
-  // Actualizar ref cuando cambia hasUnsavedChanges
+  // Mantener ref actualizado en cada render para que el blocker vea el valor correcto de inmediato
+  hasUnsavedRef.current = hasUnsavedChanges && !disabled;
+
   useEffect(() => {
-    hasUnsavedRef.current = hasUnsavedChanges && !disabled;
     setShouldBlock(hasUnsavedChanges && !disabled);
   }, [hasUnsavedChanges, disabled]);
 
@@ -132,6 +133,14 @@ export function useUnsavedChanges(options: UseUnsavedChangesOptions): UseUnsaved
  * Hook simplificado para detectar cambios en objetos
  * Compara el estado inicial con el estado actual
  */
+/** Comparación estable por valor (objetos ordenados por clave para evitar falsos positivos) */
+function stableJson(obj: unknown): string {
+  if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+  if (Array.isArray(obj)) return '[' + obj.map(stableJson).join(',') + ']';
+  const keys = Object.keys(obj as object).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableJson((obj as Record<string, unknown>)[k])).join(',') + '}';
+}
+
 export function useFormChanges<T extends Record<string, any>>(
   initialData: T,
   currentData: T,
@@ -142,35 +151,28 @@ export function useFormChanges<T extends Record<string, any>>(
     ignoreFields?: (keyof T)[];
     
     /**
-     * Comparación profunda (por defecto: false)
+     * Comparación profunda por valor (por defecto: true para detectar solo cambios reales)
      */
     deepCompare?: boolean;
   }
 ): boolean {
-  const { ignoreFields = [], deepCompare = false } = options || {};
+  const { ignoreFields = [], deepCompare = true } = options || {};
 
   return useCallback(() => {
     if (!initialData || !currentData) return false;
 
-    const keys = Object.keys(currentData) as (keyof T)[];
+    const keys = new Set([...Object.keys(initialData), ...Object.keys(currentData)]) as Set<keyof T>;
     
     for (const key of keys) {
-      // Ignorar campos especificados
       if (ignoreFields.includes(key)) continue;
 
       const initial = initialData[key];
       const current = currentData[key];
 
       if (deepCompare) {
-        // Comparación profunda usando JSON
-        if (JSON.stringify(initial) !== JSON.stringify(current)) {
-          return true;
-        }
+        if (stableJson(initial) !== stableJson(current)) return true;
       } else {
-        // Comparación superficial
-        if (initial !== current) {
-          return true;
-        }
+        if (initial !== current) return true;
       }
     }
 

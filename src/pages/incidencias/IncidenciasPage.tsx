@@ -424,7 +424,7 @@ export default function IncidenciasPage() {
                 <Box />
                 <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPO RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA TIPO I</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary">CAUSAS</Typography>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
@@ -963,7 +963,7 @@ export default function IncidenciasPage() {
 
 
       {/* DIALOG DETALLE INCIDENCIA */}
-      <Dialog open={detalleDialogOpen} onClose={() => setDetalleDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={detalleDialogOpen} onClose={() => setDetalleDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle sx={{ bgcolor: 'warning.main', color: 'white' }}>Detalle de Incidencia / Materialización</DialogTitle>
         <DialogContent dividers>
           {incidenciaSeleccionada && (

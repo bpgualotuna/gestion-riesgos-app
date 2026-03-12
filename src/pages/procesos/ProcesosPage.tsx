@@ -3,7 +3,7 @@
  * Gestión de procesos - Solo visible para Dueño del Proceso
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -45,7 +45,7 @@ import {
 import { useGetProcesosQuery, useCreateProcesoMutation, useDeleteProcesoMutation } from '../../api/services/riesgosApi';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
+import { useProcesosVisibles } from '../../hooks/useAsignaciones';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useRevisionProceso } from '../../hooks/useRevisionProceso';
@@ -61,8 +61,8 @@ import DialogActions from '@mui/material/DialogActions';
 export default function ProcesosPage() {
   const { data: procesos = [], isLoading, refetch } = useGetProcesosQuery();
   const { procesoSeleccionado, setProcesoSeleccionado, puedeGestionarProcesos } = useProceso();
-  const { user, esAdmin, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralProceso } = useAuth();
-  const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
+  const { user, esAdmin, esDueñoProcesos } = useAuth();
+  const { procesosVisibles } = useProcesosVisibles();
   const [createProceso, { isLoading: isCreating }] = useCreateProcesoMutation();
   const [deleteProceso] = useDeleteProcesoMutation();
   const { showSuccess, showError } = useNotification();
@@ -139,27 +139,6 @@ export default function ProcesosPage() {
 
   const [showForm, setShowForm] = useState(false);
 
-  const procesosVisibles = useMemo(() => {
-    // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
-    // Ve solo sus procesos como responsable (igual que dueño de proceso)
-    if (esGerenteGeneralProceso && user) {
-      return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
-    }
-    // Dueño de Proceso (incluye Gerente General en modo Dueño)
-    if (esDueñoProcesos) {
-      return procesos.filter((p) => esUsuarioResponsableProceso(p, user.id));
-    }
-    if (esSupervisorRiesgos) {
-      if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
-      return procesos.filter((p) => {
-        if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(p.areaId)) return true;
-        return false;
-      });
-    }
-    return procesos;
-  }, [procesos, procesosAsignados, areasAsignadas, esDueñoProcesos, esGerenteGeneralProceso, esSupervisorRiesgos, user]);
-  
   // Obtener observaciones de un proceso usando el hook
   const getObservacionesProceso = (procesoId: string): any[] => {
     if (typeof obtenerObservaciones !== 'function') {
@@ -295,7 +274,7 @@ export default function ProcesosPage() {
         showSuccess('Proceso eliminado exitosamente');
         // Si el proceso eliminado era el seleccionado, seleccionar otro
         if (procesoSeleccionado?.id === id) {
-          const otrosProcesos = procesos.filter((p) => p.id !== id);
+          const otrosProcesos = procesosVisibles.filter((p) => p.id !== id);
           if (otrosProcesos.length > 0) {
             setProcesoSeleccionado(otrosProcesos[0]);
           } else {
@@ -309,7 +288,7 @@ export default function ProcesosPage() {
   };
 
   const handleSelect = (procesoId: string) => {
-    const proceso = procesos.find((p) => p.id === procesoId);
+    const proceso = procesosVisibles.find((p) => p.id === procesoId);
     if (proceso) {
       setProcesoSeleccionado(proceso);
       showSuccess(`Proceso "${proceso.nombre}" seleccionado`);
@@ -664,7 +643,7 @@ export default function ProcesosPage() {
       </Dialog>
 
       {/* Diálogo de historial */}
-      <Dialog open={historialDialogOpen} onClose={() => setHistorialDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={historialDialogOpen} onClose={() => setHistorialDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle>
           Historial de Cambios
           {procesoParaAccion && ` - ${procesoParaAccion.nombre}`}

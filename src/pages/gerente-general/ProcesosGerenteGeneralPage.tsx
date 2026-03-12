@@ -3,7 +3,7 @@
  * Similar a ProcesosPage pero solo muestra procesos de tipo gerencial
  */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,7 +15,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Alert,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -26,31 +25,19 @@ import {
   Edit as EditIcon,
   ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
-import { useGetProcesosQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import AlertNoPermisos from '../../components/common/AlertNoPermisos';
+import { useProcesosGerenciales } from '../../hooks/useAsignaciones';
 import type { Proceso } from '../../types';
 
 export default function ProcesosGerenteGeneralPage() {
   const navigate = useNavigate();
   const { esGerenteGeneral } = useAuth();
-  const { data: procesos = [], isLoading } = useGetProcesosQuery();
+  const { procesos: procesosGerenciales, loading: isLoading } = useProcesosGerenciales();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [procesoSeleccionado, setProcesoSeleccionado] = useState<Proceso | null>(null);
-
-  // Filtrar solo procesos gerenciales
-  const procesosGerenciales = useMemo(() => {
-    return procesos.filter((p: Proceso) => {
-      const tipoProceso = (p.tipoProceso || '').toLowerCase();
-      return (
-        tipoProceso.includes('gerencial') ||
-        tipoProceso.includes('gerencia') ||
-        tipoProceso.includes('01 estratégico') ||
-        tipoProceso === '01 estratégico'
-      );
-    });
-  }, [procesos]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, proceso: Proceso) => {
     event.stopPropagation();
@@ -77,13 +64,7 @@ export default function ProcesosGerenteGeneralPage() {
     handleMenuClose();
   };
 
-  if (!esGerenteGeneral) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">No tiene permisos para acceder a esta página.</Alert>
-      </Box>
-    );
-  }
+  if (!esGerenteGeneral) return <AlertNoPermisos />;
 
   return (
     <Box sx={{ p: 3 }}>

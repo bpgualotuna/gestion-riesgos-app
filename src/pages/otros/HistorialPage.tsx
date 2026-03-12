@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -20,6 +20,7 @@ import {
   Stack,
   Card,
   CardContent,
+  IconButton,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -27,15 +28,25 @@ import {
   Refresh as RefreshIcon,
   Info as InfoIcon,
   Close as CloseIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
-import AppDataGrid from '../../components/ui/AppDataGrid';
-import type { GridColDef } from '@mui/x-data-grid';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import axios from 'axios';
 import { AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
+// Nombres legibles para campos del historial de cambios
+const NOMBRE_CAMPO: Record<string, string> = {
+  contextos: 'Contextos',
+  dofaItems: 'Ítems DOFA',
+  participantes: 'Participantes',
+  normatividades: 'Normatividades',
+};
 
 // Mapeo de tablas de BD a nombres de páginas/módulos
 const TABLA_A_PAGINA: Record<string, string> = {
@@ -48,6 +59,7 @@ const TABLA_A_PAGINA: Record<string, string> = {
   'PriorizacionRiesgo': 'Priorización',
   'CausaRiesgo': 'Causas de Riesgo',
   'ControlRiesgo': 'Controles',
+  'Control': 'Controles',
   'Area': 'Áreas y Asignaciones',
   'Role': 'Roles y Permisos',
   'Cargo': 'Cargos',
@@ -55,9 +67,10 @@ const TABLA_A_PAGINA: Record<string, string> = {
   'DofaItem': 'Análisis DOFA',
   'Normatividad': 'Normatividad',
   'Contexto': 'Contexto',
-  'Benchmarking': 'Benchmarking',
   'Gerencia': 'Gerencias',
   'Observacion': 'Observaciones',
+  'CalificacionInherenteConfig': 'Calificación Inherente',
+  'ConfiguracionResidual': 'Configuración Residual',
 };
 
 // Helper para formatear fechas sin dependencias externas
@@ -91,6 +104,73 @@ const formatearFechaDetallada = (fecha: string | Date): string => {
   
   return `${dia}/${mes}/${anio} a las ${horas}:${minutos}:${segundos}`;
 };
+
+/** Formatea el valor para "Detalles del Cambio": resumen para listas/objetos grandes, sin volcar JSON completo */
+const formatearValorParaDetalle = (valor: unknown): string => {
+  if (valor === null || valor === undefined) return '—';
+  if (Array.isArray(valor)) {
+    if (valor.length === 0) return 'Lista vacía';
+    return `Lista de ${valor.length} elemento${valor.length === 1 ? '' : 's'}`;
+  }
+  if (typeof valor === 'object') {
+    const keys = Object.keys(valor as object);
+    const str = JSON.stringify(valor);
+    if (str.length > 400 || keys.length > 5) {
+      return `Objeto (${keys.length} propiedad${keys.length === 1 ? '' : 'es'})`;
+    }
+  }
+  if (typeof valor === 'boolean') return valor ? 'Sí' : 'No';
+  const str = String(valor);
+  return str.length > 400 ? `${str.slice(0, 397)}…` : str;
+};
+
+/** Campos que se ignoran al mostrar cambios en ítems (ids, timestamps) */
+const CAMPOS_IGNORADOS_ITEM = ['id', 'procesoId', 'createdAt', 'updatedAt', '$type'];
+
+/** Calcula el diff entre dos arrays de objetos con id; devuelve solo lo que realmente cambió */
+function diffArraysById(
+  anterior: unknown,
+  nuevo: unknown
+): { added: number; removed: number; modified: { id: number | string; campos: { campo: string; anterior: string; nuevo: string }[] }[] } | null {
+  if (!Array.isArray(anterior) || !Array.isArray(nuevo)) return null;
+  const getId = (o: any) => o?.id;
+  const toMap = (arr: any[]) => {
+    const m = new Map<string, any>();
+    arr.forEach((item) => {
+      const id = getId(item);
+      if (id != null) m.set(String(id), item);
+    });
+    return m;
+  };
+  const mapA = toMap(anterior);
+  const mapN = toMap(nuevo);
+  const idsA = new Set(mapA.keys());
+  const idsN = new Set(mapN.keys());
+  const added = [...idsN].filter((id) => !idsA.has(id)).length;
+  const removed = [...idsA].filter((id) => !idsN.has(id)).length;
+  const modified: { id: number | string; campos: { campo: string; anterior: string; nuevo: string }[] }[] = [];
+  for (const id of idsA) {
+    if (!idsN.has(id)) continue;
+    const a = mapA.get(id);
+    const n = mapN.get(id);
+    const allKeys = new Set([...Object.keys(a || {}), ...Object.keys(n || {})]);
+    const campos: { campo: string; anterior: string; nuevo: string }[] = [];
+    for (const key of allKeys) {
+      if (CAMPOS_IGNORADOS_ITEM.includes(key)) continue;
+      const va = a?.[key];
+      const vn = n?.[key];
+      const sa = typeof va === 'object' ? JSON.stringify(va) : String(va ?? '');
+      const sn = typeof vn === 'object' ? JSON.stringify(vn) : String(vn ?? '');
+      if (sa !== sn) {
+        const trunc = (s: string) => (s.length > 120 ? s.slice(0, 117) + '…' : s);
+        campos.push({ campo: key, anterior: trunc(sa), nuevo: trunc(sn) });
+      }
+    }
+    if (campos.length > 0) modified.push({ id, campos });
+  }
+  if (added === 0 && removed === 0 && modified.length === 0) return null;
+  return { added, removed, modified };
+}
 
 interface AuditLog {
   id: number;
@@ -136,6 +216,10 @@ export default function HistorialPage() {
     pageSize: 50,
     total: 0,
   });
+  type SortFieldHistorial = 'createdAt' | 'usuarioNombre' | 'usuarioRole' | 'accion' | 'tabla' | 'registroDesc' | 'cambiosCount';
+  const [sortField, setSortField] = useState<SortFieldHistorial>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [filterApplyKey, setFilterApplyKey] = useState(0);
 
   const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
 
@@ -150,7 +234,7 @@ export default function HistorialPage() {
       cargarUsuarios();
     }
     cargarHistorial();
-  }, [paginacion.page, paginacion.pageSize, puedeVerTodos]);
+  }, [paginacion.page, paginacion.pageSize, puedeVerTodos, usuarioIdFiltro, filterApplyKey]);
 
   const cargarUsuarios = async () => {
     try {
@@ -177,10 +261,14 @@ export default function HistorialPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setLogs(response.data.data || []);
+      const body = response.data;
+      const lista = Array.isArray(body) ? body : (body?.data ?? []);
+      const total = typeof body?.total === 'number' ? body.total : lista.length;
+
+      setLogs(lista);
       setPaginacion((prev) => ({
         ...prev,
-        total: response.data.total || 0,
+        total,
       }));
     } catch (err: any) {
       console.error('Error cargando historial:', err);
@@ -221,121 +309,46 @@ export default function HistorialPage() {
     });
   };
 
-  const columns: GridColDef[] = [
-    {
-      field: 'createdAt',
-      headerName: 'Fecha/Hora',
-      width: 180,
-      renderCell: (params) => formatearFecha(params.value),
-    },
-    {
-      field: 'usuarioNombre',
-      headerName: 'Usuario',
-      width: 200,
-      renderCell: (params) => (
-        <Box>
-          <Typography variant="body2" fontWeight={500}>
-            {params.value}
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {params.row.usuarioEmail}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      field: 'usuarioRole',
-      headerName: 'Rol',
-      width: 130,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color="primary"
-          variant="outlined"
-        />
-      ),
-    },
-    {
-      field: 'accion',
-      headerName: 'Acción',
-      width: 120,
-      renderCell: (params) => {
-        const color =
-          params.value === 'CREATE'
-            ? 'success'
-            : params.value === 'DELETE'
-            ? 'error'
-            : 'warning';
-        const label =
-          params.value === 'CREATE'
-            ? 'CREAR'
-            : params.value === 'DELETE'
-            ? 'ELIMINAR'
-            : 'ACTUALIZAR';
-        return <Chip label={label} size="small" color={color} />;
-      },
-    },
-    {
-      field: 'tabla',
-      headerName: 'Página/Módulo',
-      width: 180,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={500}>
-          {TABLA_A_PAGINA[params.value] || params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: 'registroDesc',
-      headerName: 'Registro',
-      flex: 1,
-      minWidth: 250,
-      renderCell: (params) => (
-        <Typography variant="body2" noWrap>
-          {params.value || '-'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'cambios',
-      headerName: 'Cambios',
-      width: 120,
-      align: 'center',
-      renderCell: (params) => {
-        if (!params.value) return <Typography variant="body2">-</Typography>;
-        const numCambios = Object.keys(params.value).length;
-        return (
-          <Chip
-            label={`${numCambios} campo${numCambios > 1 ? 's' : ''}`}
-            size="small"
-            variant="outlined"
-            color="info"
-          />
-        );
-      },
-    },
-    {
-      field: 'actions',
-      headerName: 'Detalles',
-      width: 100,
-      align: 'center',
-      sortable: false,
-      renderCell: (params) => (
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<InfoIcon />}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleVerDetalles(params.row);
-          }}
-        >
-          Ver
-        </Button>
-      ),
-    },
-  ];
+  const totalPages = Math.max(1, Math.ceil((paginacion.total || 0) / paginacion.pageSize));
+  const from = (paginacion.page - 1) * paginacion.pageSize + 1;
+  const to = Math.min(paginacion.page * paginacion.pageSize, paginacion.total || 0);
+
+  const sortedLogs = useMemo(() => {
+    const list = [...logs];
+    list.sort((a, b) => {
+      let va: number | string = '';
+      let vb: number | string = '';
+      if (sortField === 'createdAt') {
+        va = new Date(a.createdAt).getTime();
+        vb = new Date(b.createdAt).getTime();
+        return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number);
+      }
+      if (sortField === 'cambiosCount') {
+        va = Object.keys(a.cambios || {}).length;
+        vb = Object.keys(b.cambios || {}).length;
+        return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number);
+      }
+      va = (a as any)[sortField] ?? '';
+      vb = (b as any)[sortField] ?? '';
+      const cmp = String(va).localeCompare(String(vb), undefined, { sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [logs, sortField, sortDir]);
+
+  const handleSortHistorial = (field: SortFieldHistorial) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const applyFiltersAndReload = () => {
+    setPaginacion((p) => ({ ...p, page: 1 }));
+    setFilterApplyKey((k) => k + 1);
+  };
 
   return (
     <AppPageLayout title="Historial de Cambios" description="Registro de auditoría de todas las operaciones realizadas en el sistema">
@@ -364,9 +377,6 @@ export default function HistorialPage() {
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
-          <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-            Mostrando datos de ejemplo para visualización. Implementa el backend para ver datos reales.
-          </Typography>
         </Alert>
       )}
 
@@ -468,7 +478,7 @@ export default function HistorialPage() {
                 <Stack direction="row" spacing={2}>
                   <Button
                     variant="contained"
-                    onClick={cargarHistorial}
+                    onClick={applyFiltersAndReload}
                     fullWidth
                     disabled={loading}
                   >
@@ -488,24 +498,201 @@ export default function HistorialPage() {
         </Accordion>
       )}
 
-      {/* Tabla */}
-      <Paper elevation={2}>
-        <AppDataGrid
-          rows={logs}
-          columns={columns}
-          loading={loading}
-          getRowId={(row) => row.id}
-          autoHeight
-          disableRowSelectionOnClick
-        />
+      {/* Lista de ítems (encabezados ordenables + cards + paginación) */}
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        {/* Encabezados con ordenación (arriba) */}
+        {logs.length > 0 && (
+          <Box
+            sx={{
+              display: { xs: 'none', md: 'grid' },
+              gridTemplateColumns: '140px 180px 100px 100px 150px 1fr 100px 90px',
+              gap: 1,
+              px: 2,
+              py: 1.25,
+              bgcolor: 'grey.100',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Box component="button" onClick={() => handleSortHistorial('createdAt')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Fecha/Hora</Typography>
+              {sortField === 'createdAt' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSortHistorial('usuarioNombre')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Usuario</Typography>
+              {sortField === 'usuarioNombre' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSortHistorial('usuarioRole')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Rol</Typography>
+              {sortField === 'usuarioRole' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSortHistorial('accion')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Acción</Typography>
+              {sortField === 'accion' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSortHistorial('tabla')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Página/Módulo</Typography>
+              {sortField === 'tabla' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSortHistorial('registroDesc')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Registro</Typography>
+              {sortField === 'registroDesc' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSortHistorial('cambiosCount')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'center', font: 'inherit', justifyContent: 'center' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Cambios</Typography>
+              {sortField === 'cambiosCount' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box />
+          </Box>
+        )}
+
+        {/* Paginación (arriba, como otras páginas) */}
+        {(paginacion.total || 0) > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+              px: 2,
+              py: 1.25,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'grey.50',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Mostrando {from} - {to} de {paginacion.total}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton
+                size="small"
+                disabled={paginacion.page <= 1}
+                onClick={() => setPaginacion((p) => ({ ...p, page: p.page - 1 }))}
+                aria-label="Página anterior"
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+              <Typography variant="body2" sx={{ minWidth: 90, textAlign: 'center' }}>
+                Pág. {paginacion.page} de {totalPages}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={paginacion.page >= totalPages}
+                onClick={() => setPaginacion((p) => ({ ...p, page: p.page + 1 }))}
+                aria-label="Página siguiente"
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
+
+        {/* Lista de cards */}
+        {loading ? (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">Cargando historial...</Typography>
+          </Box>
+        ) : logs.length === 0 ? (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">No hay registros en el historial.</Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            {sortedLogs.map((log) => (
+              <Card
+                key={log.id}
+                variant="outlined"
+                sx={{
+                  borderRadius: 0,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+                  borderLeft: 'none',
+                  borderRight: 'none',
+                  '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
+                }}
+                onClick={() => handleVerDetalles(log)}
+              >
+                <CardContent sx={{ py: 1.25, px: 2, '&:last-child': { pb: 1.25 } }}>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', md: '140px 180px 100px 100px 150px 1fr 100px 90px' },
+                      gap: 1,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                      {formatearFecha(log.createdAt)}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={500} noWrap title={log.usuarioNombre}>
+                        {log.usuarioNombre}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap title={log.usuarioEmail} sx={{ lineHeight: 1.2 }}>
+                        {log.usuarioEmail}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Chip label={log.usuarioRole} size="small" color="primary" variant="outlined" sx={{ fontSize: '0.75rem' }} />
+                    </Box>
+                    <Box>
+                      <Chip
+                        label={
+                          log.accion === 'CREATE' ? 'CREAR' : log.accion === 'DELETE' ? 'ELIMINAR' : 'ACTUALIZAR'
+                        }
+                        size="small"
+                        color={
+                          log.accion === 'CREATE' ? 'success' : log.accion === 'DELETE' ? 'error' : 'warning'
+                        }
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight={500} noWrap title={TABLA_A_PAGINA[log.tabla] || log.tabla} sx={{ fontSize: '0.8rem' }}>
+                      {TABLA_A_PAGINA[log.tabla] || log.tabla}
+                    </Typography>
+                    <Typography variant="body2" noWrap sx={{ minWidth: 0, fontSize: '0.8rem' }}>
+                      {log.registroDesc || '-'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      {log.cambios ? (
+                        <Chip
+                          label={`${Object.keys(log.cambios).length} campo${Object.keys(log.cambios).length > 1 ? 's' : ''}`}
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </Box>
+                    <Box onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<InfoIcon />}
+                        onClick={() => handleVerDetalles(log)}
+                      >
+                        Ver
+                      </Button>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+
       </Paper>
 
-      {/* Dialog de Detalles */}
+      {/* Dialog de Detalles - ancho limitado para no tapar el panel de IA */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { maxWidth: 640 } }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -621,51 +808,60 @@ export default function HistorialPage() {
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   <Stack spacing={2}>
-                    {Object.entries(selectedLog.cambios).map(([campo, valores]) => (
-                      <Paper key={campo} variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                          {campo}
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="textSecondary">
-                              Valor Anterior
-                            </Typography>
-                            <Paper
-                              variant="outlined"
-                              sx={{
-                                p: 1,
-                                mt: 0.5,
-                                bgcolor: 'error.lighter',
-                                borderColor: 'error.light',
-                              }}
-                            >
-                              <Typography variant="body2" fontFamily="monospace">
-                                {JSON.stringify(valores.anterior, null, 2)}
+                    {Object.entries(selectedLog.cambios).map(([campo, valores]) => {
+                      const diff = diffArraysById(valores.anterior, valores.nuevo);
+                      const nombreCampo = NOMBRE_CAMPO[campo] ?? campo;
+                      return (
+                        <Paper key={campo} variant="outlined" sx={{ p: 2 }}>
+                          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                            {nombreCampo}
+                          </Typography>
+                          {diff ? (
+                            <Box>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                {diff.added > 0 && `${diff.added} agregado${diff.added === 1 ? '' : 's'}`}
+                                {diff.added > 0 && (diff.removed > 0 || diff.modified.length > 0) && ', '}
+                                {diff.removed > 0 && `${diff.removed} eliminado${diff.removed === 1 ? '' : 's'}`}
+                                {diff.removed > 0 && diff.modified.length > 0 && ', '}
+                                {diff.modified.length > 0 && `${diff.modified.length} modificado${diff.modified.length === 1 ? '' : 's'}`}
                               </Typography>
-                            </Paper>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="textSecondary">
-                              Valor Nuevo
-                            </Typography>
-                            <Paper
-                              variant="outlined"
-                              sx={{
-                                p: 1,
-                                mt: 0.5,
-                                bgcolor: 'success.lighter',
-                                borderColor: 'success.light',
-                              }}
-                            >
-                              <Typography variant="body2" fontFamily="monospace">
-                                {JSON.stringify(valores.nuevo, null, 2)}
-                              </Typography>
-                            </Paper>
-                          </Grid>
-                        </Grid>
-                      </Paper>
-                    ))}
+                              {diff.modified.map(({ id, campos: camposItem }) => (
+                                <Box key={String(id)} sx={{ mt: 1, pl: 1, borderLeft: 2, borderColor: 'primary.light' }}>
+                                  <Typography variant="caption" fontWeight={600}>Ítem {id}</Typography>
+                                  {camposItem.map((c) => (
+                                    <Box key={c.campo} sx={{ mt: 0.5 }}>
+                                      <Typography variant="caption" color="text.secondary">{c.campo}:</Typography>
+                                      <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>{c.anterior}</Typography>
+                                      <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>→</Typography>
+                                      <Typography variant="body2" component="span">{c.nuevo}</Typography>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              ))}
+                            </Box>
+                          ) : (
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="textSecondary">Valor Anterior</Typography>
+                                <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'error.lighter', borderColor: 'error.light' }}>
+                                  <Typography variant="body2" fontFamily="monospace">
+                                    {formatearValorParaDetalle(valores.anterior)}
+                                  </Typography>
+                                </Paper>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="textSecondary">Valor Nuevo</Typography>
+                                <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'success.lighter', borderColor: 'success.light' }}>
+                                  <Typography variant="body2" fontFamily="monospace">
+                                    {formatearValorParaDetalle(valores.nuevo)}
+                                  </Typography>
+                                </Paper>
+                              </Grid>
+                            </Grid>
+                          )}
+                        </Paper>
+                      );
+                    })}
                   </Stack>
                 </Box>
               )}

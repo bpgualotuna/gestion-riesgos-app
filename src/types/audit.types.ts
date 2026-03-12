@@ -21,8 +21,7 @@ export type TablaAuditoria =
   | 'ProcesoResponsable'
   | 'DofaItem'
   | 'Normatividad'
-  | 'Contexto'
-  | 'Benchmarking';
+  | 'Contexto';
 
 export interface CambioDetalle {
   anterior: any;

@@ -1,137 +1,232 @@
 /**
  * Contexto Interno Page
- * Análisis de factores internos según análisis Excel
+ * Análisis de factores internos: pestañas Positivo/Negativo, cada categoría con ítems (características) añadibles.
  */
 
 import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   TextField,
   Button,
+  Tabs,
+  Tab,
+  Paper,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Chip,
+  Divider,
 } from '@mui/material';
-import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon, ThumbUp as PositivoIcon, ThumbDown as NegativoIcon, Add as AddIcon, Delete as DeleteIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, MoreVert as MoreVertIcon, Send as SendIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
-import { Alert, Chip } from '@mui/material';
+import { Alert } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import AppPageLayout from '../../components/layout/AppPageLayout';
-import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
-interface ContextoInterno {
-  financieros: string;
-  gente: string;
-  procesos: string;
-  activosFisicos: string;
-  cadenaSuministro: string;
-  informacion: string;
-  sistemas: string;
-  proyectos: string;
-  impuestos: string;
-  gruposInteresInternos: string;
+type CategoryKey = 'financieros' | 'gente' | 'procesos' | 'activosFisicos' | 'cadenaSuministro' | 'informacion' | 'sistemas' | 'proyectos' | 'impuestos' | 'gruposInteresInternos';
+
+const DOFA_DIMENSIONES = [
+  { value: 'FORTALEZA', label: 'Fortaleza', letra: 'F' },
+  { value: 'OPORTUNIDAD', label: 'Oportunidad', letra: 'O' },
+  { value: 'DEBILIDAD', label: 'Debilidad', letra: 'D' },
+  { value: 'AMENAZA', label: 'Amenaza', letra: 'A' },
+] as const;
+
+type DofaDimension = typeof DOFA_DIMENSIONES[number]['value'];
+
+interface CaracteristicaItem {
+  id: string;
+  descripcion: string;
+  enviarADofa?: boolean;
+  dofaDimension?: DofaDimension;
 }
+
+const CATEGORIAS: { key: CategoryKey; label: string; tipo: string }[] = [
+  { key: 'financieros', label: 'Financieros', tipo: 'INTERNO_FINANCIEROS' },
+  { key: 'gente', label: 'Gente', tipo: 'INTERNO_GENTE' },
+  { key: 'procesos', label: 'Procesos', tipo: 'INTERNO_PROCESOS' },
+  { key: 'activosFisicos', label: 'Activos Físicos', tipo: 'INTERNO_ACTIVOSFISICOS' },
+  { key: 'cadenaSuministro', label: 'Cadena de Suministro', tipo: 'INTERNO_CADENASUMINISTRO' },
+  { key: 'informacion', label: 'Información', tipo: 'INTERNO_INFORMACION' },
+  { key: 'sistemas', label: 'Sistemas/Tecnología', tipo: 'INTERNO_SISTEMAS' },
+  { key: 'proyectos', label: 'Proyectos', tipo: 'INTERNO_PROYECTOS' },
+  { key: 'impuestos', label: 'Impuestos', tipo: 'INTERNO_IMPUESTOS' },
+  { key: 'gruposInteresInternos', label: 'Grupos de Interés Internos', tipo: 'INTERNO_GRUPOSINTERESINTERNOS' },
+];
+
+const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
+  CATEGORIAS.reduce((acc, { key }) => ({ ...acc, [key]: [] }), {} as Record<CategoryKey, CaracteristicaItem[]>);
 
 export default function ContextoInternoPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
-  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
+  const { data: procesoData, refetch: refetchProceso } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
-  const [formData, setFormData] = useState<ContextoInterno>({
-    financieros: '',
-    gente: '',
-    procesos: '',
-    activosFisicos: '',
-    cadenaSuministro: '',
-    informacion: '',
-    sistemas: '',
-    proyectos: '',
-    impuestos: '',
-    gruposInteresInternos: '',
-  });
-
-  const [initialFormData, setInitialFormData] = useState<ContextoInterno>(formData);
+  const [itemsPositivo, setItemsPositivo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
+  const [itemsNegativo, setItemsNegativo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
+  const [initialPositivo, setInitialPositivo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
+  const [initialNegativo, setInitialNegativo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
+  const [tabValue, setTabValue] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [accionMenuAnchor, setAccionMenuAnchor] = useState<{ el: HTMLElement; signo: 'POSITIVO' | 'NEGATIVO'; key: CategoryKey; id: string } | null>(null);
+  const [enviandoDofa, setEnviandoDofa] = useState(false);
 
-  // Detectar cambios
-  const hasFormChanges = useFormChanges(initialFormData, formData);
+  const arraysEqual = (a: CaracteristicaItem[], b: CaracteristicaItem[]) =>
+    a.length === b.length && a.every((x, i) =>
+      x.id === b[i].id && x.descripcion === b[i].descripcion &&
+      x.enviarADofa === b[i].enviarADofa && x.dofaDimension === b[i].dofaDimension
+    );
+  const hasChangesPositivo = CATEGORIAS.some(({ key }) => !arraysEqual(initialPositivo[key], itemsPositivo[key]));
+  const hasChangesNegativo = CATEGORIAS.some(({ key }) => !arraysEqual(initialNegativo[key], itemsNegativo[key]));
+  const hasAnyChanges = hasChangesPositivo || hasChangesNegativo;
 
-  // Sistema de cambios no guardados
   const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
-    hasUnsavedChanges: hasFormChanges && !isReadOnly,
+    hasUnsavedChanges: hasAnyChanges && !isReadOnly,
     message: 'Tiene cambios sin guardar en el análisis de contexto interno.',
     disabled: isReadOnly,
   });
 
   useEffect(() => {
-    if (procesoData && procesoData.contextos) {
-      const contextoMap: any = {};
-      procesoData.contextos.forEach((c: any) => {
-        if (c.tipo === 'INTERNO_FINANCIEROS') contextoMap.financieros = c.descripcion;
-        if (c.tipo === 'INTERNO_GENTE') contextoMap.gente = c.descripcion;
-        if (c.tipo === 'INTERNO_PROCESOS') contextoMap.procesos = c.descripcion;
-        if (c.tipo === 'INTERNO_ACTIVOSFISICOS') contextoMap.activosFisicos = c.descripcion;
-        if (c.tipo === 'INTERNO_CADENASUMINISTRO') contextoMap.cadenaSuministro = c.descripcion;
-        if (c.tipo === 'INTERNO_INFORMACION') contextoMap.informacion = c.descripcion;
-        if (c.tipo === 'INTERNO_SISTEMAS') contextoMap.sistemas = c.descripcion;
-        if (c.tipo === 'INTERNO_PROYECTOS') contextoMap.proyectos = c.descripcion;
-        if (c.tipo === 'INTERNO_IMPUESTOS') contextoMap.impuestos = c.descripcion;
-        if (c.tipo === 'INTERNO_GRUPOSINTERESINTERNOS') contextoMap.gruposInteresInternos = c.descripcion;
+    if (!procesoData) return;
+    const pos = emptyItems();
+    const neg = emptyItems();
+    const items = (procesoData as any).contextoItems as Array<{ id?: number; tipo: string; signo: string; descripcion: string; enviarADofa?: boolean; dofaDimension?: string }> | undefined;
+    if (Array.isArray(items)) {
+      items.forEach((it) => {
+        const cat = CATEGORIAS.find((c) => c.tipo === it.tipo);
+        if (!cat) return;
+        const entry: CaracteristicaItem = {
+          id: String(it.id ?? `${Date.now()}-${Math.random()}`),
+          descripcion: it.descripcion ?? '',
+          enviarADofa: it.enviarADofa === true,
+          dofaDimension: (it.dofaDimension && DOFA_DIMENSIONES.some(d => d.value === it.dofaDimension)) ? (it.dofaDimension as DofaDimension) : undefined,
+        };
+        if (String(it.signo).toUpperCase() === 'POSITIVO') pos[cat.key].push(entry);
+        else if (String(it.signo).toUpperCase() === 'NEGATIVO') neg[cat.key].push(entry);
       });
-      const newData = { ...formData, ...contextoMap };
-      setFormData(newData);
-      setInitialFormData(newData);
     }
+    // Pasar a la nueva estructura la info que ya estaba en Contexto (base de datos)
+    const contextos = procesoData.contextos as Array<{ tipo: string; descripcion: string }> | undefined;
+    if (Array.isArray(contextos)) {
+      contextos.forEach((c) => {
+        const isNeg = c.tipo.endsWith('_NEG');
+        const tipoBase = isNeg ? c.tipo.replace(/_NEG$/, '') : c.tipo;
+        const cat = CATEGORIAS.find((c2) => c2.tipo === tipoBase);
+        if (!cat || !c.descripcion?.trim()) return;
+        const entry: CaracteristicaItem = { id: `legacy-${c.tipo}`, descripcion: c.descripcion.trim(), enviarADofa: false };
+        // Si esa categoría aún no tiene ítems (p. ej. solo hay datos legacy), añadir este
+        if (isNeg) {
+          if (neg[cat.key].length === 0) neg[cat.key].push(entry);
+        } else {
+          if (pos[cat.key].length === 0) pos[cat.key].push(entry);
+        }
+      });
+    }
+    setItemsPositivo(pos);
+    setItemsNegativo(neg);
+    setInitialPositivo(pos);
+    setInitialNegativo(neg);
   }, [procesoData]);
 
-  const handleChange = (field: keyof ContextoInterno) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData((prev) => ({
+  const addItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey) => {
+    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
+    setter((prev) => ({
       ...prev,
-      [field]: e.target.value,
+      [key]: [...prev[key], { id: `temp-${Date.now()}-${Math.random()}`, descripcion: '', enviarADofa: false }],
     }));
+  };
+
+  const updateItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, descripcion: string) => {
+    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
+    setter((prev) => ({
+      ...prev,
+      [key]: prev[key].map((it) => (it.id === id ? { ...it, descripcion } : it)),
+    }));
+  };
+
+  const updateItemDofa = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, enviarADofa?: boolean, dofaDimension?: DofaDimension) => {
+    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
+    setter((prev) => ({
+      ...prev,
+      [key]: prev[key].map((it) =>
+        it.id === id ? { ...it, enviarADofa: enviarADofa ?? it.enviarADofa, dofaDimension: dofaDimension !== undefined ? dofaDimension : it.dofaDimension } : it
+      ),
+    }));
+  };
+
+  const removeItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
+    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
+    setter((prev) => ({ ...prev, [key]: prev[key].filter((it) => it.id !== id) }));
+  };
+
+  const dofaItems = (procesoData as any)?.dofaItems as Array<{ tipo: string; descripcion: string }> | undefined;
+  /** Busca en todo el DOFA (D, O, F, A); si el texto existe en alguna dimensión devuelve cuál, si no null. Solo puede estar en una. */
+  const getDofaStatus = (descripcion: string): { dimension: string } | null => {
+    if (!descripcion?.trim() || !Array.isArray(dofaItems)) return null;
+    const text = descripcion.trim().toLowerCase();
+    const found = dofaItems.find((d: any) => (d.descripcion || '').trim().toLowerCase() === text);
+    return found ? { dimension: found.tipo } : null;
   };
 
   const handleSave = async () => {
     if (!procesoSeleccionado) return;
-
-    const contextos = [
-      { tipo: 'INTERNO_FINANCIEROS', descripcion: formData.financieros },
-      { tipo: 'INTERNO_GENTE', descripcion: formData.gente },
-      { tipo: 'INTERNO_PROCESOS', descripcion: formData.procesos },
-      { tipo: 'INTERNO_ACTIVOSFISICOS', descripcion: formData.activosFisicos },
-      { tipo: 'INTERNO_CADENASUMINISTRO', descripcion: formData.cadenaSuministro },
-      { tipo: 'INTERNO_INFORMACION', descripcion: formData.informacion },
-      { tipo: 'INTERNO_SISTEMAS', descripcion: formData.sistemas },
-      { tipo: 'INTERNO_PROYECTOS', descripcion: formData.proyectos },
-      { tipo: 'INTERNO_IMPUESTOS', descripcion: formData.impuestos },
-      { tipo: 'INTERNO_GRUPOSINTERESINTERNOS', descripcion: formData.gruposInteresInternos },
-    ];
-
-    // Keep existing external context
+    const itemsInterno: Array<{ tipo: string; signo: string; descripcion: string; enviarADofa?: boolean; dofaDimension?: string }> = [];
+    CATEGORIAS.forEach(({ key, tipo }) => {
+      itemsPositivo[key].forEach((it) => {
+        if (it.descripcion.trim()) itemsInterno.push({
+          tipo, signo: 'POSITIVO', descripcion: it.descripcion.trim(),
+          enviarADofa: it.enviarADofa === true, dofaDimension: it.dofaDimension || undefined,
+        });
+      });
+      itemsNegativo[key].forEach((it) => {
+        if (it.descripcion.trim()) itemsInterno.push({
+          tipo, signo: 'NEGATIVO', descripcion: it.descripcion.trim(),
+          enviarADofa: it.enviarADofa === true, dofaDimension: it.dofaDimension || undefined,
+        });
+      });
+    });
+    const items = (procesoData as any).contextoItems as Array<{ tipo: string; signo: string; descripcion: string }> | undefined;
+    const itemsExterno = Array.isArray(items) ? items.filter((it: any) => String(it.tipo).startsWith('EXTERNO_')) : [];
+    const contextoItems = [...itemsInterno, ...itemsExterno];
     const existingExternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('EXTERNO_')) || [];
+
+    const currentDofa = (Array.isArray(dofaItems) ? [...dofaItems] : []) as Array<{ tipo: string; descripcion: string }>;
+    const descInDofa = new Set(currentDofa.map((d) => `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`));
+    itemsInterno.forEach((it) => {
+      if (it.enviarADofa && it.dofaDimension && it.descripcion) {
+        const key = `${it.dofaDimension}:${it.descripcion.trim().toLowerCase()}`;
+        if (!descInDofa.has(key)) {
+          currentDofa.push({ tipo: it.dofaDimension, descripcion: it.descripcion });
+          descInDofa.add(key);
+        }
+      }
+    });
+    const dofaPayload = currentDofa.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
 
     try {
       setIsSaving(true);
       await updateProceso({
-        id: procesoSeleccionado.id,
-        contextos: [...contextos, ...existingExternos]
-      }).unwrap();
-      
-      setInitialFormData(formData);
+        id: String(procesoSeleccionado.id),
+        contextos: existingExternos,
+        contextoItems,
+        dofaItems: dofaPayload,
+      } as any).unwrap();
+      setInitialPositivo(itemsPositivo);
+      setInitialNegativo(itemsNegativo);
       markAsSaved();
-      
-      showSuccess('Análisis de contexto interno guardado exitosamente');
+      showSuccess('Contexto interno guardado.');
     } catch {
-      showError('Error al guardar el contexto interno');
+      showError('Error al guardar.');
     } finally {
       setIsSaving(false);
     }
@@ -143,20 +238,128 @@ export default function ContextoInternoPage() {
   };
 
   const handleDiscardChanges = () => {
-    setFormData(initialFormData);
+    setItemsPositivo(initialPositivo);
+    setItemsNegativo(initialNegativo);
     forceNavigate();
   };
 
+  const enviarADofaAhora = async (dimension: DofaDimension, label: string, signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
+    if (!procesoSeleccionado || !procesoData) return;
+    const items = signo === 'POSITIVO' ? itemsPositivo[key] : itemsNegativo[key];
+    const it = items.find((i) => i.id === id);
+    if (!it?.descripcion.trim()) return;
+    const desc = it.descripcion.trim();
+    const currentDofa = (Array.isArray((procesoData as any).dofaItems) ? (procesoData as any).dofaItems : []) as Array<{ tipo: string; descripcion: string }>;
+    const yaExiste = currentDofa.some((d) => (d.descripcion || '').trim().toLowerCase() === desc.toLowerCase());
+    if (yaExiste) {
+      showError('Esta característica ya está en el DOFA.');
+      setAccionMenuAnchor(null);
+      return;
+    }
+    const newDofa = [...currentDofa.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion })), { tipo: dimension, descripcion: desc }];
+    setEnviandoDofa(true);
+    setAccionMenuAnchor(null);
+    try {
+      await updateProceso({
+        id: String(procesoSeleccionado.id),
+        dofaItems: newDofa,
+      } as any).unwrap();
+      updateItemDofa(signo, key, id, true, dimension);
+      await refetchProceso();
+      showSuccess(`Enviado a ${label}.`);
+    } catch {
+      showError('Error al enviar a DOFA.');
+    } finally {
+      setEnviandoDofa(false);
+    }
+  };
+
+  const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, items: CaracteristicaItem[]) => (
+    <Paper key={key} variant="outlined" sx={{ p: 2, borderRadius: 2, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="subtitle1" fontWeight={700}>{label}</Typography>
+        {!isReadOnly && (
+          <Button size="small" startIcon={<AddIcon />} onClick={() => addItem(signo, key)}>
+            Añadir característica
+          </Button>
+        )}
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {items.length === 0 && (
+          <Typography variant="body2" color="text.secondary" fontStyle="italic">Sin características. Añada al menos una.</Typography>
+        )}
+        {items.map((it) => {
+          const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion) : null;
+          const estaEnDofa = !!enDofa;
+          const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
+          const mostrarVisto = estaEnDofa || marcadoParaEnviar;
+          return (
+            <Box key={it.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
+                {/* Icono estado DOFA: ✓ si está/marcado, ✗ si no */}
+                <Box sx={{ pt: 1, flexShrink: 0, width: 28, display: 'flex', justifyContent: 'center' }}>
+                  {it.descripcion.trim() ? (
+                    mostrarVisto ? (
+                      <Tooltip title={enDofa ? `En DOFA (${DOFA_DIMENSIONES.find(d => d.value === enDofa.dimension)?.label ?? enDofa.dimension})` : `Enviar como ${it.dofaDimension ? DOFA_DIMENSIONES.find(d => d.value === it.dofaDimension)?.label : ''} (guardar para aplicar)`}>
+                        <CheckCircleIcon fontSize="small" color="success" />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="No está en ningún cuadrante DOFA">
+                        <CancelIcon fontSize="small" color="disabled" />
+                      </Tooltip>
+                    )
+                  ) : null}
+                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={it.descripcion}
+                  onChange={(e) => updateItem(signo, key, it.id, e.target.value)}
+                  disabled={isReadOnly}
+                  multiline
+                  minRows={1}
+                  maxRows={1}
+                  placeholder="Descripción de la característica"
+                  sx={{
+                    maxWidth: 900,
+                    flex: '1 1 520px',
+                    '& textarea': {
+                      minHeight: 40,
+                      maxHeight: 40,
+                      overflowY: 'auto !important',
+                    },
+                  }}
+                />
+                {!isReadOnly && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                    {marcadoParaEnviar && (
+                      <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
+                        Enviar a: {DOFA_DIMENSIONES.find(d => d.value === it.dofaDimension)?.letra ?? it.dofaDimension?.slice(0, 1)}
+                      </Typography>
+                    )}
+                    <Tooltip title="Acciones">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => setAccionMenuAnchor({ el: e.currentTarget, signo, key, id: it.id })}
+                        aria-label="Acciones"
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    </Paper>
+  );
+
   if (!procesoSeleccionado) {
     return (
-      <AppPageLayout
-        title="Análisis de Contexto Interno"
-        description="Análisis de factores internos de la organización que afectan el proceso"
-        topContent={<FiltroProcesoSupervisor />}
-      >
-        <Box sx={{ p: 3 }}>
-          <Alert severity="info">Por favor selecciona un proceso.</Alert>
-        </Box>
+      <AppPageLayout title="Análisis de Contexto Interno" description="Factores internos del proceso" topContent={<FiltroProcesoSupervisor />}>
+        <Box sx={{ p: 3 }}><Alert severity="info">Seleccione un proceso.</Alert></Box>
       </AppPageLayout>
     );
   }
@@ -170,166 +373,120 @@ export default function ContextoInternoPage() {
         onCancel={() => blocker.reset?.()}
         isSaving={isSaving}
         message="Tiene cambios sin guardar en el análisis de contexto interno."
-        description="¿Desea guardar los cambios antes de salir?"
+        description="¿Guardar antes de salir?"
       />
-
       <AppPageLayout
         title="Análisis de Contexto Interno"
-        description="Análisis de factores internos de la organización que afectan el proceso"
+        description="Factores internos: características por categoría (positivo y negativo)"
         topContent={<FiltroProcesoSupervisor />}
         action={
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {isReadOnly && (
-              <Chip
-                icon={<VisibilityIcon />}
-                label="Modo Visualización"
-                color="info"
-                sx={{ fontWeight: 600 }}
-              />
-            )}
-            {modoProceso === 'editar' && (
-              <Chip
-                icon={<EditIcon />}
-                label="Modo Edición"
-                color="warning"
-                sx={{ fontWeight: 600 }}
-              />
-            )}
+            {isReadOnly && <Chip icon={<VisibilityIcon />} label="Modo Visualización" color="info" sx={{ fontWeight: 600 }} />}
+            {modoProceso === 'editar' && <Chip icon={<EditIcon />} label="Modo Edición" color="warning" sx={{ fontWeight: 600 }} />}
             {!isReadOnly && (
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                disabled={isSaving || !hasFormChanges}
-                sx={{
-                  background: '#1976d2',
-                  color: '#fff',
-                }}
-              >
-                {isSaving ? 'Guardando...' : 'Guardar Análisis'}
+              <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={isSaving || !hasAnyChanges} sx={{ background: '#1976d2', color: '#fff' }}>
+                {isSaving ? 'Guardando...' : 'Guardar'}
               </Button>
             )}
           </Box>
         }
-        alert={
-          isReadOnly && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Está en modo visualización. Solo puede ver la información.
-            </Alert>
-          )
-        }
+        alert={isReadOnly ? <Alert severity="info" sx={{ mb: 2 }}>Solo visualización.</Alert> : undefined}
       >
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
-          <TextField
-            fullWidth
-            label="Financieros"
-            value={formData.financieros}
-            onChange={handleChange('financieros')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Gente"
-            value={formData.gente}
-            onChange={handleChange('gente')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Procesos"
-            value={formData.procesos}
-            onChange={handleChange('procesos')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Activos Físicos"
-            value={formData.activosFisicos}
-            onChange={handleChange('activosFisicos')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Cadena de Suministro"
-            value={formData.cadenaSuministro}
-            onChange={handleChange('cadenaSuministro')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Información"
-            value={formData.informacion}
-            onChange={handleChange('informacion')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Sistemas/Tecnología"
-            value={formData.sistemas}
-            onChange={handleChange('sistemas')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Proyectos"
-            value={formData.proyectos}
-            onChange={handleChange('proyectos')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Impuestos"
-            value={formData.impuestos}
-            onChange={handleChange('impuestos')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
-
-          <TextField
-            fullWidth
-            label="Grupos de Interés Internos"
-            value={formData.gruposInteresInternos}
-            onChange={handleChange('gruposInteresInternos')}
-            disabled={isReadOnly}
-            multiline
-            rows={4}
-            variant="outlined"
-          />
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+            <Tab icon={<PositivoIcon />} iconPosition="start" label="Positivo" />
+            <Tab icon={<NegativoIcon />} iconPosition="start" label="Negativo" />
+          </Tabs>
         </Box>
+
+        <Box sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 180px)', pr: 0.5, minHeight: 420 }}>
+          {tabValue === 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 960 }}>
+              {CATEGORIAS.map(({ key, label }) => renderCategoria('POSITIVO', key, label, itemsPositivo[key]))}
+            </Box>
+          )}
+          {tabValue === 1 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 960 }}>
+              {CATEGORIAS.map(({ key, label }) => renderCategoria('NEGATIVO', key, label, itemsNegativo[key]))}
+            </Box>
+          )}
+        </Box>
+
+        <Menu
+          anchorEl={accionMenuAnchor?.el ?? null}
+          open={!!accionMenuAnchor}
+          onClose={() => setAccionMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          {accionMenuAnchor && (() => {
+            const items = accionMenuAnchor.signo === 'POSITIVO' ? itemsPositivo[accionMenuAnchor.key] : itemsNegativo[accionMenuAnchor.key];
+            const it = items.find((i) => i.id === accionMenuAnchor.id);
+            if (!it) return null;
+            const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion) : null;
+            const estaEnDofa = !!enDofa;
+            const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
+            const puedeEnviar = !estaEnDofa && !!it.descripcion.trim();
+            return (
+              <>
+                {puedeEnviar && (
+                  <>
+                    <MenuItem disabled sx={{ opacity: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Enviar a DOFA (D, O, F, A):</Typography>
+                    </MenuItem>
+                    {DOFA_DIMENSIONES.map((d) => (
+                      <MenuItem
+                        key={d.value}
+                        disableRipple
+                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+                      >
+                        <Typography variant="body2">{d.letra} — {d.label}</Typography>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<SendIcon />}
+                          disabled={enviandoDofa}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            enviarADofaAhora(d.value, d.label, accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
+                          }}
+                        >
+                          Enviar
+                        </Button>
+                      </MenuItem>
+                    ))}
+                  </>
+                )}
+                {estaEnDofa && (
+                  <MenuItem disabled sx={{ opacity: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Ya está en DOFA</Typography>
+                  </MenuItem>
+                )}
+                {marcadoParaEnviar && (
+                  <MenuItem
+                    onClick={() => {
+                      updateItemDofa(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id, false, undefined);
+                      setAccionMenuAnchor(null);
+                    }}
+                  >
+                    Quitar de DOFA
+                  </MenuItem>
+                )}
+                <Divider />
+                <MenuItem
+                  onClick={() => {
+                    removeItem(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
+                    setAccionMenuAnchor(null);
+                  }}
+                  sx={{ color: 'error.main' }}
+                >
+                  Eliminar
+                </MenuItem>
+              </>
+            );
+          })()}
+        </Menu>
+
       </AppPageLayout>
     </>
   );

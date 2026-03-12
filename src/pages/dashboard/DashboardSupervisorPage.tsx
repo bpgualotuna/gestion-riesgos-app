@@ -1572,8 +1572,9 @@ export default function DashboardSupervisorPage() {
       <Dialog
         open={riesgosFueraApetitoDialogOpen}
         onClose={() => setRiesgosFueraApetitoDialogOpen(false)}
-        maxWidth="lg"
+        maxWidth="md"
         fullWidth
+        PaperProps={{ sx: { maxWidth: 900 } }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

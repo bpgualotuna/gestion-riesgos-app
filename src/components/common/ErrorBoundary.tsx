@@ -53,12 +53,21 @@ class ErrorBoundary extends Component<Props, State> {
             <Typography variant="h5" gutterBottom>
               Error en la Aplicación
             </Typography>
-            <Typography variant="body1" gutterBottom>
-              Ha ocurrido un error desconocido
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Código de error: 500
-            </Typography>
+            {this.state.error && (
+              <Typography variant="body1" gutterBottom sx={{ fontWeight: 600 }}>
+                {this.state.error.toString()}
+              </Typography>
+            )}
+            {!this.state.error && (
+              <Typography variant="body1" gutterBottom>
+                Ha ocurrido un error desconocido
+              </Typography>
+            )}
+            {this.state.error && /is not defined|ReferenceError/i.test(this.state.error.toString()) && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Si el error menciona una variable antigua (ej. estrategias), pruebe: cerrar pestaña, borrar caché del navegador o ejecutar <code>npm run build</code> de nuevo.
+              </Typography>
+            )}
             
             {this.state.error && (
               <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1, overflow: 'auto' }}>

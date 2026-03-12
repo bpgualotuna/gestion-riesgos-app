@@ -1268,7 +1268,7 @@ export default function MapaPage() {
           onClose={() => setDialogoResumenAbierto(false)}
           maxWidth="sm"
           fullWidth
-          PaperProps={{ sx: { maxWidth: 520 } }}
+          PaperProps={{ sx: { maxWidth: 560 } }}
         >
           <DialogTitle>
             Riesgos en la Celda ({celdaSeleccionada?.probabilidad}, {celdaSeleccionada?.impacto})
@@ -1955,7 +1955,7 @@ export default function MapaPage() {
           onClose={() => setDialogoDetalleRiesgoAbierto(false)}
           maxWidth="sm"
           fullWidth
-          PaperProps={{ sx: { maxWidth: 520 } }}
+          PaperProps={{ sx: { maxWidth: 560 } }}
         >
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

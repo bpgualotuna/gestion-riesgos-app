@@ -10,7 +10,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Alert,
   Button,
   Chip,
 } from '@mui/material';
@@ -26,6 +25,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useGetProcesosQuery, useGetRiesgosQuery, useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
+import AlertNoPermisos from '../../components/common/AlertNoPermisos';
 import TotalRiesgosCard from '../../components/dashboard/TotalRiesgosCard';
 import RiesgosPorProcesoCard from '../../components/dashboard/RiesgosPorProcesoCard';
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
@@ -71,13 +71,7 @@ export default function DashboardGerenteGeneralPage() {
     return estados;
   }, [procesos]);
 
-  if (!esGerenteGeneral) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">No tiene permisos para acceder a esta página.</Alert>
-      </Box>
-    );
-  }
+  if (!esGerenteGeneral) return <AlertNoPermisos />;
 
   return (
     <Box sx={{ p: 3 }}>

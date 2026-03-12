@@ -1227,7 +1227,7 @@ export default function UsuariosPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DEL CARGO */}
-            <Dialog open={cargoDetailDialogOpen} onClose={handleCloseCargoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={cargoDetailDialogOpen} onClose={handleCloseCargoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del Cargo</DialogTitle>
                 <DialogContent>
                     {selectedCargoDetail && (
@@ -1259,7 +1259,7 @@ export default function UsuariosPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DE LA GERENCIA */}
-            <Dialog open={gerenciaDetailDialogOpen} onClose={handleCloseGerenciaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={gerenciaDetailDialogOpen} onClose={handleCloseGerenciaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información de la Gerencia</DialogTitle>
                 <DialogContent>
                     {selectedGerenciaDetail && (
@@ -1291,7 +1291,7 @@ export default function UsuariosPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DEL ROL */}
-            <Dialog open={roleDetailDialogOpen} onClose={handleCloseRoleDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={roleDetailDialogOpen} onClose={handleCloseRoleDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del Rol</DialogTitle>
                 <DialogContent>
                     {selectedRoleDetail && (

@@ -30,6 +30,7 @@ import type {
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
+  timeout: 30000,
   prepareHeaders: (headers) => {
     const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null;
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -51,10 +52,12 @@ export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
   tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
-  // OPTIMIZADO: Caché más corto (2 minutos) para datos más frescos
-  keepUnusedDataFor: 120, // 2 minutos de caché global
-  // OPTIMIZADO: Refetch solo si los datos tienen más de 2 minutos
+  // Caché 2 min para datos frescos sin saturar el backend
+  keepUnusedDataFor: 120,
   refetchOnMountOrArgChange: 120,
+  // No refetch al volver a la pestaña (evita picos de requests y lentitud)
+  refetchOnFocus: false,
+  refetchOnReconnect: true,
   endpoints: (builder) => ({
     // ============================================
     // PROCESOS
@@ -983,31 +986,6 @@ export const riesgosApi = createApi({
     }),
 
     // ============================================
-    // BENCHMARKING
-    // ============================================
-    getBenchmarkingByProceso: builder.query<any[], number | string>({
-      query: (procesoId) => `benchmarking/proceso/${procesoId}`,
-      providesTags: ['Configuracion'],
-    }),
-
-    setBenchmarkingByProceso: builder.mutation<any[], { procesoId: number | string; items: any[] }>({
-      query: ({ procesoId, items }) => ({
-        url: `benchmarking/proceso/${procesoId}`,
-        method: 'PUT',
-        body: items,
-      }),
-      invalidatesTags: ['Configuracion'],
-    }),
-
-    deleteBenchmarkingItem: builder.mutation<void, number | string>({
-      query: (id) => ({
-        url: `benchmarking/${id}`,
-        method: 'DELETE',
-      }),
-      invalidatesTags: ['Configuracion'],
-    }),
-
-    // ============================================
     // MAP CONFIGURATION
     // ============================================
     getEjesMapa: builder.query<{ probabilidad: any[], impacto: any[] }, void>({
@@ -1436,10 +1414,6 @@ export const {
   useGetNivelesRiesgoQuery,
   useGetClasificacionesRiesgoQuery,
   useGetEjesMapaQuery,
-  // Benchmarking
-  useGetBenchmarkingByProcesoQuery,
-  useSetBenchmarkingByProcesoMutation,
-  useDeleteBenchmarkingItemMutation,
   // Usuarios
   useGetUsuariosQuery,
   useCreateUsuarioMutation,

@@ -754,7 +754,7 @@ export default function AreasPage() {
             </Box>
 
             {/* Dialogo Crea/Edita Area */}
-            <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 500 } }}>
+            <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 540 } }}>
                 <DialogTitle>{editingArea ? 'Editar Área' : 'Nueva Área'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -790,7 +790,7 @@ export default function AreasPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DEL ÁREA */}
-            <Dialog open={areaDetailDialogOpen} onClose={handleCloseAreaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={areaDetailDialogOpen} onClose={handleCloseAreaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del Área</DialogTitle>
                 <DialogContent>
                     {selectedAreaDetail && (

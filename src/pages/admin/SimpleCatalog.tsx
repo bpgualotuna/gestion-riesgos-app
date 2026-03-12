@@ -160,7 +160,7 @@ export default function SimpleCatalog({
             </Dialog>
 
             {/* MODAL DE DETALLE */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del {itemLabel}</DialogTitle>
                 <DialogContent>
                     {selectedDetail && (

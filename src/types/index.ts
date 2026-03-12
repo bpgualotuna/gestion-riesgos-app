@@ -115,6 +115,10 @@ export interface Proceso {
   analisis?: string;
   documentoUrl?: string;
   documentoNombre?: string;
+  documentoCaracterizacionUrl?: string;
+  documentoCaracterizacionNombre?: string;
+  documentoFlujoGramaUrl?: string;
+  documentoFlujoGramaNombre?: string;
 
   dofaItems?: any[];
   normatividades?: any[];
@@ -211,6 +215,10 @@ export interface CreateProcesoDto {
   analisis?: string;
   documentoUrl?: string;
   documentoNombre?: string;
+  documentoCaracterizacionUrl?: string;
+  documentoCaracterizacionNombre?: string;
+  documentoFlujoGramaUrl?: string;
+  documentoFlujoGramaNombre?: string;
 }
 
 export interface UpdateProcesoDto extends Partial<CreateProcesoDto> {
@@ -430,6 +438,8 @@ export interface RiesgoFormData {
   subtipoRiesgo: string;
   tipoRiesgoId?: number | null;
   subtipoRiesgoId?: number | null;
+  tipologiaTipo3?: string;
+  tipologiaTipo4?: string;
   objetivo: string;
   causas: CausaRiesgo[];
   impactos: {
@@ -501,13 +511,13 @@ export interface HistorialCambioProceso {
 
 /**
  * Historial de cambios para datos de procesos
- * Registra modificaciones en: ficha, análisis, normatividad, contexto, DOFA, benchmarking
+ * Registra modificaciones en: ficha, análisis, normatividad, contexto, DOFA
  */
 export interface HistorialCambio {
   id: string;
   procesoId: string;
   procesoNombre: string;
-  seccion: 'ficha' | 'analisis' | 'normatividad' | 'contextoInterno' | 'contextoExterno' | 'dofa' | 'benchmarking';
+  seccion: 'ficha' | 'analisis' | 'normatividad' | 'contextoInterno' | 'contextoExterno' | 'dofa';
   accion: 'crear' | 'editar' | 'eliminar';
   camposModificados: string[]; // Lista de campos que se modificaron
   valoresAnteriores?: Record<string, any>; // Valores antes del cambio

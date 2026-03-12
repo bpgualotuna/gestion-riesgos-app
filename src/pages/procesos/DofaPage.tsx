@@ -47,9 +47,9 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useGetProcesosQuery, useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
-import { useAreasProcesosAsignados, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
+import { useProcesosFiltradosPorArea, useIsReadOnlyProceso } from '../../hooks/useAsignaciones';
 import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
@@ -63,64 +63,25 @@ interface DofaItem {
   descripcion: string;
 }
 
-const mapBackendToFrontend: Record<string, string> = {
-  'FORTALEZA': 'fortalezas',
-  'OPORTUNIDAD': 'oportunidades',
-  'DEBILIDAD': 'debilidades',
-  'AMENAZA': 'amenazas',
-  'FO': 'estrategiasFO',
-  'FA': 'estrategiasFA',
-  'DO': 'estrategiasDO',
-  'DA': 'estrategiasDA'
-};
+// Solo las 4 dimensiones DOFA (sin estrategias FO/FA/DO/DA)
+const TIPOS_DOFA_DIMENSIONES = ['FORTALEZA', 'OPORTUNIDAD', 'DEBILIDAD', 'AMENAZA'] as const;
 
-const mapFrontendToBackend: Record<string, string> = {
-  'fortalezas': 'FORTALEZA',
-  'oportunidades': 'OPORTUNIDAD',
-  'debilidades': 'DEBILIDAD',
-  'amenazas': 'AMENAZA',
-  'estrategiasFO': 'FO',
-  'estrategiasFA': 'FA',
-  'estrategiasDO': 'DO',
-  'estrategiasDA': 'DA'
-};
+function isTipoDofaDimension(tipo: string): tipo is typeof TIPOS_DOFA_DIMENSIONES[number] {
+  return TIPOS_DOFA_DIMENSIONES.includes(tipo as any);
+}
 
 export default function DofaPage() {
-  const { showSuccess } = useNotification();
-  const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
-  const { esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, user } = useAuth();
-  const { data: procesos = [] } = useGetProcesosQuery();
-  const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
-
-  const procesosVisibles = useMemo(() => {
-    if (esGerenteGeneralDirector) return procesos;
-    
-    // Gerente General Proceso - funciona IGUAL que Dueño de Proceso
-    // Ve solo sus procesos como responsable (igual que dueño de proceso)
-    if (esGerenteGeneralProceso && user) {
-      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
-    }
-    
-    // Dueño de Proceso - ve solo sus procesos como responsable
-    if (esDueñoProcesos && user) {
-      return procesos.filter((p: any) => esUsuarioResponsableProceso(p, user.id));
-    }
-    
-    if (esSupervisorRiesgos && user) {
-      if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
-      return procesos.filter((p: any) => {
-        // Comparar siempre como string para evitar problemas número/string
-        if (procesosAsignados.includes(String(p.id))) return true;
-        if (p.areaId && areasAsignadas.includes(String(p.areaId))) return true;
-        return false;
-      });
-    }
-    return procesos;
-  }, [procesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, areasAsignadas, procesosAsignados, user]);
-
-  // Supervisor/gerente director siempre en modo solo lectura
-  // Gerente General Proceso puede editar igual que Dueño de Proceso
-  const isReadOnly = modoProceso === 'visualizar' || esSupervisorRiesgos || esGerenteGeneralDirector;
+  const { showSuccess, showError } = useNotification();
+  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { esSupervisorRiesgos, esGerenteGeneralDirector, esDueñoProcesos } = useAuth();
+  const {
+    procesosVisibles,
+    areasDisponibles: areasVisibles,
+    procesosFiltrados: procesosFiltradosPorArea,
+    filtroArea,
+    setFiltroArea,
+  } = useProcesosFiltradosPorArea('all');
+  const isReadOnly = useIsReadOnlyProceso();
 
   // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
   if (esDueñoProcesos && !procesoSeleccionado?.id) {
@@ -148,34 +109,23 @@ export default function DofaPage() {
   const [updateProceso] = useUpdateProcesoMutation();
 
   useEffect(() => {
-    if (procesoData && procesoData.dofaItems) {
-      const fortalezasData = procesoData.dofaItems.filter((i: any) => i.tipo === 'FORTALEZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const oportunidadesData = procesoData.dofaItems.filter((i: any) => i.tipo === 'OPORTUNIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const debilidadesData = procesoData.dofaItems.filter((i: any) => i.tipo === 'DEBILIDAD').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const amenazasData = procesoData.dofaItems.filter((i: any) => i.tipo === 'AMENAZA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const estrategiasFOData = procesoData.dofaItems.filter((i: any) => i.tipo === 'FO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const estrategiasFAData = procesoData.dofaItems.filter((i: any) => i.tipo === 'FA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const estrategiasDOData = procesoData.dofaItems.filter((i: any) => i.tipo === 'DO').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
-      const estrategiasDAData = procesoData.dofaItems.filter((i: any) => i.tipo === 'DA').map((i: any) => ({ id: i.id || `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion }));
+    if (procesoData && Array.isArray(procesoData.dofaItems)) {
+      const items = procesoData.dofaItems as Array<{ id?: string; tipo?: string; descripcion?: string }>;
+      const toItem = (i: { id?: string; descripcion?: string }) => ({ id: i.id ?? `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion ?? '' });
+      const fortalezasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'FORTALEZA').map(toItem);
+      const oportunidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'OPORTUNIDAD').map(toItem);
+      const debilidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'DEBILIDAD').map(toItem);
+      const amenazasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'AMENAZA').map(toItem);
       
       setFortalezas(fortalezasData);
       setOportunidades(oportunidadesData);
       setDebilidades(debilidadesData);
       setAmenazas(amenazasData);
-      setEstrategiasFO(estrategiasFOData);
-      setEstrategiasFA(estrategiasFAData);
-      setEstrategiasDO(estrategiasDOData);
-      setEstrategiasDA(estrategiasDAData);
       
-      // Actualizar estados iniciales
       setInitialFortalezas(fortalezasData);
       setInitialOportunidades(oportunidadesData);
       setInitialDebilidades(debilidadesData);
       setInitialAmenazas(amenazasData);
-      setInitialEstrategiasFO(estrategiasFOData);
-      setInitialEstrategiasFA(estrategiasFAData);
-      setInitialEstrategiasDO(estrategiasDOData);
-      setInitialEstrategiasDA(estrategiasDAData);
     }
   }, [procesoData]);
 
@@ -185,42 +135,23 @@ export default function DofaPage() {
   const [amenazas, setAmenazas] = useState<DofaItem[]>([]);
   const [fortalezas, setFortalezas] = useState<DofaItem[]>([]);
   const [debilidades, setDebilidades] = useState<DofaItem[]>([]);
-  const [estrategiasFO, setEstrategiasFO] = useState<DofaItem[]>([]);
-  const [estrategiasFA, setEstrategiasFA] = useState<DofaItem[]>([]);
-  const [estrategiasDO, setEstrategiasDO] = useState<DofaItem[]>([]);
-  const [estrategiasDA, setEstrategiasDA] = useState<DofaItem[]>([]);
 
-  // Estados iniciales para detectar cambios
   const [initialOportunidades, setInitialOportunidades] = useState<DofaItem[]>([]);
   const [initialAmenazas, setInitialAmenazas] = useState<DofaItem[]>([]);
   const [initialFortalezas, setInitialFortalezas] = useState<DofaItem[]>([]);
   const [initialDebilidades, setInitialDebilidades] = useState<DofaItem[]>([]);
-  const [initialEstrategiasFO, setInitialEstrategiasFO] = useState<DofaItem[]>([]);
-  const [initialEstrategiasFA, setInitialEstrategiasFA] = useState<DofaItem[]>([]);
-  const [initialEstrategiasDO, setInitialEstrategiasDO] = useState<DofaItem[]>([]);
-  const [initialEstrategiasDA, setInitialEstrategiasDA] = useState<DofaItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Detectar cambios en cada array
   const hasOportunidadesChanges = useArrayChanges(initialOportunidades, oportunidades);
   const hasAmenazasChanges = useArrayChanges(initialAmenazas, amenazas);
   const hasFortalezasChanges = useArrayChanges(initialFortalezas, fortalezas);
   const hasDebilidadesChanges = useArrayChanges(initialDebilidades, debilidades);
-  const hasEstrategiasFOChanges = useArrayChanges(initialEstrategiasFO, estrategiasFO);
-  const hasEstrategiasFAChanges = useArrayChanges(initialEstrategiasFA, estrategiasFA);
-  const hasEstrategiasDOChanges = useArrayChanges(initialEstrategiasDO, estrategiasDO);
-  const hasEstrategiasDAChanges = useArrayChanges(initialEstrategiasDA, estrategiasDA);
 
-  // Combinar todos los cambios
-  const hasAnyChanges = 
-    hasOportunidadesChanges || 
-    hasAmenazasChanges || 
-    hasFortalezasChanges || 
-    hasDebilidadesChanges || 
-    hasEstrategiasFOChanges || 
-    hasEstrategiasFAChanges || 
-    hasEstrategiasDOChanges || 
-    hasEstrategiasDAChanges;
+  const hasAnyChanges =
+    hasOportunidadesChanges ||
+    hasAmenazasChanges ||
+    hasFortalezasChanges ||
+    hasDebilidadesChanges;
 
   // Sistema de cambios no guardados
   const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
@@ -233,7 +164,7 @@ export default function DofaPage() {
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ tipo: string; id: string } | null>(null);
 
-  const handleAdd = (tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades' | 'estrategiasFO' | 'estrategiasFA' | 'estrategiasDO' | 'estrategiasDA') => {
+  const handleAdd = (tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades') => {
     const newItem: DofaItem = {
       id: Date.now().toString(),
       descripcion: '',
@@ -252,23 +183,11 @@ export default function DofaPage() {
       case 'debilidades':
         setDebilidades([...debilidades, newItem]);
         break;
-      case 'estrategiasFO':
-        setEstrategiasFO([...estrategiasFO, newItem]);
-        break;
-      case 'estrategiasFA':
-        setEstrategiasFA([...estrategiasFA, newItem]);
-        break;
-      case 'estrategiasDO':
-        setEstrategiasDO([...estrategiasDO, newItem]);
-        break;
-      case 'estrategiasDA':
-        setEstrategiasDA([...estrategiasDA, newItem]);
-        break;
     }
   };
 
   const handleChange = (
-    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades' | 'estrategiasFO' | 'estrategiasFA' | 'estrategiasDO' | 'estrategiasDA',
+    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades',
     id: string,
     value: string
   ) => {
@@ -288,23 +207,11 @@ export default function DofaPage() {
       case 'debilidades':
         setDebilidades(updateItem(debilidades));
         break;
-      case 'estrategiasFO':
-        setEstrategiasFO(updateItem(estrategiasFO));
-        break;
-      case 'estrategiasFA':
-        setEstrategiasFA(updateItem(estrategiasFA));
-        break;
-      case 'estrategiasDO':
-        setEstrategiasDO(updateItem(estrategiasDO));
-        break;
-      case 'estrategiasDA':
-        setEstrategiasDA(updateItem(estrategiasDA));
-        break;
     }
   };
 
   const handleDelete = (
-    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades' | 'estrategiasFO' | 'estrategiasFA' | 'estrategiasDO' | 'estrategiasDA',
+    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades',
     id: string
   ) => {
     const filterItems = (items: DofaItem[]) => items.filter((item) => item.id !== id);
@@ -322,18 +229,6 @@ export default function DofaPage() {
       case 'debilidades':
         setDebilidades(filterItems(debilidades));
         break;
-      case 'estrategiasFO':
-        setEstrategiasFO(filterItems(estrategiasFO));
-        break;
-      case 'estrategiasFA':
-        setEstrategiasFA(filterItems(estrategiasFA));
-        break;
-      case 'estrategiasDO':
-        setEstrategiasDO(filterItems(estrategiasDO));
-        break;
-      case 'estrategiasDA':
-        setEstrategiasDA(filterItems(estrategiasDA));
-        break;
     }
   };
 
@@ -345,34 +240,31 @@ export default function DofaPage() {
       ...amenazas.map(i => ({ descripcion: i.descripcion, tipo: 'AMENAZA' })),
       ...fortalezas.map(i => ({ descripcion: i.descripcion, tipo: 'FORTALEZA' })),
       ...debilidades.map(i => ({ descripcion: i.descripcion, tipo: 'DEBILIDAD' })),
-      ...estrategiasFO.map(i => ({ descripcion: i.descripcion, tipo: 'FO' })),
-      ...estrategiasFA.map(i => ({ descripcion: i.descripcion, tipo: 'FA' })),
-      ...estrategiasDO.map(i => ({ descripcion: i.descripcion, tipo: 'DO' })),
-      ...estrategiasDA.map(i => ({ descripcion: i.descripcion, tipo: 'DA' })),
     ];
 
     try {
       setIsSaving(true);
       await updateProceso({
-        id: procesoSeleccionado.id,
+        id: String(procesoSeleccionado.id),
         dofaItems: allItems
       }).unwrap();
-      
-      // Actualizar estados iniciales después de guardar
+
       setInitialOportunidades(oportunidades);
       setInitialAmenazas(amenazas);
       setInitialFortalezas(fortalezas);
       setInitialDebilidades(debilidades);
-      setInitialEstrategiasFO(estrategiasFO);
-      setInitialEstrategiasFA(estrategiasFA);
-      setInitialEstrategiasDO(estrategiasDO);
-      setInitialEstrategiasDA(estrategiasDA);
-      
+
       markAsSaved();
       showSuccess('Matriz DOFA guardada exitosamente');
-    } catch {
-      // showError('Error al guardar'); 
-      // check useNotification hooks. showSuccess available.
+    } catch (error: any) {
+      console.error('[DOFA] Error al guardar la matriz', error);
+      if (showError) {
+        const apiMessage =
+          error?.data?.error ||
+          error?.error ||
+          'Error inesperado al guardar la matriz DOFA.';
+        showError(apiMessage);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -391,10 +283,6 @@ export default function DofaPage() {
     setAmenazas(initialAmenazas);
     setFortalezas(initialFortalezas);
     setDebilidades(initialDebilidades);
-    setEstrategiasFO(initialEstrategiasFO);
-    setEstrategiasFA(initialEstrategiasFA);
-    setEstrategiasDO(initialEstrategiasDO);
-    setEstrategiasDA(initialEstrategiasDA);
     forceNavigate();
   };
 
@@ -419,24 +307,7 @@ export default function DofaPage() {
     setItemSeleccionado(null);
   };
 
-  // Obtener áreas únicas de los procesos visibles
-  const areasVisibles = useMemo(() => {
-    const areasUnicas = new Map<string, string>();
-    procesosVisibles.forEach((p: any) => {
-      if (p.areaId) areasUnicas.set(p.areaId, p.areaNombre || `Área ${p.areaId}`);
-    });
-    return Array.from(areasUnicas.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [procesosVisibles]);
-
-  // Estados para filtros (solo para director)
-  const [filtroArea, setFiltroArea] = useState<string>('all');
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
-
-  // Procesos filtrados por área
-  const procesosFiltradosPorArea = useMemo(() => {
-    if (filtroArea === 'all') return procesosVisibles;
-    return procesosVisibles.filter((p: any) => p.areaId === filtroArea);
-  }, [procesosVisibles, filtroArea]);
 
   const procesosFiltrados = useMemo(() => {
     if (filtroProceso === 'all') return procesosFiltradosPorArea;
@@ -504,7 +375,7 @@ export default function DofaPage() {
   const renderDofaSection = (
     title: string,
     items: DofaItem[],
-    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades' | 'estrategiasFO' | 'estrategiasFA' | 'estrategiasDO' | 'estrategiasDA'
+    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades'
   ) => (
     <Box>
       <FiltroProcesoSupervisor />
@@ -729,10 +600,6 @@ export default function DofaPage() {
                   <Tab icon={<WarningIcon />} iconPosition="start" label="Amenazas" value={2} />
                   <Tab icon={<CheckCircleIcon />} iconPosition="start" label="Fortalezas" value={3} />
                   <Tab icon={<CancelIcon />} iconPosition="start" label="Debilidades" value={4} />
-                  <Tab icon={<TrendingUpIcon />} iconPosition="start" label="Estrategias FO" value={5} />
-                  <Tab icon={<WarningIcon />} iconPosition="start" label="Estrategias FA" value={6} />
-                  <Tab icon={<TrendingUpIcon />} iconPosition="start" label="Estrategias DO" value={7} />
-                  <Tab icon={<WarningIcon />} iconPosition="start" label="Estrategias DA" value={8} />
                 </Tabs>
               </Box>
             </Box>
@@ -1352,550 +1219,12 @@ export default function DofaPage() {
                   </Box>
                 </Paper>
               </Box>
-
-              {/* Sección de Estrategias */}
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="h6" gutterBottom fontWeight={700} sx={{ color: '#1976d2', mb: 2 }}>
-                  Estrategias DOFA
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
-                    gap: 2,
-                  }}
-                >
-                  {/* Estrategias FO */}
-                  <Paper
-                    elevation={4}
-                    onClick={() => setTabValue(5)}
-                    sx={{
-                      p: 0,
-                      backgroundColor: '#fff',
-                      minHeight: 300,
-                      maxHeight: 400,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      overflow: 'hidden',
-                      border: '1px solid #e0e0e0',
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        p: 2.5,
-                        background: 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 50%, #ce93d8 100%)',
-                        color: '#fff',
-                        mb: 2,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <TrendingUpIcon sx={{ fontSize: 28, opacity: 0.9 }} />
-                          <Typography variant="h6" fontWeight={800} sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                            ESTRATEGIAS FO
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={estrategiasFO.length}
-                          sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
-                            height: 28,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        px: 3,
-                        pb: 3,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 1.5,
-                        maxHeight: 250,
-                        overflowY: 'auto',
-                        pr: 1.5,
-                        '&::-webkit-scrollbar': {
-                          width: '8px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: '#f5f5f5',
-                          borderRadius: '5px',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: '#9c27b0',
-                          borderRadius: '5px',
-                          '&:hover': {
-                            background: '#7b1fa2',
-                          },
-                        },
-                      }}
-                    >
-                      {estrategiasFO.length > 0 ? (
-                        estrategiasFO.map((item, index) => (
-                          <Box
-                            key={item.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedItem(item);
-                              setSelectedCategory('Estrategias FO');
-                              setDialogOpen(true);
-                            }}
-                            sx={{
-                              p: 1.5,
-                              backgroundColor: '#f5f5f5',
-                              borderRadius: 1.5,
-                              border: '2px solid #e0e0e0',
-                              transition: 'all 0.2s ease',
-                              cursor: 'pointer',
-                              '&:hover': {
-                                backgroundColor: '#f3e5f5',
-                                borderColor: '#9c27b0',
-                                transform: 'translateX(4px)',
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                lineHeight: 1.5,
-                                color: '#424242',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              <strong>{index + 1}.</strong> {item.descripcion || 'Sin descripción'}
-                            </Typography>
-                          </Box>
-                        ))
-                      ) : (
-                        <Box
-                          sx={{
-                            p: 2,
-                            textAlign: 'center',
-                            backgroundColor: '#fafafa',
-                            borderRadius: 2,
-                            border: '2px dashed #e0e0e0',
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#757575' }}>
-                            No hay estrategias FO registradas
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Paper>
-
-                  {/* Estrategias FA */}
-                  <Paper
-                    elevation={4}
-                    onClick={() => setTabValue(6)}
-                    sx={{
-                      p: 0,
-                      backgroundColor: '#fff',
-                      minHeight: 300,
-                      maxHeight: 400,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      overflow: 'hidden',
-                      border: '1px solid #e0e0e0',
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        p: 2.5,
-                        background: 'linear-gradient(135deg, #673ab7 0%, #9575cd 50%, #b39ddb 100%)',
-                        color: '#fff',
-                        mb: 2,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <WarningIcon sx={{ fontSize: 28, opacity: 0.9 }} />
-                          <Typography variant="h6" fontWeight={800} sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                            ESTRATEGIAS FA
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={estrategiasFA.length}
-                          sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
-                            height: 28,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        px: 3,
-                        pb: 3,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 1.5,
-                        maxHeight: 250,
-                        overflowY: 'auto',
-                        pr: 1.5,
-                        '&::-webkit-scrollbar': {
-                          width: '8px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: '#f5f5f5',
-                          borderRadius: '5px',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: '#673ab7',
-                          borderRadius: '5px',
-                          '&:hover': {
-                            background: '#512da8',
-                          },
-                        },
-                      }}
-                    >
-                      {estrategiasFA.length > 0 ? (
-                        estrategiasFA.map((item, index) => (
-                          <Box
-                            key={item.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedItem(item);
-                              setSelectedCategory('Estrategias FA');
-                              setDialogOpen(true);
-                            }}
-                            sx={{
-                              p: 1.5,
-                              backgroundColor: '#f5f5f5',
-                              borderRadius: 1.5,
-                              border: '2px solid #e0e0e0',
-                              transition: 'all 0.2s ease',
-                              cursor: 'pointer',
-                              '&:hover': {
-                                backgroundColor: '#ede7f6',
-                                borderColor: '#673ab7',
-                                transform: 'translateX(4px)',
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                lineHeight: 1.5,
-                                color: '#424242',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              <strong>{index + 1}.</strong> {item.descripcion || 'Sin descripción'}
-                            </Typography>
-                          </Box>
-                        ))
-                      ) : (
-                        <Box
-                          sx={{
-                            p: 2,
-                            textAlign: 'center',
-                            backgroundColor: '#fafafa',
-                            borderRadius: 2,
-                            border: '2px dashed #e0e0e0',
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#757575' }}>
-                            No hay estrategias FA registradas
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Paper>
-
-                  {/* Estrategias DO */}
-                  <Paper
-                    elevation={4}
-                    onClick={() => setTabValue(7)}
-                    sx={{
-                      p: 0,
-                      backgroundColor: '#fff',
-                      minHeight: 300,
-                      maxHeight: 400,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      overflow: 'hidden',
-                      border: '1px solid #e0e0e0',
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        p: 2.5,
-                        background: 'linear-gradient(135deg, #e91e63 0%, #f06292 50%, #f48fb1 100%)',
-                        color: '#fff',
-                        mb: 2,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <TrendingUpIcon sx={{ fontSize: 28, opacity: 0.9 }} />
-                          <Typography variant="h6" fontWeight={800} sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                            ESTRATEGIAS DO
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={estrategiasDO.length}
-                          sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
-                            height: 28,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        px: 3,
-                        pb: 3,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 1.5,
-                        maxHeight: 250,
-                        overflowY: 'auto',
-                        pr: 1.5,
-                        '&::-webkit-scrollbar': {
-                          width: '8px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: '#f5f5f5',
-                          borderRadius: '5px',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: '#e91e63',
-                          borderRadius: '5px',
-                          '&:hover': {
-                            background: '#c2185b',
-                          },
-                        },
-                      }}
-                    >
-                      {estrategiasDO.length > 0 ? (
-                        estrategiasDO.map((item, index) => (
-                          <Box
-                            key={item.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedItem(item);
-                              setSelectedCategory('Estrategias DO');
-                              setDialogOpen(true);
-                            }}
-                            sx={{
-                              p: 1.5,
-                              backgroundColor: '#f5f5f5',
-                              borderRadius: 1.5,
-                              border: '2px solid #e0e0e0',
-                              transition: 'all 0.2s ease',
-                              cursor: 'pointer',
-                              '&:hover': {
-                                backgroundColor: '#fce4ec',
-                                borderColor: '#e91e63',
-                                transform: 'translateX(4px)',
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                lineHeight: 1.5,
-                                color: '#424242',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              <strong>{index + 1}.</strong> {item.descripcion || 'Sin descripción'}
-                            </Typography>
-                          </Box>
-                        ))
-                      ) : (
-                        <Box
-                          sx={{
-                            p: 2,
-                            textAlign: 'center',
-                            backgroundColor: '#fafafa',
-                            borderRadius: 2,
-                            border: '2px dashed #e0e0e0',
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#757575' }}>
-                            No hay estrategias DO registradas
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Paper>
-
-                  {/* Estrategias DA */}
-                  <Paper
-                    elevation={4}
-                    onClick={() => setTabValue(8)}
-                    sx={{
-                      p: 0,
-                      backgroundColor: '#fff',
-                      minHeight: 300,
-                      maxHeight: 400,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      overflow: 'hidden',
-                      border: '1px solid #e0e0e0',
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        p: 2.5,
-                        background: 'linear-gradient(135deg, #d32f2f 0%, #e57373 50%, #ef9a9a 100%)',
-                        color: '#fff',
-                        mb: 2,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <CancelIcon sx={{ fontSize: 28, opacity: 0.9 }} />
-                          <Typography variant="h6" fontWeight={800} sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                            ESTRATEGIAS DA
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={estrategiasDA.length}
-                          sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
-                            height: 28,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        px: 3,
-                        pb: 3,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 1.5,
-                        maxHeight: 250,
-                        overflowY: 'auto',
-                        pr: 1.5,
-                        '&::-webkit-scrollbar': {
-                          width: '8px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: '#f5f5f5',
-                          borderRadius: '5px',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: '#d32f2f',
-                          borderRadius: '5px',
-                          '&:hover': {
-                            background: '#c62828',
-                          },
-                        },
-                      }}
-                    >
-                      {estrategiasDA.length > 0 ? (
-                        estrategiasDA.map((item, index) => (
-                          <Box
-                            key={item.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedItem(item);
-                              setSelectedCategory('Estrategias DA');
-                              setDialogOpen(true);
-                            }}
-                            sx={{
-                              p: 1.5,
-                              backgroundColor: '#f5f5f5',
-                              borderRadius: 1.5,
-                              border: '2px solid #e0e0e0',
-                              transition: 'all 0.2s ease',
-                              cursor: 'pointer',
-                              '&:hover': {
-                                backgroundColor: '#ffebee',
-                                borderColor: '#d32f2f',
-                                transform: 'translateX(4px)',
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                lineHeight: 1.5,
-                                color: '#424242',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              <strong>{index + 1}.</strong> {item.descripcion || 'Sin descripción'}
-                            </Typography>
-                          </Box>
-                        ))
-                      ) : (
-                        <Box
-                          sx={{
-                            p: 2,
-                            textAlign: 'center',
-                            backgroundColor: '#fafafa',
-                            borderRadius: 2,
-                            border: '2px dashed #e0e0e0',
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#757575' }}>
-                            No hay estrategias DA registradas
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Paper>
-                </Box>
-              </Box>
             </Box>
           )}
           {tabValue === 1 && renderDofaSection('Oportunidades', oportunidades, 'oportunidades')}
           {tabValue === 2 && renderDofaSection('Amenazas', amenazas, 'amenazas')}
           {tabValue === 3 && renderDofaSection('Fortalezas', fortalezas, 'fortalezas')}
           {tabValue === 4 && renderDofaSection('Debilidades', debilidades, 'debilidades')}
-          {tabValue === 5 && renderDofaSection('Estrategias FO', estrategiasFO, 'estrategiasFO')}
-          {tabValue === 6 && renderDofaSection('Estrategias FA', estrategiasFA, 'estrategiasFA')}
-          {tabValue === 7 && renderDofaSection('Estrategias DO', estrategiasDO, 'estrategiasDO')}
-          {tabValue === 8 && renderDofaSection('Estrategias DA', estrategiasDA, 'estrategiasDA')}
         </CardContent>
       </Card>
 
@@ -1903,11 +1232,12 @@ export default function DofaPage() {
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
         PaperProps={{
           sx: {
             borderRadius: 2,
+            maxWidth: 640,
           },
         }}
       >

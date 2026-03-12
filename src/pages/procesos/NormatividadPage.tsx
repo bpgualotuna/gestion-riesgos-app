@@ -1,9 +1,9 @@
 /**
  * Normatividad Page
- * Inventario de Normatividad según análisis Excel
+ * Inventario de Normatividad seg?n an?lisis Excel
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -19,10 +19,9 @@ import {
   Chip,
   Alert,
   IconButton,
+  Paper,
 } from '@mui/material';
-import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import type { GridColDef } from '@mui/x-data-grid';
-import AppDataGrid from '../../components/ui/AppDataGrid';
+import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon, ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useProceso } from '../../contexts/ProcesoContext';
@@ -88,6 +87,41 @@ export default function NormatividadPage() {
   const [dialogDetalleOpen, setDialogDetalleOpen] = useState(false);
   const [selectedNormatividad, setSelectedNormatividad] = useState<Normatividad | null>(null);
 
+  const [sortField, setSortField] = useState<'numero' | 'nombre' | 'estado' | 'regulador' | 'cumplimiento' | 'clasificacion'>('numero');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+
+  const sortedNormatividades = useMemo(() => {
+    const list = [...normatividades];
+    list.sort((a, b) => {
+      let va: number | string = (a as any)[sortField] ?? '';
+      let vb: number | string = (b as any)[sortField] ?? '';
+      if (sortField === 'numero') {
+        va = Number(va);
+        vb = Number(vb);
+        return sortDir === 'asc' ? va - vb : vb - va;
+      }
+      va = String(va).toLowerCase();
+      vb = String(vb).toLowerCase();
+      const cmp = va.localeCompare(vb, 'es');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [normatividades, sortField, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedNormatividades.length / pageSize));
+  const paginatedNormatividades = useMemo(
+    () => sortedNormatividades.slice((page - 1) * pageSize, page * pageSize),
+    [sortedNormatividades, page, pageSize]
+  );
+
+  const handleSort = (field: typeof sortField) => {
+    setSortField(field);
+    setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    setPage(1);
+  };
+
   const handleEditar = (e: React.MouseEvent, row: Normatividad) => {
     e.stopPropagation();
     setSelectedNormatividad(row);
@@ -105,7 +139,7 @@ export default function NormatividadPage() {
       setIsSaving(true);
       setNormatividades(updatedList);
       await updateProceso({
-        id: procesoSeleccionado.id,
+        id: String(procesoSeleccionado.id),
         normatividades: updatedList
       }).unwrap();
       setInitialNormatividades(updatedList);
@@ -119,13 +153,13 @@ export default function NormatividadPage() {
     }
   };
 
-  // Handlers para el diálogo de cambios no guardados
+  // Handlers para el di?logo de cambios no guardados
   const handleSaveFromDialog = async () => {
     if (!procesoSeleccionado) return;
     try {
       setIsSaving(true);
       await updateProceso({
-        id: procesoSeleccionado.id,
+        id: String(procesoSeleccionado.id),
         normatividades: normatividades
       }).unwrap();
       setInitialNormatividades(normatividades);
@@ -144,113 +178,37 @@ export default function NormatividadPage() {
     forceNavigate();
   };
 
-  const columns: GridColDef[] = [
-    {
-      field: 'numero',
-      headerName: 'Nro.',
-      flex: 0.5,
-      minWidth: 60,
-      maxWidth: 80,
-    },
-    {
-      field: 'nombre',
-      headerName: 'Nombre de la Regulación',
-      flex: 2,
-      minWidth: 200,
-    },
-    {
-      field: 'estado',
-      headerName: 'Estado',
-      flex: 0.8,
-      minWidth: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={
-            params.value === 'Existente'
-              ? 'success'
-              : params.value === 'Requerida'
-                ? 'warning'
-                : 'info'
-          }
-        />
-      ),
-    },
-    {
-      field: 'regulador',
-      headerName: 'Regulador',
-      flex: 1,
-      minWidth: 120,
-    },
-    {
-      field: 'cumplimiento',
-      headerName: 'Cumplimiento',
-      flex: 0.8,
-      minWidth: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={
-            params.value === 'Total'
-              ? 'success'
-              : params.value === 'Parcial'
-                ? 'warning'
-                : 'error'
-          }
-        />
-      ),
-    },
-    {
-      field: 'clasificacion',
-      headerName: 'Clasificación',
-      flex: 0.8,
-      minWidth: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value === CLASIFICACION_RIESGO.POSITIVA ? 'Positivo' : 'Negativo'}
-          size="small"
-          color={params.value === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'error'}
-        />
-      ),
-    },
-    {
-      field: 'acciones',
-      headerName: 'Acciones',
-      flex: 0.6,
-      minWidth: 90,
-      sortable: false,
-      disableColumnMenu: true,
-      renderCell: (params) =>
-        !isReadOnly ? (
-          <Box sx={{ display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={(e) => handleEditar(e, params.row as Normatividad)}
-              title="Editar"
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => handleEliminar(e, params.row as Normatividad)}
-              title="Eliminar"
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        ) : null,
-    },
-  ];
+  const renderChipEstado = (estado: string) => (
+    <Chip
+      label={estado}
+      size="small"
+      color={
+        estado === 'Existente' ? 'success' : estado === 'Requerida' ? 'warning' : 'info'
+      }
+    />
+  );
+  const renderChipCumplimiento = (cumplimiento: string) => (
+    <Chip
+      label={cumplimiento}
+      size="small"
+      color={
+        cumplimiento === 'Total' ? 'success' : cumplimiento === 'Parcial' ? 'warning' : 'error'
+      }
+    />
+  );
+  const renderChipClasificacion = (clasificacion: string) => (
+    <Chip
+      label={clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Positivo' : 'Negativo'}
+      size="small"
+      color={clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'error'}
+    />
+  );
 
   if (!procesoSeleccionado) {
     return (
       <AppPageLayout
         title="Inventario de Normatividad"
-        description="Catálogo de normativas aplicables al proceso"
+        description={"Cat\u00e1logo de normativas aplicables al proceso"}
         topContent={<FiltroProcesoSupervisor />}
       >
         <Box sx={{ p: 3 }}>
@@ -262,7 +220,7 @@ export default function NormatividadPage() {
 
   return (
     <>
-      {/* Diálogo de cambios no guardados */}
+      {/* Di\u00e1logo de cambios no guardados */}
       <UnsavedChangesDialog
         open={blocker.state === 'blocked'}
         onSave={handleSaveFromDialog}
@@ -270,19 +228,19 @@ export default function NormatividadPage() {
         onCancel={() => blocker.reset?.()}
         isSaving={isSaving}
         message="Tiene cambios sin guardar en el inventario de normatividad."
-        description="¿Desea guardar los cambios antes de salir?"
+        description={"\u00bfDesea guardar los cambios antes de salir?"}
       />
 
       <AppPageLayout
       title="Inventario de Normatividad"
-      description="Catálogo de normativas aplicables al proceso"
+      description={"Cat\u00e1logo de normativas aplicables al proceso"}
       topContent={<FiltroProcesoSupervisor />}
       action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isReadOnly && (
             <Chip
               icon={<VisibilityIcon />}
-              label="Modo Visualización"
+              label={"Modo Visualizaci\u00f3n"}
               color="info"
               sx={{ fontWeight: 600 }}
             />
@@ -290,7 +248,7 @@ export default function NormatividadPage() {
           {modoProceso === 'editar' && (
             <Chip
               icon={<EditIcon />}
-              label="Modo Edición"
+              label={"Modo Edici\u00f3n"}
               color="warning"
               sx={{ fontWeight: 600 }}
             />
@@ -319,23 +277,185 @@ export default function NormatividadPage() {
       alert={
         isReadOnly && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Está en modo visualización. Solo puede ver la información.
+            Est? en modo visualizaci?n. Solo puede ver la informaci?n.
           </Alert>
         )
       }
     >
-      <AppDataGrid
-        rows={normatividades}
-        columns={columns}
-        pageSizeOptions={[5, 10, 25, 50]}
-        onRowClick={(params) => {
-          setSelectedNormatividad(params.row as Normatividad);
-          setDialogDetalleOpen(true);
-        }}
-      />
+      {/* Lista con encabezados, ordenaci?n y paginaci?n */}
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        {/* Encabezados con ordenaci?n */}
+        {normatividades.length > 0 && (
+          <Box
+            sx={{
+              display: { xs: 'none', sm: 'grid' },
+              gridTemplateColumns: '56px 1fr 100px 120px 100px 90px auto',
+              gap: 1.5,
+              px: 2,
+              py: 1.25,
+              bgcolor: 'grey.100',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Box component="button" onClick={() => handleSort('numero')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Nro.</Typography>
+              {sortField === 'numero' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSort('nombre')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Nombre regulaci{"\u00f3"}n</Typography>
+              {sortField === 'nombre' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSort('estado')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Estado</Typography>
+              {sortField === 'estado' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSort('regulador')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Regulador</Typography>
+              {sortField === 'regulador' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSort('cumplimiento')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Cumplimiento</Typography>
+              {sortField === 'cumplimiento' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box component="button" onClick={() => handleSort('clasificacion')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Clasificaci{"\u00f3"}n</Typography>
+              {sortField === 'clasificacion' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
+            </Box>
+            <Box />
+          </Box>
+        )}
 
-      {/* Diálogo de Detalle (Solo lectura) */}
-      <Dialog open={dialogDetalleOpen} onClose={() => setDialogDetalleOpen(false)} maxWidth="md" fullWidth>
+        {/* Paginaci?n (arriba, como otras p?ginas) */}
+        {sortedNormatividades.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+              px: 2,
+              py: 1.25,
+              borderBottom: normatividades.length > 0 ? '1px solid' : undefined,
+              borderColor: 'divider',
+              bgcolor: 'grey.50',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, sortedNormatividades.length)} de {sortedNormatividades.length}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton
+                size="small"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                aria-label={"P\u00e1gina anterior"}
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+              <Typography variant="body2" sx={{ minWidth: 90, textAlign: 'center' }}>
+                P{"\u00e1"}g. {page} de {totalPages}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                aria-label={"P\u00e1gina siguiente"}
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: normatividades.length > 0 ? 2 : 0, py: normatividades.length > 0 ? 2 : 0 }}>
+          {normatividades.length === 0 && (
+            <Alert severity="info">No hay normatividades registradas. Agregue una con el bot{"\u00f3"}n &quot;Nueva Normatividad&quot;.</Alert>
+          )}
+          {paginatedNormatividades.map((item) => (
+          <Card
+            key={item.id}
+            variant="outlined"
+            sx={{
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)', boxShadow: 1 },
+            }}
+            onClick={() => {
+              setSelectedNormatividad(item);
+              setDialogDetalleOpen(true);
+            }}
+          >
+            <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '56px 1fr 100px 120px 100px 90px auto' },
+                  gap: 1.5,
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="subtitle2" fontWeight={700} color="primary" sx={{ fontSize: '0.85rem' }}>
+                  {item.numero}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight={500}
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    minWidth: 0,
+                  }}
+                >
+                  {item.nombre || 'Sin nombre'}
+                </Typography>
+                <Box>{renderChipEstado(item.estado)}</Box>
+                <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+                  {item.regulador || '-'}
+                </Typography>
+                <Box>{renderChipCumplimiento(item.cumplimiento)}</Box>
+                <Box>{renderChipClasificacion(item.clasificacion)}</Box>
+                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+                  {!isReadOnly && (
+                    <>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={(e) => handleEditar(e, item)}
+                        title="Editar"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={(e) => handleEliminar(e, item)} title="Eliminar">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </>
+                  )}
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedNormatividad(item);
+                      setDialogDetalleOpen(true);
+                    }}
+                    title="Ver detalle"
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        ))}
+        </Box>
+      </Paper>
+
+      {/* Di\u00e1logo de Detalle (Solo lectura) */}
+      <Dialog open={dialogDetalleOpen} onClose={() => setDialogDetalleOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
@@ -360,7 +480,7 @@ export default function NormatividadPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Nombre de la Regulación Aplicable
+                  Nombre de la Regulaci?n Aplicable
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2 }}>
                   {selectedNormatividad.nombre || 'N/A'}
@@ -393,7 +513,7 @@ export default function NormatividadPage() {
               </Box>
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Sanciones Penales/Civiles/Económicas
+                  Sanciones Penales/Civiles/Econ?micas
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
                   {selectedNormatividad.sanciones || 'N/A'}
@@ -401,7 +521,7 @@ export default function NormatividadPage() {
               </Box>
               <Box>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Plazo para Implementación
+                  Plazo para Implementaci?n
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2 }}>
                   {selectedNormatividad.plazoImplementacion || 'N/A'}
@@ -442,7 +562,7 @@ export default function NormatividadPage() {
               </Box>
               <Box>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Clasificación
+                  Clasificaci{"\u00f3"}n
                 </Typography>
                 <Chip
                   label={selectedNormatividad.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Riesgo Positivo' : 'Riesgo Negativo'}
@@ -467,8 +587,8 @@ export default function NormatividadPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo de Edición/Creación */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      {/* Di\u00e1logo de Edici\u00f3n/Creaci\u00f3n */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <form onSubmit={async (e) => {
           e.preventDefault();
           if (!procesoSeleccionado) return;
@@ -498,7 +618,7 @@ export default function NormatividadPage() {
             // Optimistic update
             setNormatividades(updatedList);
             await updateProceso({
-              id: procesoSeleccionado.id,
+              id: String(procesoSeleccionado.id),
               normatividades: updatedList
             }).unwrap();
             setInitialNormatividades(updatedList);
@@ -520,7 +640,7 @@ export default function NormatividadPage() {
                 <TextField
                   fullWidth
                   name="nombre"
-                  label="Nombre de la Regulación Aplicable"
+                  label="Nombre de la Regulaci?n Aplicable"
                   defaultValue={selectedNormatividad?.nombre || ''}
                   disabled={isReadOnly}
                   variant="outlined"
@@ -556,7 +676,7 @@ export default function NormatividadPage() {
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <TextField
                   fullWidth
-                  label="Sanciones Penales/Civiles/Económicas"
+                  label="Sanciones Penales/Civiles/Econ?micas"
                   name="sanciones"
                   multiline
                   rows={3}
@@ -569,7 +689,7 @@ export default function NormatividadPage() {
                 <TextField
                   fullWidth
                   name="plazoImplementacion"
-                  label="Plazo para Implementación"
+                  label="Plazo para Implementaci?n"
                   defaultValue={selectedNormatividad?.plazoImplementacion || ''}
                   disabled={isReadOnly}
                   variant="outlined"
@@ -621,7 +741,7 @@ export default function NormatividadPage() {
                   fullWidth
                   select
                   name="clasificacion"
-                  label="Clasificación"
+                  label={"Clasificaci\u00f3n"}
                   defaultValue={selectedNormatividad?.clasificacion || CLASIFICACION_RIESGO.NEGATIVA}
                   disabled={isReadOnly}
                   variant="outlined"

@@ -145,12 +145,11 @@ function generarDBCompleto() {
     { id: '4', nombre: 'Contexto Externo', ruta: '/contexto-externo', icono: 'Public', orden: 4, visible: true, requerido: false },
     { id: '5', nombre: 'Contexto Interno', ruta: '/contexto-interno', icono: 'Business', orden: 5, visible: true, requerido: false },
     { id: '6', nombre: 'DOFA', ruta: '/dofa', icono: 'Analytics', orden: 6, visible: true, requerido: false },
-    { id: '7', nombre: 'Benchmarking', ruta: '/benchmarking', icono: 'CompareArrows', orden: 7, visible: true, requerido: false },
-    { id: '8', nombre: 'Identificación', ruta: '/identificacion', icono: 'Search', orden: 8, visible: true, requerido: true },
-    { id: '9', nombre: 'Evaluación', ruta: '/evaluacion', icono: 'Assessment', orden: 9, visible: true, requerido: true },
-    { id: '10', nombre: 'Mapa de Riesgos', ruta: '/mapa', icono: 'Map', orden: 10, visible: true, requerido: true },
-    { id: '11', nombre: 'Priorización', ruta: '/priorizacion', icono: 'PriorityHigh', orden: 11, visible: true, requerido: true },
-    { id: '12', nombre: 'Plan de Acción', ruta: '/plan-accion', icono: 'Task', orden: 12, visible: true, requerido: true },
+    { id: '8', nombre: 'Identificación', ruta: '/identificacion', icono: 'Search', orden: 7, visible: true, requerido: true },
+    { id: '9', nombre: 'Evaluación', ruta: '/evaluacion', icono: 'Assessment', orden: 8, visible: true, requerido: true },
+    { id: '10', nombre: 'Mapa de Riesgos', ruta: '/mapa', icono: 'Map', orden: 9, visible: true, requerido: true },
+    { id: '11', nombre: 'Priorización', ruta: '/priorizacion', icono: 'PriorityHigh', orden: 10, visible: true, requerido: true },
+    { id: '12', nombre: 'Plan de Acción', ruta: '/plan-accion', icono: 'Task', orden: 11, visible: true, requerido: true },
   ];
 
   // ========== ENCUESTAS ==========

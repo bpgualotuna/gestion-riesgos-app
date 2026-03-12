@@ -622,7 +622,7 @@ export default function PlanAccionPage() {
       </Dialog>
 
       {/* DIALOG PLAN */}
-      <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 480 } }}>
+      <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 540 } }}>
         <DialogTitle>Nuevo Plan de Acción</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>

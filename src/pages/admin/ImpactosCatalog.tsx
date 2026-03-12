@@ -181,7 +181,7 @@ export default function ImpactosCatalog({
             />
 
             {/* Diálogo para editar descripción */}
-            <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
                 <DialogTitle>Editar Descripciones: {rows.find(r => String(r.id) === editingKey)?.nombre}</DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
@@ -240,7 +240,7 @@ export default function ImpactosCatalog({
             </Dialog>
 
             {/* MODAL DE DETALLE */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del Tipo de Impacto</DialogTitle>
                 <DialogContent>
                     {selectedDetailId !== null && (

@@ -39,7 +39,6 @@ const ContextoExternoPage = lazy(() => import('../pages/procesos/ContextoExterno
 const ContextoInternoPage = lazy(() => import('../pages/procesos/ContextoInternoPage'));
 const DofaPage = lazy(() => import('../pages/procesos/DofaPage'));
 const AnalisisProcesoPage = lazy(() => import('../pages/procesos/AnalisisProcesoPage'));
-const BenchmarkingPage = lazy(() => import('../pages/procesos/BenchmarkingPage'));
 const AyudaPage = lazy(() => import('../pages/otros/AyudaPage'));
 const ProcesosPage = lazy(() => import('../pages/procesos/ProcesosPage'));
 const RiesgosProcesosPage = lazy(() => import('../pages/riesgos/RiesgosProcesosPage'));
@@ -190,10 +189,6 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.ANALISIS_PROCESO,
         element: <LazyRoute component={AnalisisProcesoPage} />,
-      },
-      {
-        path: ROUTES.BENCHMARKING,
-        element: <LazyRoute component={BenchmarkingPage} />,
       },
       {
         path: ROUTES.AYUDA,

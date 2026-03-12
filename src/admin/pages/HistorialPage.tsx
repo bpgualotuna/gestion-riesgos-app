@@ -35,6 +35,14 @@ import { AUTH_TOKEN_KEY } from '../../utils/constants';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
+// Nombres legibles para campos del historial de cambios
+const NOMBRE_CAMPO: Record<string, string> = {
+  contextos: 'Contextos',
+  dofaItems: 'Ítems DOFA',
+  participantes: 'Participantes',
+  normatividades: 'Normatividades',
+};
+
 // Mapeo de tablas de BD a nombres de páginas/módulos
 const TABLA_A_PAGINA: Record<string, string> = {
   'Riesgo': 'Riesgos',
@@ -53,7 +61,6 @@ const TABLA_A_PAGINA: Record<string, string> = {
   'DofaItem': 'Análisis DOFA',
   'Normatividad': 'Normatividad',
   'Contexto': 'Contexto',
-  'Benchmarking': 'Benchmarking',
   'Gerencia': 'Gerencias',
   'Observacion': 'Observaciones',
 };
@@ -89,6 +96,71 @@ const formatearFechaDetallada = (fecha: string | Date): string => {
   
   return `${dia}/${mes}/${anio} a las ${horas}:${minutos}:${segundos}`;
 };
+
+/** Formatea el valor para "Detalles del Cambio": resumen para listas/objetos grandes, sin volcar JSON completo */
+const formatearValorParaDetalle = (valor: unknown): string => {
+  if (valor === null || valor === undefined) return '—';
+  if (Array.isArray(valor)) {
+    if (valor.length === 0) return 'Lista vacía';
+    return `Lista de ${valor.length} elemento${valor.length === 1 ? '' : 's'}`;
+  }
+  if (typeof valor === 'object') {
+    const keys = Object.keys(valor as object);
+    const str = JSON.stringify(valor);
+    if (str.length > 400 || keys.length > 5) {
+      return `Objeto (${keys.length} propiedad${keys.length === 1 ? '' : 'es'})`;
+    }
+  }
+  if (typeof valor === 'boolean') return valor ? 'Sí' : 'No';
+  const str = String(valor);
+  return str.length > 400 ? `${str.slice(0, 397)}…` : str;
+};
+
+const CAMPOS_IGNORADOS_ITEM = ['id', 'procesoId', 'createdAt', 'updatedAt', '$type'];
+
+function diffArraysById(
+  anterior: unknown,
+  nuevo: unknown
+): { added: number; removed: number; modified: { id: number | string; campos: { campo: string; anterior: string; nuevo: string }[] }[] } | null {
+  if (!Array.isArray(anterior) || !Array.isArray(nuevo)) return null;
+  const getId = (o: any) => o?.id;
+  const toMap = (arr: any[]) => {
+    const m = new Map<string, any>();
+    arr.forEach((item) => {
+      const id = getId(item);
+      if (id != null) m.set(String(id), item);
+    });
+    return m;
+  };
+  const mapA = toMap(anterior);
+  const mapN = toMap(nuevo);
+  const idsA = new Set(mapA.keys());
+  const idsN = new Set(mapN.keys());
+  const added = [...idsN].filter((id) => !idsA.has(id)).length;
+  const removed = [...idsA].filter((id) => !idsN.has(id)).length;
+  const modified: { id: number | string; campos: { campo: string; anterior: string; nuevo: string }[] }[] = [];
+  for (const id of idsA) {
+    if (!idsN.has(id)) continue;
+    const a = mapA.get(id);
+    const n = mapN.get(id);
+    const allKeys = new Set([...Object.keys(a || {}), ...Object.keys(n || {})]);
+    const campos: { campo: string; anterior: string; nuevo: string }[] = [];
+    for (const key of allKeys) {
+      if (CAMPOS_IGNORADOS_ITEM.includes(key)) continue;
+      const va = a?.[key];
+      const vn = n?.[key];
+      const sa = typeof va === 'object' ? JSON.stringify(va) : String(va ?? '');
+      const sn = typeof vn === 'object' ? JSON.stringify(vn) : String(vn ?? '');
+      if (sa !== sn) {
+        const trunc = (s: string) => (s.length > 120 ? s.slice(0, 117) + '…' : s);
+        campos.push({ campo: key, anterior: trunc(sa), nuevo: trunc(sn) });
+      }
+    }
+    if (campos.length > 0) modified.push({ id, campos });
+  }
+  if (added === 0 && removed === 0 && modified.length === 0) return null;
+  return { added, removed, modified };
+}
 
 interface AuditLog {
   id: number;
@@ -504,7 +576,7 @@ export default function HistorialPage({ user }: HistorialPageProps) {
         </AccordionDetails>
       </Accordion>
 
-      {/* Tabla */}
+      {/* Tabla: clic en fila o en "Ver" abre el detalle */}
       <Paper elevation={2}>
         <AppDataGrid
           rows={logs}
@@ -513,15 +585,18 @@ export default function HistorialPage({ user }: HistorialPageProps) {
           getRowId={(row) => row.id}
           autoHeight
           disableRowSelectionOnClick
+          onRowClick={(params) => handleVerDetalles(params.row as AuditLog)}
+          sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
         />
       </Paper>
 
-      {/* Dialog de Detalles */}
+      {/* Dialog de Detalles - ancho limitado para no tapar el panel de IA */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { maxWidth: 640 } }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -637,51 +712,60 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   <Stack spacing={2}>
-                    {Object.entries(selectedLog.cambios).map(([campo, valores]) => (
-                      <Paper key={campo} variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                          {campo}
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="textSecondary">
-                              Valor Anterior
-                            </Typography>
-                            <Paper
-                              variant="outlined"
-                              sx={{
-                                p: 1,
-                                mt: 0.5,
-                                bgcolor: 'error.lighter',
-                                borderColor: 'error.light',
-                              }}
-                            >
-                              <Typography variant="body2" fontFamily="monospace">
-                                {JSON.stringify(valores.anterior, null, 2)}
+                    {Object.entries(selectedLog.cambios).map(([campo, valores]) => {
+                      const diff = diffArraysById(valores.anterior, valores.nuevo);
+                      const nombreCampo = NOMBRE_CAMPO[campo] ?? campo;
+                      return (
+                        <Paper key={campo} variant="outlined" sx={{ p: 2 }}>
+                          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                            {nombreCampo}
+                          </Typography>
+                          {diff ? (
+                            <Box>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                {diff.added > 0 && `${diff.added} agregado${diff.added === 1 ? '' : 's'}`}
+                                {diff.added > 0 && (diff.removed > 0 || diff.modified.length > 0) && ', '}
+                                {diff.removed > 0 && `${diff.removed} eliminado${diff.removed === 1 ? '' : 's'}`}
+                                {diff.removed > 0 && diff.modified.length > 0 && ', '}
+                                {diff.modified.length > 0 && `${diff.modified.length} modificado${diff.modified.length === 1 ? '' : 's'}`}
                               </Typography>
-                            </Paper>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="textSecondary">
-                              Valor Nuevo
-                            </Typography>
-                            <Paper
-                              variant="outlined"
-                              sx={{
-                                p: 1,
-                                mt: 0.5,
-                                bgcolor: 'success.lighter',
-                                borderColor: 'success.light',
-                              }}
-                            >
-                              <Typography variant="body2" fontFamily="monospace">
-                                {JSON.stringify(valores.nuevo, null, 2)}
-                              </Typography>
-                            </Paper>
-                          </Grid>
-                        </Grid>
-                      </Paper>
-                    ))}
+                              {diff.modified.map(({ id, campos: camposItem }) => (
+                                <Box key={String(id)} sx={{ mt: 1, pl: 1, borderLeft: 2, borderColor: 'primary.light' }}>
+                                  <Typography variant="caption" fontWeight={600}>Ítem {id}</Typography>
+                                  {camposItem.map((c) => (
+                                    <Box key={c.campo} sx={{ mt: 0.5 }}>
+                                      <Typography variant="caption" color="text.secondary">{c.campo}:</Typography>
+                                      <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>{c.anterior}</Typography>
+                                      <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>→</Typography>
+                                      <Typography variant="body2" component="span">{c.nuevo}</Typography>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              ))}
+                            </Box>
+                          ) : (
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="textSecondary">Valor Anterior</Typography>
+                                <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'error.lighter', borderColor: 'error.light' }}>
+                                  <Typography variant="body2" fontFamily="monospace">
+                                    {formatearValorParaDetalle(valores.anterior)}
+                                  </Typography>
+                                </Paper>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="textSecondary">Valor Nuevo</Typography>
+                                <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'success.lighter', borderColor: 'success.light' }}>
+                                  <Typography variant="body2" fontFamily="monospace">
+                                    {formatearValorParaDetalle(valores.nuevo)}
+                                  </Typography>
+                                </Paper>
+                              </Grid>
+                            </Grid>
+                          )}
+                        </Paper>
+                      );
+                    })}
                   </Stack>
                 </Box>
               )}

@@ -194,8 +194,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     hasFormControlChanges || 
     hasFormPlanChanges || 
     hasImpactosChanges || 
-    hasFrecuenciaChanges ||
-    causaEnEdicion !== null; // Si hay un formulario abierto
+    hasFrecuenciaChanges;
 
   // Sistema de cambios no guardados
   const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
@@ -295,6 +294,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       });
     });
     setClasificaciones(nuevas);
+    setInitialClasificaciones(nuevas);
   }, [riesgosDelProceso, procesoSeleccionado?.id]);
 
   // Derived Logic
@@ -566,18 +566,46 @@ export default function ControlesYPlanesAccionPageNueva() {
     if (clasificacionExistente) {
       setTipoClasificacion(clasificacionExistente.tipo);
       if (clasificacionExistente.tipo === 'control') {
-        setFormControl({ descripcion: clasificacionExistente.controlDescripcion || '', tipo: clasificacionExistente.controlTipo || 'prevención' });
-        setImpactosResiduales(clasificacionExistente.impactosResiduales || { personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
-        setFrecuenciaResidual(clasificacionExistente.frecuenciaResidual || 1);
+        const fc = { descripcion: clasificacionExistente.controlDescripcion || '', tipo: clasificacionExistente.controlTipo || 'prevención' };
+        const ir = clasificacionExistente.impactosResiduales || { personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 };
+        const fr = clasificacionExistente.frecuenciaResidual || 1;
+        setFormControl(fc);
+        setInitialFormControl(fc);
+        setImpactosResiduales(ir);
+        setInitialImpactosResiduales(ir);
+        setFrecuenciaResidual(fr);
+        setInitialFrecuenciaResidual(fr);
+        setFormPlan(initialFormPlan);
+        setInitialFormPlan(initialFormPlan);
       } else if (clasificacionExistente.tipo === 'plan') {
-        setFormPlan({ descripcion: clasificacionExistente.planDescripcion || '', detalle: clasificacionExistente.planDetalle || '', responsable: clasificacionExistente.planResponsable || '', decision: clasificacionExistente.planDecision || '', fechaEstimada: clasificacionExistente.planFechaEstimada || '', estado: clasificacionExistente.planEstado || 'pendiente' });
+        const fp = { descripcion: clasificacionExistente.planDescripcion || '', detalle: clasificacionExistente.planDetalle || '', responsable: clasificacionExistente.planResponsable || '', decision: clasificacionExistente.planDecision || '', fechaEstimada: clasificacionExistente.planFechaEstimada || '', estado: clasificacionExistente.planEstado || 'pendiente' };
+        setFormPlan(fp);
+        setInitialFormPlan(fp);
+        setFormControl(initialFormControl);
+        setInitialFormControl(initialFormControl);
+        setImpactosResiduales(initialImpactosResiduales);
+        setInitialImpactosResiduales(initialImpactosResiduales);
+        setFrecuenciaResidual(initialFrecuenciaResidual);
+        setInitialFrecuenciaResidual(initialFrecuenciaResidual);
+      } else {
+        setFormControl(initialFormControl);
+        setFormPlan(initialFormPlan);
+        setImpactosResiduales(initialImpactosResiduales);
+        setFrecuenciaResidual(initialFrecuenciaResidual);
       }
     } else {
       setTipoClasificacion('seleccion');
-      setFormControl({ descripcion: '', tipo: 'prevención' });
-      setFormPlan({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' });
-      setImpactosResiduales({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
+      const emptyControl = { descripcion: '', tipo: 'prevención' as const };
+      const emptyPlan = { descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as const };
+      const emptyImpactos = { personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 };
+      setFormControl(emptyControl);
+      setInitialFormControl(emptyControl);
+      setFormPlan(emptyPlan);
+      setInitialFormPlan(emptyPlan);
+      setImpactosResiduales(emptyImpactos);
+      setInitialImpactosResiduales(emptyImpactos);
       setFrecuenciaResidual(1);
+      setInitialFrecuenciaResidual(1);
     }
   };
 
@@ -3152,7 +3180,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         }}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { maxWidth: 520 } }}
+        PaperProps={{ sx: { maxWidth: 560 } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>

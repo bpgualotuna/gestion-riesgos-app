@@ -6,8 +6,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AUTH_TOKEN_KEY } from '../utils/constants';
 
-// User roles - Solo 4 roles permitidos
-export type UserRole = 'admin' | 'dueño_procesos' | 'gerente' | 'supervisor';
+// User roles (backend puede devolver gerente_general | manager como alias de gerente)
+export type UserRole = 'admin' | 'dueño_procesos' | 'gerente' | 'supervisor' | 'gerente_general' | 'manager';
 export type GerenteModo = 'dueño' | 'supervisor';
 export type GerenteGeneralMode = 'director' | 'proceso'; // director = supervisor, proceso = dueño
 
@@ -62,6 +62,12 @@ interface AuthContextType {
   esGerenteGeneral: boolean;
   gerenteGeneralMode: GerenteGeneralMode | null;
   setGerenteGeneralMode: (mode: GerenteGeneralMode | null) => void;
+  /** Alias para compatibilidad con vistas que usan "manager" */
+  managerMode: GerenteModo | null;
+  setManagerMode: (mode: GerenteModo | null) => void;
+  esManager: boolean;
+  esManagerDueño: boolean;
+  esManagerSupervisor: boolean;
   refreshUser: (updatedUserFromApi?: Record<string, unknown> | null) => Promise<void>;
 }
 
@@ -176,7 +182,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setGerenteModeState(mode);
   };
 
-  const esGerente = user?.role === 'gerente' || user?.role === 'gerente_general';
+  const esGerente = user?.role === 'gerente' || user?.role === 'gerente_general' || user?.role === 'manager';
   const gerenteGeneralMode: GerenteGeneralMode | null = gerenteMode === 'supervisor' ? 'director' : gerenteMode === 'dueño' ? 'proceso' : null;
   const setGerenteGeneralMode = (mode: GerenteGeneralMode | null) => {
     setGerenteModeState(mode === 'director' ? 'supervisor' : mode === 'proceso' ? 'dueño' : null);
@@ -254,6 +260,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     esGerenteGeneral: esGerente,
     gerenteGeneralMode,
     setGerenteGeneralMode,
+    managerMode: gerenteMode,
+    setManagerMode: setGerenteMode,
+    esManager: esGerente,
+    esManagerDueño: esGerenteDueño,
+    esManagerSupervisor: esGerenteSupervisor,
     refreshUser,
   };
 

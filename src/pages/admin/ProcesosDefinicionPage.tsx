@@ -524,7 +524,7 @@ export default function ProcesosDefinicionPage() {
                 </TabPanel>
             </Box>
 
-            <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 500 } }}>
+            <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 540 } }}>
                 <DialogTitle>{editingProceso ? 'Editar Proceso' : 'Nuevo Proceso'}</DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
@@ -671,7 +671,7 @@ export default function ProcesosDefinicionPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DEL PROCESO */}
-            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del Proceso</DialogTitle>
                 <DialogContent>
                     {selectedProcessDetail && (
@@ -742,7 +742,7 @@ export default function ProcesosDefinicionPage() {
             </Dialog>
 
             {/* MODAL DE DETALLE DEL TIPO DE PROCESO */}
-            <Dialog open={tipoDetailDialogOpen} onClose={handleCloseTipoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 520 } }}>
+            <Dialog open={tipoDetailDialogOpen} onClose={handleCloseTipoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
                 <DialogTitle>Información del Tipo de Proceso</DialogTitle>
                 <DialogContent>
                     {selectedTipoDetail && (

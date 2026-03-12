@@ -1902,8 +1902,9 @@ export default function DashboardSupervisorPage() {
             setRiesgosFueraApetitoDialogOpen(false);
             setCeldaSeleccionada(null);
           }}
-          maxWidth="lg"
+          maxWidth="md"
           fullWidth
+          PaperProps={{ sx: { maxWidth: 900 } }}
         >
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -1,6 +1,15 @@
+import { useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useProceso } from '../contexts/ProcesoContext';
 import { Proceso } from '../types';
 import { useGetProcesosQuery } from '../api/services/riesgosApi';
+
+/** Indica si un proceso es de tipo gerencial (para vistas de Gerente General) */
+export function isProcesoGerencial(p: { tipoProceso?: string } | null): boolean {
+  if (!p?.tipoProceso) return false;
+  const t = (p.tipoProceso || '').toLowerCase();
+  return t.includes('gerencial') || t.includes('gerencia') || t.includes('01 estratégico');
+}
 
 type ProcesoItem = {
     id: string | number;
@@ -110,3 +119,104 @@ export const isAreaAsignadaASupervisor = (areaId: string, supervisorId?: string)
     if (!supervisorId) return false;
     return false;
 };
+
+// ========== Hooks reutilizables para vistas escalables ==========
+
+/**
+ * Lista de procesos que el usuario puede ver según su rol y asignaciones.
+ * Una sola fuente de verdad: usarlo en todas las páginas que filtran por proceso.
+ */
+export function useProcesosVisibles(): { procesosVisibles: Proceso[]; loading: boolean } {
+    const { esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, user } = useAuth();
+    const { data: procesos = [], isLoading } = useGetProcesosQuery();
+    const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
+
+    const procesosVisibles = useMemo((): Proceso[] => {
+        if (esGerenteGeneralDirector) return procesos as Proceso[];
+        if (esGerenteGeneralProceso && user) {
+            return (procesos as Proceso[]).filter((p) => esUsuarioResponsableProceso(p, user.id));
+        }
+        if (esDueñoProcesos && user) {
+            return (procesos as Proceso[]).filter((p) => esUsuarioResponsableProceso(p, user.id));
+        }
+        if (esSupervisorRiesgos && user) {
+            if (areasAsignadas.length === 0 && procesosAsignados.length === 0) return [];
+            return (procesos as Proceso[]).filter((p) => {
+                if (procesosAsignados.includes(String(p.id))) return true;
+                if (p.areaId != null && areasAsignadas.includes(String(p.areaId))) return true;
+                return false;
+            });
+        }
+        return procesos as Proceso[];
+    }, [procesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos, areasAsignadas, procesosAsignados, user]);
+
+    return { procesosVisibles, loading: isLoading };
+}
+
+/**
+ * Indica si la página de proceso debe mostrarse en solo lectura
+ * (visualizar, supervisor o gerente director).
+ */
+export function useIsReadOnlyProceso(): boolean {
+    const { modoProceso } = useProceso();
+    const { esSupervisorRiesgos, esGerenteGeneralDirector } = useAuth();
+    return modoProceso === 'visualizar' || !!esSupervisorRiesgos || !!esGerenteGeneralDirector;
+}
+
+/** Área con id y nombre para selects */
+export type AreaOption = { id: string; nombre: string };
+
+/**
+ * Procesos visibles + filtro por área en un solo hook.
+ * Usar en páginas que muestran selector Área + Proceso para evitar duplicar useMemo.
+ */
+export function useProcesosFiltradosPorArea(initialFiltroArea = 'all') {
+    const { procesosVisibles, loading } = useProcesosVisibles();
+    const [filtroArea, setFiltroArea] = useState(initialFiltroArea);
+
+    const areasDisponibles = useMemo((): AreaOption[] => {
+        const map = new Map<string, string>();
+        procesosVisibles.forEach((p) => {
+            if (p.areaId) {
+                const id = String(p.areaId);
+                const nombre = (p as { areaNombre?: string }).areaNombre || `Área ${id}`;
+                map.set(id, nombre);
+            }
+        });
+        return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
+    }, [procesosVisibles]);
+
+    const procesosFiltrados = useMemo(() => {
+        if (filtroArea === 'all') return procesosVisibles;
+        return procesosVisibles.filter((p) => String(p.areaId) === filtroArea);
+    }, [procesosVisibles, filtroArea]);
+
+    const procesosFiltradosUnicos = useMemo(() => {
+        const map = new Map<string, Proceso>();
+        procesosFiltrados.forEach((p) => {
+            const key = String(p.id);
+            if (!map.has(key)) map.set(key, p);
+        });
+        return Array.from(map.values());
+    }, [procesosFiltrados]);
+
+    return {
+        procesosVisibles,
+        areasDisponibles,
+        procesosFiltrados,
+        procesosFiltradosUnicos,
+        filtroArea,
+        setFiltroArea,
+        loading,
+    };
+}
+
+/**
+ * Procesos de tipo gerencial (para vista Gerente General).
+ * Filtra por tipoProceso gerencial/estrategico.
+ */
+export function useProcesosGerenciales(): { procesos: Proceso[]; loading: boolean } {
+    const { procesosVisibles, loading } = useProcesosVisibles();
+    const procesos = useMemo(() => procesosVisibles.filter(isProcesoGerencial), [procesosVisibles]);
+    return { procesos, loading };
+}

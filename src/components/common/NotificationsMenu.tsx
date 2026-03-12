@@ -54,7 +54,6 @@ const TABLA_A_PAGINA: Record<string, string> = {
   'DofaItem': 'Análisis DOFA',
   'Normatividad': 'Normatividad',
   'Contexto': 'Contexto',
-  'Benchmarking': 'Benchmarking',
   'Gerencia': 'Gerencias',
   'Observacion': 'Observaciones',
 };

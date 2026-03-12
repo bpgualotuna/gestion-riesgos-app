@@ -536,7 +536,7 @@ export default function EvaluacionControlPage() {
       )}
 
       {/* Dialog para agregar/editar control */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle>{editingId ? 'Editar Control' : 'Agregar Nuevo Control'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>

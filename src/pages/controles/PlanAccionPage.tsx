@@ -1064,7 +1064,7 @@ export default function PlanAccionPage() {
         )}
 
         {/* Diálogo para Crear/Editar Plan */}
-        <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="md" fullWidth>
+        <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
           <DialogTitle>{modoEdicion === 'crear' ? 'Nuevo Plan de Acción' : 'Editar Plan de Acción'}</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>

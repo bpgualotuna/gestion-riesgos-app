@@ -1,6 +1,6 @@
 /**
  * Hook para gestionar el historial de cambios de procesos
- * Permite registrar y consultar cambios en: ficha, análisis, normatividad, contexto, DOFA, benchmarking
+ * Permite registrar y consultar cambios en: ficha, análisis, normatividad, contexto, DOFA
  */
 
 import { useCallback, useMemo } from 'react';

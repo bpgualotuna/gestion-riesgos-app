@@ -763,6 +763,8 @@ export default function IdentificacionPage() {
         subtipoRiesgo: r.subtipoRiesgo || '',
         tipoRiesgoId: (r as any).tipoRiesgoId ?? null,
         subtipoRiesgoId: (r as any).subtipoRiesgoId ?? null,
+        tipologiaTipo3: (r as any).tipologiaTipo3 ?? '',
+        tipologiaTipo4: (r as any).tipologiaTipo4 ?? '',
         tipoProceso: r.proceso?.tipo || procesoSel?.tipo || 'Operacional',
         impactos: r.evaluacion ? {
           economico: r.evaluacion.impactoEconomico || 1,
@@ -1133,6 +1135,8 @@ export default function IdentificacionPage() {
       consecuencia: 'Negativa',
       tipoRiesgo: '',
       subtipoRiesgo: '',
+      tipologiaTipo3: '',
+      tipologiaTipo4: '',
       objetivo: procesoSeleccionado?.objetivos?.[0] || '',
       causas: [],
       impactos: {
@@ -1386,6 +1390,8 @@ export default function IdentificacionPage() {
       if (cambios.descripcionRiesgo !== undefined) payload.descripcion = cambios.descripcionRiesgo;
       if (cambios.tipoRiesgoId !== undefined) payload.tipoRiesgoId = cambios.tipoRiesgoId;
       if (cambios.subtipoRiesgoId !== undefined) payload.subtipoRiesgoId = cambios.subtipoRiesgoId;
+      if (cambios.tipologiaTipo3 !== undefined) payload.tipologiaTipo3 = cambios.tipologiaTipo3;
+      if (cambios.tipologiaTipo4 !== undefined) payload.tipologiaTipo4 = cambios.tipologiaTipo4;
       if (cambios.origenRiesgo !== undefined) payload.origen = cambios.origenRiesgo;
       // Siempre enviar clasificación con el valor actual del formulario para que no se pierda al guardar
       payload.clasificacion = riesgoActualizado.consecuencia ?? riesgoActual.consecuencia ?? 'Negativa';
@@ -1739,7 +1745,7 @@ export default function IdentificacionPage() {
                 onClick={() => handleSortRiesgos('tipo')}
               >
                 <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">
-                  TIPO RIESGO
+                  TIPOLOGÍA TIPO I
                 </Typography>
                 {sortConfigRiesgos.field === 'tipo' ? (
                   sortConfigRiesgos.direction === 'asc' ? (
@@ -1756,7 +1762,7 @@ export default function IdentificacionPage() {
                 onClick={() => handleSortRiesgos('subtipo')}
               >
                 <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">
-                  SUBTIPO
+                  TIPOLOGÍA TIPO II
                 </Typography>
                 {sortConfigRiesgos.field === 'subtipo' ? (
                   sortConfigRiesgos.direction === 'asc' ? (
@@ -1869,11 +1875,11 @@ export default function IdentificacionPage() {
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tipoRiesgoObj ? (tipoRiesgoObj.nombre || tipoRiesgoObj.codigo) : (riesgo.tipoRiesgo || 'Sin tipo')}
+                      {tipoRiesgoObj ? (tipoRiesgoObj.nombre || tipoRiesgoObj.codigo) : (riesgo.tipoRiesgo || 'Sin tipología I')}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin subtipo')}
+                      {subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin tipología II')}
                     </Typography>
 
                     {/* Columna de Clasificación/Nivel de Riesgo */}
@@ -3093,23 +3099,6 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
 
                       <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
                         <TableCell sx={{ fontWeight: 500, borderRight: '1px solid rgba(0, 0, 0, 0.12)' }}>
-                          Tipo de Proceso
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            value={riesgo.proceso?.tipo || procesoSeleccionado?.tipo || 'Operacional'}
-                            disabled={true}
-                            variant="standard"
-                            sx={{ fontSize: '0.875rem' }}
-                            InputProps={{ disableUnderline: true }}
-                          />
-                        </TableCell>
-                      </TableRow>
-
-                      <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
-                        <TableCell sx={{ fontWeight: 500, borderRight: '1px solid rgba(0, 0, 0, 0.12)' }}>
                           Proceso
                         </TableCell>
                         <TableCell>
@@ -3162,10 +3151,10 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                 <TableContainer component={Paper} variant="outlined">
                   <Table size="small">
                     <TableBody>
-                      {/* Tipo de Riesgo */}
+                      {/* Tipología tipo I (antes Tipo de Riesgo) */}
                       <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
                         <TableCell sx={{ fontWeight: 500, borderRight: '1px solid rgba(0, 0, 0, 0.12)' }}>
-                          Tipo de Riesgo
+                          Tipología tipo I
                         </TableCell>
                         <TableCell>
                           <Autocomplete
@@ -3194,7 +3183,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                               <TextField
                                 {...params}
                                 variant="standard"
-                                placeholder="Buscar tipo de riesgo..."
+                                placeholder="Buscar tipología tipo I..."
                                 sx={{ fontSize: '0.875rem' }}
                                 InputProps={{
                                   ...params.InputProps,
@@ -3258,7 +3247,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         </TableCell>
                       </TableRow>
 
-                      {/* Descripción del Tipo de Riesgo */}
+                      {/* Descripción de Tipología tipo I */}
                       {riesgo.tipoRiesgo && tipoRiesgoSeleccionado && (
                         <TableRow>
                           <TableCell colSpan={2} sx={{ pt: 0, pb: 1 }}>
@@ -3269,10 +3258,10 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         </TableRow>
                       )}
 
-                      {/* Subtipo */}
+                      {/* Tipología tipo II (antes Subtipo) */}
                       <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
                         <TableCell sx={{ fontWeight: 500, borderRight: '1px solid rgba(0, 0, 0, 0.12)' }}>
-                          Subtipo
+                          Tipología tipo II
                         </TableCell>
                         <TableCell>
                           {riesgo.tipoRiesgo && tipoRiesgoSeleccionado ? (
@@ -3306,7 +3295,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                 <TextField
                                   {...params}
                                   variant="standard"
-                                  placeholder="Buscar subtipo..."
+                                  placeholder="Buscar tipología tipo II..."
                                   sx={{ fontSize: '0.875rem' }}
                                   InputProps={{
                                     ...params.InputProps,
@@ -3372,7 +3361,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                               size="small"
                               value=""
                               disabled
-                              placeholder="Seleccione primero un tipo de riesgo"
+                              placeholder="Seleccione primero tipología tipo I"
                               variant="standard"
                               sx={{ fontSize: '0.875rem' }}
                               InputProps={{ disableUnderline: true }}
@@ -3381,7 +3370,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         </TableCell>
                       </TableRow>
 
-                      {/* Descripción del Subtipo */}
+                      {/* Descripción de Tipología tipo II */}
                       {riesgo.subtipoRiesgo && riesgo.tipoRiesgo && (() => {
                         const tipoObj = (tiposRiesgos || []).find(t => t.codigo === riesgo.tipoRiesgo);
                         const subtipoObj = tipoObj?.subtipos.find((s: any) => getSubtipoCodigo(s) === riesgo.subtipoRiesgo);
@@ -3395,6 +3384,46 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                           </TableRow>
                         ) : null;
                       })()}
+
+                      {/* Tipología tipo III (manual) */}
+                      <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
+                        <TableCell sx={{ fontWeight: 500, borderRight: '1px solid rgba(0, 0, 0, 0.12)' }}>
+                          Tipología tipo III
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={(riesgo as any).tipologiaTipo3 ?? ''}
+                            onChange={(e) => actualizarRiesgo(riesgo.id, { tipologiaTipo3: e.target.value })}
+                            disabled={isReadOnly}
+                            variant="standard"
+                            placeholder="Ingrese manualmente"
+                            sx={{ fontSize: '0.875rem' }}
+                            InputProps={{ disableUnderline: true }}
+                          />
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Tipología tipo IV (manual) */}
+                      <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
+                        <TableCell sx={{ fontWeight: 500, borderRight: '1px solid rgba(0, 0, 0, 0.12)' }}>
+                          Tipología tipo IV
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={(riesgo as any).tipologiaTipo4 ?? ''}
+                            onChange={(e) => actualizarRiesgo(riesgo.id, { tipologiaTipo4: e.target.value })}
+                            disabled={isReadOnly}
+                            variant="standard"
+                            placeholder="Ingrese manualmente"
+                            sx={{ fontSize: '0.875rem' }}
+                            InputProps={{ disableUnderline: true }}
+                          />
+                        </TableCell>
+                      </TableRow>
 
                       {/* Objetivo */}
                       <TableRow sx={{ '& .MuiTableCell-root': { py: 1.2 } }}>
@@ -3606,14 +3635,14 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
             IMPACTO
           </Typography>
         </Box>
-        <CardContent sx={{ flexGrow: 1, p: 3 }}>
+        <CardContent sx={{ flexGrow: 1, p: 2 }}>
           <Grid2 container spacing={2}>
             {/* Columna izquierda de impactos */}
             <Grid2 xs={12} md={6}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* Impacto económico */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Impacto económico
                     </Typography>
@@ -3656,11 +3685,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Procesos */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Procesos
                     </Typography>
@@ -3703,11 +3732,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Legal */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Legal
                     </Typography>
@@ -3750,11 +3779,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Confidencialidad SGSI */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Confidencialidad SGSI
                     </Typography>
@@ -3797,11 +3826,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Reputación */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Reputación
                     </Typography>
@@ -3849,10 +3878,10 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
 
             {/* Columna derecha de impactos */}
             <Grid2 xs={12} md={6}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* Disponibilidad SGSI */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Disponibilidad SGSI
                     </Typography>
@@ -3895,11 +3924,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Personas */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Personas
                     </Typography>
@@ -3942,11 +3971,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Integridad SGSI */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Integridad SGSI
                     </Typography>
@@ -3989,11 +4018,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                   })()}
                 </Box>
 
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
 
                 {/* Ambiental */}
-                <Box sx={{ pb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="body1" fontWeight={600}>
                       Ambiental
                     </Typography>
@@ -4061,6 +4090,8 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
   if (prevProps.riesgo.descripcionRiesgo !== nextProps.riesgo.descripcionRiesgo) return false;
   if (prevProps.riesgo.tipoRiesgo !== nextProps.riesgo.tipoRiesgo) return false;
   if (prevProps.riesgo.subtipoRiesgo !== nextProps.riesgo.subtipoRiesgo) return false;
+  if ((prevProps.riesgo as any).tipologiaTipo3 !== (nextProps.riesgo as any).tipologiaTipo3) return false;
+  if ((prevProps.riesgo as any).tipologiaTipo4 !== (nextProps.riesgo as any).tipologiaTipo4) return false;
   if (prevProps.riesgo.origenRiesgo !== nextProps.riesgo.origenRiesgo) return false;
   if (prevProps.riesgo.consecuencia !== nextProps.riesgo.consecuencia) return false;
   if (prevProps.riesgo.objetivo !== nextProps.riesgo.objetivo) return false;
