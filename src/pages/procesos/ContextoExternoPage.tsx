@@ -18,8 +18,9 @@ import {
   Alert,
   Chip,
   Tooltip,
+  Divider,
 } from '@mui/material';
-import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon, ThumbUp as PositivoIcon, ThumbDown as NegativoIcon, Add as AddIcon, Delete as DeleteIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon, ThumbUp as PositivoIcon, ThumbDown as NegativoIcon, Add as AddIcon, Delete as DeleteIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, MoreVert as MoreVertIcon, Send as SendIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -31,9 +32,20 @@ import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 type CategoryKey = 'economico' | 'culturalSocial' | 'legalRegulatorio' | 'tecnologico' | 'ambiental' | 'gruposInteresExternos' | 'politico' | 'megatendencias' | 'otrosFactores';
 
+const DOFA_DIMENSIONES = [
+  { value: 'FORTALEZA', label: 'Fortaleza', letra: 'F' },
+  { value: 'OPORTUNIDAD', label: 'Oportunidad', letra: 'O' },
+  { value: 'DEBILIDAD', label: 'Debilidad', letra: 'D' },
+  { value: 'AMENAZA', label: 'Amenaza', letra: 'A' },
+] as const;
+
+type DofaDimension = typeof DOFA_DIMENSIONES[number]['value'];
+
 interface CaracteristicaItem {
   id: string;
   descripcion: string;
+  enviarADofa?: boolean;
+  dofaDimension?: DofaDimension;
 }
 
 const CATEGORIAS: { key: CategoryKey; label: string; tipo: string }[] = [
@@ -56,7 +68,7 @@ export default function ContextoExternoPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
-  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
+  const { data: procesoData, refetch: refetchProceso } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
   const [itemsPositivo, setItemsPositivo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
@@ -66,9 +78,13 @@ export default function ContextoExternoPage() {
   const [tabValue, setTabValue] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [accionMenuAnchor, setAccionMenuAnchor] = useState<{ el: HTMLElement; signo: 'POSITIVO' | 'NEGATIVO'; key: CategoryKey; id: string } | null>(null);
+  const [enviandoDofa, setEnviandoDofa] = useState(false);
 
   const arraysEqual = (a: CaracteristicaItem[], b: CaracteristicaItem[]) =>
-    a.length === b.length && a.every((x, i) => x.id === b[i].id && x.descripcion === b[i].descripcion);
+    a.length === b.length && a.every((x, i) =>
+      x.id === b[i].id && x.descripcion === b[i].descripcion &&
+      x.enviarADofa === b[i].enviarADofa && x.dofaDimension === b[i].dofaDimension
+    );
   const hasChangesPositivo = CATEGORIAS.some(({ key }) => !arraysEqual(initialPositivo[key], itemsPositivo[key]));
   const hasChangesNegativo = CATEGORIAS.some(({ key }) => !arraysEqual(initialNegativo[key], itemsNegativo[key]));
   const hasAnyChanges = hasChangesPositivo || hasChangesNegativo;
@@ -83,12 +99,17 @@ export default function ContextoExternoPage() {
     if (!procesoData) return;
     const pos = emptyItems();
     const neg = emptyItems();
-    const items = (procesoData as any).contextoItems as Array<{ id?: number; tipo: string; signo: string; descripcion: string }> | undefined;
+    const items = (procesoData as any).contextoItems as Array<{ id?: number; tipo: string; signo: string; descripcion: string; enviarADofa?: boolean; dofaDimension?: string }> | undefined;
     if (Array.isArray(items)) {
       items.forEach((it) => {
         const cat = CATEGORIAS.find((c) => c.tipo === it.tipo);
         if (!cat) return;
-        const entry = { id: String(it.id ?? `${Date.now()}-${Math.random()}`), descripcion: it.descripcion ?? '' };
+        const entry: CaracteristicaItem = {
+          id: String(it.id ?? `${Date.now()}-${Math.random()}`),
+          descripcion: it.descripcion ?? '',
+          enviarADofa: it.enviarADofa === true,
+          dofaDimension: (it.dofaDimension && DOFA_DIMENSIONES.some(d => d.value === it.dofaDimension)) ? (it.dofaDimension as DofaDimension) : undefined,
+        };
         if (String(it.signo).toUpperCase() === 'POSITIVO') pos[cat.key].push(entry);
         else if (String(it.signo).toUpperCase() === 'NEGATIVO') neg[cat.key].push(entry);
       });
@@ -100,7 +121,7 @@ export default function ContextoExternoPage() {
         const tipoBase = isNeg ? c.tipo.replace(/_NEG$/, '') : c.tipo;
         const cat = CATEGORIAS.find((c2) => c2.tipo === tipoBase);
         if (!cat || !c.descripcion?.trim()) return;
-        const entry = { id: `legacy-${c.tipo}`, descripcion: c.descripcion.trim() };
+        const entry: CaracteristicaItem = { id: `legacy-${c.tipo}`, descripcion: c.descripcion.trim(), enviarADofa: false };
         if (isNeg) { if (neg[cat.key].length === 0) neg[cat.key].push(entry); }
         else { if (pos[cat.key].length === 0) pos[cat.key].push(entry); }
       });
@@ -115,7 +136,7 @@ export default function ContextoExternoPage() {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
     setter((prev) => ({
       ...prev,
-      [key]: [...prev[key], { id: `temp-${Date.now()}-${Math.random()}`, descripcion: '' }],
+      [key]: [...prev[key], { id: `temp-${Date.now()}-${Math.random()}`, descripcion: '', enviarADofa: false }],
     }));
   };
 
@@ -132,15 +153,72 @@ export default function ContextoExternoPage() {
     setter((prev) => ({ ...prev, [key]: prev[key].filter((it) => it.id !== id) }));
   };
 
+  const updateItemDofa = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, enviarADofa?: boolean, dofaDimension?: DofaDimension) => {
+    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
+    setter((prev) => ({
+      ...prev,
+      [key]: prev[key].map((it) =>
+        it.id === id ? { ...it, enviarADofa: enviarADofa ?? it.enviarADofa, dofaDimension: dofaDimension !== undefined ? dofaDimension : it.dofaDimension } : it
+      ),
+    }));
+  };
+
+  const dofaItems = (procesoData as any)?.dofaItems as Array<{ tipo: string; descripcion: string }> | undefined;
+  /** Busca en todo el DOFA (D, O, F, A); si el texto existe en alguna dimensión devuelve cuál, si no null. Solo puede estar en una. */
+  const getDofaStatus = (descripcion: string): { dimension: string } | null => {
+    if (!descripcion?.trim() || !Array.isArray(dofaItems)) return null;
+    const text = descripcion.trim().toLowerCase();
+    const found = dofaItems.find((d: any) => (d.descripcion || '').trim().toLowerCase() === text);
+    return found ? { dimension: found.tipo } : null;
+  };
+
+  const enviarADofaAhora = async (dimension: DofaDimension, label: string, signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
+    if (!procesoSeleccionado) return;
+    const source = signo === 'POSITIVO' ? itemsPositivo : itemsNegativo;
+    const it = source[key].find((x) => x.id === id);
+    if (!it?.descripcion?.trim()) return;
+
+    const currentDofa = (Array.isArray(dofaItems) ? [...dofaItems] : []) as Array<{ tipo: string; descripcion: string }>;
+    const descInDofa = new Set(currentDofa.map((d) => `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`));
+    const k = `${dimension}:${it.descripcion.trim().toLowerCase()}`;
+    if (descInDofa.has(k)) {
+      showError('Ya existe en DOFA.');
+      return;
+    }
+    const newDofa = [...currentDofa, { tipo: dimension, descripcion: it.descripcion.trim() }];
+
+    setEnviandoDofa(true);
+    setAccionMenuAnchor(null);
+    try {
+      await updateProceso({
+        id: String(procesoSeleccionado.id),
+        dofaItems: newDofa,
+      } as any).unwrap();
+      updateItemDofa(signo, key, id, true, dimension);
+      await refetchProceso();
+      showSuccess(`Enviado a ${label}.`);
+    } catch {
+      showError('Error al enviar a DOFA.');
+    } finally {
+      setEnviandoDofa(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!procesoSeleccionado) return;
-    const itemsExterno: Array<{ tipo: string; signo: string; descripcion: string }> = [];
+    const itemsExterno: Array<{ tipo: string; signo: string; descripcion: string; enviarADofa?: boolean; dofaDimension?: string }> = [];
     CATEGORIAS.forEach(({ key, tipo }) => {
       itemsPositivo[key].forEach((it) => {
-        if (it.descripcion.trim()) itemsExterno.push({ tipo, signo: 'POSITIVO', descripcion: it.descripcion.trim() });
+        if (it.descripcion.trim()) itemsExterno.push({
+          tipo, signo: 'POSITIVO', descripcion: it.descripcion.trim(),
+          enviarADofa: it.enviarADofa === true, dofaDimension: it.dofaDimension || undefined,
+        });
       });
       itemsNegativo[key].forEach((it) => {
-        if (it.descripcion.trim()) itemsExterno.push({ tipo, signo: 'NEGATIVO', descripcion: it.descripcion.trim() });
+        if (it.descripcion.trim()) itemsExterno.push({
+          tipo, signo: 'NEGATIVO', descripcion: it.descripcion.trim(),
+          enviarADofa: it.enviarADofa === true, dofaDimension: it.dofaDimension || undefined,
+        });
       });
     });
     const items = (procesoData as any).contextoItems as Array<{ tipo: string; signo: string; descripcion: string }> | undefined;
@@ -148,12 +226,26 @@ export default function ContextoExternoPage() {
     const contextoItems = [...itemsInterno, ...itemsExterno];
     const existingInternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('INTERNO_')) || [];
 
+    const currentDofa = (Array.isArray(dofaItems) ? [...dofaItems] : []) as Array<{ tipo: string; descripcion: string }>;
+    const descInDofa = new Set(currentDofa.map((d) => `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`));
+    itemsExterno.forEach((it) => {
+      if (it.enviarADofa && it.dofaDimension && it.descripcion) {
+        const k = `${it.dofaDimension}:${it.descripcion.trim().toLowerCase()}`;
+        if (!descInDofa.has(k)) {
+          currentDofa.push({ tipo: it.dofaDimension as any, descripcion: it.descripcion });
+          descInDofa.add(k);
+        }
+      }
+    });
+    const dofaPayload = currentDofa.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
+
     try {
       setIsSaving(true);
       await updateProceso({
-        id: procesoSeleccionado.id,
+        id: String(procesoSeleccionado.id),
         contextos: existingInternos,
         contextoItems,
+        dofaItems: dofaPayload,
       } as any).unwrap();
       setInitialPositivo(itemsPositivo);
       setInitialNegativo(itemsNegativo);
@@ -191,41 +283,70 @@ export default function ContextoExternoPage() {
         {items.length === 0 && (
           <Typography variant="body2" color="text.secondary" fontStyle="italic">Sin características. Añada al menos una.</Typography>
         )}
-        {items.map((it) => (
-          <Box key={it.id} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-            <TextField
-              fullWidth
-              size="small"
-              value={it.descripcion}
-              onChange={(e) => updateItem(signo, key, it.id, e.target.value)}
-              disabled={isReadOnly}
-              multiline
-              minRows={1}
-              maxRows={1}
-              placeholder="Descripción de la característica"
-              sx={{
-                maxWidth: 900,
-                flex: '1 1 520px',
-                '& textarea': {
-                  minHeight: 40,
-                  maxHeight: 40,
-                  overflowY: 'auto !important',
-                },
-              }}
-            />
-            {!isReadOnly && (
-              <Tooltip title="Acciones">
-                <IconButton
+        {items.map((it) => {
+          const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion) : null;
+          const estaEnDofa = !!enDofa;
+          const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
+          const mostrarVisto = estaEnDofa || marcadoParaEnviar;
+          return (
+            <Box key={it.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
+                {/* Icono estado DOFA: ✓ si está/marcado, ✗ si no */}
+                <Box sx={{ pt: 1, flexShrink: 0, width: 28, display: 'flex', justifyContent: 'center' }}>
+                  {it.descripcion.trim() ? (
+                    mostrarVisto ? (
+                      <Tooltip title={enDofa ? `En DOFA (${DOFA_DIMENSIONES.find(d => d.value === enDofa.dimension)?.label ?? enDofa.dimension})` : `Enviar como ${it.dofaDimension ? DOFA_DIMENSIONES.find(d => d.value === it.dofaDimension)?.label : ''} (guardar para aplicar)`}>
+                        <CheckCircleIcon fontSize="small" color="success" />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="No está en ningún cuadrante DOFA">
+                        <CancelIcon fontSize="small" color="disabled" />
+                      </Tooltip>
+                    )
+                  ) : null}
+                </Box>
+                <TextField
+                  fullWidth
                   size="small"
-                  onClick={(e) => setAccionMenuAnchor({ el: e.currentTarget, signo, key, id: it.id })}
-                  aria-label="Acciones"
-                >
-                  <MoreVertIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
-        ))}
+                  value={it.descripcion}
+                  onChange={(e) => updateItem(signo, key, it.id, e.target.value)}
+                  disabled={isReadOnly}
+                  multiline
+                  minRows={1}
+                  maxRows={1}
+                  placeholder="Descripción de la característica"
+                  sx={{
+                    maxWidth: 900,
+                    flex: '1 1 520px',
+                    '& textarea': {
+                      minHeight: 40,
+                      maxHeight: 40,
+                      overflowY: 'auto !important',
+                    },
+                  }}
+                />
+                {!isReadOnly && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                    {marcadoParaEnviar && (
+                      <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
+                        Enviar a: {DOFA_DIMENSIONES.find(d => d.value === it.dofaDimension)?.letra ?? it.dofaDimension?.slice(0, 1)}
+                      </Typography>
+                    )}
+                    <Tooltip title="Acciones">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => setAccionMenuAnchor({ el: e.currentTarget, signo, key, id: it.id })}
+                        aria-label="Acciones"
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          );
+        })}
       </Box>
     </Paper>
   );
@@ -293,17 +414,72 @@ export default function ContextoExternoPage() {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
-          {accionMenuAnchor && (
-            <MenuItem
-              onClick={() => {
-                removeItem(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
-                setAccionMenuAnchor(null);
-              }}
-              sx={{ color: 'error.main' }}
-            >
-              Eliminar
-            </MenuItem>
-          )}
+          {accionMenuAnchor && (() => {
+            const items = accionMenuAnchor.signo === 'POSITIVO' ? itemsPositivo[accionMenuAnchor.key] : itemsNegativo[accionMenuAnchor.key];
+            const it = items.find((i) => i.id === accionMenuAnchor.id);
+            if (!it) return null;
+            const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion) : null;
+            const estaEnDofa = !!enDofa;
+            const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
+            const puedeEnviar = !estaEnDofa && !!it.descripcion.trim();
+            return (
+              <>
+                {puedeEnviar && (
+                  <>
+                    <MenuItem disabled sx={{ opacity: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Enviar a DOFA (D, O, F, A):</Typography>
+                    </MenuItem>
+                    {DOFA_DIMENSIONES.map((d) => (
+                      <MenuItem
+                        key={d.value}
+                        disableRipple
+                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+                      >
+                        <Typography variant="body2">{d.letra} — {d.label}</Typography>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<SendIcon />}
+                          disabled={enviandoDofa}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            enviarADofaAhora(d.value, d.label, accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
+                          }}
+                        >
+                          Enviar
+                        </Button>
+                      </MenuItem>
+                    ))}
+                  </>
+                )}
+                {estaEnDofa && (
+                  <MenuItem disabled sx={{ opacity: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Ya está en DOFA</Typography>
+                  </MenuItem>
+                )}
+                {marcadoParaEnviar && (
+                  <MenuItem
+                    onClick={() => {
+                      updateItemDofa(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id, false, undefined);
+                      setAccionMenuAnchor(null);
+                    }}
+                  >
+                    Quitar de DOFA
+                  </MenuItem>
+                )}
+                <Divider />
+                <MenuItem
+                  onClick={() => {
+                    removeItem(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
+                    setAccionMenuAnchor(null);
+                  }}
+                  sx={{ color: 'error.main' }}
+                >
+                  Eliminar
+                </MenuItem>
+              </>
+            );
+          })()}
         </Menu>
       </AppPageLayout>
     </>

@@ -498,55 +498,9 @@ export default function HistorialPage() {
         </Accordion>
       )}
 
-      {/* Lista de ítems (encabezados ordenables + cards + paginación) */}
+      {/* Lista de ítems (lista moderna + paginación arriba + ordenación) */}
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        {/* Encabezados con ordenación (arriba) */}
-        {logs.length > 0 && (
-          <Box
-            sx={{
-              display: { xs: 'none', md: 'grid' },
-              gridTemplateColumns: '140px 180px 100px 100px 150px 1fr 100px 90px',
-              gap: 1,
-              px: 2,
-              py: 1.25,
-              bgcolor: 'grey.100',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <Box component="button" onClick={() => handleSortHistorial('createdAt')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">Fecha/Hora</Typography>
-              {sortField === 'createdAt' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box component="button" onClick={() => handleSortHistorial('usuarioNombre')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Usuario</Typography>
-              {sortField === 'usuarioNombre' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box component="button" onClick={() => handleSortHistorial('usuarioRole')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">Rol</Typography>
-              {sortField === 'usuarioRole' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box component="button" onClick={() => handleSortHistorial('accion')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">Acción</Typography>
-              {sortField === 'accion' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box component="button" onClick={() => handleSortHistorial('tabla')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Página/Módulo</Typography>
-              {sortField === 'tabla' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box component="button" onClick={() => handleSortHistorial('registroDesc')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Registro</Typography>
-              {sortField === 'registroDesc' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box component="button" onClick={() => handleSortHistorial('cambiosCount')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'center', font: 'inherit', justifyContent: 'center' }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">Cambios</Typography>
-              {sortField === 'cambiosCount' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
-            </Box>
-            <Box />
-          </Box>
-        )}
-
-        {/* Paginación (arriba, como otras páginas) */}
+        {/* Barra superior: ordenación + paginación (arriba) */}
         {(paginacion.total || 0) > 0 && (
           <Box
             sx={{
@@ -554,7 +508,7 @@ export default function HistorialPage() {
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: 1,
+              gap: 1.5,
               px: 2,
               py: 1.25,
               borderBottom: '1px solid',
@@ -562,9 +516,35 @@ export default function HistorialPage() {
               bgcolor: 'grey.50',
             }}
           >
-            <Typography variant="body2" color="text.secondary">
-              Mostrando {from} - {to} de {paginacion.total}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="body2" color="text.secondary">
+                Mostrando {from} - {to} de {paginacion.total}
+              </Typography>
+              <TextField
+                select
+                size="small"
+                label="Ordenar por"
+                value={`${sortField}:${sortDir}`}
+                onChange={(e) => {
+                  const [f, d] = String(e.target.value).split(':') as [any, any];
+                  setSortField(f);
+                  setSortDir(d);
+                }}
+                sx={{ minWidth: 220 }}
+              >
+                <MenuItem value="createdAt:desc">Fecha/Hora (reciente)</MenuItem>
+                <MenuItem value="createdAt:asc">Fecha/Hora (antiguo)</MenuItem>
+                <MenuItem value="usuarioNombre:asc">Usuario (A-Z)</MenuItem>
+                <MenuItem value="usuarioNombre:desc">Usuario (Z-A)</MenuItem>
+                <MenuItem value="accion:asc">Acción (A-Z)</MenuItem>
+                <MenuItem value="accion:desc">Acción (Z-A)</MenuItem>
+                <MenuItem value="tabla:asc">Página/Módulo (A-Z)</MenuItem>
+                <MenuItem value="tabla:desc">Página/Módulo (Z-A)</MenuItem>
+                <MenuItem value="cambiosCount:desc">Cambios (mayor)</MenuItem>
+                <MenuItem value="cambiosCount:asc">Cambios (menor)</MenuItem>
+              </TextField>
+            </Box>
+
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <IconButton
                 size="small"
@@ -599,85 +579,63 @@ export default function HistorialPage() {
             <Typography color="text.secondary">No hay registros en el historial.</Typography>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 2 }}>
             {sortedLogs.map((log) => (
               <Card
                 key={log.id}
                 variant="outlined"
                 sx={{
-                  borderRadius: 0,
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
-                  borderLeft: 'none',
-                  borderRight: 'none',
-                  '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
+                  borderRadius: 2,
+                  '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)', boxShadow: 1 },
                 }}
                 onClick={() => handleVerDetalles(log)}
               >
-                <CardContent sx={{ py: 1.25, px: 2, '&:last-child': { pb: 1.25 } }}>
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', md: '140px 180px 100px 100px 150px 1fr 100px 90px' },
-                      gap: 1,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
-                      {formatearFecha(log.createdAt)}
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={500} noWrap title={log.usuarioNombre}>
-                        {log.usuarioNombre}
+                <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.9rem' }} noWrap>
+                        {TABLA_A_PAGINA[log.tabla] || log.tabla}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap title={log.usuarioEmail} sx={{ lineHeight: 1.2 }}>
-                        {log.usuarioEmail}
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {formatearFecha(log.createdAt)}
                       </Typography>
-                    </Box>
-                    <Box>
-                      <Chip label={log.usuarioRole} size="small" color="primary" variant="outlined" sx={{ fontSize: '0.75rem' }} />
-                    </Box>
-                    <Box>
-                      <Chip
-                        label={
-                          log.accion === 'CREATE' ? 'CREAR' : log.accion === 'DELETE' ? 'ELIMINAR' : 'ACTUALIZAR'
-                        }
-                        size="small"
-                        color={
-                          log.accion === 'CREATE' ? 'success' : log.accion === 'DELETE' ? 'error' : 'warning'
-                        }
-                      />
-                    </Box>
-                    <Typography variant="body2" fontWeight={500} noWrap title={TABLA_A_PAGINA[log.tabla] || log.tabla} sx={{ fontSize: '0.8rem' }}>
-                      {TABLA_A_PAGINA[log.tabla] || log.tabla}
-                    </Typography>
-                    <Typography variant="body2" noWrap sx={{ minWidth: 0, fontSize: '0.8rem' }}>
-                      {log.registroDesc || '-'}
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                      {log.cambios ? (
-                        <Chip
-                          label={`${Object.keys(log.cambios).length} campo${Object.keys(log.cambios).length > 1 ? 's' : ''}`}
-                          size="small"
-                          variant="outlined"
-                          color="info"
-                        />
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
-                      )}
                     </Box>
                     <Box onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<InfoIcon />}
-                        onClick={() => handleVerDetalles(log)}
-                      >
+                      <Button size="small" variant="outlined" startIcon={<InfoIcon />} onClick={() => handleVerDetalles(log)}>
                         Ver
                       </Button>
                     </Box>
                   </Box>
+
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    <Chip
+                      label={`${log.usuarioNombre}${log.usuarioEmail ? ` (${log.usuarioEmail})` : ''}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Chip label={log.usuarioRole} size="small" color="primary" variant="outlined" />
+                    <Chip
+                      label={log.accion === 'CREATE' ? 'CREAR' : log.accion === 'DELETE' ? 'ELIMINAR' : 'ACTUALIZAR'}
+                      size="small"
+                      color={log.accion === 'CREATE' ? 'success' : log.accion === 'DELETE' ? 'error' : 'warning'}
+                    />
+                    <Chip
+                      label={
+                        log.cambios
+                          ? `${Object.keys(log.cambios).length} campo${Object.keys(log.cambios).length > 1 ? 's' : ''}`
+                          : 'Sin cambios'
+                      }
+                      size="small"
+                      variant="outlined"
+                      color={log.cambios ? 'info' : 'default'}
+                    />
+                  </Box>
+
+                  <Typography variant="body2" sx={{ mt: 1 }} color="text.secondary">
+                    <b>Registro:</b> {log.registroDesc || '-'}
+                  </Typography>
                 </CardContent>
               </Card>
             ))}
