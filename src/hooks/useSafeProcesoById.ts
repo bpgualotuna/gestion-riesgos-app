@@ -1,7 +1,6 @@
 /**
- * Custom hook for safely fetching proceso by ID
- * Prevents undefined ID queries from being made.
- * Sin caché: siempre datos en tiempo real (incl. documentoUrl/archivos).
+ * Custom hook for safely fetching proceso by ID.
+ * Evita peticiones con ID vacío y usa caché corta para no saturar el backend.
  */
 import { useGetProcesoByIdQuery } from '../api/services/riesgosApi';
 
@@ -10,8 +9,8 @@ export const useSafeProcesoById = (procesoId?: string | number) => {
 
   const query = useGetProcesoByIdQuery(String(procesoId || ''), {
     skip: !shouldFetch,
-    refetchOnMountOrArgChange: true,
-    keepUnusedDataFor: 0,
+    refetchOnMountOrArgChange: 60,
+    keepUnusedDataFor: 60,
   });
 
   return query;

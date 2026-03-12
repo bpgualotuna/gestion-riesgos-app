@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import {
   Box,
   Typography,
@@ -34,11 +34,8 @@ import {
   ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
-import axios from 'axios';
-import { AUTH_TOKEN_KEY } from '../../utils/constants';
+import { axiosClient } from '../../app/axiosClient';
 import { useAuth } from '../../contexts/AuthContext';
-
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
 // Nombres legibles para campos del historial de cambios
 const NOMBRE_CAMPO: Record<string, string> = {
@@ -199,6 +196,61 @@ interface Usuario {
   email: string;
 }
 
+const HistorialLogCard = memo(function HistorialLogCard({
+  log,
+  onVerDetalle,
+  formatearFechaFn,
+  tablaLabel,
+}: {
+  log: AuditLog;
+  onVerDetalle: (log: AuditLog) => void;
+  formatearFechaFn: (fecha: string | Date, incluirHora?: boolean) => string;
+  tablaLabel: string;
+}) {
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        borderRadius: 2,
+        '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)', boxShadow: 1 },
+      }}
+      onClick={() => onVerDetalle(log)}
+    >
+      <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.9rem' }} noWrap>{tablaLabel}</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{formatearFechaFn(log.createdAt)}</Typography>
+          </Box>
+          <Box onClick={(e) => e.stopPropagation()}>
+            <Button size="small" variant="outlined" startIcon={<InfoIcon />} onClick={() => onVerDetalle(log)}>Ver</Button>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+          <Chip label={`${log.usuarioNombre}${log.usuarioEmail ? ` (${log.usuarioEmail})` : ''}`} size="small" variant="outlined" />
+          <Chip label={log.usuarioRole} size="small" color="primary" variant="outlined" />
+          <Chip
+            label={log.accion === 'CREATE' ? 'CREAR' : log.accion === 'DELETE' ? 'ELIMINAR' : 'ACTUALIZAR'}
+            size="small"
+            color={log.accion === 'CREATE' ? 'success' : log.accion === 'DELETE' ? 'error' : 'warning'}
+          />
+          <Chip
+            label={log.cambios ? `${Object.keys(log.cambios).length} campo${Object.keys(log.cambios).length > 1 ? 's' : ''}` : 'Sin cambios'}
+            size="small"
+            variant="outlined"
+            color={log.cambios ? 'info' : 'default'}
+          />
+        </Box>
+        <Typography variant="body2" sx={{ mt: 1 }} color="text.secondary">
+          <b>Registro:</b> {log.registroDesc || '-'}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+});
+
 export default function HistorialPage() {
   const { user, esAdmin, esGerenteGeneral } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -221,7 +273,6 @@ export default function HistorialPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [filterApplyKey, setFilterApplyKey] = useState(0);
 
-  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
 
   // Admin y Gerente General pueden ver todos los usuarios
   const puedeVerTodos = esAdmin || esGerenteGeneral;
@@ -238,9 +289,7 @@ export default function HistorialPage() {
 
   const cargarUsuarios = async () => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axiosClient.get('/usuarios');
       setUsuarios(response.data || []);
     } catch (err) {
       console.error('Error cargando usuarios:', err);
@@ -252,14 +301,11 @@ export default function HistorialPage() {
     setError(null);
     try {
       const params = new URLSearchParams();
-      // Si no es admin, siempre filtrar por el usuario actual
       if (usuarioIdFiltro) params.append('usuarioId', usuarioIdFiltro);
       params.append('page', String(paginacion.page));
       params.append('pageSize', String(paginacion.pageSize));
 
-      const response = await axios.get(`${API_URL}/audit/logs?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axiosClient.get(`/audit/logs?${params}`);
 
       const body = response.data;
       const lista = Array.isArray(body) ? body : (body?.data ?? []);
@@ -293,15 +339,15 @@ export default function HistorialPage() {
     }
   };
 
-  const handleVerDetalles = (log: AuditLog) => {
+  const handleVerDetalles = useCallback((log: AuditLog) => {
     setSelectedLog(log);
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
     setSelectedLog(null);
-  };
+  }, []);
 
   const handleLimpiarFiltros = () => {
     setFiltros({
@@ -581,63 +627,13 @@ export default function HistorialPage() {
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 2 }}>
             {sortedLogs.map((log) => (
-              <Card
+              <HistorialLogCard
                 key={log.id}
-                variant="outlined"
-                sx={{
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  borderRadius: 2,
-                  '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)', boxShadow: 1 },
-                }}
-                onClick={() => handleVerDetalles(log)}
-              >
-                <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.9rem' }} noWrap>
-                        {TABLA_A_PAGINA[log.tabla] || log.tabla}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        {formatearFecha(log.createdAt)}
-                      </Typography>
-                    </Box>
-                    <Box onClick={(e) => e.stopPropagation()}>
-                      <Button size="small" variant="outlined" startIcon={<InfoIcon />} onClick={() => handleVerDetalles(log)}>
-                        Ver
-                      </Button>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    <Chip
-                      label={`${log.usuarioNombre}${log.usuarioEmail ? ` (${log.usuarioEmail})` : ''}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                    <Chip label={log.usuarioRole} size="small" color="primary" variant="outlined" />
-                    <Chip
-                      label={log.accion === 'CREATE' ? 'CREAR' : log.accion === 'DELETE' ? 'ELIMINAR' : 'ACTUALIZAR'}
-                      size="small"
-                      color={log.accion === 'CREATE' ? 'success' : log.accion === 'DELETE' ? 'error' : 'warning'}
-                    />
-                    <Chip
-                      label={
-                        log.cambios
-                          ? `${Object.keys(log.cambios).length} campo${Object.keys(log.cambios).length > 1 ? 's' : ''}`
-                          : 'Sin cambios'
-                      }
-                      size="small"
-                      variant="outlined"
-                      color={log.cambios ? 'info' : 'default'}
-                    />
-                  </Box>
-
-                  <Typography variant="body2" sx={{ mt: 1 }} color="text.secondary">
-                    <b>Registro:</b> {log.registroDesc || '-'}
-                  </Typography>
-                </CardContent>
-              </Card>
+                log={log}
+                onVerDetalle={handleVerDetalles}
+                formatearFechaFn={formatearFecha}
+                tablaLabel={TABLA_A_PAGINA[log.tabla] || log.tabla}
+              />
             ))}
           </Box>
         )}

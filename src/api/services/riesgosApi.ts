@@ -30,7 +30,7 @@ import type {
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
-  timeout: 30000,
+  timeout: 15000,
   prepareHeaders: (headers) => {
     const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null;
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -52,12 +52,11 @@ export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
   tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
-  // Caché 2 min para datos frescos sin saturar el backend
-  keepUnusedDataFor: 120,
-  refetchOnMountOrArgChange: 120,
-  // No refetch al volver a la pestaña (evita picos de requests y lentitud)
+  // Caché 90s: menos memoria y respuestas más ágiles; APIs devuelven solo campos necesarios
+  keepUnusedDataFor: 90,
+  refetchOnMountOrArgChange: 90,
   refetchOnFocus: false,
-  refetchOnReconnect: true,
+  refetchOnReconnect: false,
   endpoints: (builder) => ({
     // ============================================
     // PROCESOS

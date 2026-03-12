@@ -3,7 +3,7 @@
  * Inventario de Normatividad seg?n an?lisis Excel
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import {
   Box,
   Typography,
@@ -21,7 +21,7 @@ import {
   IconButton,
   Paper,
 } from '@mui/material';
-import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon, ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
+import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon, ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useProceso } from '../../contexts/ProcesoContext';
@@ -32,6 +32,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import { formatDate } from '../../utils/formatters';
 import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import PaginationBar from '../../components/ui/PaginationBar';
 
 interface Normatividad {
   id: string;
@@ -51,6 +52,58 @@ interface Normatividad {
 
 
 import AppPageLayout from '../../components/layout/AppPageLayout';
+
+const NormatividadCard = memo(function NormatividadCard({
+  item,
+  isReadOnly,
+  onVerDetalle,
+  onEditar,
+  onEliminar,
+  renderChipEstado,
+  renderChipCumplimiento,
+  renderChipClasificacion,
+}: {
+  item: Normatividad;
+  isReadOnly: boolean;
+  onVerDetalle: (item: Normatividad) => void;
+  onEditar: (e: React.MouseEvent, item: Normatividad) => void;
+  onEliminar: (e: React.MouseEvent, item: Normatividad) => void;
+  renderChipEstado: (estado: string) => React.ReactNode;
+  renderChipCumplimiento: (c: string) => React.ReactNode;
+  renderChipClasificacion: (c: string) => React.ReactNode;
+}) {
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)', boxShadow: 1 },
+      }}
+      onClick={() => onVerDetalle(item)}
+    >
+      <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '56px 1fr 100px 120px 100px 90px auto' }, gap: 1.5, alignItems: 'center' }}>
+          <Typography variant="subtitle2" fontWeight={700} color="primary" sx={{ fontSize: '0.85rem' }}>{item.numero}</Typography>
+          <Typography variant="body2" fontWeight={500} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minWidth: 0 }}>{item.nombre || 'Sin nombre'}</Typography>
+          <Box>{renderChipEstado(item.estado)}</Box>
+          <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>{item.regulador || '-'}</Typography>
+          <Box>{renderChipCumplimiento(item.cumplimiento)}</Box>
+          <Box>{renderChipClasificacion(item.clasificacion)}</Box>
+          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+            {!isReadOnly && (
+              <>
+                <IconButton size="small" color="primary" onClick={(e) => onEditar(e, item)} title="Editar"><EditIcon fontSize="small" /></IconButton>
+                <IconButton size="small" color="error" onClick={(e) => onEliminar(e, item)} title="Eliminar"><DeleteIcon fontSize="small" /></IconButton>
+              </>
+            )}
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onVerDetalle(item); }} title="Ver detalle"><VisibilityIcon fontSize="small" /></IconButton>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+});
 
 export default function NormatividadPage() {
   const { showSuccess, showError } = useNotification();
@@ -122,36 +175,31 @@ export default function NormatividadPage() {
     setPage(1);
   };
 
-  const handleEditar = (e: React.MouseEvent, row: Normatividad) => {
+  const handleEditar = useCallback((e: React.MouseEvent, row: Normatividad) => {
     e.stopPropagation();
     setSelectedNormatividad(row);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleEliminar = async (e: React.MouseEvent, row: Normatividad) => {
+  const handleEliminar = useCallback(async (e: React.MouseEvent, row: Normatividad) => {
     e.stopPropagation();
     if (!procesoSeleccionado) return;
     if (!(await confirmDelete('esta normatividad'))) return;
-    const updatedList = normatividades
-      .filter(n => n.id !== row.id)
-      .map((n, idx) => ({ ...n, numero: idx + 1 }));
+    const updatedList = normatividades.filter(n => n.id !== row.id).map((n, idx) => ({ ...n, numero: idx + 1 }));
     try {
       setIsSaving(true);
       setNormatividades(updatedList);
-      await updateProceso({
-        id: String(procesoSeleccionado.id),
-        normatividades: updatedList
-      }).unwrap();
+      await updateProceso({ id: String(procesoSeleccionado.id), normatividades: updatedList }).unwrap();
       setInitialNormatividades(updatedList);
       markAsSaved();
       showSuccess('Normatividad eliminada correctamente');
     } catch {
-      setNormatividades(normatividades); // revert on error
+      setNormatividades(normatividades);
       showError('Error al eliminar normatividad');
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [procesoSeleccionado, normatividades, confirmDelete, updateProceso, markAsSaved, showSuccess, showError]);
 
   // Handlers para el di?logo de cambios no guardados
   const handleSaveFromDialog = async () => {
@@ -178,31 +226,20 @@ export default function NormatividadPage() {
     forceNavigate();
   };
 
-  const renderChipEstado = (estado: string) => (
-    <Chip
-      label={estado}
-      size="small"
-      color={
-        estado === 'Existente' ? 'success' : estado === 'Requerida' ? 'warning' : 'info'
-      }
-    />
-  );
-  const renderChipCumplimiento = (cumplimiento: string) => (
-    <Chip
-      label={cumplimiento}
-      size="small"
-      color={
-        cumplimiento === 'Total' ? 'success' : cumplimiento === 'Parcial' ? 'warning' : 'error'
-      }
-    />
-  );
-  const renderChipClasificacion = (clasificacion: string) => (
-    <Chip
-      label={clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Positivo' : 'Negativo'}
-      size="small"
-      color={clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'error'}
-    />
-  );
+  const renderChipEstado = useCallback((estado: string) => (
+    <Chip label={estado} size="small" color={estado === 'Existente' ? 'success' : estado === 'Requerida' ? 'warning' : 'info'} />
+  ), []);
+  const renderChipCumplimiento = useCallback((cumplimiento: string) => (
+    <Chip label={cumplimiento} size="small" color={cumplimiento === 'Total' ? 'success' : cumplimiento === 'Parcial' ? 'warning' : 'error'} />
+  ), []);
+  const renderChipClasificacion = useCallback((clasificacion: string) => (
+    <Chip label={clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Positivo' : 'Negativo'} size="small" color={clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'error'} />
+  ), []);
+
+  const openDetalle = useCallback((it: Normatividad) => {
+    setSelectedNormatividad(it);
+    setDialogDetalleOpen(true);
+  }, []);
 
   if (!procesoSeleccionado) {
     return (
@@ -326,47 +363,17 @@ export default function NormatividadPage() {
           </Box>
         )}
 
-        {/* Paginaci?n (arriba, como otras p?ginas) */}
         {sortedNormatividades.length > 0 && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 1,
-              px: 2,
-              py: 1.25,
-              borderBottom: normatividades.length > 0 ? '1px solid' : undefined,
-              borderColor: 'divider',
-              bgcolor: 'grey.50',
-            }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, sortedNormatividades.length)} de {sortedNormatividades.length}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <IconButton
-                size="small"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                aria-label={"P\u00e1gina anterior"}
-              >
-                <ChevronLeftIcon fontSize="small" />
-              </IconButton>
-              <Typography variant="body2" sx={{ minWidth: 90, textAlign: 'center' }}>
-                P{"\u00e1"}g. {page} de {totalPages}
-              </Typography>
-              <IconButton
-                size="small"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                aria-label={"P\u00e1gina siguiente"}
-              >
-                <ChevronRightIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
+          <PaginationBar
+            variant="top"
+            from={(page - 1) * pageSize + 1}
+            to={Math.min(page * pageSize, sortedNormatividades.length)}
+            total={sortedNormatividades.length}
+            page={page}
+            totalPages={totalPages}
+            onPrev={() => setPage((p) => p - 1)}
+            onNext={() => setPage((p) => p + 1)}
+          />
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: normatividades.length > 0 ? 2 : 0, py: normatividades.length > 0 ? 2 : 0 }}>
@@ -374,83 +381,18 @@ export default function NormatividadPage() {
             <Alert severity="info">No hay normatividades registradas. Agregue una con el bot{"\u00f3"}n &quot;Nueva Normatividad&quot;.</Alert>
           )}
           {paginatedNormatividades.map((item) => (
-          <Card
-            key={item.id}
-            variant="outlined"
-            sx={{
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)', boxShadow: 1 },
-            }}
-            onClick={() => {
-              setSelectedNormatividad(item);
-              setDialogDetalleOpen(true);
-            }}
-          >
-            <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: '56px 1fr 100px 120px 100px 90px auto' },
-                  gap: 1.5,
-                  alignItems: 'center',
-                }}
-              >
-                <Typography variant="subtitle2" fontWeight={700} color="primary" sx={{ fontSize: '0.85rem' }}>
-                  {item.numero}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  fontWeight={500}
-                  sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    minWidth: 0,
-                  }}
-                >
-                  {item.nombre || 'Sin nombre'}
-                </Typography>
-                <Box>{renderChipEstado(item.estado)}</Box>
-                <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
-                  {item.regulador || '-'}
-                </Typography>
-                <Box>{renderChipCumplimiento(item.cumplimiento)}</Box>
-                <Box>{renderChipClasificacion(item.clasificacion)}</Box>
-                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
-                  {!isReadOnly && (
-                    <>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={(e) => handleEditar(e, item)}
-                        title="Editar"
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={(e) => handleEliminar(e, item)} title="Eliminar">
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </>
-                  )}
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedNormatividad(item);
-                      setDialogDetalleOpen(true);
-                    }}
-                    title="Ver detalle"
-                  >
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
+            <NormatividadCard
+              key={item.id}
+              item={item}
+              isReadOnly={isReadOnly}
+              onVerDetalle={openDetalle}
+              onEditar={handleEditar}
+              onEliminar={handleEliminar}
+              renderChipEstado={renderChipEstado}
+              renderChipCumplimiento={renderChipCumplimiento}
+              renderChipClasificacion={renderChipClasificacion}
+            />
+          ))}
         </Box>
       </Paper>
 

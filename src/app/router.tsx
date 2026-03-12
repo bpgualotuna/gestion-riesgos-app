@@ -26,7 +26,7 @@ import PageLoadingSkeleton from '../components/ui/PageLoadingSkeleton';
 // Loading Fallback: skeleton en lugar de icono de carga
 const LoadingFallback = () => (
   <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-    <PageLoadingSkeleton lines={12} variant="text" />
+    <PageLoadingSkeleton lines={6} variant="text" />
   </Box>
 );
 

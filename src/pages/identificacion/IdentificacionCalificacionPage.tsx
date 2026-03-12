@@ -224,6 +224,89 @@ const normalizarTiposRiesgos = (data?: any[]) => {
   }));
 };
 
+// Precalcula nivel de riesgo para una fila (evita recalcular en cada render de la lista)
+function computeNivelRiesgoForRow(
+  riesgo: any,
+  frecuenciasApi: any[],
+  pesosImpactoApi: any[],
+  nivelesRiesgoApi: any[],
+  obtenerPesoFrecuencia: (frecuencia: any, frecuenciasApi: any[]) => number
+): { nivelRiesgo: string; nivelBgColor: string; nivelColor: string } {
+  const causasOrdenadas = [...(riesgo.causas || [])].sort((a: any, b: any) => {
+    const idA = Number(a.id) || 0;
+    const idB = Number(b.id) || 0;
+    return idA - idB;
+  });
+  const calificacionesInherentes = causasOrdenadas.map((causa: any) => {
+    const ya = causa.calificacionInherentePorCausa;
+    if (typeof ya === 'number' && !Number.isNaN(ya)) return ya;
+    try {
+      const pesoFrecuencia = obtenerPesoFrecuencia(causa.frecuencia, frecuenciasApi || []);
+      const impactos = riesgo.impactos || {};
+      const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
+      const { resultado } = calcularCalificacionInherentePorCausaSync(pesoFrecuencia, calificacionGlobalImpacto);
+      return resultado;
+    } catch {
+      return 0;
+    }
+  }).filter((cal: number) => cal !== undefined && cal !== null && cal > 0) as number[];
+
+  let calificacionInherenteGlobal = calificacionesInherentes.length > 0
+    ? agregarCalificacionInherenteGlobalSync(calificacionesInherentes)
+    : 0;
+
+  if (calificacionInherenteGlobal === 0 && riesgo.causas?.length > 0) {
+    try {
+      const causasRecalculadas = riesgo.causas.map((causa: any) => {
+        const ya = causa.calificacionInherentePorCausa;
+        if (typeof ya === 'number' && ya > 0) return ya;
+        const pesoFrecuencia = obtenerPesoFrecuencia(causa.frecuencia, frecuenciasApi || []);
+        const impactos = riesgo.impactos || {};
+        const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
+        const { resultado } = calcularCalificacionInherentePorCausaSync(pesoFrecuencia, calificacionGlobalImpacto);
+        return resultado;
+      }).filter((cal: number) => cal !== undefined && cal !== null && cal > 0) as number[];
+      if (causasRecalculadas.length > 0) {
+        calificacionInherenteGlobal = agregarCalificacionInherenteGlobalSync(causasRecalculadas);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  let nivel = 'SIN CALIFICAR';
+  let color = '#ffffff';
+  let bgColor = '#9e9e9e';
+
+  if (calificacionInherenteGlobal > 0) {
+    try {
+      const nivelNombre = determinarNivelRiesgoSync(calificacionInherenteGlobal);
+      nivel = nivelNombre.toUpperCase();
+      const nivelesRiesgo = nivelesRiesgoApi || [];
+      const nivelConfig = nivelesRiesgo.find((n: any) =>
+        n.nombre?.toUpperCase() === nivelNombre.toUpperCase() ||
+        (n.nombre?.toUpperCase().includes('CRITICO') && nivelNombre.toUpperCase().includes('CRITICO')) ||
+        (n.nombre?.toUpperCase().includes('ALTO') && nivelNombre.toUpperCase().includes('ALTO')) ||
+        (n.nombre?.toUpperCase().includes('MEDIO') && nivelNombre.toUpperCase().includes('MEDIO')) ||
+        (n.nombre?.toUpperCase().includes('BAJO') && nivelNombre.toUpperCase().includes('BAJO'))
+      );
+      if (nivelConfig?.color) {
+        bgColor = nivelConfig.color;
+        color = '#fff';
+      } else {
+        if (nivelNombre.toUpperCase().includes('CRITICO')) bgColor = '#d32f2f';
+        else if (nivelNombre.toUpperCase().includes('ALTO')) bgColor = '#f57c00';
+        else if (nivelNombre.toUpperCase().includes('MEDIO')) bgColor = '#fbc02d';
+        else if (nivelNombre.toUpperCase().includes('BAJO')) bgColor = '#388e3c';
+        color = '#fff';
+      }
+    } catch {
+      // keep default
+    }
+  }
+  return { nivelRiesgo: nivel, nivelBgColor: bgColor, nivelColor: color };
+}
+
 // Helper para obtener etiqueta de fuente a partir del catálogo que puede ser array u objeto
 function getFuenteLabel(fuentes: any, clave: any) {
   if (!fuentes) return '';
@@ -867,6 +950,14 @@ export default function IdentificacionPage() {
     });
   }, [calcularCalificacionGlobalImpacto, frecuenciasApi]);
 
+  // Precalcular nivel (label + color) por riesgo para no recalcular en cada render de la fila
+  const riesgosConNivel = useMemo(() => {
+    return riesgosParaRender.map(r => ({
+      ...r,
+      ...computeNivelRiesgoForRow(r, frecuenciasApi || [], pesosImpactoApi || [], nivelesRiesgoApi || [], obtenerPesoFrecuencia),
+    }));
+  }, [riesgosParaRender, frecuenciasApi, pesosImpactoApi, nivelesRiesgoApi, obtenerPesoFrecuencia]);
+
   // Función helper para extraer el procesoId de un riesgo (memoizada fuera del useMemo)
   const obtenerProcesoId = useCallback((r: any): number | null => {
     // Intentar múltiples formas de obtener el procesoId
@@ -1252,35 +1343,28 @@ export default function IdentificacionPage() {
     }
   };
 
-  // Eliminar riesgo: actualizar lista y mapa sin tener que guardar en otro riesgo
-  const handleEliminarRiesgo = async (riesgoId: string | number) => {
+  const handleEliminarRiesgo = useCallback(async (riesgoId: string | number) => {
     if (!(await confirmDelete('este riesgo'))) return;
     try {
       await eliminarRiesgoApi(Number(riesgoId));
       showSuccess('Riesgo eliminado');
-      // Refrescar lista de riesgos (RTK Query) para que la UI se actualice al instante
       refetchRiesgosRTK();
       dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas']));
     } catch (e) {
       showError((e as any)?.data?.error || 'Error al eliminar riesgo');
     }
-  };
+  }, [confirmDelete, eliminarRiesgoApi, refetchRiesgosRTK, dispatch, showSuccess, showError]);
 
   // Toggle expandir/colapsar riesgo
   const { iniciarVer } = useRiesgo();
 
-  const handleToggleExpandir = (riesgoId: string) => {
-    const nuevo = !riesgosExpandidos[riesgoId];
-    setRiesgosExpandidos({
-      ...riesgosExpandidos,
-      [riesgoId]: nuevo,
+  const handleToggleExpandir = useCallback((riesgo: RiesgoFormData) => {
+    setRiesgosExpandidos((prev) => {
+      const nuevo = !prev[riesgo.id];
+      if (nuevo) setTimeout(() => iniciarVer(riesgo as any), 0);
+      return { ...prev, [riesgo.id]: nuevo };
     });
-    // Si se está abriendo, marcar como riesgo seleccionado globalmente
-    if (nuevo) {
-      const seleccionado = riesgos.find(r => String(r.id) === String(riesgoId));
-      if (seleccionado) iniciarVer(seleccionado as any);
-    }
-  };
+  }, [iniciarVer]);
 
   // Estado para cambios pendientes (solo en memoria, no se guarda hasta que el usuario presione Guardar)
   const [cambiosPendientes, setCambiosPendientes] = useState<Record<string, Partial<RiesgoFormData>>>({});
@@ -1812,7 +1896,7 @@ export default function IdentificacionPage() {
                 {/* Sin encabezado, solo espacio para el ícono de eliminar */}
               </Box>
             </Box>
-            {riesgosParaRender.map((riesgo) => {
+            {riesgosConNivel.map((riesgo) => {
               const estaExpandido = riesgosExpandidos[riesgo.id] || false;
               const tipoRiesgoObj = (tiposRiesgos || []).find(t => 
                 t.nombre === riesgo.tipoRiesgo || 
@@ -1843,7 +1927,7 @@ export default function IdentificacionPage() {
                       width: '100%',
                       minHeight: 64,
                     }}
-                    onClick={() => handleToggleExpandir(riesgo.id)}
+                    onClick={() => handleToggleExpandir(riesgo)}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                       <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
@@ -1871,7 +1955,7 @@ export default function IdentificacionPage() {
                         textAlign: 'justify',
                       }}
                     >
-                      {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
+                      {riesgo.descripcionRiesgo || (riesgo as any).descripcion || (riesgo as any).nombre || 'Sin descripción'}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1882,120 +1966,20 @@ export default function IdentificacionPage() {
                       {subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin tipología II')}
                     </Typography>
 
-                    {/* Columna de Clasificación/Nivel de Riesgo */}
+                    {/* Columna de Clasificación/Nivel de Riesgo (precalculado en riesgosConNivel) */}
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                      {(() => {
-                        // Calcular calificación inherente global
-                        const causasOrdenadas = [...(riesgo.causas || [])].sort((a, b) => {
-                          const idA = Number(a.id) || 0;
-                          const idB = Number(b.id) || 0;
-                          return idA - idB;
-                        });
-                        
-                        // Calcular calificación inherente para cada causa si no existe
-                        const calificacionesInherentes = causasOrdenadas.map(causa => {
-                          // Si ya tiene calificación calculada (número), usarla
-                          const ya = causa.calificacionInherentePorCausa;
-                          if (typeof ya === 'number' && !Number.isNaN(ya)) {
-                            return ya;
-                          }
-                          
-                          // Si no, calcularla usando el servicio (Sync devuelve { resultado, excepcionAplicada })
-                            try {
-                              const frecuencia = causa.frecuencia;
-                              const pesoFrecuencia = obtenerPesoFrecuencia(frecuencia, frecuenciasApi || []);
-                              const impactos = riesgo.impactos || {};
-                              const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
-                              const { resultado } = calcularCalificacionInherentePorCausaSync(
-                                pesoFrecuencia,
-                                calificacionGlobalImpacto
-                              );
-                              return resultado;
-                            } catch {
-                              return 0;
-                            }
-                        }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
-                        
-                        let calificacionInherenteGlobal = calificacionesInherentes.length > 0
-                          ? agregarCalificacionInherenteGlobalSync(calificacionesInherentes)
-                          : 0;
-                        
-                        // Intentar recalcular si hay causas pero calificación es 0
-                        if (calificacionInherenteGlobal === 0 && riesgo.causas && riesgo.causas.length > 0) {
-                          try {
-                            const causasRecalculadas = riesgo.causas.map(causa => {
-                              const ya = causa.calificacionInherentePorCausa;
-                              if (typeof ya === 'number' && ya > 0) return ya;
-                              const pesoFrecuencia = obtenerPesoFrecuencia(causa.frecuencia, frecuenciasApi || []);
-                              const impactos = riesgo.impactos || {};
-                              const calificacionGlobalImpacto = calcularImpactoGlobal(impactos, pesosImpactoApi);
-                              const { resultado } = calcularCalificacionInherentePorCausaSync(pesoFrecuencia, calificacionGlobalImpacto);
-                              return resultado;
-                            }).filter(cal => cal !== undefined && cal !== null && cal > 0) as number[];
-                            
-                            if (causasRecalculadas.length > 0) {
-                              calificacionInherenteGlobal = agregarCalificacionInherenteGlobalSync(causasRecalculadas);
-                            }
-                          } catch {
-                          }
-                        }
-                        
-                        // Determinar nivel y color usando servicio centralizado
-                        let nivel = 'SIN CALIFICAR';
-                        let color = '#ffffff'; // Texto blanco para mejor visibilidad
-                        let bgColor = '#9e9e9e'; // Fondo gris oscuro para contraste
-                        
-                        if (calificacionInherenteGlobal > 0) {
-                          try {
-                            const nivelNombre = determinarNivelRiesgoSync(calificacionInherenteGlobal);
-                            nivel = nivelNombre.toUpperCase();
-                            
-                            // Obtener color desde niveles de riesgo de la configuración del mapa
-                            const nivelesRiesgo = nivelesRiesgoApi || [];
-                            const nivelConfig = nivelesRiesgo.find((n: any) => 
-                              n.nombre?.toUpperCase() === nivelNombre.toUpperCase() ||
-                              (n.nombre?.toUpperCase().includes('CRITICO') && nivelNombre.toUpperCase().includes('CRITICO')) ||
-                              (n.nombre?.toUpperCase().includes('ALTO') && nivelNombre.toUpperCase().includes('ALTO')) ||
-                              (n.nombre?.toUpperCase().includes('MEDIO') && nivelNombre.toUpperCase().includes('MEDIO')) ||
-                              (n.nombre?.toUpperCase().includes('BAJO') && nivelNombre.toUpperCase().includes('BAJO'))
-                            );
-                            
-                            if (nivelConfig?.color) {
-                              bgColor = nivelConfig.color;
-                              color = '#fff';
-                            } else {
-                              // Fallback si no se encuentra el color
-                              if (nivelNombre.toUpperCase().includes('CRITICO')) {
-                                bgColor = '#d32f2f';
-                              } else if (nivelNombre.toUpperCase().includes('ALTO')) {
-                                bgColor = '#f57c00';
-                              } else if (nivelNombre.toUpperCase().includes('MEDIO')) {
-                                bgColor = '#fbc02d';
-                              } else if (nivelNombre.toUpperCase().includes('BAJO')) {
-                                bgColor = '#388e3c';
-                              }
-                              color = '#fff';
-                            }
-                          } catch {
-                            // Mantener valores por defecto para "SIN CALIFICAR"
-                          }
-                        }
-                        
-                        return (
-                          <Chip
-                            label={nivel}
-                            size="small"
-                            sx={{
-                              backgroundColor: bgColor,
-                              color: color,
-                              fontWeight: 700,
-                              fontSize: '0.65rem',
-                              height: 24,
-                              minWidth: 80
-                            }}
-                          />
-                        );
-                      })()}
+                      <Chip
+                        label={riesgo.nivelRiesgo ?? 'SIN CALIFICAR'}
+                        size="small"
+                        sx={{
+                          backgroundColor: riesgo.nivelBgColor ?? '#9e9e9e',
+                          color: riesgo.nivelColor ?? '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '0.65rem',
+                          height: 24,
+                          minWidth: 80
+                        }}
+                      />
                     </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>

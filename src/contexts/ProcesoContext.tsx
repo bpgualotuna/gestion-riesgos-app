@@ -5,7 +5,7 @@
  */
 
 /* @refresh reset */
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import type { Proceso } from '../types';
 import { AuthContext } from './AuthContext';
 import { useGetProcesosQuery } from "../api/services/riesgosApi";
@@ -67,14 +67,11 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     setIsLoading(false);
   }, [loadingProcesos, procesos]);
 
-  // Guardar proceso seleccionado en localStorage
-  const setProcesoSeleccionado = (proceso: Proceso | null) => {
+  const setProcesoSeleccionado = useCallback((proceso: Proceso | null) => {
     setProcesoSeleccionadoState(proceso);
     if (proceso) {
-      localStorage.setItem('procesoSeleccionadoId', proceso.id);
+      localStorage.setItem('procesoSeleccionadoId', String(proceso.id));
       localStorage.setItem(`proceso_${proceso.id}`, JSON.stringify(proceso));
-
-      // Si el proceso está aprobado, forzar modo visualización
       if (proceso.estado === 'aprobado') {
         setModoProcesoState('visualizar');
         localStorage.setItem('modoProceso', 'visualizar');
@@ -84,30 +81,24 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
       setModoProcesoState(null);
       localStorage.removeItem('modoProceso');
     }
-  };
+  }, []);
 
-  const setModoProceso = (modo: ModoProceso) => {
+  const setModoProceso = useCallback((modo: ModoProceso) => {
     setModoProcesoState(modo);
-    if (modo) {
-      localStorage.setItem('modoProceso', modo);
-    } else {
-      localStorage.removeItem('modoProceso');
-    }
-  };
+    if (modo) localStorage.setItem('modoProceso', modo);
+    else localStorage.removeItem('modoProceso');
+  }, []);
 
-  const iniciarModoEditar = () => {
-    // No permitir editar si el proceso está aprobado
-    if (procesoSeleccionado?.estado === 'aprobado') {
-      return; // No hacer nada si está aprobado
-    }
+  const iniciarModoEditar = useCallback(() => {
+    if (procesoSeleccionado?.estado === 'aprobado') return;
     setModoProcesoState('editar');
     localStorage.setItem('modoProceso', 'editar');
-  };
+  }, [procesoSeleccionado?.estado]);
 
-  const iniciarModoVisualizar = () => {
+  const iniciarModoVisualizar = useCallback(() => {
     setModoProcesoState('visualizar');
     localStorage.setItem('modoProceso', 'visualizar');
-  };
+  }, []);
 
   // Verificar si el usuario puede gestionar procesos
   // Puede gestionar si:
@@ -125,16 +116,28 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     return false;
   }, [esDueñoProcesos, procesoSeleccionado, user]);
 
-  const value: ProcesoContextType = {
-    procesoSeleccionado,
-    setProcesoSeleccionado,
-    modoProceso,
-    setModoProceso,
-    iniciarModoEditar,
-    iniciarModoVisualizar,
-    isLoading,
-    puedeGestionarProcesos, // Considera tanto el rol como si está en responsablesList
-  };
+  const value = useMemo<ProcesoContextType>(
+    () => ({
+      procesoSeleccionado,
+      setProcesoSeleccionado,
+      modoProceso,
+      setModoProceso,
+      iniciarModoEditar,
+      iniciarModoVisualizar,
+      isLoading,
+      puedeGestionarProcesos,
+    }),
+    [
+      procesoSeleccionado,
+      modoProceso,
+      isLoading,
+      puedeGestionarProcesos,
+      setProcesoSeleccionado,
+      setModoProceso,
+      iniciarModoEditar,
+      iniciarModoVisualizar,
+    ]
+  );
 
   return <ProcesoContext.Provider value={value}>{children}</ProcesoContext.Provider>;
 }

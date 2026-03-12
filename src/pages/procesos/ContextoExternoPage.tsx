@@ -3,7 +3,7 @@
  * Misma estructura que Contexto Interno: pestañas Positivo/Negativo, características por categoría (ítems añadibles).
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -132,28 +132,28 @@ export default function ContextoExternoPage() {
     setInitialNegativo(neg);
   }, [procesoData]);
 
-  const addItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey) => {
+  const addItem = useCallback((signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey) => {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
     setter((prev) => ({
       ...prev,
       [key]: [...prev[key], { id: `temp-${Date.now()}-${Math.random()}`, descripcion: '', enviarADofa: false }],
     }));
-  };
+  }, []);
 
-  const updateItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, descripcion: string) => {
+  const updateItem = useCallback((signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, descripcion: string) => {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
     setter((prev) => ({
       ...prev,
       [key]: prev[key].map((it) => (it.id === id ? { ...it, descripcion } : it)),
     }));
-  };
+  }, []);
 
-  const removeItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
+  const removeItem = useCallback((signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
     setter((prev) => ({ ...prev, [key]: prev[key].filter((it) => it.id !== id) }));
-  };
+  }, []);
 
-  const updateItemDofa = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, enviarADofa?: boolean, dofaDimension?: DofaDimension) => {
+  const updateItemDofa = useCallback((signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, enviarADofa?: boolean, dofaDimension?: DofaDimension) => {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
     setter((prev) => ({
       ...prev,
@@ -161,7 +161,7 @@ export default function ContextoExternoPage() {
         it.id === id ? { ...it, enviarADofa: enviarADofa ?? it.enviarADofa, dofaDimension: dofaDimension !== undefined ? dofaDimension : it.dofaDimension } : it
       ),
     }));
-  };
+  }, []);
 
   const dofaItems = (procesoData as any)?.dofaItems as Array<{ tipo: string; descripcion: string }> | undefined;
   /** Busca en todo el DOFA (D, O, F, A); si el texto existe en alguna dimensión devuelve cuál, si no null. Solo puede estar en una. */
