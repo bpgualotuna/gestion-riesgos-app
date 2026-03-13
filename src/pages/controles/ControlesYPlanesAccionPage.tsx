@@ -129,6 +129,8 @@ interface ClasificacionCausa {
   planDecision?: string;
   planFechaEstimada?: string;
   planEstado?: 'pendiente' | 'en_progreso' | 'completado' | 'cancelado';
+  planEvidencia?: string;
+  origenPlanAccion?: 'ninguno' | 'exito' | 'fallo';
   procesoId: string;
   createdAt: string;
   updatedAt: string;
@@ -145,7 +147,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function ControlesYPlanesAccionPageNueva() {
-  const { procesoSeleccionado } = useProceso();
+  const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const dispatch = useAppDispatch();
@@ -173,8 +175,8 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [initialFormControl, setInitialFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
-  const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
-  const [initialFormPlan, setInitialFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' });
+  const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '' });
+  const [initialFormPlan, setInitialFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '' });
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [initialImpactosResiduales, setInitialImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [frecuenciaResidual, setFrecuenciaResidual] = useState(1);
@@ -220,7 +222,8 @@ export default function ControlesYPlanesAccionPageNueva() {
     recomendacion: '',
     descripcionControl: '',
     responsable: '',
-    tieneControl: true
+    tieneControl: true,
+    origenPlanAccion: 'ninguno'
   });
 
   // OPTIMIZADO: Cargar riesgos con paginación razonable
@@ -578,7 +581,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         setFormPlan(initialFormPlan);
         setInitialFormPlan(initialFormPlan);
       } else if (clasificacionExistente.tipo === 'plan') {
-        const fp = { descripcion: clasificacionExistente.planDescripcion || '', detalle: clasificacionExistente.planDetalle || '', responsable: clasificacionExistente.planResponsable || '', decision: clasificacionExistente.planDecision || '', fechaEstimada: clasificacionExistente.planFechaEstimada || '', estado: clasificacionExistente.planEstado || 'pendiente' };
+        const fp = { descripcion: clasificacionExistente.planDescripcion || '', detalle: clasificacionExistente.planDetalle || '', responsable: clasificacionExistente.planResponsable || '', decision: clasificacionExistente.planDecision || '', fechaEstimada: clasificacionExistente.planFechaEstimada || '', estado: clasificacionExistente.planEstado || 'pendiente', evidencia: clasificacionExistente.planEvidencia || '' };
         setFormPlan(fp);
         setInitialFormPlan(fp);
         setFormControl(initialFormControl);
@@ -596,7 +599,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     } else {
       setTipoClasificacion('seleccion');
       const emptyControl = { descripcion: '', tipo: 'prevención' as const };
-      const emptyPlan = { descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as const };
+      const emptyPlan = { descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as const, evidencia: '' };
       const emptyImpactos = { personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 };
       setFormControl(emptyControl);
       setInitialFormControl(emptyControl);
@@ -629,6 +632,8 @@ export default function ControlesYPlanesAccionPageNueva() {
       planResponsable: tipoClasificacion === 'plan' ? formPlan.responsable : undefined,
       planDecision: tipoClasificacion === 'plan' ? formPlan.decision : undefined,
       planFechaEstimada: tipoClasificacion === 'plan' ? formPlan.fechaEstimada : undefined,
+      planEstado: tipoClasificacion === 'plan' ? formPlan.estado : undefined,
+      planEvidencia: tipoClasificacion === 'plan' ? formPlan.evidencia : undefined,
       procesoId: String(procesoSeleccionado!.id),
       createdAt: clasificacion?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -757,6 +762,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planResponsable: formPlan.responsable,
               planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
+              planEstado: formPlan.estado,
+              planEvidencia: formPlan.evidencia,
               gestion: {
                 ...(c.gestion || {}),
                 estadoAmbos: nuevoEstadoAmbos
@@ -816,6 +823,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               controlDesviaciones: criteriosEvaluacion.desviaciones,
               controlDescripcion: criteriosEvaluacion.descripcionControl,
               controlResponsable: criteriosEvaluacion.responsable,
+              origenPlanAccion: criteriosEvaluacion.origenPlanAccion,
               tieneControl: criteriosEvaluacion.tieneControl,
               tipoGestion: 'AMBOS', // ← Mantener AMBOS
               puntajeTotal: pt,
@@ -831,6 +839,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planResponsable: c.planResponsable,
               planDecision: c.planDecision,
               planFechaEstimada: c.planFechaEstimada,
+              planEstado: c.planEstado,
+              planEvidencia: c.planEvidencia,
               gestion: {
                 ...(c.gestion || {}),
                 estadoAmbos: nuevoEstadoAmbos
@@ -846,11 +856,14 @@ export default function ControlesYPlanesAccionPageNueva() {
               planResponsable: formPlan.responsable,
               planDecision: formPlan.decision,
               planFechaEstimada: formPlan.fechaEstimada,
+              planEstado: formPlan.estado,
+              planEvidencia: formPlan.evidencia,
               // ← PRESERVAR datos del control existente
               ...criteriosEvaluacion,
               controlDesviaciones: c.controlDesviaciones,
               controlDescripcion: c.controlDescripcion,
               controlResponsable: c.controlResponsable,
+              origenPlanAccion: c.origenPlanAccion,
               tieneControl: c.tieneControl,
               puntajeTotal: c.puntajeTotal,
               evaluacionDefinitiva: c.evaluacionDefinitiva,
@@ -898,6 +911,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             controlDesviaciones: criteriosEvaluacion.desviaciones,
             controlDescripcion: criteriosEvaluacion.descripcionControl,
             controlResponsable: criteriosEvaluacion.responsable,
+            origenPlanAccion: criteriosEvaluacion.origenPlanAccion,
             tieneControl: criteriosEvaluacion.tieneControl,
             tipoGestion: tipoClasificacion === 'AMBOS' ? 'AMBOS' : 'CONTROL',
             puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
@@ -909,6 +923,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planDetalle: formPlan.detalle,
               planResponsable: formPlan.responsable,
               planFechaEstimada: formPlan.fechaEstimada,
+              planEstado: formPlan.estado,
+              planEvidencia: formPlan.evidencia,
               gestion: {
                 estadoAmbos: { controlActivo: true, planActivo: true }
               }
@@ -925,6 +941,8 @@ export default function ControlesYPlanesAccionPageNueva() {
             planResponsable: formPlan.responsable,
             planDecision: formPlan.decision,
             planFechaEstimada: formPlan.fechaEstimada,
+            planEstado: formPlan.estado,
+            planEvidencia: formPlan.evidencia,
             puntajeTotal: undefined,
             porcentajeMitigacion: 0
           };
@@ -1191,7 +1209,37 @@ export default function ControlesYPlanesAccionPageNueva() {
     forceNavigate();
   };
 
-  if (!procesoSeleccionado) return <Box sx={{ p: 3 }}><Alert severity="info">Por favor selecciona un proceso.</Alert></Box>;
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Controles y Planes de Acción"
+        description="Gestionar controles y planes asociados a los riesgos identificados."
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="Controles y Planes de Acción"
+        description="Gestionar controles y planes asociados a los riesgos identificados."
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
+            <Typography variant="body1">
+              No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para cargar sus controles y planes de acción.
+            </Typography>
+          </Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
 
   return (
     <>
@@ -1223,7 +1271,19 @@ export default function ControlesYPlanesAccionPageNueva() {
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
           }}
         >
-          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+          <Tabs 
+            value={activeTab} 
+            onChange={(_, newValue) => setActiveTab(newValue)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{
+              '& .MuiTab-root': {
+                minHeight: { xs: 60, md: 48 },
+                fontSize: { xs: '0.8rem', md: 'inherit' }
+              }
+            }}
+          >
             <Tab icon={<FactCheckIcon />} label="CLASIFICACIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
             <Tab icon={<ShieldIcon />} label="CONTROLES" iconPosition="start" sx={{ fontWeight: 600, color: '#2e7d32', '&.Mui-selected': { color: '#1b5e20' } }} />
             <Tab icon={<AssignmentIcon />} label="PLANES DE ACCIÓN" iconPosition="start" sx={{ fontWeight: 600, color: '#1976d2', '&.Mui-selected': { color: '#0d47a1' } }} />
@@ -1244,7 +1304,19 @@ export default function ControlesYPlanesAccionPageNueva() {
               boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
             }}
           >
-            <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+            <Tabs 
+              value={activeTab} 
+              onChange={(_, newValue) => setActiveTab(newValue)}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              sx={{
+                '& .MuiTab-root': {
+                  minHeight: { xs: 60, md: 48 },
+                  fontSize: { xs: '0.8rem', md: 'inherit' }
+                }
+              }}
+            >
               <Tab icon={<FactCheckIcon />} label="CLASIFICACIÓN" iconPosition="start" sx={{ fontWeight: 600 }} />
               <Tab icon={<ShieldIcon />} label="CONTROLES" iconPosition="start" sx={{ fontWeight: 600, color: '#2e7d32', '&.Mui-selected': { color: '#1b5e20' } }} />
               <Tab icon={<AssignmentIcon />} label="PLANES DE ACCIÓN" iconPosition="start" sx={{ fontWeight: 600, color: '#1976d2', '&.Mui-selected': { color: '#0d47a1' } }} />
@@ -1275,7 +1347,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box
                 sx={{
-                  display: 'grid',
+                  display: { xs: 'none', md: 'grid' },
                   gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
                   gap: 2,
                   px: 3,
@@ -1356,16 +1428,17 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
-                        gap: 2,
-                        px: 3,
-                        py: 1.5,
+                        gridTemplateColumns: { xs: '1fr', md: '48px 100px 1.5fr 200px 120px 120px 48px' },
+                        gap: { xs: 1, md: 2 },
+                        px: { xs: 2, md: 3 },
+                        py: { xs: 2, md: 1.5 },
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
                         transition: 'all 0.2s',
                         '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' },
-                        alignItems: 'center',
+                        alignItems: { xs: 'flex-start', md: 'center' },
                         minHeight: 64,
+                        position: 'relative',
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -1968,8 +2041,23 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                         }}
                                                                       >
                                                                         <MenuItem value="A" sx={{ whiteSpace: 'normal' }}>A. El control ha fallado 0 veces durante el último año</MenuItem>
-                                                                        <MenuItem value="B" sx={{ whiteSpace: 'normal' }}>B. Se han encontrado desviaciones en el desempeño del control</MenuItem>
+                                                                      <MenuItem value="B" sx={{ whiteSpace: 'normal' }}>B. Se han encontrado desviaciones en el desempeño del control</MenuItem>
                                                                         <MenuItem value="C" sx={{ whiteSpace: 'normal' }}>C. El control falla la mayoría de las veces</MenuItem>
+                                                                      </Select>
+                                                                    </FormControl>
+
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Origen del Control</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.origenPlanAccion || 'ninguno'}
+                                                                        label="Origen del Control"
+                                                                        onChange={(e) => {
+                                                                          setCriteriosEvaluacion(pr => ({ ...pr, origenPlanAccion: e.target.value as any }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="ninguno">No aplica / Ninguno</MenuItem>
+                                                                        <MenuItem value="exito">Plan de Acción Exitoso</MenuItem>
+                                                                        <MenuItem value="fallo">Plan de Acción Fallido</MenuItem>
                                                                       </Select>
                                                                     </FormControl>
                                                                   </Box>
@@ -2071,13 +2159,38 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     </Box>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
-                                                      <TextField label="Fecha Estimada de Finalización" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                                      <Box sx={{ display: 'flex', gap: 2 }}>
+                                                        <TextField label="Fecha Estimada" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                                        <FormControl fullWidth>
+                                                          <InputLabel>Estado del Plan</InputLabel>
+                                                          <Select value={formPlan.estado || 'pendiente'} label="Estado del Plan" onChange={(e) => setFormPlan({ ...formPlan, estado: e.target.value as any })}>
+                                                            <MenuItem value="pendiente">Pendiente</MenuItem>
+                                                            <MenuItem value="en_progreso">En Progreso</MenuItem>
+                                                            <MenuItem value="completado">Completado</MenuItem>
+                                                            <MenuItem value="cancelado">Cancelado</MenuItem>
+                                                          </Select>
+                                                        </FormControl>
                                                       </Box>
+                                                      <TextField label="Evidencia (URL, Comentario o Ref.)" value={formPlan.evidencia || ''} onChange={e => setFormPlan({ ...formPlan, evidencia: e.target.value })} fullWidth />
+                                                      {(() => {
+                                                         if (formPlan.fechaEstimada && formPlan.estado !== 'completado' && formPlan.estado !== 'cancelado') {
+                                                            const todayStr = new Date().toISOString().split('T')[0];
+                                                            if (formPlan.fechaEstimada < todayStr) {
+                                                               return (
+                                                                  <Alert severity="warning">
+                                                                     <strong>El plan está VENCIDO.</strong> Se ha notificado al supervisor de área que el plan no ha finalizado a tiempo ni adjuntado evidencia. Puede actualizar el estado a &quot;Completado&quot; y cargar las evidencias para cumplir.
+                                                                  </Alert>
+                                                               );
+                                                            }
+                                                         }
+                                                         return null;
+                                                      })()}
                                                     </Box>
                                                   </Box>
-                                                )}
+                                                </Box>
+                                              )}
 
-                                                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                              <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                                                   <Button onClick={() => setEvaluacionExpandida(null)}>Cancelar</Button>
                                                   <Button variant="contained" onClick={handleGuardarEvaluacion}>Guardar y Clasificar</Button>
                                                 </Box>
@@ -2115,7 +2228,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box
                 sx={{
-                  display: 'grid',
+                  display: { xs: 'none', md: 'grid' },
                   gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
                   gap: 1,
                   px: 2,
@@ -2196,14 +2309,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
-                        gap: 1,
-                        p: 1.5,
+                        gridTemplateColumns: { xs: '1fr', md: '45px 90px 1fr 150px 120px 120px 50px' },
+                        gap: { xs: 1, md: 1 },
+                        p: { xs: 2, md: 1.5 },
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
-                        alignItems: 'center',
+                        alignItems: { xs: 'flex-start', md: 'center' },
                         width: '100%',
                         minHeight: 64,
+                        position: 'relative',
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -2924,7 +3038,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               {/* Column Headers */}
               <Box
                 sx={{
-                  display: 'grid',
+                  display: { xs: 'none', md: 'grid' },
                   gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
                   gap: 1,
                   px: 2,
@@ -2994,14 +3108,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
-                        gap: 1,
-                        p: 1.5,
+                        gridTemplateColumns: { xs: '1fr', md: '45px 90px 1fr 150px 120px 50px' },
+                        gap: { xs: 1, md: 1 },
+                        p: { xs: 2, md: 1.5 },
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
-                        alignItems: 'center',
+                        alignItems: { xs: 'flex-start', md: 'center' },
                         width: '100%',
                         minHeight: 64,
+                        position: 'relative',
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -3284,6 +3399,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                         {(itemDetalle as any).controlTipo || (itemDetalle as any).gestion?.controlTipo || causaDetalleView?.causa?.controlTipo || 'N/A'}
                       </Typography>
                     </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Origen del Control</Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {(itemDetalle as any).origenPlanAccion || (itemDetalle as any).gestion?.origenPlanAccion || causaDetalleView?.causa?.origenPlanAccion || 'N/A'}
+                      </Typography>
+                    </Box>
                   </Box>
                   
                   <Box sx={{ mt: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
@@ -3421,6 +3542,36 @@ export default function ControlesYPlanesAccionPageNueva() {
                           (itemDetalle as any).gestion?.planDecision ||
                           causaDetalleView?.causa?.planDecision ||
                           'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Estado del Plan
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {(() => {
+                           const estado = (itemDetalle as any).planEstado || (itemDetalle as any).gestion?.planEstado || causaDetalleView?.causa?.planEstado || 'pendiente';
+                           if (estado === 'completado') return <Chip label="Completado" size="small" color="success" />;
+                           if (estado === 'en_progreso') return <Chip label="En Progreso" size="small" color="info" />;
+                           if (estado === 'cancelado') return <Chip label="Cancelado" size="small" color="error" />;
+                           return <Chip label="Pendiente" size="small" color="warning" />;
+                        })()}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Evidencia
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {(itemDetalle as any).planEvidencia ||
+                          (itemDetalle as any).gestion?.planEvidencia ||
+                          causaDetalleView?.causa?.planEvidencia ? (
+                            <a href={(itemDetalle as any).planEvidencia || (itemDetalle as any).gestion?.planEvidencia || causaDetalleView?.causa?.planEvidencia} target="_blank" rel="noopener noreferrer">
+                               Ver Evidencia adjunta
+                            </a>
+                        ) : 'N/A'}
                       </Typography>
                     </Box>
                   </Box>

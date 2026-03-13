@@ -48,12 +48,13 @@ import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 
 export default function AnalisisProcesoPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSuccess, showError } = useNotification();
-  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
   const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
@@ -362,6 +363,20 @@ export default function AnalisisProcesoPage() {
     'Indicadores de desempeño',
   ];
 
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Análisis de Proceso"
+        description="Documentación del análisis del proceso mediante diagramas y descripciones"
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   if (!procesoSeleccionado) {
     return (
       <AppPageLayout
@@ -370,7 +385,7 @@ export default function AnalisisProcesoPage() {
         topContent={<FiltroProcesoSupervisor />}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+          <Alert severity="info" variant="outlined">No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para cargar su análisis.</Alert>
         </Box>
       </AppPageLayout>
     );

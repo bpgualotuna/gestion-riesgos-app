@@ -123,7 +123,7 @@ export default function MapaPage() {
   const { procesoSeleccionado } = useProceso();
   const { iniciarVer } = useRiesgo();
   const { esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
-  const { areas: areasAsignadas, procesos: procesosAsignados } = useAreasProcesosAsignados();
+  const { areas: areasAsignadas, procesos: procesosAsignados, loading: isLoadingAsignaciones } = useAreasProcesosAsignados();
   const { data: mapaConfig } = useGetMapaConfigQuery(); // Moved here to avoid initialization error
   const { data: procesos = [] } = useGetProcesosQuery();
   const { data: areas = [] } = useGetAreasQuery(); // Obtener todas las áreas del sistema
@@ -604,12 +604,23 @@ export default function MapaPage() {
     return riesgosValidos;
   }, [celdaSeleccionada, matrizActual]);
 
+  // isLoading state para la página completa
+  const isPageLoading = isLoadingAsignaciones || isLoadingPuntos || isLoadingRiesgos;
+
+  if (isPageLoading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <PageLoadingSkeleton variant="table" tableRows={6} />
+      </Box>
+    );
+  }
+
   // Si es supervisor, dueño o gerente general, mostrar solo procesos que tiene asignados
   if ((esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector) && procesosPropios.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="info">
-          No tiene procesos asignados.
+        <Alert severity="info" variant="outlined">
+          No tiene procesos asignados para visualizar el mapa de riesgos.
         </Alert>
       </Box>
     );

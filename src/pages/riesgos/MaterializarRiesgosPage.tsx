@@ -127,7 +127,7 @@ export default function MaterializarRiesgosPage() {
   const { esAdmin, esDueñoProcesos, esSupervisorRiesgos } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { confirmDelete } = useConfirm();
-  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
   const [incidenciasLocal, setIncidenciasLocal] = useState<Incidencia[]>([]);
   const [tabValue, setTabValue] = useState(0);
@@ -147,6 +147,21 @@ export default function MaterializarRiesgosPage() {
     setDeferLoad(true);
   }, []);
 
+  // Mostrar skeleton de carga mientras los procesos cargan
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Materialización de Riesgos"
+        description="Gestión y registro de eventos donde los riesgos se han materializado."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
   if (esDueñoProcesos && !procesoSeleccionado?.id) {
     return (
@@ -156,7 +171,9 @@ export default function MaterializarRiesgosPage() {
         topContent={null}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info">Por favor selecciona un proceso en el encabezado para ver sus eventos.</Alert>
+          <Alert severity="info" variant="outlined">
+            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para ver sus eventos.
+          </Alert>
         </Box>
       </AppPageLayout>
     );

@@ -51,6 +51,7 @@ interface Normatividad {
 
 
 
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 
 const NormatividadCard = memo(function NormatividadCard({
@@ -108,7 +109,7 @@ const NormatividadCard = memo(function NormatividadCard({
 export default function NormatividadPage() {
   const { showSuccess, showError } = useNotification();
   const { confirmDelete } = useConfirm();
-  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
   const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
@@ -241,6 +242,20 @@ export default function NormatividadPage() {
     setDialogDetalleOpen(true);
   }, []);
 
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Inventario de Normatividad"
+        description={"Cat\u00e1logo de normativas aplicables al proceso"}
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   if (!procesoSeleccionado) {
     return (
       <AppPageLayout
@@ -249,7 +264,7 @@ export default function NormatividadPage() {
         topContent={<FiltroProcesoSupervisor />}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info">Por favor selecciona un proceso.</Alert>
+          <Alert severity="info" variant="outlined">No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para cargar el inventario de normatividad.</Alert>
         </Box>
       </AppPageLayout>
     );

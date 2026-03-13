@@ -25,6 +25,7 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import type { RiesgoFormData } from '../../types';
 import { useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 
 interface RiesgoResidual {
   numeroIdentificacion: string;
@@ -96,7 +97,7 @@ const getColorZona = (zona: string): string => {
 };
 
 export default function MapaResidualPage() {
-  const { procesoSeleccionado } = useProceso();
+  const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   // const { showError } = useNotification();
 
   const [riesgosResidiales, setRiesgosResidiales] = useState<RiesgoResidual[]>([]);
@@ -221,8 +222,12 @@ export default function MapaResidualPage() {
         MAPA DE RIESGOS RESIDUAL
       </Typography>
 
-      {!procesoSeleccionado ? (
-        <Alert severity="warning">Selecciona un proceso para visualizar el mapa residual</Alert>
+      {isLoadingProceso ? (
+        <PageLoadingSkeleton variant="table" tableRows={6} />
+      ) : !procesoSeleccionado ? (
+        <Alert severity="info" variant="outlined">
+          No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para visualizar el mapa residual.
+        </Alert>
       ) : riesgosResidiales.length === 0 ? (
         <Alert severity="info">
           No hay riesgos con evaluación de controles. Completa primero la calificación RESIDUAL en Identificación y Calificación.

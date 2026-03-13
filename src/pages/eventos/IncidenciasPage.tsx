@@ -80,11 +80,13 @@ interface Incidencia {
 
 export default function IncidenciasPage() {
   const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos } = useAuth();
-  const { procesoSeleccionado } = useProceso();
+  const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   const { showSuccess, showError } = useNotification();
   const { confirmDelete } = useConfirm();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
-  
+
+  const puedeElegirSinProceso = esSupervisorRiesgos || esGerenteGeneralDirector;
+
   // OPTIMIZADO: Filtrar riesgos desde el backend y usar caché agresivo
   const { data: riesgosResponse } = useGetRiesgosQuery(
     { 
@@ -147,8 +149,6 @@ export default function IncidenciasPage() {
     fechaEstimada: '',
   });
 
-  const puedeElegirSinProceso = esSupervisorRiesgos || esGerenteGeneralDirector;
-
   // OPTIMIZADO: Riesgos ya filtrados desde el backend, solo extraer data
   const riesgosDisponibles = useMemo(() => {
     const riesgos = (riesgosResponse as any)?.data || [];
@@ -203,7 +203,7 @@ export default function IncidenciasPage() {
     return Array.from(grupos.values());
   }, [incidenciasFiltradas, riesgosDisponibles]);
 
-  const isLoadingData = isLoadingIncidencias;
+  const isLoadingData = isLoadingIncidencias || isLoadingProceso;
 
   const handleToggleExpandirRiesgo = (id: string) => {
     setRiesgosExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
@@ -252,7 +252,7 @@ export default function IncidenciasPage() {
       estado: 'abierta',
       fechaOcurrencia: new Date().toISOString().split('T')[0],
       fechaReporte: new Date().toISOString().split('T')[0],
-      procesoId: procesoSeleccionado?.id,
+      procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
     });
     setPlanData({
       responsable: '',
@@ -489,9 +489,9 @@ export default function IncidenciasPage() {
       </Box>
 
 
-      {!puedeElegirSinProceso && !procesoSeleccionado?.id && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Selecciona un proceso para registrar eventos
+      {!isLoadingProceso && !puedeElegirSinProceso && !procesoSeleccionado?.id && (
+        <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
+          No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para registrar eventos.
         </Alert>
       )}
 

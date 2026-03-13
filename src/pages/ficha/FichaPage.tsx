@@ -39,9 +39,7 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
-
-
-interface FichaData {
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';interface FichaData {
   vicepresidencia: string;
   gerencia: string;
   sigla: string; // Sigla del proceso para identificar riesgos (ej: "PF" para Planificación Financiera)
@@ -54,7 +52,7 @@ interface FichaData {
 
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
-  const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
+  const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar, isLoading: isLoadingProceso } = useProceso();
   const { user, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso } = useAuth();
   const [updateProceso] = useUpdateProcesoMutation();
   const {
@@ -93,6 +91,21 @@ export default function FichaPage() {
     ? procesosDisponibles.find((p: any) => String(p.id) === String(procesoId))
     : procesoSeleccionado;
 
+  // Skeleton mientras carga el proceso
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Ficha del Proceso"
+        description="Formulario de diligenciamiento obligatorio con información básica del proceso."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   // Dueño de Proceso: si no tiene proceso seleccionado (ni por URL ni por header), mostrar solo mensaje
   if (esDueñoProcesos && !procesoActual?.id) {
     return (
@@ -102,7 +115,9 @@ export default function FichaPage() {
         topContent={null}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info">Por favor selecciona un proceso en el encabezado para ver su ficha.</Alert>
+          <Alert severity="info" variant="outlined">
+            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para ver su ficha.
+          </Alert>
         </Box>
       </AppPageLayout>
     );
@@ -557,6 +572,7 @@ export default function FichaPage() {
                   setFormData({
                     vicepresidencia: procesoActual.vicepresidencia || '',
                     gerencia: procesoActual.gerencia || '',
+                    sigla: (procesoActual as any).sigla || '',
                     area: procesoActual.areaNombre || '',
                     responsable: procesoActual.responsableNombre || procesoActual.responsable || '',
                     encargado: procesoActual.responsableNombre || procesoActual.responsable || '',

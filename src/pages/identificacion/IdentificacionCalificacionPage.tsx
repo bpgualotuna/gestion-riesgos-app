@@ -331,7 +331,7 @@ function getFuenteLabel(fuentes: any, clave: any) {
 
 
 export default function IdentificacionPage() {
-  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const { esDueñoProcesos, esSupervisorRiesgos } = useAuth();
   const { riesgos: riesgosApiData, cargarRiesgos, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
   
@@ -1651,6 +1651,36 @@ export default function IdentificacionPage() {
     forceNavigate();
   };
 
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="IDENTIFICACIÓN Y CALIFICACIÓN INHERENTE"
+        description="Identifique y califique el riesgo inherente de su proceso basándose en su frecuencia e impacto."
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
+  if (!procesoSeleccionado) {
+    return (
+      <AppPageLayout
+        title="IDENTIFICACIÓN Y CALIFICACIÓN INHERENTE"
+        description="Identifique y califique el riesgo inherente de su proceso basándose en su frecuencia e impacto."
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info" variant="outlined">
+            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para gestionar sus riesgos.
+          </Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   return (
     <>
       {/* Diálogo de cambios no guardados */}
@@ -1698,14 +1728,6 @@ export default function IdentificacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Mensaje para dueño de proceso sin proceso seleccionado */}
-      {requiereProcesoYNoSeleccionado && (
-        <Box sx={{ p: 3 }}>
-          <Alert severity="info">
-            Por favor selecciona un proceso en el encabezado para gestionar sus riesgos.
-          </Alert>
-        </Box>
-      )}
 
       {/* Contenido del Tab INHERENTE */}
 

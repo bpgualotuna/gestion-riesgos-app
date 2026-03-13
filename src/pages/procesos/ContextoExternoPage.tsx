@@ -29,6 +29,7 @@ import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 
 type CategoryKey = 'economico' | 'culturalSocial' | 'legalRegulatorio' | 'tecnologico' | 'ambiental' | 'gruposInteresExternos' | 'politico' | 'megatendencias' | 'otrosFactores';
 
@@ -65,7 +66,7 @@ const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
 
 export default function ContextoExternoPage() {
   const { showSuccess, showError } = useNotification();
-  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
   const { data: procesoData, refetch: refetchProceso } = useSafeProcesoById(procesoSeleccionado?.id);
@@ -270,7 +271,19 @@ export default function ContextoExternoPage() {
   };
 
   const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, items: CaracteristicaItem[]) => (
-    <Paper key={key} variant="outlined" sx={{ p: 2, borderRadius: 2, minWidth: 0 }}>
+    <Paper
+      key={key}
+      variant="outlined"
+      sx={{
+        p: 2.5,
+        borderRadius: 2,
+        minWidth: 0,
+        minHeight: 170,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+      }}
+    >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="subtitle1" fontWeight={700}>{label}</Typography>
         {!isReadOnly && (
@@ -312,15 +325,15 @@ export default function ContextoExternoPage() {
                   onChange={(e) => updateItem(signo, key, it.id, e.target.value)}
                   disabled={isReadOnly}
                   multiline
-                  minRows={1}
-                  maxRows={1}
+                  minRows={2}
+                  maxRows={3}
                   placeholder="Descripción de la característica"
                   sx={{
                     maxWidth: 900,
                     flex: '1 1 520px',
                     '& textarea': {
-                      minHeight: 40,
-                      maxHeight: 40,
+                      minHeight: 64,
+                      maxHeight: 96,
                       overflowY: 'auto !important',
                     },
                   }}
@@ -351,10 +364,20 @@ export default function ContextoExternoPage() {
     </Paper>
   );
 
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout title="Análisis de Contexto Externo" description="Factores externos del proceso" topContent={<FiltroProcesoSupervisor />}>
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   if (!procesoSeleccionado) {
     return (
       <AppPageLayout title="Análisis de Contexto Externo" description="Factores externos del proceso" topContent={<FiltroProcesoSupervisor />}>
-        <Box sx={{ p: 3 }}><Alert severity="info">Seleccione un proceso.</Alert></Box>
+        <Box sx={{ p: 3 }}><Alert severity="info" variant="outlined">No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior.</Alert></Box>
       </AppPageLayout>
     );
   }

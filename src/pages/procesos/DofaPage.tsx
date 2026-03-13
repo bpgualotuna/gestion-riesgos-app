@@ -54,6 +54,7 @@ import { Alert, Chip } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
 
@@ -72,7 +73,7 @@ function isTipoDofaDimension(tipo: string): tipo is typeof TIPOS_DOFA_DIMENSIONE
 
 export default function DofaPage() {
   const { showSuccess, showError } = useNotification();
-  const { procesoSeleccionado, modoProceso } = useProceso();
+  const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const { esSupervisorRiesgos, esGerenteGeneralDirector, esDueñoProcesos } = useAuth();
   const {
     procesosVisibles,
@@ -83,6 +84,21 @@ export default function DofaPage() {
   } = useProcesosFiltradosPorArea('all');
   const isReadOnly = useIsReadOnlyProceso();
 
+  // Mostrar skeleton de carga mientras los procesos cargan
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Matriz DOFA"
+        description="Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas del proceso."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
   // Dueño de Proceso: si no tiene proceso seleccionado en el header, mostrar solo mensaje
   if (esDueñoProcesos && !procesoSeleccionado?.id) {
     return (
@@ -92,7 +108,9 @@ export default function DofaPage() {
         topContent={null}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info">Por favor selecciona un proceso en el encabezado para ver su matriz DOFA.</Alert>
+          <Alert severity="info" variant="outlined">
+            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para ver su matriz DOFA.
+          </Alert>
         </Box>
       </AppPageLayout>
     );
@@ -330,14 +348,17 @@ export default function DofaPage() {
   // Si es supervisor/gerente director, mostrar filtros de proceso
   if ((esSupervisorRiesgos || esGerenteGeneralDirector) && procesosVisibles.length > 0 && !procesoSeleccionado) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom fontWeight={700}>
-          Matriz DOFA
-        </Typography>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Seleccione un proceso para ver su matriz DOFA. Usted supervisa {procesosVisibles.length} proceso(s).
-        </Alert>
-      </Box>
+      <AppPageLayout
+        title="Matriz DOFA"
+        description="Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas del proceso."
+        topContent={<FiltroProcesoSupervisor />}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
+            Seleccione un proceso para ver su matriz DOFA. Usted supervisa {procesosVisibles.length} proceso(s).
+          </Alert>
+        </Box>
+      </AppPageLayout>
     );
   }
 
