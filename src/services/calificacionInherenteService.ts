@@ -66,6 +66,13 @@ export async function getConfigActiva(): Promise<CalificacionInherenteConfig> {
     const headers: HeadersInit = {};
     if (token) (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     const response = await fetch(`${API_BASE_URL}/calificacion-inherente/activa`, { headers });
+    if (response.status === 401) {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(AUTH_TOKEN_KEY);
+        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+      }
+      throw new Error('Sesión expirada');
+    }
     if (!response.ok) {
       throw new Error('Error fetching config');
     }

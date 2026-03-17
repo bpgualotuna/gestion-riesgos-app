@@ -37,6 +37,12 @@ const getHeaders = (): HeadersInit => {
 // ============================================
 
 async function handleResponse(response: Response) {
+    if (response.status === 401) {
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem(AUTH_TOKEN_KEY);
+            window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+    }
     if (!response.ok) {
         const text = await response.text();
         let parsed: { error?: string; message?: string } = {};
