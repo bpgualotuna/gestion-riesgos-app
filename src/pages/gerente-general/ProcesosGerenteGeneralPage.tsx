@@ -190,10 +190,11 @@ export default function ProcesosGerenteGeneralPage() {
         </Grid2>
       )}
 
-      {/* Menú contextual */}
+      {/* Menú contextual - solo se monta cuando hay ancla */}
+      {menuAnchor != null && (
       <Menu
         anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
+        open
         onClose={handleMenuClose}
       >
         <MenuItem onClick={handleVerProceso}>
@@ -209,6 +210,7 @@ export default function ProcesosGerenteGeneralPage() {
           Duplicar Proceso
         </MenuItem>
       </Menu>
+      )}
     </Box>
   );
 }

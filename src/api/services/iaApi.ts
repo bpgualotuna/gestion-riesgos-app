@@ -91,12 +91,17 @@ export async function enviarMensajeIAStream(
 
       try {
         const data = JSON.parse(dataLine);
+        if (eventName === 'error') {
+          const msg = (data as { message?: string; error?: string })?.message ?? (data as { error?: string })?.error ?? 'Error en el stream de IA';
+          throw new Error(msg);
+        }
         if (!eventName) {
           onChunk(data as IaStreamChunk);
         } else if (eventName === 'end') {
           onEnd(data as IaStreamEndEvent);
         }
       } catch (e) {
+        if (e instanceof Error) throw e;
         console.error('Error al parsear evento de IA stream', e);
       }
     }

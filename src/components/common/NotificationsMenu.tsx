@@ -89,6 +89,8 @@ export default function NotificationsMenu({
     navigate(ROUTES.HISTORIAL);
   };
 
+  if (anchorEl == null) return null;
+
   return (
     <Menu
       anchorEl={anchorEl}

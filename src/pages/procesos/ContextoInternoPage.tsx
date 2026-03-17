@@ -435,9 +435,10 @@ export default function ContextoInternoPage() {
           )}
         </Box>
 
+        {accionMenuAnchor != null && accionMenuAnchor.el != null && (
         <Menu
-          anchorEl={accionMenuAnchor?.el ?? null}
-          open={!!accionMenuAnchor}
+          anchorEl={accionMenuAnchor.el}
+          open
           onClose={() => setAccionMenuAnchor(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -509,6 +510,7 @@ export default function ContextoInternoPage() {
             );
           })()}
         </Menu>
+        )}
 
       </AppPageLayout>
     </>

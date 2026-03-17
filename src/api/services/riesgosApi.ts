@@ -52,9 +52,9 @@ export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
   tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
-  // Caché 90s: menos memoria y respuestas más ágiles; APIs devuelven solo campos necesarios
-  keepUnusedDataFor: 90,
-  refetchOnMountOrArgChange: 90,
+  // Caché: menos refetch y respuestas más ágiles; backend devuelve solo campos necesarios
+  keepUnusedDataFor: 120,
+  refetchOnMountOrArgChange: 120,
   refetchOnFocus: false,
   refetchOnReconnect: false,
   endpoints: (builder) => ({
@@ -64,6 +64,7 @@ export const riesgosApi = createApi({
     getProcesos: builder.query<Proceso[], void>({
       query: () => 'procesos',
       providesTags: ['Proceso'],
+      keepUnusedDataFor: 300,
     }),
 
     getProcesoById: builder.query<Proceso, string>({
@@ -287,9 +288,10 @@ export const riesgosApi = createApi({
     getPuntosMapa: builder.query<PuntoMapa[], FiltrosRiesgo>({
       query: (params) => ({
         url: 'riesgos/mapa',
-        params
+        params: params ?? {},
       }),
       providesTags: ['Riesgo', 'Evaluacion', 'PuntosMapa'],
+      keepUnusedDataFor: 180,
     }),
 
     // ============================================

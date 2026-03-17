@@ -3,7 +3,7 @@
  * Sidebar Navigation + Top Bar
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -88,7 +88,7 @@ import { useRiesgo } from "../../contexts/RiesgoContext";
 import { useProceso } from "../../contexts/ProcesoContext";
 import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, useProcesosVisibles } from "../../hooks/useAsignaciones";
-import VirtualAssistantDemo from "../common/VirtualAssistantDemo";
+const VirtualAssistantDemo = lazy(() => import("../common/VirtualAssistantDemo"));
 import NotificationsMenu from "../common/NotificationsMenu";
 import { useAuditNotifications } from "../../hooks/useAuditNotifications";
 import { useCalificacionInherenteConfig } from '../../hooks/useCalificacionInherenteConfig';
@@ -1209,10 +1209,11 @@ export default function MainLayout() {
             </>
           )}
 
-          {/* User Dropdown Menu */}
+          {/* User Dropdown Menu - solo se monta cuando hay ancla para evitar getBoundingClientRect(null) */}
+          {anchorEl != null && (
           <Menu
             anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
+            open
             onClose={handleUserMenuClose}
             PaperProps={{
               sx: {
@@ -1308,6 +1309,7 @@ export default function MainLayout() {
               Cerrar Sesión
             </MenuItem>
           </Menu>
+          )}
 
           <PerfilDialog
             open={perfilOpen}
@@ -1463,7 +1465,9 @@ export default function MainLayout() {
           </Box>
         </Box>
       </Box>
-      <VirtualAssistantDemo />
+      <Suspense fallback={null}>
+        <VirtualAssistantDemo />
+      </Suspense>
     </Box>
   );
 }

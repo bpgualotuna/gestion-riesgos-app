@@ -55,6 +55,7 @@ import type { FiltrosRiesgo, PuntoMapa, Riesgo } from '../../types';
 import { Alert } from '@mui/material';
 import { Visibility as VisibilityIcon } from '@mui/icons-material';
 import ResumenEstadisticasMapas from '../../components/mapas/ResumenEstadisticasMapas';
+import MapaFiltersPanel from '../../features/mapas/MapaFiltersPanel';
 
 // Calcula calificación y posición residual global del riesgo desde sus causas con control
 // Regla: usar la causa con mayor calificación residual (misma que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO")
@@ -1067,177 +1068,19 @@ export default function MapaPage() {
         <Grid2 container spacing={3}>
           {/* Columna principal: Filtros y Leyenda */}
           <Grid2 xs={12}>
-            {/* Filter */}
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  {(esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector || esGerenteGeneralProceso) && procesosPropios.length > 0 && (
-                    <>
-                      <FormControl sx={{ minWidth: 200 }}>
-                        <InputLabel>Filtrar por Área</InputLabel>
-                        <Select
-                          value={filtroArea || 'all'}
-                          onChange={(e) => {
-                            setFiltroArea(e.target.value);
-                            setFiltroProceso('all'); // Reset proceso cuando cambia área
-                          }}
-                          label="Filtrar por Área"
-                        >
-                          <MenuItem value="all">Todas las áreas</MenuItem>
-                          {/* Mostrar solo las áreas de los procesos asignados al usuario */}
-                          {Array.from(new Set(procesosPropios.map(p => p.areaId).filter(Boolean))).map(areaId => {
-                            const proceso = procesosPropios.find(p => p.areaId === areaId);
-                            const area = areas.find(a => a.id === areaId);
-                            return (
-                              <MenuItem key={areaId} value={String(areaId)}>
-                                {area?.nombre || proceso?.areaNombre || `Área ${areaId}`}
-                              </MenuItem>
-                            );
-                          })}
-                        </Select>
-                      </FormControl>
-                      <FormControl sx={{ minWidth: 200 }}>
-                        <InputLabel>Filtrar por Proceso</InputLabel>
-                        <Select
-                          value={filtroProceso || 'all'}
-                          onChange={(e) => setFiltroProceso(e.target.value)}
-                          label="Filtrar por Proceso"
-                        >
-                          <MenuItem value="all">Todos los procesos</MenuItem>
-                          {procesosPropios
-                            .filter(p => !filtroArea || filtroArea === 'all' || String(p.areaId) === String(filtroArea))
-                            .map((proceso) => (
-                              <MenuItem key={proceso.id} value={String(proceso.id)}>
-                                {proceso.nombre}
-                              </MenuItem>
-                            ))}
-                        </Select>
-                      </FormControl>
-                    </>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-
-
-            {/* Legend */}
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  Leyenda
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                  {clasificacion === CLASIFICACION_RIESGO.POSITIVA ? (
-                    // Leyenda Positiva (Azul/Gris)
-                    <>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: '#1565c0', // Blue 800
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Extremo</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: '#42a5f5', // Blue 400
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Alto</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: '#757575', // Grey 600
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Medio</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: '#bdbdbd', // Grey 400
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Bajo</Typography>
-                      </Box>
-                    </>
-                  ) : (
-                    // Leyenda Negativa (Rojo/Naranja/Verde)
-                    <>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: colors.risk.critical.main,
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Crítico (≥20)</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: '#d32f2f',
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Muy Alto (15-19)</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: colors.risk.high.main,
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Alto (10-14)</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: colors.risk.medium.main,
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Medio (5-9)</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            backgroundColor: colors.risk.low.main,
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Typography variant="body2">Bajo (≤4)</Typography>
-                      </Box>
-                    </>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
+            <MapaFiltersPanel
+              clasificacion={clasificacion}
+              filtroArea={filtroArea}
+              filtroProceso={filtroProceso}
+              setFiltroArea={(v) => setFiltroArea(v)}
+              setFiltroProceso={(v) => setFiltroProceso(v)}
+              esSupervisorRiesgos={!!esSupervisorRiesgos}
+              esDueñoProcesos={!!esDueñoProcesos}
+              esGerenteGeneralDirector={!!esGerenteGeneralDirector}
+              esGerenteGeneralProceso={!!esGerenteGeneralProceso}
+              procesosPropios={procesosPropios as any}
+              areas={areas as any}
+            />
 
             {/* Matrices lado a lado */}
             <Grid2 container spacing={2} sx={{ mb: 3 }}>

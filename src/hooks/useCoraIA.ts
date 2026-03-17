@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   enviarMensajeIA, 
   enviarMensajeIAStream,
@@ -39,7 +39,15 @@ export function useCoraIA() {
     }
   };
 
-  const enviarStream = async (texto: string) => {
+  const limpiar = useCallback(() => {
+    setConversationId(undefined);
+    setMensajes([]);
+    setError(null);
+    setLoading(false);
+    setStreaming(false);
+  }, []);
+
+  const enviarStream = useCallback(async (texto: string) => {
     const message = texto.trim();
     if (!message) return;
     setError(null);
@@ -71,27 +79,19 @@ export function useCoraIA() {
             });
           },
           onEnd: ({ conversationId: newConvId }) => {
-            if (newConvId) {
-              setConversationId(newConvId);
-            }
-            setStreaming(false);
+            if (newConvId) setConversationId(newConvId);
           },
         },
       );
     } catch (e: any) {
       console.error('Error en enviarStream IA', e);
       setError(e?.message || 'Error al hablar con CORA IA.');
+    } finally {
       setStreaming(false);
     }
-  };
+  }, [conversationId]);
 
-  const limpiar = () => {
-    setConversationId(undefined);
-    setMensajes([]);
-    setError(null);
-  };
-
-  const cargarHistorial = async () => {
+  const cargarHistorial = useCallback(async () => {
     try {
       const data = await obtenerConversaciones();
       return data;
@@ -99,9 +99,9 @@ export function useCoraIA() {
       console.error('Error al cargar historial', e);
       return [];
     }
-  };
+  }, []);
 
-  const seleccionarConversacion = async (id: string) => {
+  const seleccionarConversacion = useCallback(async (id: string) => {
     setError(null);
     setLoading(true);
     try {
@@ -113,22 +113,29 @@ export function useCoraIA() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const borrar = async (id: string) => {
+  const borrar = useCallback(async (id: string) => {
     try {
       await eliminarConversacion(id);
-      if (conversationId === id) {
-        limpiar();
-      }
+      setConversationId((cid) => {
+        if (cid === id) {
+          setMensajes([]);
+          setError(null);
+          setLoading(false);
+          setStreaming(false);
+          return undefined;
+        }
+        return cid;
+      });
       return true;
     } catch (e) {
       console.error('Error al borrar conversación', e);
       return false;
     }
-  };
+  }, []);
 
-  const renombrar = async (id: string, title: string) => {
+  const renombrar = useCallback(async (id: string, title: string) => {
     try {
       await renombrarConversacion(id, title);
       return true;
@@ -136,7 +143,7 @@ export function useCoraIA() {
       console.error('Error al renombrar conversación', e);
       return false;
     }
-  };
+  }, []);
 
   return {
     conversationId,
