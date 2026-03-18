@@ -80,6 +80,38 @@ interface AuthProviderProps {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
+type ApiUserPayload = {
+  id: number | string;
+  username: string;
+  email: string;
+  fullName: string;
+  role: string;
+  department: string;
+  position: string;
+  esDuenoProcesos?: boolean;
+  fotoPerfil?: string | null;
+  ambito?: string;
+  puedeVisualizar?: boolean;
+  puedeEditar?: boolean;
+};
+
+function mapApiUserToContextUser(data: ApiUserPayload): User {
+  return {
+    id: data.id,
+    username: data.username,
+    email: data.email,
+    fullName: data.fullName,
+    role: data.role as UserRole,
+    department: data.department,
+    position: data.position,
+    esDuenoProcesos: data.esDuenoProcesos,
+    fotoPerfil: data.fotoPerfil ?? null,
+    ambito: data.ambito === 'SISTEMA' || data.ambito === 'OPERATIVO' ? data.ambito : 'OPERATIVO',
+    puedeVisualizar: data.puedeVisualizar !== false,
+    puedeEditar: data.puedeEditar === true,
+  };
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,20 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => {
-        const u: User = {
-          id: data.id,
-          username: data.username,
-          email: data.email,
-          fullName: data.fullName,
-          role: data.role as UserRole,
-          department: data.department,
-          position: data.position,
-          esDuenoProcesos: data.esDuenoProcesos,
-          fotoPerfil: data.fotoPerfil ?? null,
-          ambito: data.ambito === 'SISTEMA' || data.ambito === 'OPERATIVO' ? data.ambito : 'OPERATIVO',
-          puedeVisualizar: data.puedeVisualizar !== false,
-          puedeEditar: data.puedeEditar === true,
-        };
+        const u = mapApiUserToContextUser(data as ApiUserPayload);
         setUser(u);
         if (u.role === 'gerente') setGerenteModeState(null);
       })
@@ -144,20 +163,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const backendUser = data.user;
         if (data.token) sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
 
-        const contextUser: User = {
-          id: backendUser.id,
-          username: backendUser.username,
-          email: backendUser.email,
-          fullName: backendUser.fullName,
-          role: backendUser.role as UserRole,
-          department: backendUser.department,
-          position: backendUser.position,
-          esDuenoProcesos: backendUser.esDuenoProcesos,
-          fotoPerfil: backendUser.fotoPerfil ?? null,
-          ambito: backendUser.ambito === 'SISTEMA' || backendUser.ambito === 'OPERATIVO' ? backendUser.ambito : 'OPERATIVO',
-          puedeVisualizar: backendUser.puedeVisualizar !== false,
-          puedeEditar: backendUser.puedeEditar === true,
-        };
+        const contextUser = mapApiUserToContextUser(backendUser as ApiUserPayload);
 
         setUser(contextUser);
         if (contextUser.role === 'gerente') setGerenteModeState(null);
@@ -203,20 +209,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return;
       const data = await res.json();
-      setUser({
-        id: data.id,
-        username: data.username,
-        email: data.email,
-        fullName: data.fullName,
-        role: data.role as UserRole,
-        department: data.department,
-        position: data.position,
-        esDuenoProcesos: data.esDuenoProcesos,
-        fotoPerfil: data.fotoPerfil ?? null,
-        ambito: data.ambito === 'SISTEMA' || data.ambito === 'OPERATIVO' ? data.ambito : 'OPERATIVO',
-        puedeVisualizar: data.puedeVisualizar !== false,
-        puedeEditar: data.puedeEditar === true,
-      });
+      setUser(mapApiUserToContextUser(data as ApiUserPayload));
     } catch {
       // ignore
     }

@@ -145,7 +145,6 @@ import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
 import type { Riesgo, FiltrosRiesgo, CausaRiesgo, RiesgoFormData } from '../../types';
 import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente, determinarNivelRiesgo, generarIdConContador, setSiglasConfig } from '../../utils/calculations';
 import { determinarNivelRiesgoSync, calcularCalificacionInherentePorCausaSync, agregarCalificacionInherenteGlobalSync } from '../../services/calificacionInherenteService';
-import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import {
   obtenerPorcentajeMitigacion,
@@ -339,7 +338,7 @@ export default function IdentificacionPage() {
   const [createRiesgoMutation] = useCreateRiesgoMutation();
   const [getNextNumero] = useLazyGetNextNumeroRiesgoQuery();
   
-  // OPTIMIZADO: Paginación - Estado para controlar página actual (por defecto 10 por página)
+  // OPTIMIZADO: Paginación - Estado para controlar página actual (por defecto 5 por página para mejorar rendimiento)
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   
@@ -375,20 +374,20 @@ export default function IdentificacionPage() {
   // Dueño/Supervisor con proceso: preferir RTK (backend filtrado por procesoId); si RTK vacío, fallback a contexto filtrado
   const requiereFiltroPorProceso = procesoIdForQuery != null;
   const riesgosApiDataOptimizado = useMemo(() => {
-    const rtkData = riesgosRTKData?.data ?? riesgosRTKData;
-    const rtkArray = Array.isArray(rtkData) ? rtkData : [];
+    const rtkArray = Array.isArray(riesgosRTKData?.data) ? riesgosRTKData!.data! : [];
+
     if (requiereFiltroPorProceso && procesoIdForQuery != null) {
       if (rtkArray.length > 0) return rtkArray;
-      // Fallback: contexto filtrado por proceso actual (p. ej. Gestión Estratégica si RTK falla o tarda)
-      if (riesgosApiData && Array.isArray(riesgosApiData)) {
-        const filtrados = riesgosApiData.filter((r: any) =>
+      if (Array.isArray(riesgosApiData)) {
+        return riesgosApiData.filter((r: any) =>
           Number(r.procesoId ?? r.proceso?.id) === procesoIdForQuery
         );
-        if (filtrados.length > 0) return filtrados;
       }
       return [];
     }
-    return rtkArray.length > 0 ? rtkArray : (riesgosApiData || []);
+
+    if (rtkArray.length > 0) return rtkArray;
+    return Array.isArray(riesgosApiData) ? riesgosApiData : [];
   }, [requiereFiltroPorProceso, procesoIdForQuery, riesgosRTKData, riesgosApiData]);
   const totalRiesgos = requiereFiltroPorProceso
     ? (riesgosRTKData?.total ?? riesgosApiDataOptimizado.length)
@@ -850,15 +849,15 @@ export default function IdentificacionPage() {
         tipologiaTipo4: (r as any).tipologiaTipo4 ?? '',
         tipoProceso: r.proceso?.tipo || procesoSel?.tipo || 'Operacional',
         impactos: r.evaluacion ? {
-          economico: r.evaluacion.impactoEconomico || 1,
-          procesos: r.evaluacion.impactoProcesos || 1,
-          legal: r.evaluacion.impactoLegal || 1,
-          confidencialidadSGSI: r.evaluacion.confidencialidadSGSI || 1,
-          reputacion: r.evaluacion.impactoReputacion || 1,
-          disponibilidadSGSI: r.evaluacion.disponibilidadSGSI || 1,
-          personas: r.evaluacion.impactoPersonas || 1,
-          integridadSGSI: r.evaluacion.integridadSGSI || 1,
-          ambiental: r.evaluacion.impactoAmbiental || 1,
+          economico: r.evaluacion.impactoEconomico ?? 1,
+          procesos: r.evaluacion.impactoProcesos ?? 1,
+          legal: r.evaluacion.impactoLegal ?? 1,
+          confidencialidadSGSI: r.evaluacion.confidencialidadSGSI ?? 1,
+          reputacion: r.evaluacion.impactoReputacion ?? 1,
+          disponibilidadSGSI: r.evaluacion.disponibilidadSGSI ?? 1,
+          personas: r.evaluacion.impactoPersonas ?? 1,
+          integridadSGSI: r.evaluacion.integridadSGSI ?? 1,
+          ambiental: r.evaluacion.impactoAmbiental ?? 1,
         } : {
           economico: 1, procesos: 1, legal: 1, confidencialidadSGSI: 1,
           reputacion: 1, disponibilidadSGSI: 1, personas: 1, integridadSGSI: 1, ambiental: 1
@@ -1370,19 +1369,8 @@ export default function IdentificacionPage() {
   const [cambiosPendientes, setCambiosPendientes] = useState<Record<string, Partial<RiesgoFormData>>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  // Detectar si hay cambios pendientes (riesgos o causas)
-  const hasUnsavedChanges = useMemo(() => {
-    const hasCambiosRiesgos = Object.keys(cambiosPendientes).length > 0;
-    const hasCambiosCausas = Object.keys(causasPendientes).length > 0;
-    return hasCambiosRiesgos || hasCambiosCausas;
-  }, [cambiosPendientes, causasPendientes]);
-
-  // Sistema de cambios no guardados
-  const { blocker, markAsSaved, forceNavigate } = useUnsavedChanges({
-    hasUnsavedChanges: hasUnsavedChanges && !isReadOnly,
-    message: 'Tiene cambios sin guardar en la identificación y calificación de riesgos.',
-    disabled: isReadOnly,
-  });
+  // Estado para cambios pendientes (risks/causes) se usa solo para saber qué guardar,
+  // ya no bloquea la navegación de la página.
 
   // Actualizar riesgo SOLO en estado local (sin guardar en backend)
   // Esto permite editar sin recálculos costosos hasta que se guarde
@@ -1491,20 +1479,28 @@ export default function IdentificacionPage() {
         }
       }
 
-      if (cambios.impactos) {
-        payload.evaluacion = {
-          ...(riesgoActual as any).evaluacion,
-          impactoEconomico: cambios.impactos.economico,
-          impactoProcesos: cambios.impactos.procesos,
-          impactoLegal: cambios.impactos.legal,
-          impactoReputacion: cambios.impactos.reputacion,
-          impactoPersonas: cambios.impactos.personas,
-          impactoAmbiental: cambios.impactos.ambiental,
-          confidencialidadSGSI: cambios.impactos.confidencialidadSGSI,
-          disponibilidadSGSI: cambios.impactos.disponibilidadSGSI,
-          integridadSGSI: cambios.impactos.integridadSGSI
-        };
-      }
+      // Siempre enviar impactos actuales (aunque cambios.impactos no esté poblado),
+      // usando el estado normalizado de riesgoActualizado.impactos.
+      const impactosActuales = (riesgoActualizado as any).impactos || {};
+      payload.evaluacion = {
+        ...(riesgoActual as any).evaluacion,
+        impactoEconomico: impactosActuales.economico ?? (riesgoActual as any).evaluacion?.impactoEconomico ?? 1,
+        impactoProcesos: impactosActuales.procesos ?? (riesgoActual as any).evaluacion?.impactoProcesos ?? 1,
+        impactoLegal: impactosActuales.legal ?? (riesgoActual as any).evaluacion?.impactoLegal ?? 1,
+        impactoReputacion: impactosActuales.reputacion ?? (riesgoActual as any).evaluacion?.impactoReputacion ?? 1,
+        impactoPersonas: impactosActuales.personas ?? (riesgoActual as any).evaluacion?.impactoPersonas ?? 1,
+        impactoAmbiental: impactosActuales.ambiental ?? (riesgoActual as any).evaluacion?.impactoAmbiental ?? 1,
+        confidencialidadSGSI: impactosActuales.confidencialidadSGSI ?? (riesgoActual as any).evaluacion?.confidencialidadSGSI ?? 1,
+        disponibilidadSGSI: impactosActuales.disponibilidadSGSI ?? (riesgoActual as any).evaluacion?.disponibilidadSGSI ?? 1,
+        integridadSGSI: impactosActuales.integridadSGSI ?? (riesgoActual as any).evaluacion?.integridadSGSI ?? 1,
+      };
+
+      console.log('[IDEN] Guardar riesgo', {
+        riesgoId,
+        cambios,
+        payload,
+        evaluacionEnPayload: payload.evaluacion,
+      });
 
       // 1. Guardar cambios en el backend si hay cambios de formulario o si se acaban de persistir causas (sincronizar clasificación)
       if (hayCambiosForm) {
@@ -1534,10 +1530,18 @@ export default function IdentificacionPage() {
       // 5. Disparar evento para que el mapa se actualice
       window.dispatchEvent(new CustomEvent('riesgo-actualizado', { detail: { riesgoId: Number(riesgoId) } }));
 
-      // Marcar como guardado si no hay más cambios pendientes
-      if (Object.keys(cambiosPendientes).length === 1 && Object.keys(causasPendientes).length === 0) {
-        markAsSaved();
-      }
+      // Log JSON del body que se envía al backend (para depuración de impactos)
+      console.log(
+        '[IDEN] Guardar riesgo JSON',
+        JSON.stringify(
+          {
+            riesgoId,
+            payload,
+          },
+          null,
+          2,
+        ),
+      );
 
       // Mensaje de éxito se muestra en handleSave
     } catch (e: any) {
@@ -1617,38 +1621,16 @@ export default function IdentificacionPage() {
     }
   }, [guardarRiesgo, showSuccess]);
 
-  // Handlers para el diálogo de cambios no guardados
+  // Handlers del antiguo diálogo de cambios no guardados.
+  // Ahora solo reutilizan handleSave y limpian cambios, sin bloquear navegación.
   const handleSaveAllFromDialog = async () => {
-    // Guardar todos los riesgos con cambios pendientes
-    const riesgosConCambios = Object.keys(cambiosPendientes);
-    for (const riesgoId of riesgosConCambios) {
-      try {
-        await guardarRiesgo(riesgoId);
-      } catch {
-        // Error ya mostrado por guardarRiesgo
-      }
-    }
-    
-    // Guardar todas las causas pendientes
-    const causasConCambios = Object.keys(causasPendientes);
-    for (const riesgoId of causasConCambios) {
-      try {
-        await guardarRiesgo(riesgoId);
-      } catch {
-        // Error ya mostrado por guardarRiesgo
-      }
-    }
-    
-    if (!isSaving) {
-      forceNavigate();
-    }
+    if (isSaving) return;
+    await handleSave();
   };
 
   const handleDiscardChanges = () => {
-    // Limpiar todos los cambios pendientes
     setCambiosPendientes({});
     setCausasPendientes({});
-    forceNavigate();
   };
 
   if (isLoadingProceso) {
@@ -1683,17 +1665,6 @@ export default function IdentificacionPage() {
 
   return (
     <>
-      {/* Diálogo de cambios no guardados */}
-      <UnsavedChangesDialog
-        open={blocker.state === 'blocked'}
-        onSave={handleSaveAllFromDialog}
-        onDiscard={handleDiscardChanges}
-        onCancel={() => blocker.reset?.()}
-        isSaving={isSaving}
-        message="Tiene cambios sin guardar en la identificación y calificación de riesgos."
-        description="¿Desea guardar todos los cambios antes de salir?"
-      />
-
       <AppPageLayout
       title="IDENTIFICACIÓN Y CALIFICACIÓN INHERENTE"
       description="Identifique y califique el riesgo inherente de su proceso basándose en su frecuencia e impacto."
@@ -3657,9 +3628,14 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         value={impactos.economico || 1}
                         onChange={(e) => {
                           const val = Number(e.target.value);
+                          console.log('[IDEN] Cambio impacto económico', {
+                            riesgoId: riesgo.id,
+                            antes: impactos.economico,
+                            nuevo: val,
+                          });
                           if (!isNaN(val) && val >= 1 && val <= 5) {
                             actualizarRiesgo(riesgo.id, {
-                              impactos: { ...impactos, economico: val }
+                              impactos: { ...impactos, economico: val },
                             });
                           }
                         }}
@@ -3845,9 +3821,14 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         value={impactos.reputacion || 1}
                         onChange={(e) => {
                           const val = Number(e.target.value);
+                          console.log('[IDEN] Cambio impacto reputacion', {
+                            riesgoId: riesgo.id,
+                            antes: impactos.reputacion,
+                            nuevo: val,
+                          });
                           if (!isNaN(val) && val >= 1 && val <= 5) {
                             actualizarRiesgo(riesgo.id, {
-                              impactos: { ...impactos, reputacion: val }
+                              impactos: { ...impactos, reputacion: val },
                             });
                           }
                         }}

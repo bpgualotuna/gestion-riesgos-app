@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { AUTH_TOKEN_KEY } from '../utils/constants';
 
@@ -16,11 +16,10 @@ interface AuditNotification {
 export function useAuditNotifications(enabled: boolean = true) {
   const [notifications, setNotifications] = useState<AuditNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [lastCheckTime, setLastCheckTime] = useState<Date>(new Date());
-
-  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  const lastCheckRef = useRef<Date>(new Date());
 
   const fetchNewNotifications = useCallback(async () => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
     if (!token || !enabled) return;
 
     try {
@@ -29,7 +28,7 @@ export function useAuditNotifications(enabled: boolean = true) {
         params: {
           page: 1,
           pageSize: 10,
-          desde: lastCheckTime.toISOString(),
+          desde: lastCheckRef.current.toISOString(),
         },
       });
 
@@ -37,18 +36,22 @@ export function useAuditNotifications(enabled: boolean = true) {
       
       if (newLogs.length > 0) {
         setNotifications((prev) => {
-          const combined = [...newLogs, ...prev];
+          const prevIds = new Set(prev.map((n) => n.id));
+          const filteredNew = newLogs.filter((n: AuditNotification) => !prevIds.has(n.id));
+          if (filteredNew.length > 0) {
+            setUnreadCount((count) => count + filteredNew.length);
+          }
+          const combined = [...filteredNew, ...prev];
           // Mantener solo las últimas 50 notificaciones
           return combined.slice(0, 50);
         });
-        setUnreadCount((prev) => prev + newLogs.length);
       }
 
-      setLastCheckTime(new Date());
+      lastCheckRef.current = new Date();
     } catch (error) {
       console.error('Error fetching audit notifications:', error);
     }
-  }, [token, enabled, lastCheckTime]);
+  }, [enabled]);
 
   // Polling cada 30 segundos solo si está habilitado
   useEffect(() => {

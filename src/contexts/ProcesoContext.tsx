@@ -41,13 +41,18 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
   const [procesoSeleccionado, setProcesoSeleccionadoState] = useState<Proceso | null>(null);
   const [modoProceso, setModoProcesoState] = useState<ModoProceso>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const storagePrefix = useMemo(() => `proceso_ctx_${String(user?.id ?? 'anon')}`, [user?.id]);
+  const scopedProcesoIdKey = `${storagePrefix}:procesoSeleccionadoId`;
+  const scopedModoKey = `${storagePrefix}:modoProceso`;
 
   // Cargar proceso seleccionado y modo del localStorage
   useEffect(() => {
     if (loadingProcesos) return;
 
-    const storedProcesoId = localStorage.getItem('procesoSeleccionadoId');
-    const storedModoProceso = localStorage.getItem('modoProceso') as ModoProceso;
+    const storedProcesoId =
+      localStorage.getItem(scopedProcesoIdKey) ?? localStorage.getItem('procesoSeleccionadoId');
+    const storedModoProceso =
+      (localStorage.getItem(scopedModoKey) ?? localStorage.getItem('modoProceso')) as ModoProceso;
 
     if (storedProcesoId && procesos.length > 0) {
       // Buscar el proceso en la lista actual (localStorage guarda strings)
@@ -56,8 +61,12 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
       if (procesoEncontrado) {
         setProcesoSeleccionadoState(procesoEncontrado);
         localStorage.setItem(`proceso_${procesoEncontrado.id}`, JSON.stringify(procesoEncontrado));
+        localStorage.setItem(scopedProcesoIdKey, String(procesoEncontrado.id));
+        localStorage.removeItem('procesoSeleccionadoId');
         if (storedModoProceso) {
           setModoProcesoState(storedModoProceso);
+          localStorage.setItem(scopedModoKey, storedModoProceso);
+          localStorage.removeItem('modoProceso');
         }
         setIsLoading(false);
         return;
@@ -65,40 +74,40 @@ export function ProcesoProvider({ children }: ProcesoProviderProps) {
     }
 
     setIsLoading(false);
-  }, [loadingProcesos, procesos]);
+  }, [loadingProcesos, procesos, scopedModoKey, scopedProcesoIdKey]);
 
   const setProcesoSeleccionado = useCallback((proceso: Proceso | null) => {
     setProcesoSeleccionadoState(proceso);
     if (proceso) {
-      localStorage.setItem('procesoSeleccionadoId', String(proceso.id));
+      localStorage.setItem(scopedProcesoIdKey, String(proceso.id));
       localStorage.setItem(`proceso_${proceso.id}`, JSON.stringify(proceso));
       if (proceso.estado === 'aprobado') {
         setModoProcesoState('visualizar');
-        localStorage.setItem('modoProceso', 'visualizar');
+        localStorage.setItem(scopedModoKey, 'visualizar');
       }
     } else {
-      localStorage.removeItem('procesoSeleccionadoId');
+      localStorage.removeItem(scopedProcesoIdKey);
       setModoProcesoState(null);
-      localStorage.removeItem('modoProceso');
+      localStorage.removeItem(scopedModoKey);
     }
-  }, []);
+  }, [scopedModoKey, scopedProcesoIdKey]);
 
   const setModoProceso = useCallback((modo: ModoProceso) => {
     setModoProcesoState(modo);
-    if (modo) localStorage.setItem('modoProceso', modo);
-    else localStorage.removeItem('modoProceso');
-  }, []);
+    if (modo) localStorage.setItem(scopedModoKey, modo);
+    else localStorage.removeItem(scopedModoKey);
+  }, [scopedModoKey]);
 
   const iniciarModoEditar = useCallback(() => {
     if (procesoSeleccionado?.estado === 'aprobado') return;
     setModoProcesoState('editar');
-    localStorage.setItem('modoProceso', 'editar');
-  }, [procesoSeleccionado?.estado]);
+    localStorage.setItem(scopedModoKey, 'editar');
+  }, [procesoSeleccionado?.estado, scopedModoKey]);
 
   const iniciarModoVisualizar = useCallback(() => {
     setModoProcesoState('visualizar');
-    localStorage.setItem('modoProceso', 'visualizar');
-  }, []);
+    localStorage.setItem(scopedModoKey, 'visualizar');
+  }, [scopedModoKey]);
 
   // Verificar si el usuario puede gestionar procesos
   // Puede gestionar si:

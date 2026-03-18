@@ -5,8 +5,15 @@
 // Sin logs en consola en todo el sistema
 if (typeof console !== 'undefined') {
   ['log', 'info', 'debug', 'warn', 'error'].forEach((m) => {
-    const orig = console[m as keyof Console];
-    if (typeof orig === 'function') (console as any)[m] = () => {};
+    const key = m as keyof Console;
+    const orig = console[key];
+    if (typeof orig === 'function') {
+      Object.defineProperty(console, key, {
+        value: () => {},
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 }
 
@@ -35,21 +42,32 @@ rootElement.style.minHeight = '100vh';
 // Función para mostrar error en pantalla
 function showError(error: unknown) {
   const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-  const errorStack = error instanceof Error ? error.stack : '';
   
   if (!rootElement) return;
-  
-  rootElement.innerHTML = `
-    <div style="padding: 40px; text-align: center; background: #E8E8E8; min-height: 100vh; color: #000; font-family: Arial, sans-serif;">
-      <h1 style="color: #d32f2f; margin-bottom: 20px;">Error al cargar la aplicación</h1>
-      <p style="color: #d32f2f; font-size: 18px; margin: 20px 0;">${errorMessage}</p>
-      ${errorStack ? `<pre style="text-align: left; background: #fff; padding: 20px; border-radius: 4px; overflow: auto; max-width: 800px; margin: 20px auto; font-size: 12px;">${errorStack}</pre>` : ''}
-      <button onclick="window.location.reload()" style="padding: 12px 24px; margin-top: 20px; cursor: pointer; background: #c8d900; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; color: #000;">
-        Recargar Página
-      </button>
-      <p style="margin-top: 20px; color: #666;">Revisa la consola del navegador (F12) para más detalles</p>
-    </div>
-  `;
+
+  rootElement.replaceChildren();
+  const container = document.createElement('div');
+  container.style.cssText = 'padding: 40px; text-align: center; background: #E8E8E8; min-height: 100vh; color: #000; font-family: Arial, sans-serif;';
+
+  const title = document.createElement('h1');
+  title.textContent = 'Error al cargar la aplicación';
+  title.style.cssText = 'color: #d32f2f; margin-bottom: 20px;';
+
+  const message = document.createElement('p');
+  message.textContent = errorMessage;
+  message.style.cssText = 'color: #d32f2f; font-size: 18px; margin: 20px 0;';
+
+  const button = document.createElement('button');
+  button.textContent = 'Recargar Página';
+  button.style.cssText = 'padding: 12px 24px; margin-top: 20px; cursor: pointer; background: #c8d900; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; color: #000;';
+  button.addEventListener('click', () => window.location.reload());
+
+  const help = document.createElement('p');
+  help.textContent = 'Revisa la consola del navegador (F12) para más detalles';
+  help.style.cssText = 'margin-top: 20px; color: #666;';
+
+  container.append(title, message, button, help);
+  rootElement.appendChild(container);
 }
 
 // Capturar errores globales y promesas rechazadas
@@ -84,21 +102,32 @@ try {
   // Timeout de seguridad: si después de 5 segundos no hay contenido, mostrar mensaje
   setTimeout(() => {
     if (rootElement.children.length === 0 || rootElement.textContent?.trim() === '') {
-      rootElement.innerHTML = `
-        <div style="padding: 40px; text-align: center; background: #E8E8E8; min-height: 100vh; color: #000; font-family: Arial, sans-serif;">
-          <h1 style="color: #f57c00;">La aplicación está cargando...</h1>
-          <p style="color: #666; margin: 20px 0;">Si esta pantalla persiste, revisa la consola del navegador (F12)</p>
-          <div style="margin: 30px auto; width: 50px; height: 50px; border: 4px solid #c8d900; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-          <style>
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          </style>
-          <button onclick="window.location.reload()" style="padding: 12px 24px; margin-top: 20px; cursor: pointer; background: #c8d900; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; color: #000;">
-            Recargar Página
-          </button>
-        </div>
-      `;
+      rootElement.replaceChildren();
+
+      const container = document.createElement('div');
+      container.style.cssText = 'padding: 40px; text-align: center; background: #E8E8E8; min-height: 100vh; color: #000; font-family: Arial, sans-serif;';
+
+      const title = document.createElement('h1');
+      title.textContent = 'La aplicación está cargando...';
+      title.style.cssText = 'color: #f57c00;';
+
+      const description = document.createElement('p');
+      description.textContent = 'Si esta pantalla persiste, revisa la consola del navegador (F12)';
+      description.style.cssText = 'color: #666; margin: 20px 0;';
+
+      const spinner = document.createElement('div');
+      spinner.style.cssText = 'margin: 30px auto; width: 50px; height: 50px; border: 4px solid #c8d900; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;';
+
+      const style = document.createElement('style');
+      style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+
+      const button = document.createElement('button');
+      button.textContent = 'Recargar Página';
+      button.style.cssText = 'padding: 12px 24px; margin-top: 20px; cursor: pointer; background: #c8d900; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; color: #000;';
+      button.addEventListener('click', () => window.location.reload());
+
+      container.append(title, description, spinner, style, button);
+      rootElement.appendChild(container);
     }
   }, 5000);
   

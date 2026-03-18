@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -161,9 +161,10 @@ export default function UsuariosPage() {
     const [showPassword, setShowPassword] = useState(false);
 
     const generateRandomPassword = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_-+=';
+        const length = 12;
         let result = '';
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < length; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return result;
@@ -183,32 +184,40 @@ export default function UsuariosPage() {
 
     // Filtered data
     const filteredUsuarios = useMemo(() => {
+        const search = searchUsuarios.trim().toLowerCase();
+        if (!search) return usuariosMapeados;
         return usuariosMapeados.filter((u: any) =>
-            u.nombre.toLowerCase().includes(searchUsuarios.toLowerCase()) ||
-            (u.email && u.email.toLowerCase().includes(searchUsuarios.toLowerCase())) ||
-            (u.cargoNombre && u.cargoNombre.toLowerCase().includes(searchUsuarios.toLowerCase()))
+            u.nombre.toLowerCase().includes(search) ||
+            (u.email && u.email.toLowerCase().includes(search)) ||
+            (u.cargoNombre && u.cargoNombre.toLowerCase().includes(search))
         );
     }, [usuariosMapeados, searchUsuarios]);
 
     const filteredRoles = useMemo(() => {
+        const search = searchRoles.trim().toLowerCase();
+        if (!search) return rolesData as any[];
         return (rolesData as any[]).filter(r =>
-            r.nombre.toLowerCase().includes(searchRoles.toLowerCase()) ||
-            (r.codigo && r.codigo.toLowerCase().includes(searchRoles.toLowerCase())) ||
-            (r.descripcion && r.descripcion.toLowerCase().includes(searchRoles.toLowerCase()))
+            r.nombre.toLowerCase().includes(search) ||
+            (r.codigo && r.codigo.toLowerCase().includes(search)) ||
+            (r.descripcion && r.descripcion.toLowerCase().includes(search))
         );
     }, [rolesData, searchRoles]);
 
     const filteredCargos = useMemo(() => {
+        const search = searchCargos.trim().toLowerCase();
+        if (!search) return cargosData as Cargo[];
         return (cargosData as Cargo[]).filter(c =>
-            c.nombre.toLowerCase().includes(searchCargos.toLowerCase()) ||
-            (c.descripcion && c.descripcion.toLowerCase().includes(searchCargos.toLowerCase()))
+            c.nombre.toLowerCase().includes(search) ||
+            (c.descripcion && c.descripcion.toLowerCase().includes(search))
         );
     }, [cargosData, searchCargos]);
 
     const filteredGerencias = useMemo(() => {
+        const search = searchGerencias.trim().toLowerCase();
+        if (!search) return gerenciasData as Gerencia[];
         return (gerenciasData as Gerencia[]).filter(g =>
-            g.nombre.toLowerCase().includes(searchGerencias.toLowerCase()) ||
-            (g.subdivision && g.subdivision.toLowerCase().includes(searchGerencias.toLowerCase()))
+            g.nombre.toLowerCase().includes(search) ||
+            (g.subdivision && g.subdivision.toLowerCase().includes(search))
         );
     }, [gerenciasData, searchGerencias]);
 
@@ -949,13 +958,6 @@ export default function UsuariosPage() {
                                 <Button
                                     size="small"
                                     variant="outlined"
-                                    onClick={() => setFormData({ ...formData, password: 'comware123' })}
-                                >
-                                    Contraseña por defecto
-                                </Button>
-                                <Button
-                                    size="small"
-                                    variant="outlined"
                                     onClick={() => setFormData({ ...formData, password: generateRandomPassword() })}
                                 >
                                     Aleatoria
@@ -1184,14 +1186,9 @@ export default function UsuariosPage() {
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Contraseña</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Typography variant="body1">
-                                        {showPassword ? (selectedUserDetail.password || '********') : '********'}
-                                    </Typography>
-                                    <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
-                                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                                    </IconButton>
-                                </Box>
+                                <Typography variant="body1">
+                                    ******** (no visible por seguridad)
+                                </Typography>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Cargo</Typography>
