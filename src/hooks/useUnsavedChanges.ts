@@ -3,7 +3,7 @@
  * Previene navegación accidental cuando hay cambios pendientes
  */
 
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useBlocker } from 'react-router-dom';
 
 export interface UseUnsavedChangesOptions {
@@ -158,7 +158,7 @@ export function useFormChanges<T extends Record<string, any>>(
 ): boolean {
   const { ignoreFields = [], deepCompare = true } = options || {};
 
-  return useCallback(() => {
+  return useMemo(() => {
     if (!initialData || !currentData) return false;
 
     const keys = new Set([...Object.keys(initialData), ...Object.keys(currentData)]) as Set<keyof T>;
@@ -177,7 +177,7 @@ export function useFormChanges<T extends Record<string, any>>(
     }
 
     return false;
-  }, [initialData, currentData, ignoreFields, deepCompare])();
+  }, [initialData, currentData, ignoreFields, deepCompare]);
 }
 
 /**
@@ -195,7 +195,7 @@ export function useArrayChanges<T>(
 ): boolean {
   const { compareFn } = options || {};
 
-  return useCallback(() => {
+  return useMemo(() => {
     if (!initialArray || !currentArray) return false;
     
     // Diferente longitud = hay cambios
@@ -215,5 +215,5 @@ export function useArrayChanges<T>(
     }
 
     return false;
-  }, [initialArray, currentArray, compareFn])();
+  }, [initialArray, currentArray, compareFn]);
 }

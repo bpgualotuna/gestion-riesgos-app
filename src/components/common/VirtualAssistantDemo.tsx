@@ -40,17 +40,17 @@ const VirtualAssistantDemo: React.FC = React.memo(() => {
         position: 'fixed',
         bottom: { xs: 16, sm: 24 },
         right: { xs: 16, sm: 32 },
-        zIndex: (t) => t.zIndex.snackbar + 10,
+        zIndex: 1000, // Reducido para no bloquear otros elementos de la UI
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
-        // Permitir clics en todo el asistente (chat + botón flotante)
-        pointerEvents: 'auto',
+        // No bloquear clics en el área vacía, solo en los elementos hijos
+        pointerEvents: 'none',
       }}
     >
       {/* Chat siempre montado (sin mountOnEnter/unmountOnExit) para que useCoraIA y hooks se ejecuten en cada render y no cambie el número de hooks al abrir/cerrar */}
       <Slide direction="up" in={open}>
-        <div style={{ display: 'inline-block' }}>
+        <div style={{ display: 'inline-block', pointerEvents: 'auto' }}>
           <CoraChatWindow />
         </div>
       </Slide>

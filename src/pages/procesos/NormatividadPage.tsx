@@ -1,6 +1,6 @@
 /**
  * Normatividad Page
- * Inventario de Normatividad seg?n an?lisis Excel
+ * Inventario de Normatividad según análisis Excel
  */
 
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
@@ -202,7 +202,7 @@ export default function NormatividadPage() {
     }
   }, [procesoSeleccionado, normatividades, confirmDelete, updateProceso, markAsSaved, showSuccess, showError]);
 
-  // Handlers para el di?logo de cambios no guardados
+  // Handlers para el diálogo de cambios no guardados
   const handleSaveFromDialog = async () => {
     if (!procesoSeleccionado) return;
     try {
@@ -272,7 +272,7 @@ export default function NormatividadPage() {
 
   return (
     <>
-      {/* Di\u00e1logo de cambios no guardados */}
+      {/* Diálogo de cambios no guardados */}
       <UnsavedChangesDialog
         open={blocker.state === 'blocked'}
         onSave={handleSaveFromDialog}
@@ -280,19 +280,19 @@ export default function NormatividadPage() {
         onCancel={() => blocker.reset?.()}
         isSaving={isSaving}
         message="Tiene cambios sin guardar en el inventario de normatividad."
-        description={"\u00bfDesea guardar los cambios antes de salir?"}
+        description="¿Desea guardar los cambios antes de salir?"
       />
 
       <AppPageLayout
       title="Inventario de Normatividad"
-      description={"Cat\u00e1logo de normativas aplicables al proceso"}
+      description="Catálogo de normativas aplicables al proceso"
       topContent={<FiltroProcesoSupervisor />}
       action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isReadOnly && (
             <Chip
               icon={<VisibilityIcon />}
-              label={"Modo Visualizaci\u00f3n"}
+              label="Modo Visualización"
               color="info"
               sx={{ fontWeight: 600 }}
             />
@@ -300,7 +300,7 @@ export default function NormatividadPage() {
           {modoProceso === 'editar' && (
             <Chip
               icon={<EditIcon />}
-              label={"Modo Edici\u00f3n"}
+              label="Modo Edición"
               color="warning"
               sx={{ fontWeight: 600 }}
             />
@@ -329,14 +329,14 @@ export default function NormatividadPage() {
       alert={
         isReadOnly && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Est? en modo visualizaci?n. Solo puede ver la informaci?n.
+            Está en modo visualización. Solo puede ver la información.
           </Alert>
         )
       }
     >
-      {/* Lista con encabezados, ordenaci?n y paginaci?n */}
+      {/* Lista con encabezados, ordenación y paginación */}
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        {/* Encabezados con ordenaci?n */}
+        {/* Encabezados con ordenación */}
         {normatividades.length > 0 && (
           <Box
             sx={{
@@ -355,7 +355,7 @@ export default function NormatividadPage() {
               {sortField === 'numero' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
             <Box component="button" onClick={() => handleSort('nombre')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', minWidth: 0 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Nombre regulaci{"\u00f3"}n</Typography>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>Nombre regulación</Typography>
               {sortField === 'nombre' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
             <Box component="button" onClick={() => handleSort('estado')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
@@ -371,7 +371,7 @@ export default function NormatividadPage() {
               {sortField === 'cumplimiento' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
             <Box component="button" onClick={() => handleSort('clasificacion')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">Clasificaci{"\u00f3"}n</Typography>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Clasificación</Typography>
               {sortField === 'clasificacion' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
             <Box />
@@ -393,7 +393,7 @@ export default function NormatividadPage() {
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: normatividades.length > 0 ? 2 : 0, py: normatividades.length > 0 ? 2 : 0 }}>
           {normatividades.length === 0 && (
-            <Alert severity="info">No hay normatividades registradas. Agregue una con el bot{"\u00f3"}n &quot;Nueva Normatividad&quot;.</Alert>
+            <Alert severity="info">No hay normatividades registradas. Agregue una con el botón &quot;Nueva Normatividad&quot;.</Alert>
           )}
           {paginatedNormatividades.map((item) => (
             <NormatividadCard
@@ -411,7 +411,7 @@ export default function NormatividadPage() {
         </Box>
       </Paper>
 
-      {/* Di\u00e1logo de Detalle (Solo lectura) */}
+      {/* Diálogo de Detalle (Solo lectura) */}
       <Dialog open={dialogDetalleOpen} onClose={() => setDialogDetalleOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -437,7 +437,7 @@ export default function NormatividadPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Nombre de la Regulaci?n Aplicable
+                  Nombre de la Regulación Aplicable
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2 }}>
                   {selectedNormatividad.nombre || 'N/A'}
@@ -470,7 +470,7 @@ export default function NormatividadPage() {
               </Box>
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Sanciones Penales/Civiles/Econ?micas
+                  Sanciones Penales/Civiles/Económicas
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
                   {selectedNormatividad.sanciones || 'N/A'}
@@ -478,7 +478,7 @@ export default function NormatividadPage() {
               </Box>
               <Box>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Plazo para Implementaci?n
+                  Plazo para Implementación
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2 }}>
                   {selectedNormatividad.plazoImplementacion || 'N/A'}
@@ -519,7 +519,7 @@ export default function NormatividadPage() {
               </Box>
               <Box>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Clasificaci{"\u00f3"}n
+                  Clasificación
                 </Typography>
                 <Chip
                   label={selectedNormatividad.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Riesgo Positivo' : 'Riesgo Negativo'}
@@ -544,7 +544,7 @@ export default function NormatividadPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Di\u00e1logo de Edici\u00f3n/Creaci\u00f3n */}
+      {/* Diálogo de Edición/Creación */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <form onSubmit={async (e) => {
           e.preventDefault();
@@ -597,7 +597,7 @@ export default function NormatividadPage() {
                 <TextField
                   fullWidth
                   name="nombre"
-                  label="Nombre de la Regulaci?n Aplicable"
+                  label="Nombre de la Regulación Aplicable"
                   defaultValue={selectedNormatividad?.nombre || ''}
                   disabled={isReadOnly}
                   variant="outlined"
@@ -633,7 +633,7 @@ export default function NormatividadPage() {
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <TextField
                   fullWidth
-                  label="Sanciones Penales/Civiles/Econ?micas"
+                  label="Sanciones Penales/Civiles/Económicas"
                   name="sanciones"
                   multiline
                   rows={3}
@@ -646,7 +646,7 @@ export default function NormatividadPage() {
                 <TextField
                   fullWidth
                   name="plazoImplementacion"
-                  label="Plazo para Implementaci?n"
+                  label="Plazo para Implementación"
                   defaultValue={selectedNormatividad?.plazoImplementacion || ''}
                   disabled={isReadOnly}
                   variant="outlined"
@@ -698,7 +698,7 @@ export default function NormatividadPage() {
                   fullWidth
                   select
                   name="clasificacion"
-                  label={"Clasificaci\u00f3n"}
+                  label="Clasificación"
                   defaultValue={selectedNormatividad?.clasificacion || CLASIFICACION_RIESGO.NEGATIVA}
                   disabled={isReadOnly}
                   variant="outlined"
