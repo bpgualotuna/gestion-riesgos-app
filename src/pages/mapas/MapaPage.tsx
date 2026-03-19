@@ -36,10 +36,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  IconButton
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   CalendarToday as CalendarIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -1125,7 +1127,17 @@ export default function MapaPage() {
           PaperProps={{ sx: { maxWidth: 560 } }}
         >
           <DialogTitle>
-            Riesgos en la Celda ({celdaSeleccionada?.probabilidad}, {celdaSeleccionada?.impacto})
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600}>
+                Riesgos en la Celda ({celdaSeleccionada?.probabilidad}, {celdaSeleccionada?.impacto})
+              </Typography>
+              <IconButton
+                onClick={() => setDialogoResumenAbierto(false)}
+                size="small"
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </DialogTitle>
           <DialogContent>
             {riesgosCeldaSeleccionada.length === 0 ? (
@@ -1798,9 +1810,6 @@ export default function MapaPage() {
               </Box>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDialogoResumenAbierto(false)}>Cerrar</Button>
-          </DialogActions>
         </Dialog>
 
         {/* Diálogo de Detalles del Riesgo Individual */}
@@ -1816,14 +1825,23 @@ export default function MapaPage() {
               <Typography variant="h6" fontWeight={600}>
                 Resumen del Riesgo
               </Typography>
-              {riesgoSeleccionadoDetalle && (
-                <Chip
-                  label={generarIdRiesgo(puntoSeleccionadoDetalle!)}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {riesgoSeleccionadoDetalle && (
+                  <Chip
+                    label={generarIdRiesgo(puntoSeleccionadoDetalle!)}
+                    size="small"
+                    color="primary"
+                    sx={{ fontWeight: 600 }}
+                  />
+                )}
+                <IconButton
+                  onClick={() => setDialogoDetalleRiesgoAbierto(false)}
                   size="small"
-                  color="primary"
-                  sx={{ fontWeight: 600 }}
-                />
-              )}
+                  sx={{ ml: 1 }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
             </Box>
           </DialogTitle>
           <DialogContent>
@@ -2208,12 +2226,6 @@ export default function MapaPage() {
                       </Box>
             ) : null}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDialogoDetalleRiesgoAbierto(false)}>
-              Cerrar
-            </Button>
-
-          </DialogActions>
         </Dialog>
 
 

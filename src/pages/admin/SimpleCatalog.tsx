@@ -18,6 +18,7 @@ import {
     Delete as DeleteIcon,
     Save as SaveIcon,
     Cancel as CancelIcon,
+    Close as CloseIcon
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { GridColDef } from '@mui/x-data-grid';
@@ -123,7 +124,19 @@ export default function SimpleCatalog({
             />
 
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingItem ? `Editar ${itemLabel}` : `Nuevo ${itemLabel}`}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingItem ? `Editar ${itemLabel}` : `Nuevo ${itemLabel}`}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
+                            <IconButton onClick={handleClose} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         {columns.map((col) => {
@@ -153,15 +166,30 @@ export default function SimpleCatalog({
                         })}
                     </Grid2>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE */}
             <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del {itemLabel}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            Información del {itemLabel}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {canEdit && (
+                                <Button onClick={() => {
+                                    handleOpen(selectedDetail!);
+                                    handleCloseDetailDialog();
+                                }} variant="contained" startIcon={<EditIcon />}>
+                                    Editar
+                                </Button>
+                            )}
+                            <IconButton onClick={handleCloseDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -176,15 +204,6 @@ export default function SimpleCatalog({
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpen(selectedDetail!);
-                        handleCloseDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
         </Box>
     );

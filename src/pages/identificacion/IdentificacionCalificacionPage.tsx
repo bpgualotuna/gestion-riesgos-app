@@ -57,6 +57,7 @@ import {
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
   UnfoldMore as UnfoldMoreIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -2323,7 +2324,86 @@ export default function IdentificacionPage() {
         setNuevaCausaFuente(primeraFuente);
         setNuevaCausaFrecuencia(3);
       }} maxWidth="xs" fullWidth>
-        <DialogTitle>{causaEditando ? 'Editar Causa' : 'Agregar Causa'}</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              {causaEditando ? 'Editar Causa' : 'Agregar Causa'}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                onClick={() => {
+                  const riesgo = riesgosParaRender.find(r => r.id === riesgoIdParaCausa) ?? riesgos.find(r => r.id === riesgoIdParaCausa);
+                  if (!riesgo) {
+                    showError('No se encontró el riesgo');
+                    return;
+                  }
+                  if (!causaEditando && !nuevaCausaDescripcion.trim()) {
+                    showError('La descripción de la causa es requerida');
+                    return;
+                  }
+
+                  let fuenteNombre = '';
+                  if (Array.isArray(fuentesCausa)) {
+                    const fuenteObj = fuentesCausa.find((f: any) => String(f.id ?? f.nombre ?? f) === nuevaCausaFuente);
+                    fuenteNombre = fuenteObj?.nombre ?? nuevaCausaFuente;
+                  } else if (typeof fuentesCausa === 'object') {
+                    fuenteNombre = (fuentesCausa as any)[nuevaCausaFuente]?.nombre ?? nuevaCausaFuente;
+                  } else {
+                    fuenteNombre = nuevaCausaFuente;
+                  }
+
+                  const pid = String(riesgoIdParaCausa);
+                  const causaData = { descripcion: nuevaCausaDescripcion.trim(), fuenteCausa: fuenteNombre, frecuencia: nuevaCausaFrecuencia };
+
+                  setCausasPendientes(prev => {
+                    const next = { ...prev };
+                    next[pid] = {
+                      toAdd: next[pid]?.toAdd ?? [],
+                      toUpdate: next[pid]?.toUpdate ?? {},
+                      toDelete: next[pid]?.toDelete ?? {},
+                    };
+                    if (causaEditando) {
+                      const cid = String(causaEditando.id);
+                      if (cid.startsWith('temp-')) {
+                        const idx = next[pid].toAdd.findIndex((_, i) => `temp-${pid}-${i}` === cid);
+                        if (idx >= 0) {
+                          next[pid].toAdd = [...next[pid].toAdd];
+                          next[pid].toAdd[idx] = causaData;
+                        }
+                      } else {
+                        next[pid].toUpdate[cid] = causaData;
+                      }
+                    } else {
+                      next[pid].toAdd = [...next[pid].toAdd, causaData];
+                    }
+                    return next;
+                  });
+
+                  setDialogCausaOpen(false);
+                  setCausaEditando(null);
+                  setNuevaCausaDescripcion('');
+                  let primeraFuente = '';
+                  if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
+                    const f = fuentesCausa[0];
+                    primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
+                  } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
+                    primeraFuente = Object.keys(fuentesCausa)[0];
+                  }
+                  setNuevaCausaFuente(primeraFuente);
+                  setNuevaCausaFrecuencia(3);
+                  showSuccess('Cambios guardados en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.');
+                }}
+                variant="contained"
+                disabled={!nuevaCausaDescripcion.trim() || !nuevaCausaFuente || !nuevaCausaFrecuencia}
+              >
+                {causaEditando ? 'Guardar' : 'Agregar'}
+              </Button>
+              <IconButton onClick={() => setDialogCausaOpen(false)} size="small" sx={{ ml: 1 }}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
             <TextField
@@ -2369,76 +2449,6 @@ export default function IdentificacionPage() {
             </FormControl>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogCausaOpen(false)}>Cancelar</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              const riesgo = riesgosParaRender.find(r => r.id === riesgoIdParaCausa) ?? riesgos.find(r => r.id === riesgoIdParaCausa);
-              if (!riesgo) {
-                showError('No se encontró el riesgo');
-                return;
-              }
-              if (!causaEditando && !nuevaCausaDescripcion.trim()) {
-                showError('La descripción de la causa es requerida');
-                return;
-              }
-
-              let fuenteNombre = '';
-              if (Array.isArray(fuentesCausa)) {
-                const fuenteObj = fuentesCausa.find((f: any) => String(f.id ?? f.nombre ?? f) === nuevaCausaFuente);
-                fuenteNombre = fuenteObj?.nombre ?? nuevaCausaFuente;
-              } else if (typeof fuentesCausa === 'object') {
-                fuenteNombre = (fuentesCausa as any)[nuevaCausaFuente]?.nombre ?? nuevaCausaFuente;
-              } else {
-                fuenteNombre = nuevaCausaFuente;
-              }
-
-              const pid = String(riesgoIdParaCausa);
-              const causaData = { descripcion: nuevaCausaDescripcion.trim(), fuenteCausa: fuenteNombre, frecuencia: nuevaCausaFrecuencia };
-
-              setCausasPendientes(prev => {
-                const next = { ...prev };
-                next[pid] = {
-                  toAdd: next[pid]?.toAdd ?? [],
-                  toUpdate: next[pid]?.toUpdate ?? {},
-                  toDelete: next[pid]?.toDelete ?? {},
-                };
-                if (causaEditando) {
-                  const cid = String(causaEditando.id);
-                  if (cid.startsWith('temp-')) {
-                    const idx = next[pid].toAdd.findIndex((_, i) => `temp-${pid}-${i}` === cid);
-                    if (idx >= 0) {
-                      next[pid].toAdd = [...next[pid].toAdd];
-                      next[pid].toAdd[idx] = causaData;
-                    }
-                  } else {
-                    next[pid].toUpdate[cid] = causaData;
-                  }
-                } else {
-                  next[pid].toAdd = [...next[pid].toAdd, causaData];
-                }
-                return next;
-              });
-
-              setDialogCausaOpen(false);
-              setCausaEditando(null);
-              setNuevaCausaDescripcion('');
-              let primeraFuente = '';
-              if (Array.isArray(fuentesCausa) && fuentesCausa.length > 0) {
-                const f = fuentesCausa[0];
-                primeraFuente = String(f?.id ?? f?.codigo ?? f?.nombre ?? '');
-              } else if (typeof fuentesCausa === 'object' && Object.keys(fuentesCausa).length > 0) {
-                primeraFuente = Object.keys(fuentesCausa)[0];
-              }
-              setNuevaCausaFuente(primeraFuente);
-              setNuevaCausaFrecuencia(3);
-              showSuccess('Cambios guardados en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.');
-            }}
-          >
-            {causaEditando ? 'Guardar' : 'Agregar'}
-          </Button>
-        </DialogActions>
       </Dialog>
 
       {/* Diálogo para Evaluación de Control por Causa */}

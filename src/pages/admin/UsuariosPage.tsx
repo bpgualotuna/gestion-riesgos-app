@@ -918,7 +918,19 @@ export default function UsuariosPage() {
                 maxWidth="md"
                 PaperProps={{ sx: { width: 720, maxWidth: '90vw' } }}
             >
-                <DialogTitle>{editingUsuario ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingUsuario ? 'Editar Usuario' : 'Nuevo Usuario'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                            <IconButton onClick={handleCloseDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -992,14 +1004,22 @@ export default function UsuariosPage() {
                         />
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             <Dialog open={roleDialogOpen} onClose={handleCloseRoleDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 460 } }}>
-                <DialogTitle>{editingRole ? 'Editar Rol' : 'Nuevo Rol'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingRole ? 'Editar Rol' : 'Nuevo Rol'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSaveRole} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                            <IconButton onClick={handleCloseRoleDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -1102,14 +1122,22 @@ export default function UsuariosPage() {
                         />
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseRoleDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveRole} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             <Dialog open={cargoDialogOpen} onClose={handleCloseCargoDialog} maxWidth="xs" fullWidth>
-                <DialogTitle>{editingCargo ? 'Editar Cargo' : 'Nuevo Cargo'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingCargo ? 'Editar Cargo' : 'Nuevo Cargo'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSaveCargo} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                            <IconButton onClick={handleCloseCargoDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -1129,14 +1157,22 @@ export default function UsuariosPage() {
                         />
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseCargoDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveCargo} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             <Dialog open={gerenciaDialogOpen} onClose={handleCloseGerenciaDialog} maxWidth="xs" fullWidth>
-                <DialogTitle>{editingGerencia ? 'Editar Gerencia' : 'Nueva Gerencia'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingGerencia ? 'Editar Gerencia' : 'Nueva Gerencia'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSaveGerencia} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
+                            <IconButton onClick={handleCloseGerenciaDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -1154,10 +1190,6 @@ export default function UsuariosPage() {
                         />
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseGerenciaDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveGerencia} variant="contained" startIcon={<SaveIcon />}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL USUARIO */}
@@ -1168,7 +1200,26 @@ export default function UsuariosPage() {
                 maxWidth="md"
                 PaperProps={{ sx: { width: 620, maxWidth: '90vw' } }}
             >
-                <DialogTitle>Información del Usuario</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            Información del Usuario
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {puedeEditarAdmin && (
+                                <Button onClick={() => {
+                                    handleOpenDialog(selectedUserDetail!);
+                                    handleCloseUserDetailDialog();
+                                }} variant="contained" startIcon={<EditIcon />}>
+                                    Editar
+                                </Button>
+                            )}
+                            <IconButton onClick={handleCloseUserDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedUserDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -1212,20 +1263,30 @@ export default function UsuariosPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseUserDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenDialog(selectedUserDetail!);
-                        handleCloseUserDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL CARGO */}
             <Dialog open={cargoDetailDialogOpen} onClose={handleCloseCargoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del Cargo</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            Información del Cargo
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {puedeEditarAdmin && (
+                                <Button onClick={() => {
+                                    handleOpenCargoDialog(selectedCargoDetail!);
+                                    handleCloseCargoDetailDialog();
+                                }} variant="contained" startIcon={<EditIcon />}>
+                                    Editar
+                                </Button>
+                            )}
+                            <IconButton onClick={handleCloseCargoDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedCargoDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -1244,20 +1305,30 @@ export default function UsuariosPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseCargoDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenCargoDialog(selectedCargoDetail!);
-                        handleCloseCargoDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DE LA GERENCIA */}
             <Dialog open={gerenciaDetailDialogOpen} onClose={handleCloseGerenciaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información de la Gerencia</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            Información de la Gerencia
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {puedeEditarAdmin && (
+                                <Button onClick={() => {
+                                    handleOpenGerenciaDialog(selectedGerenciaDetail!);
+                                    handleCloseGerenciaDetailDialog();
+                                }} variant="contained" startIcon={<EditIcon />}>
+                                    Editar
+                                </Button>
+                            )}
+                            <IconButton onClick={handleCloseGerenciaDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedGerenciaDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -1276,20 +1347,30 @@ export default function UsuariosPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseGerenciaDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenGerenciaDialog(selectedGerenciaDetail!);
-                        handleCloseGerenciaDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL ROL */}
             <Dialog open={roleDetailDialogOpen} onClose={handleCloseRoleDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del Rol</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            Información del Rol
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {puedeEditarAdmin && (
+                                <Button onClick={() => {
+                                    handleOpenRoleDialog(selectedRoleDetail);
+                                    handleCloseRoleDetailDialog();
+                                }} variant="contained" startIcon={<EditIcon />}>
+                                    Editar
+                                </Button>
+                            )}
+                            <IconButton onClick={handleCloseRoleDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedRoleDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -1341,15 +1422,6 @@ export default function UsuariosPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseRoleDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenRoleDialog(selectedRoleDetail);
-                        handleCloseRoleDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
             </>
             )}

@@ -19,6 +19,7 @@ import {
     Cancel as CancelIcon,
     Add as AddIcon,
     Delete as DeleteIcon,
+    Close as CloseIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { confirmarEliminar } from '../../utils/constants';
@@ -182,7 +183,17 @@ export default function ImpactosCatalog({
 
             {/* Diálogo para editar descripción */}
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
-                <DialogTitle>Editar Descripciones: {rows.find(r => String(r.id) === editingKey)?.nombre}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Editar Descripciones: {rows.find(r => String(r.id) === editingKey)?.nombre}</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
+                            <IconButton onClick={handleClose} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         {[1, 2, 3, 4, 5].map((level) => (
@@ -199,15 +210,21 @@ export default function ImpactosCatalog({
                         ))}
                     </Grid2>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             {/* Diálogo para agregar nuevo tipo de impacto */}
             <Dialog open={openNew} onClose={handleCloseNew} maxWidth="sm" fullWidth>
-                <DialogTitle>Agregar Nuevo Tipo de Impacto</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Agregar Nuevo Tipo de Impacto</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleAddNewImpact} variant="contained" startIcon={<AddIcon />} disabled={!canEdit}>Agregar</Button>
+                            <IconButton onClick={handleCloseNew} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                         {newError && (
@@ -233,15 +250,30 @@ export default function ImpactosCatalog({
                         </Typography>
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseNew} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleAddNewImpact} variant="contained" startIcon={<AddIcon />} disabled={!canEdit}>Agregar</Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE */}
             <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del Tipo de Impacto</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Información del Tipo de Impacto</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={() => {
+                                if (selectedDetailId === null) return;
+                                const row = rows.find((r) => r.id === selectedDetailId);
+                                if (row) {
+                                    handleOpen(row);
+                                    handleCloseDetailDialog();
+                                }
+                            }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
+                                Editar
+                            </Button>
+                            <IconButton onClick={handleCloseDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedDetailId !== null && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -277,19 +309,6 @@ export default function ImpactosCatalog({
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        if (selectedDetailId === null) return;
-                        const row = rows.find((r) => r.id === selectedDetailId);
-                        if (row) {
-                            handleOpen(row);
-                            handleCloseDetailDialog();
-                        }
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
         </Box>
     );

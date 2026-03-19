@@ -16,6 +16,7 @@ import {
     Tabs,
     Tab,
     InputAdornment,
+    IconButton,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -525,7 +526,19 @@ export default function ProcesosDefinicionPage() {
             </Box>
 
             <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 540 } }}>
-                <DialogTitle>{editingProceso ? 'Editar Proceso' : 'Nuevo Proceso'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingProceso ? 'Editar Proceso' : 'Nuevo Proceso'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
+                            <IconButton onClick={handleCloseDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         <Grid2 xs={12} md={6}>
@@ -637,14 +650,22 @@ export default function ProcesosDefinicionPage() {
                         </Grid2>
                     </Grid2>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             <Dialog open={tipoDialogOpen} onClose={handleCloseTipoDialog} maxWidth="xs" fullWidth>
-                <DialogTitle>{editingTipo ? 'Editar Tipo de Proceso' : 'Nuevo Tipo de Proceso'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingTipo ? 'Editar Tipo de Proceso' : 'Nuevo Tipo de Proceso'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSaveTipo} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
+                            <IconButton onClick={handleCloseTipoDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         <TextField
@@ -672,7 +693,22 @@ export default function ProcesosDefinicionPage() {
 
             {/* MODAL DE DETALLE DEL PROCESO */}
             <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del Proceso</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Información del Proceso</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={() => {
+                                handleOpenDialog(selectedProcessDetail!);
+                                handleCloseDetailDialog();
+                            }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
+                                Editar
+                            </Button>
+                            <IconButton onClick={handleCloseDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedProcessDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -730,20 +766,26 @@ export default function ProcesosDefinicionPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => handleCloseDetailDialog()}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenDialog(selectedProcessDetail!);
-                        handleCloseDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL TIPO DE PROCESO */}
             <Dialog open={tipoDetailDialogOpen} onClose={handleCloseTipoDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del Tipo de Proceso</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Información del Tipo de Proceso</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={() => {
+                                handleOpenTipoDialog(selectedTipoDetail!);
+                                handleCloseTipoDetailDialog();
+                            }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
+                                Editar
+                            </Button>
+                            <IconButton onClick={handleCloseTipoDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedTipoDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -762,15 +804,6 @@ export default function ProcesosDefinicionPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseTipoDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenTipoDialog(selectedTipoDetail!);
-                        handleCloseTipoDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
             </>
             )}

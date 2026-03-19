@@ -51,6 +51,7 @@ import {
   Cancel as CancelIcon,
   Warning as WarningIcon,
   Assignment as AssignmentIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 // Usaremos TextField con type="date" en lugar de DatePicker para evitar dependencias adicionales
 import { useProceso } from '../../contexts/ProcesoContext';
@@ -1065,7 +1066,29 @@ export default function PlanAccionPage() {
 
         {/* Diálogo para Crear/Editar Plan */}
         <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
-          <DialogTitle>{modoEdicion === 'crear' ? 'Nuevo Plan de Acción' : 'Editar Plan de Acción'}</DialogTitle>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600}>
+                {modoEdicion === 'crear' ? 'Nuevo Plan de Acción' : 'Editar Plan de Acción'}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button
+                  onClick={handleGuardarPlan}
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                >
+                  Guardar
+                </Button>
+                <IconButton
+                  onClick={() => setPlanDialogOpen(false)}
+                  size="small"
+                  sx={{ ml: 1 }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </Box>
+          </DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
@@ -1146,18 +1169,32 @@ export default function PlanAccionPage() {
               />
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPlanDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleGuardarPlan} variant="contained" startIcon={<SaveIcon />}>
-              Guardar
-            </Button>
-          </DialogActions>
         </Dialog>
 
         {/* Diálogo para Crear/Editar Tarea */}
         <Dialog open={tareaDialogOpen} onClose={() => setTareaDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>
-            {modoEdicionTarea === 'crear' ? 'Nueva Tarea' : 'Editar Tarea'} - {planSeleccionado?.nombre}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600}>
+                {modoEdicionTarea === 'crear' ? 'Nueva Tarea' : 'Editar Tarea'} - {planSeleccionado?.nombre}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button
+                  onClick={handleGuardarTarea}
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                >
+                  Guardar
+                </Button>
+                <IconButton
+                  onClick={() => setTareaDialogOpen(false)}
+                  size="small"
+                  sx={{ ml: 1 }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1227,12 +1264,6 @@ export default function PlanAccionPage() {
               />
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setTareaDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleGuardarTarea} variant="contained" startIcon={<SaveIcon />}>
-              Guardar
-            </Button>
-          </DialogActions>
         </Dialog>
     </Box>
   );

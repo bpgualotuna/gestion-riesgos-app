@@ -32,6 +32,7 @@ import {
     Layers as Target,
     Search as SearchIcon,
     Edit as EditIcon,
+    Close as CloseIcon,
 } from '@mui/icons-material';
 import SimpleCatalog from './SimpleCatalog';
 import ImpactosCatalog from './ImpactosCatalog';
@@ -982,7 +983,56 @@ export default function ParametrosCalificacionPage() {
             </Box>
 
             <Dialog open={pesoDialogOpen} onClose={() => setPesoDialogOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontSize: '20px', fontWeight: 'bold' }}>Editar peso de impacto</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Editar peso de impacto</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button
+                                variant="contained"
+                                disabled={!canEdit}
+                                onClick={async () => {
+                                    if (!pesoEditing) return;
+                                    const next = impactoPesos.map((p) => (p.key === pesoEditing.key ? { ...p, porcentaje: pesoEditing.porcentaje } : p));
+                                    setImpactoPesos(next);
+                                    
+                                    // Cerrar el diálogo de edición
+                                    setPesoDialogOpen(false);
+                                    
+                                    // Mostrar modal de recálculo
+                                    setRecalculandoModalOpen(true);
+                                    
+                                    // Guardar en base de datos
+                                    try {
+                                        await updatePesosImpacto(next.map((p) => ({
+                                            key: p.key,
+                                            label: p.label,
+                                            porcentaje: p.porcentaje,
+                                        }))).unwrap();
+                                        
+                                        // Esperar un poco para que el backend inicie el recálculo
+                                        // Luego esperar un tiempo razonable para que termine
+                                        await new Promise(resolve => setTimeout(resolve, 2000));
+                                        
+                                        // Refrescar datos
+                                        refetchPesos();
+                                        
+                                        // Cerrar modal después de un tiempo adicional
+                                        setTimeout(() => {
+                                            setRecalculandoModalOpen(false);
+                                        }, 1000);
+                                    } catch {
+                                        setRecalculandoModalOpen(false);
+                                    }
+                                }}
+                            >
+                                Guardar
+                            </Button>
+                            <IconButton onClick={() => setPesoDialogOpen(false)} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent sx={{ pt: 3 }}>
                     <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
                         {pesoEditing?.label}
@@ -1055,49 +1105,6 @@ export default function ParametrosCalificacionPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setPesoDialogOpen(false)}>Cancelar</Button>
-                    <Button
-                        variant="contained"
-                        disabled={!canEdit}
-                        onClick={async () => {
-                            if (!pesoEditing) return;
-                            const next = impactoPesos.map((p) => (p.key === pesoEditing.key ? { ...p, porcentaje: pesoEditing.porcentaje } : p));
-                            setImpactoPesos(next);
-                            
-                            // Cerrar el diálogo de edición
-                            setPesoDialogOpen(false);
-                            
-                            // Mostrar modal de recálculo
-                            setRecalculandoModalOpen(true);
-                            
-                            // Guardar en base de datos
-                            try {
-                                await updatePesosImpacto(next.map((p) => ({
-                                    key: p.key,
-                                    label: p.label,
-                                    porcentaje: p.porcentaje,
-                                }))).unwrap();
-                                
-                                // Esperar un poco para que el backend inicie el recálculo
-                                // Luego esperar un tiempo razonable para que termine
-                                await new Promise(resolve => setTimeout(resolve, 2000));
-                                
-                                // Refrescar datos
-                                refetchPesos();
-                                
-                                // Cerrar modal después de un tiempo adicional
-                                setTimeout(() => {
-                                    setRecalculandoModalOpen(false);
-                                }, 1000);
-                            } catch {
-                                setRecalculandoModalOpen(false);
-                            }
-                        }}
-                    >
-                        Guardar
-                    </Button>
-                </DialogActions>
             </Dialog>
 
             {/* Modal de recálculo en progreso */}

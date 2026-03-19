@@ -42,7 +42,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Security as SecurityIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -537,7 +538,29 @@ export default function EvaluacionControlPage() {
 
       {/* Dialog para agregar/editar control */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
-        <DialogTitle>{editingId ? 'Editar Control' : 'Agregar Nuevo Control'}</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              {editingId ? 'Editar Control' : 'Agregar Nuevo Control'}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleGuardar}
+              >
+                Guardar Control
+              </Button>
+              <IconButton
+                onClick={() => setDialogOpen(false)}
+                size="small"
+                sx={{ ml: 1 }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
             <TextField
@@ -626,12 +649,6 @@ export default function EvaluacionControlPage() {
             </Alert>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
-          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleGuardar}>
-            Guardar Control
-          </Button>
-        </DialogActions>
       </Dialog>
     </Box>
   );

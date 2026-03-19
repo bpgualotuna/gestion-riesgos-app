@@ -23,6 +23,7 @@ import {
     Delete as DeleteIcon,
     Save as SaveIcon,
     Cancel as CancelIcon,
+    Close as CloseIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import { confirmarEliminar } from '../../utils/constants';
@@ -166,7 +167,17 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
             />
 
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
-                <DialogTitle>{editingItem ? 'Editar Tipología tipo I' : 'Nueva Tipología tipo I'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>{editingItem ? 'Editar Tipología tipo I' : 'Nueva Tipología tipo I'}</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
+                            <IconButton onClick={handleClose} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Grid2 container spacing={2} sx={{ mt: 1 }}>
                         <Grid2 xs={12} md={4}>
@@ -241,15 +252,26 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                         </Grid2>
                     </Grid2>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} disabled={!canEdit}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE */}
             <Dialog open={detailDialogOpen} onClose={handleCloseDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información de la Tipología tipo I</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>Información de la Tipología tipo I</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={() => {
+                                handleOpen(selectedDetail!);
+                                handleCloseDetailDialog();
+                            }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
+                                Editar
+                            </Button>
+                            <IconButton onClick={handleCloseDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -282,15 +304,6 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpen(selectedDetail!);
-                        handleCloseDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!canEdit}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
         </Box>
     );

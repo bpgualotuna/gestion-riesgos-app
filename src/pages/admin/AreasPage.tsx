@@ -38,6 +38,7 @@ import {
     Person as PersonIcon,
     Business as BusinessIcon,
     Search as SearchIcon,
+    Close as CloseIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -755,7 +756,19 @@ export default function AreasPage() {
 
             {/* Dialogo Crea/Edita Area */}
             <Dialog open={areaDialogOpen} onClose={handleCloseAreaDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 540 } }}>
-                <DialogTitle>{editingArea ? 'Editar Área' : 'Nueva Área'}</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            {editingArea ? 'Editar Área' : 'Nueva Área'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
+                            <IconButton onClick={handleCloseAreaDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
@@ -783,15 +796,30 @@ export default function AreasPage() {
                         />
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseAreaDialog} startIcon={<CancelIcon />}>Cancelar</Button>
-                    <Button onClick={handleSaveArea} variant="contained" startIcon={<SaveIcon />} disabled={!puedeEditarAdmin}>Guardar</Button>
-                </DialogActions>
             </Dialog>
 
             {/* MODAL DE DETALLE DEL ÁREA */}
             <Dialog open={areaDetailDialogOpen} onClose={handleCloseAreaDetailDialog} maxWidth="sm" PaperProps={{ sx: { maxWidth: 560 } }}>
-                <DialogTitle>Información del Área</DialogTitle>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" fontWeight={600}>
+                            Información del Área
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {puedeEditarAdmin && (
+                                <Button onClick={() => {
+                                    handleOpenAreaDialog(selectedAreaDetail!);
+                                    handleCloseAreaDetailDialog();
+                                }} variant="contained" startIcon={<EditIcon />}>
+                                    Editar
+                                </Button>
+                            )}
+                            <IconButton onClick={handleCloseAreaDetailDialog} size="small" sx={{ ml: 1 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     {selectedAreaDetail && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
@@ -814,15 +842,6 @@ export default function AreasPage() {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseAreaDetailDialog}>Cerrar</Button>
-                    <Button onClick={() => {
-                        handleOpenAreaDialog(selectedAreaDetail!);
-                        handleCloseAreaDetailDialog();
-                    }} variant="contained" startIcon={<EditIcon />} disabled={!puedeEditarAdmin}>
-                        Editar
-                    </Button>
-                </DialogActions>
             </Dialog>
             </>
             )}

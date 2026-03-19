@@ -46,6 +46,7 @@ import {
   TrendingUp as TrendingUpIcon,
   FormatListBulleted as ListIcon,
   Security as SecurityIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useGetRiesgosQuery, useCreateEvaluacionMutation } from '../../api/services/riesgosApi';
 import { useCalculosRiesgo } from '../../hooks/useCalculosRiesgo';
@@ -1050,7 +1051,23 @@ export default function EvaluacionPage() {
 
       {/* Dialog para Agregar/Editar Causa */}
       <Dialog open={causaDialogOpen} onClose={() => setCausaDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 540 } }}>
-        <DialogTitle>{causaEditando ? 'Editar Causa' : 'Agregar Causa'}</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              {causaEditando ? 'Editar Causa' : 'Agregar Causa'}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {!isReadOnly && (
+                <Button onClick={handleAgregarCausa} variant="contained" startIcon={<SaveIcon />}>
+                  {causaEditando ? 'Actualizar' : 'Agregar'}
+                </Button>
+              )}
+              <IconButton onClick={() => setCausaDialogOpen(false)} size="small" sx={{ ml: 1 }}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
@@ -1085,19 +1102,27 @@ export default function EvaluacionPage() {
             />
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCausaDialogOpen(false)}>Cancelar</Button>
-          {!isReadOnly && (
-            <Button onClick={handleAgregarCausa} variant="contained" startIcon={<SaveIcon />}>
-              {causaEditando ? 'Actualizar' : 'Agregar'}
-            </Button>
-          )}
-        </DialogActions>
       </Dialog>
 
       {/* Dialog para Agregar/Editar Control */}
       <Dialog open={controlDialogOpen} onClose={() => setControlDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 540 } }}>
-        <DialogTitle>{controlEditando ? 'Editar Control' : 'Agregar Control'}</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              {controlEditando ? 'Editar Control' : 'Agregar Control'}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {!isReadOnly && (
+                <Button onClick={handleAgregarControl} variant="contained" startIcon={<SaveIcon />}>
+                  {controlEditando ? 'Actualizar' : 'Agregar'}
+                </Button>
+              )}
+              <IconButton onClick={() => setControlDialogOpen(false)} size="small" sx={{ ml: 1 }}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             {causas.length > 1 && (
@@ -1260,14 +1285,6 @@ export default function EvaluacionPage() {
             </Grid2>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setControlDialogOpen(false)}>Cancelar</Button>
-          {!isReadOnly && (
-            <Button onClick={handleAgregarControl} variant="contained" startIcon={<SaveIcon />}>
-              {controlEditando ? 'Actualizar' : 'Agregar'}
-            </Button>
-          )}
-        </DialogActions>
       </Dialog>
     </AppPageLayout>
   );

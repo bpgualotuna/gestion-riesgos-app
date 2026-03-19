@@ -21,7 +21,7 @@ import {
   IconButton,
   Paper,
 } from '@mui/material';
-import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon, ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon } from '@mui/icons-material';
+import { Add as AddIcon, Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon, ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon, Close as CloseIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import { useProceso } from '../../contexts/ProcesoContext';
@@ -418,18 +418,27 @@ export default function NormatividadPage() {
             <Typography variant="h6" fontWeight={600}>
               Detalle de Normatividad
             </Typography>
-            {!isReadOnly && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => {
-                  setDialogDetalleOpen(false);
-                  setDialogOpen(true);
-                }}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {!isReadOnly && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => {
+                    setDialogDetalleOpen(false);
+                    setDialogOpen(true);
+                  }}
+                >
+                  Editar
+                </Button>
+              )}
+              <IconButton
+                onClick={() => setDialogDetalleOpen(false)}
+                size="small"
+                sx={{ ml: 1 }}
               >
-                Editar
-              </Button>
-            )}
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent>
@@ -539,9 +548,6 @@ export default function NormatividadPage() {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogDetalleOpen(false)}>Cerrar</Button>
-        </DialogActions>
       </Dialog>
 
       {/* Diálogo de Edición/Creación */}
@@ -550,10 +556,10 @@ export default function NormatividadPage() {
           e.preventDefault();
           if (!procesoSeleccionado) return;
           const formData = new FormData(e.currentTarget);
+          
           const newItem: any = {
             id: selectedNormatividad?.id || `temp-${Date.now()}`,
-            numero: normatividades.length + 1, // Simple auto-increment for new
-            ...selectedNormatividad, // Keep existing ID if editing
+            numero: selectedNormatividad?.numero || normatividades.length + 1,
             nombre: formData.get('nombre'),
             estado: formData.get('estado'),
             regulador: formData.get('regulador'),
@@ -589,7 +595,35 @@ export default function NormatividadPage() {
           }
         }}>
           <DialogTitle>
-            {selectedNormatividad ? 'Editar Normatividad' : 'Nueva Normatividad'}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600}>
+                {selectedNormatividad ? 'Editar Normatividad' : 'Nueva Normatividad'}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {!isReadOnly && (
+                  <Button
+                    variant="contained"
+                    type="submit"
+                    sx={{
+                      background: '#1976d2',
+                      color: '#fff',
+                      '&:hover': {
+                        background: '#1565c0',
+                      },
+                    }}
+                  >
+                    Guardar
+                  </Button>
+                )}
+                <IconButton
+                  onClick={() => setDialogOpen(false)}
+                  size="small"
+                  sx={{ ml: 1 }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
@@ -721,21 +755,6 @@ export default function NormatividadPage() {
               </Box>
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>Cerrar</Button>
-            {!isReadOnly && (
-              <Button
-                variant="contained"
-                type="submit"
-                sx={{
-                  background: '#1976d2',
-                  color: '#fff',
-                }}
-              >
-                Guardar
-              </Button>
-            )}
-          </DialogActions>
         </form>
       </Dialog>
     </AppPageLayout>

@@ -3337,15 +3337,45 @@ export default function ControlesYPlanesAccionPageNueva() {
                 </Box>
               )}
             </Box>
-            <IconButton
-              size="small"
-              onClick={() => {
-                setDialogDetailOpen(false);
-                setCausaDetalleView(null);
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {causaDetalleView && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => {
+                    const causa = causaDetalleView.causa;
+                    const riesgoId = causaDetalleView.riesgoId;
+                    const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
+                    setTipoClasificacion(tipoGestion as any);
+                    setDialogDetailOpen(false);
+                    setCausaDetalleView(null);
+
+                    handleEvaluarControl(riesgoId, causa);
+
+                    setTimeout(() => {
+                      const panel = document.getElementById(`panel-residual-${riesgoId}-${causa.id}`);
+                      if (panel) {
+                        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                      }
+                      const fila = document.getElementById(`causa-residual-${riesgoId}-${causa.id}`);
+                      if (fila) fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 150);
+                  }}
+                >
+                  Editar
+                </Button>
+              )}
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setDialogDetailOpen(false);
+                  setCausaDetalleView(null);
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -3600,37 +3630,6 @@ export default function ControlesYPlanesAccionPageNueva() {
             <Typography>Sin detalle seleccionado.</Typography>
           )}
         </DialogContent>
-        <DialogActions>
-          {causaDetalleView && (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                const causa = causaDetalleView.causa;
-                const riesgoId = causaDetalleView.riesgoId;
-                const tipoGestion = (causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')).toUpperCase();
-                setTipoClasificacion(tipoGestion as any);
-                setDialogDetailOpen(false);
-                setCausaDetalleView(null);
-
-                handleEvaluarControl(riesgoId, causa);
-
-                setTimeout(() => {
-                  const panel = document.getElementById(`panel-residual-${riesgoId}-${causa.id}`);
-                  if (panel) {
-                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                  }
-                  const fila = document.getElementById(`causa-residual-${riesgoId}-${causa.id}`);
-                  if (fila) fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 150);
-              }}
-            >
-              Editar
-            </Button>
-          )}
-          <Button onClick={() => { setDialogDetailOpen(false); setCausaDetalleView(null); }}>Cerrar</Button>
-        </DialogActions>
       </Dialog>
 
       {/* DIALOG CLASIFICACION CAUSA (Existing) - Solo se abre cuando se hace clic en "Clasificar" o desde el tab CLASIFICACIÓN */}
