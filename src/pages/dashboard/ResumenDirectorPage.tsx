@@ -4,7 +4,7 @@
  * Muestra procesos por área, responsables y permite agregar observaciones
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -55,6 +55,8 @@ import { useProceso } from '../../contexts/ProcesoContext';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../utils/constants';
 import type { Proceso, Observacion, CreateObservacionDto } from '../../types';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 // Mock de áreas - En producción vendría de la API
 const mockAreas = [
@@ -83,6 +85,7 @@ export default function ResumenDirectorPage() {
   const navigate = useNavigate();
   const { setProcesoSeleccionado, iniciarModoVisualizar } = useProceso();
   const { showSuccess, showError } = useNotification();
+  const { setScreenContext } = useCoraIAContext();
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
   const { data: riesgosData } = useGetRiesgosQuery(
     { pageSize: 200 },
@@ -200,6 +203,39 @@ export default function ResumenDirectorPage() {
     iniciarModoVisualizar();
     navigate(ROUTES.DASHBOARD);
   };
+
+  // Contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (setScreenContext) {
+      const totalRiesgos = procesosAsignados.reduce(
+        (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+        0
+      );
+      const obsPendientes = observaciones.filter((obs) => obs.estado === 'pendiente').length;
+
+      const context: ScreenContext = {
+        module: 'dashboard',
+        screen: 'director',
+        action: 'view',
+        route: window.location.pathname,
+        formData: {
+          totalProcesos: procesosAsignados.length,
+          totalAreas: Object.keys(procesosPorArea).length,
+          totalRiesgos,
+          observacionesPendientes: obsPendientes,
+          areasConProcesos: Object.entries(procesosPorArea).slice(0, 3).map(([areaId, { area, procesos: procesosArea }]) => ({
+            area: area.nombre,
+            totalProcesos: procesosArea.length,
+            totalRiesgos: procesosArea.reduce(
+              (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+              0
+            ),
+          })),
+        },
+      };
+      setScreenContext(context);
+    }
+  }, [procesosAsignados, procesosPorArea, todosRiesgos, observaciones, setScreenContext]);
 
   if (loadingProcesos) {
     return <PageLoadingSkeleton variant="table" tableRows={6} />;

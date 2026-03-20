@@ -5,10 +5,32 @@
 
 import MapaPage from './MapaPage';
 import { useEffect } from 'react';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
+import { useProceso } from '../../contexts/ProcesoContext';
 
 export default function MapaInherentePage() {
-  // Esta página simplemente redirige a MapaPage con tipo inherente
-  // En una implementación más completa, podríamos pasar props a MapaPage
+  const { setScreenContext } = useCoraIAContext();
+  const { procesoSeleccionado } = useProceso();
+
+  // Contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (procesoSeleccionado && setScreenContext) {
+      const context: ScreenContext = {
+        module: 'mapas',
+        screen: 'inherente',
+        action: 'view',
+        processId: procesoSeleccionado.id,
+        route: window.location.pathname,
+        formData: {
+          tipoMapa: 'inherente',
+          procesoNombre: procesoSeleccionado.nombre,
+        },
+      };
+      setScreenContext(context);
+    }
+  }, [procesoSeleccionado, setScreenContext]);
+
   return <MapaPage />;
 }
 

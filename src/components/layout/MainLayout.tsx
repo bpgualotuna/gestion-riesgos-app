@@ -269,6 +269,12 @@ export default function MainLayout() {
 
   const handleMenuClick = (path?: string) => {
     if (path) {
+      // CRÍTICO: Si estamos en la página de MAPA, usar window.location para forzar navegación
+      if (location.pathname === ROUTES.MAPA) {
+        window.location.href = path;
+        return;
+      }
+      
       navigate(path);
       if (isMobile) {
         setMobileOpen(false);
@@ -380,6 +386,7 @@ export default function MainLayout() {
                     color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text),
                     justifyContent: 'center',
                     fontSize: sidebarCollapsed && !isMobile ? '1.2rem' : '1.25rem',
+                    pointerEvents: 'none', // CRÍTICO: Permitir que clicks pasen al botón padre
                   }}
                 >
                   {item.icon}
@@ -393,8 +400,9 @@ export default function MainLayout() {
                         fontWeight: isSelected ? 600 : 500,
                         color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)'),
                       }}
+                      sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que clicks pasen al botón padre
                     />
-                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                       {isOpen ? <ExpandLess sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text) }} /> : <ExpandMore sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text) }} />}
                     </Box>
                   </>
@@ -492,6 +500,7 @@ export default function MainLayout() {
                                 }}
                                 sx={() => ({
                                   color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? subColor : 'rgba(0, 0, 0, 0.87)'),
+                                  pointerEvents: 'none', // CRÍTICO: Permitir que clicks pasen al botón padre
                                 })}
                               />
                             )}
@@ -564,6 +573,7 @@ export default function MainLayout() {
                   fontWeight: isActive ? 600 : 400,
                   color: isDisabled ? 'text.disabled' : (isActive ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)'),
                 }}
+                sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que clicks pasen al botón padre
               />
             )}
           </ListItemButton>
@@ -717,6 +727,7 @@ export default function MainLayout() {
                             fontWeight: isActive ? 600 : 400,
                             color: isActive ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)',
                           }}
+                          sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que clicks pasen al botón padre
                         />
                       )}
                     </ListItemButton>

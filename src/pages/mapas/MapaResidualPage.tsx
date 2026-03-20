@@ -26,6 +26,8 @@ import { useNotification } from '../../hooks/useNotification';
 import type { RiesgoFormData } from '../../types';
 import { useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 interface RiesgoResidual {
   numeroIdentificacion: string;
@@ -98,6 +100,7 @@ const getColorZona = (zona: string): string => {
 
 export default function MapaResidualPage() {
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
+  const { setScreenContext } = useCoraIAContext();
   // const { showError } = useNotification();
 
   const [riesgosResidiales, setRiesgosResidiales] = useState<RiesgoResidual[]>([]);
@@ -159,6 +162,36 @@ export default function MapaResidualPage() {
       setConteoZonas(conteo);
     }
   }, [puntosMapa]);
+
+  // Contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (procesoSeleccionado && setScreenContext) {
+      const context: ScreenContext = {
+        module: 'mapas',
+        screen: 'residual',
+        action: 'view',
+        processId: procesoSeleccionado.id,
+        route: window.location.pathname,
+        formData: {
+          tipoMapa: 'residual',
+          totalRiesgos: riesgosResidiales.length,
+          conteoZonas: {
+            criticos: conteoZonas.critico,
+            altos: conteoZonas.alto,
+            medios: conteoZonas.medio,
+            bajos: conteoZonas.bajo + conteoZonas.minimo,
+          },
+          topRiesgos: riesgosOrdenados.slice(0, 5).map(r => ({
+            codigo: r.numeroIdentificacion,
+            descripcion: r.descripcion.substring(0, 60),
+            calificacion: r.calificacionResidual,
+            zona: r.zonaRiesgo,
+          })),
+        },
+      };
+      setScreenContext(context);
+    }
+  }, [procesoSeleccionado, riesgosResidiales, conteoZonas, riesgosOrdenados, setScreenContext]);
 
   // Construir matriz 5x5 con riesgos negativos y positivos
   const { matrizNegativa, matrizPositiva } = useMemo(() => {

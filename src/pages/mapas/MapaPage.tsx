@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import {
   Box,
@@ -145,6 +146,40 @@ export default function MapaPage() {
   const [puntoSeleccionadoDetalle, setPuntoSeleccionadoDetalle] = useState<PuntoMapa | null>(null);
   const [tipoMapaDetalle, setTipoMapaDetalle] = useState<'inherente' | 'residual'>('inherente');
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
+
+  // Limpiar estados de diálogos al desmontar el componente para evitar bloqueos de navegación
+  useEffect(() => {
+    return () => {
+      setDialogoResumenAbierto(false);
+      setDialogoDetalleRiesgoAbierto(false);
+      setCeldaSeleccionada(null);
+      setRiesgoSeleccionadoDetalle(null);
+      setPuntoSeleccionadoDetalle(null);
+      setRiesgosExpandidos({});
+    };
+  }, []);
+
+  // Cerrar diálogos cuando cambian los filtros para evitar estados inconsistentes
+  useEffect(() => {
+    setDialogoResumenAbierto(false);
+    setDialogoDetalleRiesgoAbierto(false);
+    setCeldaSeleccionada(null);
+    setRiesgoSeleccionadoDetalle(null);
+    setPuntoSeleccionadoDetalle(null);
+    setRiesgosExpandidos({});
+  }, [filtroArea, filtroProceso, clasificacion]);
+
+  // CRÍTICO: Cerrar todos los diálogos cuando cambia la ruta (navegación)
+  // Esto previene que los diálogos abiertos bloqueen la navegación
+  const location = useLocation();
+  useEffect(() => {
+    setDialogoResumenAbierto(false);
+    setDialogoDetalleRiesgoAbierto(false);
+    setCeldaSeleccionada(null);
+    setRiesgoSeleccionadoDetalle(null);
+    setPuntoSeleccionadoDetalle(null);
+    setRiesgosExpandidos({});
+  }, [location.pathname]);
 
   // Obtener evaluación del riesgo seleccionado para el diálogo de detalles
   const { data: evaluacionesRiesgo = [] } = useGetEvaluacionesByRiesgoQuery(
@@ -768,7 +803,13 @@ export default function MapaPage() {
     return 'BAJO';
   };
 
-  const handleCellClick = (probabilidad: number, impacto: number, tipo: 'inherente' | 'residual') => {
+  const handleCellClick = (e: React.MouseEvent, probabilidad: number, impacto: number, tipo: 'inherente' | 'residual') => {
+    // No prevenir la propagación del evento para permitir navegación
+    // e.stopPropagation(); // NO hacer esto
+    
+    // Debug: verificar si este handler se está ejecutando
+    // debugger; // Descomentar para debug
+    
     // Asegurar que sean números enteros
     const prob = Math.round(Number(probabilidad)) || 1;
     const imp = Math.round(Number(impacto)) || 1;
@@ -894,7 +935,7 @@ export default function MapaPage() {
                       return (
                         <Box
                           key={probabilidad}
-                          onClick={() => handleCellClick(prob, imp, tipo)}
+                          onClick={(e) => handleCellClick(e, prob, imp, tipo)}
                           sx={{
                             width: 60, // Reduced from 70
                             minHeight: 60, // Reduced from 70
@@ -1058,7 +1099,18 @@ export default function MapaPage() {
   const sinAsignaciones = (esSupervisorRiesgos || esDueñoProcesos || esGerenteGeneralDirector) && procesosPropios.length === 0;
 
   return (
-    <Box>
+    <Box
+      style={{
+        pointerEvents: 'auto',
+        position: 'relative',
+        zIndex: 0, // Asegurar que no esté por encima del sidebar
+      }}
+      sx={{
+        // Asegurar que el contenedor no bloquee eventos de navegación
+        pointerEvents: 'auto',
+        position: 'relative',
+      }}
+    >
       {/* Modal bloqueante si no tiene asignaciones */}
       {sinAsignaciones && (
         <Box
@@ -1152,7 +1204,7 @@ export default function MapaPage() {
                     <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2, textAlign: 'center' }}>
                       MAPA DE RIESGOS INHERENTE
                     </Typography>
-                    <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
+                    <Paper elevation={2} sx={{ p: 2, overflowX: 'auto', pointerEvents: 'auto' }}>
                       {renderMatrix(matrizInherente, 'inherente')}
                     </Paper>
                   </CardContent>
@@ -1166,7 +1218,7 @@ export default function MapaPage() {
                     <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 2, textAlign: 'center' }}>
                       MAPA DE RIESGOS RESIDUAL
                     </Typography>
-                    <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
+                    <Paper elevation={2} sx={{ p: 2, overflowX: 'auto', pointerEvents: 'auto' }}>
                       {renderMatrix(matrizResidual, 'residual')}
                     </Paper>
                   </CardContent>
@@ -1180,10 +1232,23 @@ export default function MapaPage() {
         {/* Diálogo de Resumen */}
         <Dialog
           open={dialogoResumenAbierto}
-          onClose={() => setDialogoResumenAbierto(false)}
+          onClose={() => {
+            setDialogoResumenAbierto(false);
+            setCeldaSeleccionada(null);
+            setRiesgosExpandidos({});
+          }}
           maxWidth="sm"
           fullWidth
           PaperProps={{ sx: { maxWidth: 560 } }}
+          disableEscapeKeyDown={false}
+          disablePortal={false}
+          keepMounted={false}
+          disableScrollLock={true}
+          BackdropProps={{
+            sx: {
+              pointerEvents: 'auto', // Asegurar que el backdrop capture clicks para cerrar
+            },
+          }}
         >
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1191,7 +1256,11 @@ export default function MapaPage() {
                 Riesgos en la Celda ({celdaSeleccionada?.probabilidad}, {celdaSeleccionada?.impacto})
               </Typography>
               <IconButton
-                onClick={() => setDialogoResumenAbierto(false)}
+                onClick={() => {
+                  setDialogoResumenAbierto(false);
+                  setCeldaSeleccionada(null);
+                  setRiesgosExpandidos({});
+                }}
                 size="small"
               >
                 <CloseIcon />
@@ -1874,10 +1943,23 @@ export default function MapaPage() {
         {/* Diálogo de Detalles del Riesgo Individual */}
         <Dialog
           open={dialogoDetalleRiesgoAbierto}
-          onClose={() => setDialogoDetalleRiesgoAbierto(false)}
+          onClose={() => {
+            setDialogoDetalleRiesgoAbierto(false);
+            setRiesgoSeleccionadoDetalle(null);
+            setPuntoSeleccionadoDetalle(null);
+          }}
           maxWidth="sm"
           fullWidth
           PaperProps={{ sx: { maxWidth: 560 } }}
+          disableEscapeKeyDown={false}
+          disablePortal={false}
+          keepMounted={false}
+          disableScrollLock={true}
+          BackdropProps={{
+            sx: {
+              pointerEvents: 'auto', // Asegurar que el backdrop capture clicks para cerrar
+            },
+          }}
         >
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1894,7 +1976,11 @@ export default function MapaPage() {
                   />
                 )}
                 <IconButton
-                  onClick={() => setDialogoDetalleRiesgoAbierto(false)}
+                  onClick={() => {
+                    setDialogoDetalleRiesgoAbierto(false);
+                    setRiesgoSeleccionadoDetalle(null);
+                    setPuntoSeleccionadoDetalle(null);
+                  }}
                   size="small"
                   sx={{ ml: 1 }}
                 >

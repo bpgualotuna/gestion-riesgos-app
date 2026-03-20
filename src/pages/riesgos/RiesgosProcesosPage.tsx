@@ -3,7 +3,7 @@
  * Muestra los riesgos del proceso seleccionado
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -35,9 +35,12 @@ import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Riesgo } from '../../types';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 export default function RiesgosProcesosPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
+  const { setScreenContext } = useCoraIAContext();
   const { iniciarNuevo, iniciarVer, iniciarEditar, riesgoSeleccionado, modo } = useRiesgo();
   const { esAdmin, esAuditoria, esDueñoProcesos, esGerenteGeneralProceso } = useAuth();
   const isReadOnly = modoProceso === 'visualizar';
@@ -68,6 +71,42 @@ export default function RiesgosProcesosPage() {
   const { data: estadisticas } = useGetEstadisticasQuery(procesoSeleccionado?.id);
 
   const riesgos = riesgosData?.data || [];
+
+  // Contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (setScreenContext) {
+      const context: ScreenContext = {
+        module: 'riesgos',
+        screen: 'procesos',
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoSeleccionado?.id,
+        route: window.location.pathname,
+        formData: {
+          puedeVerTodos: puedeVerTodosLosRiesgos,
+          totalRiesgos: riesgos.length,
+          riesgosVisibles: riesgos.slice(0, 5).map((r: any) => ({
+            id: r.id,
+            numero: r.numero,
+            descripcion: r.descripcion,
+            clasificacion: r.clasificacion,
+            zona: r.zona || 'Sin evaluar',
+          })),
+          estadisticas: estadisticas ? {
+            criticos: estadisticas.criticos,
+            altos: estadisticas.altos,
+            medios: estadisticas.medios,
+            bajos: estadisticas.bajos,
+          } : undefined,
+          modoActual: modo,
+          riesgoSeleccionado: riesgoSeleccionado ? {
+            id: riesgoSeleccionado.id,
+            descripcion: riesgoSeleccionado.descripcion,
+          } : undefined,
+        },
+      };
+      setScreenContext(context);
+    }
+  }, [procesoSeleccionado, riesgos, estadisticas, modo, riesgoSeleccionado, isReadOnly, puedeVerTodosLosRiesgos, setScreenContext]);
 
   const handleNuevo = () => {
     iniciarNuevo();
