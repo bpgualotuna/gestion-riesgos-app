@@ -49,16 +49,61 @@ interface CaracteristicaItem {
   dofaDimension?: DofaDimension;
 }
 
-const CATEGORIAS: { key: CategoryKey; label: string; tipo: string }[] = [
-  { key: 'economico', label: 'Económico', tipo: 'EXTERNO_ECONOMICO' },
-  { key: 'culturalSocial', label: 'Cultural y Social', tipo: 'EXTERNO_CULTURALSOCIAL' },
-  { key: 'legalRegulatorio', label: 'Legal/Regulatorio', tipo: 'EXTERNO_LEGALREGULATORIO' },
-  { key: 'tecnologico', label: 'Tecnológico', tipo: 'EXTERNO_TECNOLOGICO' },
-  { key: 'ambiental', label: 'Ambiental', tipo: 'EXTERNO_AMBIENTAL' },
-  { key: 'gruposInteresExternos', label: 'Grupos de Interés Externos', tipo: 'EXTERNO_GRUPOSINTERESEXTERNOS' },
-  { key: 'politico', label: 'Político', tipo: 'EXTERNO_POLITICO' },
-  { key: 'megatendencias', label: 'Megatendencias', tipo: 'EXTERNO_MEGATENDENCIAS' },
-  { key: 'otrosFactores', label: 'Otros Factores Externos', tipo: 'EXTERNO_OTROSFACTORES' },
+const CATEGORIAS: { key: CategoryKey; label: string; tipo: string; descripcion: string }[] = [
+  { 
+    key: 'economico', 
+    label: 'Económico', 
+    tipo: 'EXTERNO_ECONOMICO',
+    descripcion: 'PIB, indicadores de crecimiento, tasas de interés, inflación, tasas de cambio, disponibilidad de crédito, indicadores económicos del mercado objetivo, competencia, etc.'
+  },
+  { 
+    key: 'culturalSocial', 
+    label: 'Cultural y Social', 
+    tipo: 'EXTERNO_CULTURALSOCIAL',
+    descripcion: 'Necesidades y expectativas de los clientes, datos demográficos, estabilidad social, seguridad en el territorio, índices de corrupción, presencia de grupos al margen de la ley, grupos vulnerables, entre otros.'
+  },
+  { 
+    key: 'legalRegulatorio', 
+    label: 'Legal/Regulatorio', 
+    tipo: 'EXTERNO_LEGALREGULATORIO',
+    descripcion: 'Leyes (Ej.: consumidor, salud y seguridad, anticorrupción, financieras), regulaciones, y/o estándares de industria.'
+  },
+  { 
+    key: 'tecnologico', 
+    label: 'Tecnológico', 
+    tipo: 'EXTERNO_TECNOLOGICO',
+    descripcion: 'Actividades de investigación y desarrollo, automatización, tasa de cambios tecnológicos o interrupción del servicio.'
+  },
+  { 
+    key: 'ambiental', 
+    label: 'Ambiental', 
+    tipo: 'EXTERNO_AMBIENTAL',
+    descripcion: 'Entorno medioambiental, daños en ecosistemas, etc.'
+  },
+  { 
+    key: 'gruposInteresExternos', 
+    label: 'Grupos de Interés Externos', 
+    tipo: 'EXTERNO_GRUPOSINTERESEXTERNOS',
+    descripcion: 'No están directamente relacionados en las operaciones de la compañía, y generalmente están clasificados en tres tipos: -Grupos de interés afectados por la operación de la compañía: Competidores, clientes y proveedores. -Grupos que influencian directamente el ambiente de negocios de la compañía: Gobierno, reguladores, compañías del grupo empresarial, etc. -Grupos que influencian la reputación, marca y credibilidad de la compañía: Comunidades, grupos de interés, etc.'
+  },
+  { 
+    key: 'politico', 
+    label: 'Político', 
+    tipo: 'EXTERNO_POLITICO',
+    descripcion: ''
+  },
+  { 
+    key: 'megatendencias', 
+    label: 'Megatendencias', 
+    tipo: 'EXTERNO_MEGATENDENCIAS',
+    descripcion: ''
+  },
+  { 
+    key: 'otrosFactores', 
+    label: 'Otros Factores Externos', 
+    tipo: 'EXTERNO_OTROSFACTORES',
+    descripcion: 'Otros aspectos externos que no encajan en alguna de las otras categorías.'
+  },
 ];
 
 const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
@@ -270,7 +315,7 @@ export default function ContextoExternoPage() {
     forceNavigate();
   };
 
-  const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, items: CaracteristicaItem[]) => (
+  const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, descripcion: string, items: CaracteristicaItem[]) => (
     <Paper
       key={key}
       variant="outlined"
@@ -285,7 +330,9 @@ export default function ContextoExternoPage() {
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="subtitle1" fontWeight={700}>{label}</Typography>
+        <Tooltip title={descripcion || label} arrow placement="top">
+          <Typography variant="subtitle1" fontWeight={700} sx={{ cursor: descripcion ? 'help' : 'default' }}>{label}</Typography>
+        </Tooltip>
         {!isReadOnly && (
           <Button size="small" startIcon={<AddIcon />} onClick={() => addItem(signo, key)}>
             Añadir característica
@@ -420,12 +467,12 @@ export default function ContextoExternoPage() {
         <Box sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 180px)', pr: 0.5, minHeight: 420 }}>
           {tabValue === 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 960 }}>
-              {CATEGORIAS.map(({ key, label }) => renderCategoria('POSITIVO', key, label, itemsPositivo[key]))}
+              {CATEGORIAS.map(({ key, label, descripcion }) => renderCategoria('POSITIVO', key, label, descripcion, itemsPositivo[key]))}
             </Box>
           )}
           {tabValue === 1 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 960 }}>
-              {CATEGORIAS.map(({ key, label }) => renderCategoria('NEGATIVO', key, label, itemsNegativo[key]))}
+              {CATEGORIAS.map(({ key, label, descripcion }) => renderCategoria('NEGATIVO', key, label, descripcion, itemsNegativo[key]))}
             </Box>
           )}
         </Box>

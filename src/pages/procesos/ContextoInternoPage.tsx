@@ -49,17 +49,67 @@ interface CaracteristicaItem {
   dofaDimension?: DofaDimension;
 }
 
-const CATEGORIAS: { key: CategoryKey; label: string; tipo: string }[] = [
-  { key: 'financieros', label: 'Financieros', tipo: 'INTERNO_FINANCIEROS' },
-  { key: 'gente', label: 'Gente', tipo: 'INTERNO_GENTE' },
-  { key: 'procesos', label: 'Procesos', tipo: 'INTERNO_PROCESOS' },
-  { key: 'activosFisicos', label: 'Activos Físicos', tipo: 'INTERNO_ACTIVOSFISICOS' },
-  { key: 'cadenaSuministro', label: 'Cadena de Suministro', tipo: 'INTERNO_CADENASUMINISTRO' },
-  { key: 'informacion', label: 'Información', tipo: 'INTERNO_INFORMACION' },
-  { key: 'sistemas', label: 'Sistemas/Tecnología', tipo: 'INTERNO_SISTEMAS' },
-  { key: 'proyectos', label: 'Proyectos', tipo: 'INTERNO_PROYECTOS' },
-  { key: 'impuestos', label: 'Impuestos', tipo: 'INTERNO_IMPUESTOS' },
-  { key: 'gruposInteresInternos', label: 'Grupos de Interés Internos', tipo: 'INTERNO_GRUPOSINTERESINTERNOS' },
+const CATEGORIAS: { key: CategoryKey; label: string; tipo: string; descripcion: string }[] = [
+  { 
+    key: 'financieros', 
+    label: 'Financieros', 
+    tipo: 'INTERNO_FINANCIEROS',
+    descripcion: 'Activos, Activo Corriente, Variables Financieras(tasas, precios, etc.)'
+  },
+  { 
+    key: 'gente', 
+    label: 'Gente', 
+    tipo: 'INTERNO_GENTE',
+    descripcion: 'Fraude Interno, Corrupción, Seguridad Ocupacional, Gobierno Corporativo, Estructura Organizacional, Roles y Responsabilidades, Conocimiento, Habilidades, Actitudes, Aptitudes, Relacionamiento, Valores y Cultura, entre otros.'
+  },
+  { 
+    key: 'procesos', 
+    label: 'Procesos', 
+    tipo: 'INTERNO_PROCESOS',
+    descripcion: 'Actividades, Tareas, Políticas, o Procedimientos; Cambios Organizacionales o en la operación, Procesos Soporte, Sistemas de Gestión, entre otros.'
+  },
+  { 
+    key: 'activosFisicos', 
+    label: 'Activos Físicos', 
+    tipo: 'INTERNO_ACTIVOSFISICOS',
+    descripcion: 'Infraestructura, Vehiculos, etc.'
+  },
+  { 
+    key: 'cadenaSuministro', 
+    label: 'Cadena de Suministro', 
+    tipo: 'INTERNO_CADENASUMINISTRO',
+    descripcion: 'Afectaciones del producto, a nivel nacional e internacional. Por cadena de suministros se entiende, todas las actividades necesarias para la preparación y distribución de un producto para su venta.'
+  },
+  { 
+    key: 'informacion', 
+    label: 'Información', 
+    tipo: 'INTERNO_INFORMACION',
+    descripcion: 'Confidecialidad, integridad y/o disponibilidad de la información confidencial de la compañia.'
+  },
+  { 
+    key: 'sistemas', 
+    label: 'Sistemas/Tecnología', 
+    tipo: 'INTERNO_SISTEMAS',
+    descripcion: 'Nueva, enmendada, y/o tecnología adoptada, entre otros'
+  },
+  { 
+    key: 'proyectos', 
+    label: 'Proyectos', 
+    tipo: 'INTERNO_PROYECTOS',
+    descripcion: 'Aspectos asociados a proyectos de la unidad de negocio.'
+  },
+  { 
+    key: 'impuestos', 
+    label: 'Impuestos', 
+    tipo: 'INTERNO_IMPUESTOS',
+    descripcion: 'Obligaciones Tributarias'
+  },
+  { 
+    key: 'gruposInteresInternos', 
+    label: 'Grupos de Interés Internos', 
+    tipo: 'INTERNO_GRUPOSINTERESINTERNOS',
+    descripcion: 'Son aquellos que trabajan en la compañia y quienes ejercen una influencia directa en la compañia: (junta directiva, la administración, colaboradores, etc.)'
+  },
 ];
 
 const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
@@ -275,7 +325,7 @@ export default function ContextoInternoPage() {
     }
   };
 
-  const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, items: CaracteristicaItem[]) => (
+  const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, descripcion: string, items: CaracteristicaItem[]) => (
     <Paper
       key={key}
       variant="outlined"
@@ -290,7 +340,9 @@ export default function ContextoInternoPage() {
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="subtitle1" fontWeight={700}>{label}</Typography>
+        <Tooltip title={descripcion} arrow placement="top">
+          <Typography variant="subtitle1" fontWeight={700} sx={{ cursor: 'help' }}>{label}</Typography>
+        </Tooltip>
         {!isReadOnly && (
           <Button size="small" startIcon={<AddIcon />} onClick={() => addItem(signo, key)}>
             Añadir característica
@@ -425,12 +477,12 @@ export default function ContextoInternoPage() {
         <Box sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 180px)', pr: 0.5, minHeight: 420 }}>
           {tabValue === 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 960 }}>
-              {CATEGORIAS.map(({ key, label }) => renderCategoria('POSITIVO', key, label, itemsPositivo[key]))}
+              {CATEGORIAS.map(({ key, label, descripcion }) => renderCategoria('POSITIVO', key, label, descripcion, itemsPositivo[key]))}
             </Box>
           )}
           {tabValue === 1 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 960 }}>
-              {CATEGORIAS.map(({ key, label }) => renderCategoria('NEGATIVO', key, label, itemsNegativo[key]))}
+              {CATEGORIAS.map(({ key, label, descripcion }) => renderCategoria('NEGATIVO', key, label, descripcion, itemsNegativo[key]))}
             </Box>
           )}
         </Box>

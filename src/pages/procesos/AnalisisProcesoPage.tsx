@@ -24,6 +24,7 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  Tooltip,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -355,12 +356,30 @@ export default function AnalisisProcesoPage() {
   };
 
   const instrucciones = [
-    'Diagramas de proceso',
-    'Descripción de actividades',
-    'Flujos de trabajo',
-    'Interacciones entre áreas',
-    'Puntos de control',
-    'Indicadores de desempeño',
+    {
+      titulo: 'Diagramas de proceso',
+      descripcion: 'Son gráficos que muestran paso a paso cómo se realiza un proceso, indicando las actividades, el orden en que se hacen y las decisiones que se toman.'
+    },
+    {
+      titulo: 'Descripción de actividades',
+      descripcion: 'Es la explicación detallada de las tareas que se realizan en un proceso, indicando qué se hace, cómo se hace y quién es responsable.'
+    },
+    {
+      titulo: 'Flujos de trabajo',
+      descripcion: 'Es la secuencia de tareas que se siguen para completar un proceso, mostrando cómo avanza el trabajo desde el inicio hasta el final.'
+    },
+    {
+      titulo: 'Interacciones entre áreas',
+      descripcion: 'Son las formas en que diferentes áreas de la empresa se comunican y colaboran para cumplir con un proceso o actividad.'
+    },
+    {
+      titulo: 'Puntos de control',
+      descripcion: 'Son momentos dentro de un proceso donde se revisa o verifica que las actividades se estén realizando correctamente y cumpliendo con lo establecido.'
+    },
+    {
+      titulo: 'Indicadores de desempeño',
+      descripcion: 'Son medidas que permiten evaluar qué tan bien se está realizando un proceso o actividad, ayudando a identificar mejoras o problemas.'
+    },
   ];
 
   if (isLoadingProceso) {
@@ -500,13 +519,16 @@ export default function AnalisisProcesoPage() {
                         }}
                       />
                     </ListItemIcon>
-                    <ListItemText
-                      primary={item}
-                      primaryTypographyProps={{
-                        variant: 'body2',
-                        fontSize: '0.875rem',
-                      }}
-                    />
+                    <Tooltip title={item.descripcion} arrow placement="right">
+                      <ListItemText
+                        primary={item.titulo}
+                        primaryTypographyProps={{
+                          variant: 'body2',
+                          fontSize: '0.875rem',
+                          sx: { cursor: 'help' },
+                        }}
+                      />
+                    </Tooltip>
                   </ListItem>
                 ))}
               </List>
