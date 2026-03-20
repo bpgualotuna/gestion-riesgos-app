@@ -56,6 +56,8 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 
 
@@ -83,6 +85,7 @@ export default function DofaPage() {
     setFiltroArea,
   } = useProcesosFiltradosPorArea('all');
   const isReadOnly = useIsReadOnlyProceso();
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
 
   // Mostrar skeleton de carga mientras los procesos cargan
   if (isLoadingProceso) {
@@ -126,29 +129,7 @@ export default function DofaPage() {
   const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
-  useEffect(() => {
-    if (procesoData && Array.isArray(procesoData.dofaItems)) {
-      const items = procesoData.dofaItems as Array<{ id?: string; tipo?: string; descripcion?: string }>;
-      const toItem = (i: { id?: string; descripcion?: string }) => ({ id: i.id ?? `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion ?? '' });
-      const fortalezasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'FORTALEZA').map(toItem);
-      const oportunidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'OPORTUNIDAD').map(toItem);
-      const debilidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'DEBILIDAD').map(toItem);
-      const amenazasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'AMENAZA').map(toItem);
-      
-      setFortalezas(fortalezasData);
-      setOportunidades(oportunidadesData);
-      setDebilidades(debilidadesData);
-      setAmenazas(amenazasData);
-      
-      setInitialFortalezas(fortalezasData);
-      setInitialOportunidades(oportunidadesData);
-      setInitialDebilidades(debilidadesData);
-      setInitialAmenazas(amenazasData);
-    }
-  }, [procesoData]);
-
-  // Loading and Error states could be handled here
-
+  // Estados para los cuadrantes DOFA (DEBEN estar ANTES de los useEffect)
   const [oportunidades, setOportunidades] = useState<DofaItem[]>([]);
   const [amenazas, setAmenazas] = useState<DofaItem[]>([]);
   const [fortalezas, setFortalezas] = useState<DofaItem[]>([]);
@@ -178,9 +159,64 @@ export default function DofaPage() {
     disabled: isReadOnly,
   });
 
-  // Estado para confirmar eliminación (MOVED TO TOP)
+  // Estado para confirmar eliminación
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ tipo: string; id: string } | null>(null);
+
+  useEffect(() => {
+    if (procesoData && Array.isArray(procesoData.dofaItems)) {
+      const items = procesoData.dofaItems as Array<{ id?: string; tipo?: string; descripcion?: string }>;
+      const toItem = (i: { id?: string; descripcion?: string }) => ({ id: i.id ?? `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion ?? '' });
+      const fortalezasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'FORTALEZA').map(toItem);
+      const oportunidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'OPORTUNIDAD').map(toItem);
+      const debilidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'DEBILIDAD').map(toItem);
+      const amenazasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'AMENAZA').map(toItem);
+      
+      setFortalezas(fortalezasData);
+      setOportunidades(oportunidadesData);
+      setDebilidades(debilidadesData);
+      setAmenazas(amenazasData);
+      
+      setInitialFortalezas(fortalezasData);
+      setInitialOportunidades(oportunidadesData);
+      setInitialDebilidades(debilidadesData);
+      setInitialAmenazas(amenazasData);
+    }
+  }, [procesoData]);
+
+  // NUEVO: Actualizar contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (procesoSeleccionado && setScreenContext) {
+      const cuadrantes = [
+        { nombre: 'Fortalezas', items: fortalezas.slice(0, 5), total: fortalezas.length },
+        { nombre: 'Oportunidades', items: oportunidades.slice(0, 5), total: oportunidades.length },
+        { nombre: 'Debilidades', items: debilidades.slice(0, 5), total: debilidades.length },
+        { nombre: 'Amenazas', items: amenazas.slice(0, 5), total: amenazas.length }
+      ];
+
+      const context: ScreenContext = {
+        module: 'dofa',
+        screen: 'matriz',
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoSeleccionado.id,
+        route: window.location.pathname,
+        formData: {
+          cuadrantes: cuadrantes.map(c => ({
+            nombre: c.nombre,
+            total: c.total,
+            items: c.items.map(i => i.descripcion).filter(d => d.trim())
+          })),
+          totalFortalezas: fortalezas.length,
+          totalOportunidades: oportunidades.length,
+          totalDebilidades: debilidades.length,
+          totalAmenazas: amenazas.length,
+          hasChanges: hasAnyChanges
+        }
+      };
+      
+      setScreenContext(context);
+    }
+  }, [procesoSeleccionado, fortalezas, oportunidades, debilidades, amenazas, isReadOnly, hasAnyChanges, setScreenContext]);
 
   const handleAdd = (tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades') => {
     const newItem: DofaItem = {

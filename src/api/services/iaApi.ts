@@ -1,9 +1,11 @@
 import { axiosClient } from '../../app/axiosClient';
 import { API_BASE_URL } from '../../utils/constants';
+import type { ScreenContext } from '../../types/ia.types';
 
 export interface IaChatRequest {
   message: string;
   conversationId?: string;
+  screenContext?: ScreenContext; // NUEVO: Contexto de pantalla
 }
 
 export interface IaChatResponse {

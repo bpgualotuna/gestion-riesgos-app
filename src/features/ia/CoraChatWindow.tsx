@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Box, Paper, Typography, IconButton, Skeleton } from '@mui/material';
 import { History as HistoryIcon, Add as AddIcon } from '@mui/icons-material';
 import { useCoraIA } from '../../hooks/useCoraIA';
+import { useCoraIAContext } from '../../contexts/CoraIAContext'; // NUEVO: Contexto global
 import { useAuth } from '../../contexts/AuthContext';
 import CoraHistoryPanel, { CoraHistoryItem } from './CoraHistoryPanel';
 import CoraMessageList from './CoraMessageList';
@@ -20,6 +21,7 @@ const CoraChatWindow: React.FC = React.memo(() => {
     borrar,
     renombrar,
   } = useCoraIA();
+  const { screenContext } = useCoraIAContext(); // NUEVO: Obtener contexto desde provider global
   const { user } = useAuth();
 
   const [showHistory, setShowHistory] = useState(false);
@@ -53,9 +55,11 @@ const CoraChatWindow: React.FC = React.memo(() => {
 
   const handleSend = useCallback(() => {
     if (!inputValue.trim() || loading) return;
-    enviarStream(inputValue);
+    console.log('🚀🚀🚀 [CORA ENVIANDO] Mensaje:', inputValue);
+    console.log('🚀🚀🚀 [CORA ENVIANDO] Contexto:', JSON.stringify(screenContext, null, 2));
+    enviarStream(inputValue, screenContext || undefined); // CORREGIDO: Pasar screenContext
     setInputValue('');
-  }, [inputValue, loading, enviarStream]);
+  }, [inputValue, loading, enviarStream, screenContext]);
 
   const handleDeleteHistory = useCallback(
     async (item: CoraHistoryItem) => {
@@ -156,22 +160,6 @@ const CoraChatWindow: React.FC = React.memo(() => {
         />
       ) : (
         <>
-          <Box
-            sx={{
-              mt: 1,
-              mb: 1,
-              p: 2,
-              borderRadius: 2,
-              bgcolor: '#f0f7ff',
-              border: '1px solid #dbeafe',
-            }}
-          >
-            <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-              Hola <strong>{user?.fullName || 'Usuario'}</strong>, soy CORA. Estoy
-              lista para ayudarte con tus riesgos y procesos. ¿En qué puedo apoyarte hoy?
-            </Typography>
-          </Box>
-
           {loading && mensajes.length === 0 ? (
             <Box sx={{ flex: 1, px: 0.5, pt: 0.5 }}>
               {[1, 2, 3].map((i) => (
@@ -182,6 +170,23 @@ const CoraChatWindow: React.FC = React.memo(() => {
             </Box>
           ) : (
             <>
+              {mensajes.length === 0 && (
+                <Box
+                  sx={{
+                    mt: 1,
+                    mb: 1,
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: '#f0f7ff',
+                    border: '1px solid #dbeafe',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                    Hola <strong>{user?.fullName || 'Usuario'}</strong>, soy CORA. Estoy
+                    lista para ayudarte con tus riesgos y procesos. ¿En qué puedo apoyarte hoy?
+                  </Typography>
+                </Box>
+              )}
               <CoraMessageList
                 mensajes={mensajes}
                 loading={loading}

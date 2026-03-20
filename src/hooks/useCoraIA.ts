@@ -8,11 +8,7 @@ import {
   renombrarConversacion, 
   type IaChatResponse 
 } from '../api/services/iaApi';
-
-type ChatMessage = {
-  role: 'user' | 'assistant';
-  content: string;
-};
+import type { ChatMessage, ScreenContext } from '../types/ia.types';
 
 export function useCoraIA() {
   const [conversationId, setConversationId] = useState<string | undefined>();
@@ -47,7 +43,7 @@ export function useCoraIA() {
     setStreaming(false);
   }, []);
 
-  const enviarStream = useCallback(async (texto: string) => {
+  const enviarStream = useCallback(async (texto: string, context?: ScreenContext) => {
     const message = texto.trim();
     if (!message) return;
     setError(null);
@@ -58,10 +54,15 @@ export function useCoraIA() {
     let currentAnswer = '';
 
     const currentConversationId = conversationId;
+    const contextToSend = context; // MODIFICADO: Solo usar el contexto pasado como parámetro
 
     try {
       await enviarMensajeIAStream(
-        { message, conversationId: currentConversationId },
+        { 
+          message, 
+          conversationId: currentConversationId,
+          screenContext: contextToSend // NUEVO: Enviar contexto de pantalla
+        },
         {
           onChunk: ({ delta }) => {
             if (!delta) return;
@@ -89,7 +90,7 @@ export function useCoraIA() {
     } finally {
       setStreaming(false);
     }
-  }, [conversationId]);
+  }, [conversationId]); // MODIFICADO: Removido screenContext de dependencias
 
   const cargarHistorial = useCallback(async () => {
     try {
@@ -157,6 +158,6 @@ export function useCoraIA() {
     cargarHistorial,
     seleccionarConversacion,
     borrar,
-    renombrar
+    renombrar,
   };
 }

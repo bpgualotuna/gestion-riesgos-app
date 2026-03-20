@@ -3,7 +3,7 @@
  * Incluye: Evaluación Inherente (Negativa/Positiva), Causas, Controles
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -56,6 +56,8 @@ import { DIMENSIONES_IMPACTO, LABELS_PROBABILIDAD, LABELS_IMPACTO } from '../../
 import { getRiskColor } from '../../app/theme/colors';
 import { formatRiskValue } from "../../utils/formatters";
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 
 import type {
@@ -113,6 +115,7 @@ const TIPOS_CONTROL_HSEQ: { value: TipoControlHSEQ; label: string }[] = [
 export default function EvaluacionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
   const { data: riesgosData } = useGetRiesgosQuery(
     procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100, includeCausas: true }
@@ -191,6 +194,76 @@ export default function EvaluacionPage() {
     probabilidad: frecuenciaNegativa,
     clasificacion: 'Riesgo con consecuencia negativa',
   });
+
+  // NUEVO: useEffect para capturar contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (procesoSeleccionado && selectedRiesgo && setScreenContext) {
+      const tabNames = ['inherente-negativa', 'inherente-positiva', 'causas', 'controles'];
+      const context: ScreenContext = {
+        module: 'evaluacion',
+        screen: tabNames[tabValue] || 'inherente-negativa',
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoSeleccionado.id,
+        riskId: selectedRiesgo.id,
+        route: window.location.pathname,
+        formData: {
+          riesgoId: selectedRiesgo.numeroIdentificacion || `${selectedRiesgo.numero}${selectedRiesgo.siglaGerencia || ''}`,
+          riesgoDescripcion: selectedRiesgo.descripcion,
+          clasificacion: selectedRiesgo.clasificacion,
+          tabActiva: tabNames[tabValue],
+          // Evaluación Inherente Negativa
+          impactosNegativos: {
+            personas: impactosNegativos.personas,
+            legal: impactosNegativos.legal,
+            ambiental: impactosNegativos.ambiental,
+            procesos: impactosNegativos.procesos,
+            reputacion: impactosNegativos.reputacion,
+            economico: impactosNegativos.economico,
+          },
+          frecuenciaNegativa,
+          nivelRiesgoNegativo: resultadosNegativos.nivelRiesgo,
+          riesgoInherenteNegativo: resultadosNegativos.riesgoInherente,
+          // Evaluación Inherente Positiva
+          impactosPositivos: {
+            personas: impactosPositivos.personas,
+            legal: impactosPositivos.legal,
+            ambiental: impactosPositivos.ambiental,
+          },
+          frecuenciaPositiva,
+          // Causas
+          totalCausas: causas.length,
+          causasVisibles: causas.slice(0, 3).map(c => ({
+            descripcion: c.descripcion,
+            fuenteCausa: c.fuenteCausa || 'N/A',
+          })),
+          // Controles
+          totalControles: controles.length,
+          controlesVisibles: controles.slice(0, 3).map(c => ({
+            descripcion: c.descripcion,
+            tipo: c.tipoControl || 'N/A',
+            efectividad: c.evaluacionDefinitiva || 'Sin evaluar',
+          })),
+          requiereControles,
+        }
+      };
+      setScreenContext(context);
+    }
+  }, [
+    procesoSeleccionado,
+    selectedRiesgo,
+    tabValue,
+    impactosNegativos,
+    frecuenciaNegativa,
+    impactosPositivos,
+    frecuenciaPositiva,
+    causas,
+    controles,
+    requiereControles,
+    isReadOnly,
+    resultadosNegativos.nivelRiesgo,
+    resultadosNegativos.riesgoInherente,
+    setScreenContext
+  ]);
 
   // Cálculos para evaluación inherente positiva
   const resultadosPositivos = useCalculosRiesgo({

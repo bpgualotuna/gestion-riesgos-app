@@ -30,6 +30,8 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 type CategoryKey = 'financieros' | 'gente' | 'procesos' | 'activosFisicos' | 'cadenaSuministro' | 'informacion' | 'sistemas' | 'proyectos' | 'impuestos' | 'gruposInteresInternos';
 
@@ -119,6 +121,7 @@ export default function ContextoInternoPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
 
   const { data: procesoData, refetch: refetchProceso } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
@@ -188,6 +191,45 @@ export default function ContextoInternoPage() {
     setInitialPositivo(pos);
     setInitialNegativo(neg);
   }, [procesoData]);
+
+  // NUEVO: Actualizar contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (procesoSeleccionado && setScreenContext) {
+      const currentItems = tabValue === 0 ? itemsPositivo : itemsNegativo;
+      const signo = tabValue === 0 ? 'POSITIVO' : 'NEGATIVO';
+      
+      // Recopilar items visibles (primeras 3 categorías con datos)
+      const categoriasConDatos = CATEGORIAS.filter(cat => currentItems[cat.key].length > 0).slice(0, 3);
+      const itemsVisibles = categoriasConDatos.map(cat => ({
+        categoria: cat.label,
+        tipo: cat.tipo,
+        items: currentItems[cat.key].slice(0, 3).map(it => ({
+          descripcion: it.descripcion,
+          enviarADofa: it.enviarADofa,
+          dofaDimension: it.dofaDimension,
+          enDofa: it.descripcion.trim() ? !!getDofaStatus(it.descripcion) : false
+        }))
+      }));
+
+      const context: ScreenContext = {
+        module: 'contexto-interno',
+        screen: signo.toLowerCase(),
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoSeleccionado.id,
+        route: window.location.pathname,
+        formData: {
+          signo,
+          totalCategorias: CATEGORIAS.length,
+          categoriasConDatos: CATEGORIAS.filter(cat => currentItems[cat.key].length > 0).length,
+          totalItems: CATEGORIAS.reduce((sum, cat) => sum + currentItems[cat.key].length, 0),
+          itemsVisibles,
+          hasChanges: hasAnyChanges
+        }
+      };
+      
+      setScreenContext(context);
+    }
+  }, [procesoSeleccionado, tabValue, itemsPositivo, itemsNegativo, isReadOnly, hasAnyChanges, setScreenContext]);
 
   const addItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey) => {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;

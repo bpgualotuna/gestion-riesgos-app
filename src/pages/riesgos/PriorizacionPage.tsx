@@ -30,10 +30,14 @@ import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import type { PriorizacionRiesgo } from '../../types';
 import { Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-material';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
+import { useEffect } from 'react';
 
 export default function PriorizaciónPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
   const { data: priorizaciones, isLoading } = useGetPriorizacionesQuery();
   const [createPriorizacion, { isLoading: isSaving }] = useCreatePriorizacionMutation();
   const { showSuccess, showError } = useNotification();
@@ -124,6 +128,37 @@ export default function PriorizaciónPage() {
       valueFormatter: (value: any) => formatDate(value),
     },
   ];
+
+  // NUEVO: useEffect para capturar contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (setScreenContext) {
+      const priorizacionesArray = priorizaciones || [];
+      const context: ScreenContext = {
+        module: 'riesgos',
+        screen: 'priorizacion',
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoSeleccionado?.id,
+        route: window.location.pathname,
+        formData: {
+          totalPriorizaciones: priorizacionesArray.length,
+          priorizacionesVisibles: priorizacionesArray.slice(0, 5).map((p: any) => ({
+            riesgoNumero: p.riesgo?.numero || 'N/A',
+            descripcion: p.riesgo?.descripcion || 'Sin descripción',
+            nivel: p.evaluacion?.nivelRiesgo || 'Sin evaluar',
+            respuesta: p.respuesta || 'Sin asignar',
+            responsable: p.responsable || 'Sin asignar',
+          })),
+          distribucionRespuestas: {
+            evitar: priorizacionesArray.filter((p: any) => p.respuesta === 'Evitar').length,
+            reducir: priorizacionesArray.filter((p: any) => p.respuesta === 'Reducir').length,
+            compartir: priorizacionesArray.filter((p: any) => p.respuesta === 'Compartir').length,
+            aceptar: priorizacionesArray.filter((p: any) => p.respuesta === 'Aceptar').length,
+          },
+        }
+      };
+      setScreenContext(context);
+    }
+  }, [priorizaciones, procesoSeleccionado, isReadOnly, setScreenContext]);
 
   const handleSave = async () => {
     if (!selectedPriorizacion?.riesgoId) {

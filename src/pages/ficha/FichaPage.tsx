@@ -39,7 +39,9 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
-import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';interface FichaData {
+import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';interface FichaData {
   vicepresidencia: string;
   gerencia: string;
   sigla: string; // Sigla del proceso para identificar riesgos (ej: "PF" para Planificación Financiera)
@@ -55,6 +57,7 @@ export default function FichaPage() {
   const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar, isLoading: isLoadingProceso } = useProceso();
   const { user, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso } = useAuth();
   const [updateProceso] = useUpdateProcesoMutation();
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
   const {
     procesosVisibles: procesosDisponibles,
     areasDisponibles,
@@ -225,6 +228,31 @@ export default function FichaPage() {
       setInitialFormData(newData);
     }
   }, [procesoActual, gerencias, getGerenciaNombre]);
+
+  // NUEVO: useEffect para capturar contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (procesoActual && setScreenContext) {
+      const context: ScreenContext = {
+        module: 'procesos',
+        screen: 'ficha',
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoActual.id,
+        route: window.location.pathname,
+        formData: {
+          procesoNombre: procesoActual.nombre,
+          vicepresidencia: formData.vicepresidencia,
+          gerencia: formData.gerencia,
+          sigla: formData.sigla,
+          area: formData.area,
+          responsable: formData.responsable,
+          fechaCreacion: formData.fechaCreacion,
+          objetivoProceso: formData.objetivoProceso,
+          hasChanges: hasFormChanges,
+        }
+      };
+      setScreenContext(context);
+    }
+  }, [procesoActual, formData, isReadOnly, hasFormChanges, setScreenContext]);
 
   const handleChange = (field: keyof FichaData) => (
     e: React.ChangeEvent<HTMLInputElement>

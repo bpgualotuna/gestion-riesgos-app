@@ -58,6 +58,8 @@ import { Alert } from '@mui/material';
 import { Visibility as VisibilityIcon } from '@mui/icons-material';
 import ResumenEstadisticasMapas from '../../components/mapas/ResumenEstadisticasMapas';
 import MapaFiltersPanel from '../../features/mapas/MapaFiltersPanel';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 // Calcula calificación y posición residual global del riesgo desde sus causas con control
 // Regla: usar la causa con mayor calificación residual (misma que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO")
@@ -127,6 +129,7 @@ export default function MapaPage() {
   const { iniciarVer } = useRiesgo();
   const { esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
   const { areas: areasAsignadas, procesos: procesosAsignados, loading: isLoadingAsignaciones } = useAreasProcesosAsignados();
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
   const { data: mapaConfig } = useGetMapaConfigQuery(); // Moved here to avoid initialization error
   const { data: procesos = [] } = useGetProcesosQuery();
   const { data: areas = [] } = useGetAreasQuery(); // Obtener todas las áreas del sistema
@@ -606,6 +609,62 @@ export default function MapaPage() {
     
     return riesgosValidos;
   }, [celdaSeleccionada, matrizActual]);
+
+  // NUEVO: useEffect para capturar contexto de pantalla para CORA IA (DESPUÉS de todos los useMemo)
+  useEffect(() => {
+    if (setScreenContext && puntosFiltrados) {
+      const context: ScreenContext = {
+        module: 'mapas',
+        screen: tipoMapaSeleccionado === 'inherente' ? 'mapa-inherente' : 'mapa-residual',
+        action: 'view',
+        route: window.location.pathname,
+        formData: {
+          tipoMapa: tipoMapaSeleccionado,
+          filtros: {
+            clasificacion: clasificacion === 'all' ? 'Todas' : clasificacion,
+            area: filtroArea === 'all' ? 'Todas' : areas.find(a => String(a.id) === filtroArea)?.nombre || 'N/A',
+            proceso: filtroProceso === 'all' ? 'Todos' : procesos.find(p => String(p.id) === filtroProceso)?.nombre || 'N/A',
+          },
+          totalRiesgos: puntosFiltrados.length,
+          estadisticas: estadisticasComparativas ? {
+            inherente: {
+              total: estadisticasComparativas.inherente.total,
+              criticos: estadisticasComparativas.inherente.porNivel.critico,
+              altos: estadisticasComparativas.inherente.porNivel.alto,
+              medios: estadisticasComparativas.inherente.porNivel.medio,
+              bajos: estadisticasComparativas.inherente.porNivel.bajo,
+            },
+            residual: {
+              total: estadisticasComparativas.residual.total,
+              criticos: estadisticasComparativas.residual.porNivel.critico,
+              altos: estadisticasComparativas.residual.porNivel.alto,
+              medios: estadisticasComparativas.residual.porNivel.medio,
+              bajos: estadisticasComparativas.residual.porNivel.bajo,
+            },
+          } : undefined,
+          topMitigaciones: riskInsights?.topMitigaciones?.slice(0, 3).map(m => ({
+            id: m?.id,
+            reduccion: m?.reduccion,
+            nivelResidual: m?.nivelResidual,
+          })) || [],
+          criticosPersistentes: riskInsights?.criticosPersistentes?.length || 0,
+          eficaciaGlobal: riskInsights?.eficacia || 0,
+        }
+      };
+      setScreenContext(context);
+    }
+  }, [
+    puntosFiltrados,
+    tipoMapaSeleccionado,
+    clasificacion,
+    filtroArea,
+    filtroProceso,
+    estadisticasComparativas,
+    riskInsights,
+    areas,
+    procesos,
+    setScreenContext
+  ]);
 
   // isLoading state para la página completa
   const isPageLoading = isLoadingAsignaciones || isLoadingPuntos || isLoadingRiesgos;

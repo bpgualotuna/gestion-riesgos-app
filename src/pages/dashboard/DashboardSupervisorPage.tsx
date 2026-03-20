@@ -64,10 +64,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { BugReport as BugReportIcon } from '@mui/icons-material';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
+import { useEffect } from 'react';
 
 export default function DashboardSupervisorPage() {
   const { esSupervisorRiesgos } = useAuth();
   const navigate = useNavigate();
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
 
   // Filtros
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
@@ -464,6 +468,58 @@ export default function DashboardSupervisorPage() {
   const planesAccion = useMemo(() => {
     return metricsData.planesTableData || [];
   }, [metricsData.planesTableData]);
+
+  // NUEVO: useEffect para capturar contexto de pantalla para CORA IA
+  useEffect(() => {
+    if (setScreenContext) {
+      const context: ScreenContext = {
+        module: 'dashboard',
+        screen: 'supervisor',
+        action: 'view',
+        route: window.location.pathname,
+        formData: {
+          filtros: {
+            proceso: filtroProceso === 'all' ? 'Todos' : procesosData?.find(p => String(p.id) === filtroProceso)?.nombre || 'N/A',
+            numeroRiesgo: filtroNumeroRiesgo === 'all' ? 'Todos' : filtroNumeroRiesgo,
+            origen: filtroOrigen === 'all' ? 'Todos' : filtroOrigen,
+            busqueda: busqueda || 'Sin filtro',
+          },
+          estadisticas: {
+            totalRiesgos: estadisticas.total,
+            criticos: estadisticas.criticos,
+            altos: estadisticas.altos,
+            medios: estadisticas.medios,
+            bajos: estadisticas.bajos,
+            fueraApetito: estadisticas.fueraApetito,
+          },
+          metricas: {
+            totalIncidencias: metricsData.totalIncidencias,
+            incidenciasAbiertas: metricsData.incidenciasAbiertas,
+            totalCausas: metricsData.totalCausas,
+            totalPlanes: metricsData.totalPlanes,
+            planesEnProgreso: metricsData.planesEnProgreso,
+            planesCompletados: metricsData.planesCompletados,
+          },
+          topRiesgos: filasTablaResumen.slice(0, 5).map((r: any) => ({
+            codigo: r.codigo,
+            descripcion: r.descripcion,
+            nivel: r.nivel,
+          })),
+        }
+      };
+      setScreenContext(context);
+    }
+  }, [
+    filtroProceso,
+    filtroNumeroRiesgo,
+    filtroOrigen,
+    busqueda,
+    estadisticas,
+    metricsData,
+    filasTablaResumen,
+    procesosData,
+    setScreenContext
+  ]);
 
   if (!esSupervisorRiesgos) {
     return (

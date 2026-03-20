@@ -17,6 +17,7 @@ import { RiesgoProvider } from './contexts/RiesgoContext';
 import { NotificacionProvider } from './contexts/NotificacionContext';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { RiesgosProvider } from './contexts/RiesgosContext-NUEVO';
+import { CoraIAProvider } from './contexts/CoraIAContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 function App() {
@@ -34,9 +35,11 @@ function App() {
             <ProcesoProvider>
               <RiesgoProvider>
                 <RiesgosProvider>
-                  <ErrorBoundary>
-                    <RouterProvider router={router} />
-                  </ErrorBoundary>
+                  <CoraIAProvider>
+                    <ErrorBoundary>
+                      <RouterProvider router={router} />
+                    </ErrorBoundary>
+                  </CoraIAProvider>
                 </RiesgosProvider>
               </RiesgoProvider>
             </ProcesoProvider>

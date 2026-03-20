@@ -66,6 +66,8 @@ import api from '../../services/api';
 
 import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, useCreateRiesgoMutation, useLazyGetNextNumeroRiesgoQuery, riesgosApi, useGetRiesgosQuery } from '../../api/services/riesgosApi';
   import { useAppDispatch } from '../../app/hooks';
+  import { useCoraIAContext } from '../../contexts/CoraIAContext';
+  import type { ScreenContext } from '../../types/ia.types';
   // fuentes de causa: default vacío (backend/seed debe proveer en futuro)
 
 // NOTE: `mockData` module was removed from the project. Replace missing helpers
@@ -334,6 +336,7 @@ export default function IdentificacionPage() {
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const { esDueñoProcesos, esSupervisorRiesgos } = useAuth();
   const { riesgos: riesgosApiData, cargarRiesgos, actualizarRiesgo: actualizarRiesgoApi, eliminarRiesgo: eliminarRiesgoApi } = useRiesgos();
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
   
   // OPTIMIZADO: Usar mutación de RTK Query para crear riesgos
   const [createRiesgoMutation] = useCreateRiesgoMutation();
@@ -395,6 +398,38 @@ export default function IdentificacionPage() {
     : (riesgosRTKData?.total ?? riesgosApiDataOptimizado.length);
   const totalPages = riesgosRTKData?.totalPages ?? Math.ceil(totalRiesgos / pageSize);
   const isReadOnly = modoProceso === 'visualizar';
+
+  // NUEVO: Actualizar contexto de pantalla para CORA IA (DESPUÉS de definir riesgosApiDataOptimizado)
+  useEffect(() => {
+    if (procesoSeleccionado && setScreenContext) {
+      // Capturar primeros 5 riesgos visibles en la página actual
+      const riesgosVisibles = riesgosApiDataOptimizado.slice(0, 5).map((r: any) => ({
+        id: r.numeroIdentificacion || r.numero || r.id,
+        descripcion: r.descripcion || r.descripcionRiesgo || 'Sin descripción',
+        tipologia: r.tipologia?.nombre || r.tipoRiesgo?.nombre || 'Sin tipología',
+        nivelInherente: r.nivelInherente || 'Sin calificar',
+        causas: (r.causas || []).length
+      }));
+
+      const context: ScreenContext = {
+        module: 'riesgos',
+        screen: 'identificacion',
+        action: isReadOnly ? 'view' : 'edit',
+        processId: procesoSeleccionado.id,
+        route: window.location.pathname,
+        formData: {
+          totalRiesgos,
+          currentPage,
+          pageSize,
+          totalPages,
+          riesgosVisibles,
+          hasRiesgos: riesgosApiDataOptimizado.length > 0
+        }
+      };
+      
+      setScreenContext(context);
+    }
+  }, [procesoSeleccionado, riesgosApiDataOptimizado, currentPage, pageSize, totalRiesgos, totalPages, isReadOnly, setScreenContext]);
   const { showSuccess, showError } = useNotification();
   const { confirmDelete } = useConfirm();
   const dispatch = useAppDispatch();

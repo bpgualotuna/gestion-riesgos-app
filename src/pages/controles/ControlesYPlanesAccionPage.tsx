@@ -85,6 +85,8 @@ import {
 import { RiesgoFormData } from '../../types';
 import { useUnsavedChanges, useFormChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import type { ScreenContext } from '../../types/ia.types';
 
 // Helpers que usan la configuración residual del admin (API), sin datos quemados
 function getEvaluacionPreliminarFromRangos(rangos: any[] | undefined, puntajeTotal: number): string {
@@ -147,10 +149,19 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function ControlesYPlanesAccionPageNueva() {
+  // ============ LOGS DE DEBUG CRÍTICOS ============
+  console.log('🔴🔴🔴 [COMPONENTE MONTADO] ControlesYPlanesAccionPageNueva - TIMESTAMP:', new Date().toISOString());
+  console.log('🔴 [DEBUG] Window location:', window.location.pathname);
+  
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const dispatch = useAppDispatch();
+  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA desde contexto global
+  
+  console.log('🔴 [DEBUG] setScreenContext disponible:', !!setScreenContext);
+  console.log('🔴 [DEBUG] procesoSeleccionado:', procesoSeleccionado?.sigla || 'NO HAY');
+  
   const [activeTab, setActiveTab] = useState(0);
   const [tabsFloating, setTabsFloating] = useState(false);
   // Flotar la barra de pestañas cuando hay scroll vertical en la ventana
@@ -461,6 +472,73 @@ export default function ControlesYPlanesAccionPageNueva() {
   const controles = useMemo(() => clasificaciones.filter(c => c.tipo === 'control'), [clasificaciones]);
   const planes = useMemo(() => clasificaciones.filter(c => c.tipo === 'plan'), [clasificaciones]);
 
+  // NUEVO: Actualizar contexto de pantalla para CORA IA (después de todos los useMemo)
+  useEffect(() => {
+    console.log('🟢🟢🟢 [useEffect CONTEXTO] EJECUTANDO - TIMESTAMP:', new Date().toISOString());
+    console.log('🟢 [useEffect] procesoSeleccionado:', !!procesoSeleccionado, procesoSeleccionado?.sigla);
+    console.log('🟢 [useEffect] setScreenContext:', !!setScreenContext);
+    console.log('🟢 [useEffect] activeTab:', activeTab);
+    
+    if (procesoSeleccionado && setScreenContext) {
+      const screenName = activeTab === 2 ? 'planes' : activeTab === 1 ? 'controles' : 'clasificacion';
+      
+      console.log('🟡 [CONTEXTO] Construyendo contexto para pantalla:', screenName);
+      console.log('🟡 [CONTEXTO] causaEnEdicion:', !!causaEnEdicion);
+      console.log('🟡 [CONTEXTO] tipoClasificacion:', tipoClasificacion);
+      
+      const context: ScreenContext = {
+        module: 'planes',
+        screen: screenName,
+        action: causaEnEdicion ? 'edit' : 'view',
+        processId: procesoSeleccionado.id,
+        route: window.location.pathname,
+        formData: {
+          activeTab,
+          clasificaciones: clasificaciones.length,
+          planesActivos: clasificaciones.filter(c => c.tipo === 'plan' || c.tipo === 'PLAN').length,
+          controlesActivos: clasificaciones.filter(c => c.tipo === 'control' || c.tipo === 'CONTROL').length,
+          // Si estamos en la pestaña de controles sin editar, enviar lista de controles visibles
+          ...(screenName === 'controles' && !causaEnEdicion && riesgosConControles.length > 0 && {
+            controlesVisibles: riesgosConControles.slice(0, 3).map((r: any) => ({
+              riesgoId: r.numeroIdentificacion || r.numero || r.id,
+              riesgoDescripcion: r.descripcion || r.descripcionRiesgo || 'Sin descripción',
+              controles: (r.causas || []).slice(0, 2).map((c: any) => {
+                // Intentar obtener la descripción del control de múltiples fuentes
+                const desc = c.controlDescripcion || 
+                            c.gestion?.controlDescripcion || 
+                            c.descripcion || 
+                            'Sin descripción';
+                const tipo = c.controlTipo || c.gestion?.controlTipo || 'N/A';
+                const efectividad = c.evaluacionPreliminar || 
+                                  c.gestion?.evaluacionPreliminar || 
+                                  c.efectividad || 
+                                  'N/A';
+                return { descripcion: desc, tipo, efectividad };
+              })
+            }))
+          }),
+          // Datos del formulario actual si está en edición
+          ...(causaEnEdicion && {
+            causaEnEdicion: {
+              riesgoId: causaEnEdicion.riesgoId,
+              causaDescripcion: causaEnEdicion.causa?.descripcion,
+              tipoClasificacion,
+              formControl: tipoClasificacion === 'control' || tipoClasificacion === 'CONTROL' ? formControl : undefined,
+              formPlan: tipoClasificacion === 'plan' || tipoClasificacion === 'PLAN' ? formPlan : undefined,
+            }
+          })
+        }
+      };
+      console.log('✅✅✅ [CORA Context] ENVIANDO CONTEXTO A CORA:', JSON.stringify(context, null, 2));
+      setScreenContext(context);
+    } else {
+      console.log('❌ [CONTEXTO] NO SE PUEDE ACTUALIZAR - Falta:', { 
+        procesoSeleccionado: !!procesoSeleccionado, 
+        setScreenContext: !!setScreenContext 
+      });
+    }
+  }, [procesoSeleccionado, activeTab, clasificaciones, causaEnEdicion, tipoClasificacion, formControl, formPlan, riesgosConControles, setScreenContext]);
+
   // Actualizar Riesgo en API (Residual)
   const actualizarRiesgoApi = async (riesgoId: string, updates: Partial<RiesgoFormData>) => {
     await updateRiesgo({ id: String(riesgoId), ...updates } as any).unwrap();
@@ -472,12 +550,19 @@ export default function ControlesYPlanesAccionPageNueva() {
   };
 
   const handleEvaluarControl = (riesgoId: string, causa: any) => {
+    console.log('🔵🔵🔵 [EDITAR] handleEvaluarControl llamado');
+    console.log('🔵 [EDITAR] riesgoId:', riesgoId);
+    console.log('🔵 [EDITAR] causa:', causa);
+    
     setRiesgoIdEvaluacion(riesgoId);
     setCausaIdEvaluacion(causa.id);
 
     // Fuente principal de datos guardados: gestion (backend guarda ahí todo lo del control/plan)
     const gestion = causa.gestion || {};
     const fuenteControl = gestion && Object.keys(gestion).length > 0 ? gestion : causa;
+
+    console.log('[DEBUG] gestion:', gestion); // DEBUG
+    console.log('[DEBUG] fuenteControl:', fuenteControl); // DEBUG
 
     // Initial load for Plan si ya existe (en causa o en gestion)
     const tienePlan =
@@ -486,8 +571,10 @@ export default function ControlesYPlanesAccionPageNueva() {
       (causa.tipoGestion && causa.tipoGestion.toUpperCase() === 'PLAN') ||
       (gestion.tipo === 'plan' || gestion.tipo === 'PLAN');
 
+    console.log('[DEBUG] tienePlan:', tienePlan); // DEBUG
+
     if (tienePlan) {
-      setFormPlan({
+      const planData = {
         descripcion: causa.planDescripcion || gestion.planDescripcion || '',
         detalle: causa.planDetalle || gestion.planDetalle || '',
         responsable:
@@ -498,16 +585,22 @@ export default function ControlesYPlanesAccionPageNueva() {
         decision: causa.planDecision || gestion.planDecision || '',
         fechaEstimada: causa.planFechaEstimada || gestion.planFechaEstimada || '',
         estado: causa.planEstado || gestion.planEstado || 'pendiente',
-      });
+      };
+      console.log('[DEBUG] Cargando plan con datos:', planData); // DEBUG
+      setFormPlan(planData);
+      setInitialFormPlan(planData); // NUEVO: También actualizar el initial para el tracking de cambios
     } else {
-      setFormPlan({
+      const emptyPlan = {
         descripcion: '',
         detalle: '',
         responsable: (user as any)?.fullName || '',
         decision: '',
         fechaEstimada: '',
-        estado: 'pendiente',
-      });
+        estado: 'pendiente' as const,
+      };
+      console.log('[DEBUG] No hay plan, usando valores vacíos'); // DEBUG
+      setFormPlan(emptyPlan);
+      setInitialFormPlan(emptyPlan);
     }
 
     // Cargar criterios del control si ya hubo evaluación previa
@@ -3203,10 +3296,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                                           size="small"
                                             color="primary"
                                           onClick={(e) => {
+                                            console.log('[CLICK] Botón editar plan clickeado'); // DEBUG MUY VISIBLE
                                             e.stopPropagation();
                                               const tipoGestion = (causa.tipoGestion || 'PLAN').toUpperCase();
                                               setTipoClasificacion(tipoGestion as any);
-                                            handleEvaluarControl(riesgo.id, causa);
+                                            console.log('[CLICK] Llamando handleEvaluarControl con:', riesgo.id, detallePlan); // DEBUG
+                                            handleEvaluarControl(riesgo.id, detallePlan);
                                           }}
                                             title="Editar Plan"
                                           >
@@ -3695,3 +3790,5 @@ export default function ControlesYPlanesAccionPageNueva() {
     </>
   );
 }
+
+// Force rebuild: 2026-03-20 07:53:04
