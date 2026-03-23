@@ -67,6 +67,7 @@ const CalificacionInherentePage = lazy(() => import('../pages/admin/Calificacion
 const CalificacionResidualPage = lazy(() => import('../pages/admin/ConfiguracionResidualPage'));
 const AdminPanelPage = lazy(() => import('../pages/admin/AdminPanelPage'));
 const ModoGerenteGeneralSelector = lazy(() => import('../components/auth/ModoGerenteGeneralSelector'));
+const PlanesAccionPage = lazy(() => import('../pages/planes/PlanesAccionPage'));
 
 // Wrapper for lazy components
 const LazyRoute = ({ component: Component }: { component: React.LazyExoticComponent<React.ComponentType<any>> }) => (
@@ -174,6 +175,14 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.PLAN_ACCION,
         element: <LazyRoute component={ControlesYPlanesAccionPage} />,
+      },
+      {
+        path: ROUTES.PLANES_ACCION_GESTION,
+        element: (
+          <RoleGuard allowedRoles={['supervisor', 'gerente']}>
+            <LazyRoute component={PlanesAccionPage} />
+          </RoleGuard>
+        ),
       },
       {
         path: ROUTES.EVALUACION_CONTROL,

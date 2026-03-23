@@ -90,8 +90,10 @@ import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, useProcesosVisibles } from "../../hooks/useAsignaciones";
 const VirtualAssistantDemo = lazy(() => import("../common/VirtualAssistantDemo"));
 import NotificationsMenu from "../common/NotificationsMenu";
+import AlertasNotificationsMenu from "../common/AlertasNotificationsMenu";
 import { useAuditNotifications } from "../../hooks/useAuditNotifications";
 import { useCalificacionInherenteConfig } from '../../hooks/useCalificacionInherenteConfig';
+import { useObtenerAlertasQuery } from "../../api/services/planTrazabilidadApi";
 import {
   DRAWER_WIDTH,
   DRAWER_WIDTH_COLLAPSED,
@@ -167,6 +169,7 @@ export default function MainLayout() {
     esManagerDueño,
     esManagerSupervisor,
     refreshUser,
+    isLoading,
   } = useAuth();
   const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
   const [modoManagerDialogOpen, setModoManagerDialogOpen] = useState(false);
@@ -174,6 +177,7 @@ export default function MainLayout() {
   const [profileImgError, setProfileImgError] = useState(false);
   const [profilePhotoVersion, setProfilePhotoVersion] = useState(0);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
+  const [alertasAnchorEl, setAlertasAnchorEl] = useState<null | HTMLElement>(null);
 
   // Hook de notificaciones solo para administradores
   const {
@@ -182,6 +186,16 @@ export default function MainLayout() {
     markAsRead,
     clearNotifications,
   } = useAuditNotifications(esAdmin);
+
+  // Hook de alertas de vencimiento para usuarios operativos (no admin)
+  const { data: alertasData } = useObtenerAlertasQuery(
+    { soloNoLeidas: true },
+    { 
+      skip: esAdmin || !user || isLoading, // Skip si es admin, no hay usuario, o está cargando
+      pollingInterval: 60000 // Actualizar cada minuto
+    }
+  );
+  const alertasNoLeidas = alertasData?.noLeidas || 0;
 
   useEffect(() => {
     setProfileImgError(false);
@@ -599,6 +613,14 @@ export default function MainLayout() {
     setNotificationsAnchorEl(null);
   };
 
+  const handleAlertasOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAlertasAnchorEl(event.currentTarget);
+  };
+
+  const handleAlertasClose = () => {
+    setAlertasAnchorEl(null);
+  };
+
   const handleLogout = () => {
     handleUserMenuClose();
     logout();
@@ -740,8 +762,8 @@ export default function MainLayout() {
               .filter((item) => {
                 // Filtrar items según el rol
                 if (esSupervisorRiesgos) {
-                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos, Historial
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos', 'Historial'];
+                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Gestión de Planes, Materializar Riesgos, Historial
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Gestión de Planes', 'Materializar Riesgos', 'Historial'];
                   return allowedMenus.includes(item.text);
                 }
                 if (esDueñoProcesos) {
@@ -1009,6 +1031,21 @@ export default function MainLayout() {
                     </Badge>
                   </IconButton>
                 )}
+                {/* Alertas de Vencimiento - Para usuarios operativos */}
+                {!esAdmin && (
+                  <IconButton
+                    onClick={handleAlertasOpen}
+                    sx={{
+                      flexShrink: 0,
+                      mr: 1,
+                    }}
+                    aria-label="Alertas de Vencimiento"
+                  >
+                    <Badge badgeContent={alertasNoLeidas} color="warning" max={99}>
+                      <NotificationsIcon sx={{ color: '#ff9800', fontSize: 24 }} />
+                    </Badge>
+                  </IconButton>
+                )}
                 {user && (
                   <IconButton
                     onClick={handleUserMenuOpen}
@@ -1178,6 +1215,21 @@ export default function MainLayout() {
                 </IconButton>
               )}
 
+              {/* Alertas de Vencimiento - Para usuarios operativos */}
+              {!esAdmin && (
+                <IconButton
+                  onClick={handleAlertasOpen}
+                  sx={{
+                    mr: 1,
+                  }}
+                  aria-label="Alertas de Vencimiento"
+                >
+                  <Badge badgeContent={alertasNoLeidas} color="warning" max={99}>
+                    <NotificationsIcon sx={{ color: '#ff9800', fontSize: 26 }} />
+                  </Badge>
+                </IconButton>
+              )}
+
               {user && (
                 <Box
                   sx={{
@@ -1341,6 +1393,15 @@ export default function MainLayout() {
               onClose={handleNotificationsClose}
               notifications={notifications}
               onClear={clearNotifications}
+            />
+          )}
+
+          {/* Menú de Alertas de Vencimiento - Para usuarios operativos */}
+          {!esAdmin && (
+            <AlertasNotificationsMenu
+              anchorEl={alertasAnchorEl}
+              open={Boolean(alertasAnchorEl)}
+              onClose={handleAlertasClose}
             />
           )}
         </Toolbar>

@@ -3,7 +3,7 @@
  * Incluye: Clasificación, Controles, Evaluación Residual (Copiada), Planes
  */
 
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -67,7 +67,7 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, useGetConfiguracionResidualQuery, useGetFrecuenciasQuery, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
-import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO } from '../../utils/constants';
+import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO, AUTH_TOKEN_KEY } from '../../utils/constants';
 import {
   calcularRiesgoInherente,
   calcularPuntajeControl,
@@ -132,6 +132,8 @@ interface ClasificacionCausa {
   planFechaEstimada?: string;
   planEstado?: 'pendiente' | 'en_progreso' | 'completado' | 'cancelado';
   planEvidencia?: string;
+  archivoSeguimiento?: string;
+  archivoSeguimientoNombre?: string;
   origenPlanAccion?: 'ninguno' | 'exito' | 'fallo';
   procesoId: string;
   createdAt: string;
@@ -154,7 +156,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   console.log('🔴 [DEBUG] Window location:', window.location.pathname);
   
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
-  const { user } = useAuth();
+  const { user, esDueñoProcesos } = useAuth();
   const { showSuccess, showError } = useNotification();
   const dispatch = useAppDispatch();
   const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA desde contexto global
@@ -186,8 +188,10 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [initialFormControl, setInitialFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
-  const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '' });
-  const [initialFormPlan, setInitialFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '' });
+  const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '', archivoSeguimiento: '', archivoSeguimientoNombre: '' });
+  const [initialFormPlan, setInitialFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '', archivoSeguimiento: '', archivoSeguimientoNombre: '' });
+  const [selectedArchivoSeguimiento, setSelectedArchivoSeguimiento] = useState<File | null>(null);
+  const archivoSeguimientoInputRef = useRef<HTMLInputElement>(null);
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [initialImpactosResiduales, setInitialImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [frecuenciaResidual, setFrecuenciaResidual] = useState(1);
@@ -264,6 +268,36 @@ export default function ControlesYPlanesAccionPageNueva() {
   // Configuración residual desde admin (todo el cálculo usa esta config, sin datos quemados)
   const { data: configResidual } = useGetConfiguracionResidualQuery();
   const { data: frecuenciasCatalog = [] } = useGetFrecuenciasQuery();
+
+  // Manejo de archivos de seguimiento
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+
+  const handleArchivoSeguimientoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        showError('El archivo es demasiado grande. Máximo 5MB.');
+        return;
+      }
+      if (!acceptedMimeTypes.includes(file.type)) {
+        showError('Formato no permitido. Use PDF, PNG, JPG o DOCX.');
+        return;
+      }
+      setSelectedArchivoSeguimiento(file);
+      setFormPlan({ ...formPlan, archivoSeguimientoNombre: file.name });
+    }
+    event.target.value = '';
+  };
+
+  const handleRemoveArchivoSeguimiento = () => {
+    setSelectedArchivoSeguimiento(null);
+    setFormPlan({ ...formPlan, archivoSeguimiento: '', archivoSeguimientoNombre: '' });
+    if (archivoSeguimientoInputRef.current) {
+      archivoSeguimientoInputRef.current.value = '';
+    }
+  };
 
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
@@ -585,6 +619,9 @@ export default function ControlesYPlanesAccionPageNueva() {
         decision: causa.planDecision || gestion.planDecision || '',
         fechaEstimada: causa.planFechaEstimada || gestion.planFechaEstimada || '',
         estado: causa.planEstado || gestion.planEstado || 'pendiente',
+        evidencia: causa.planEvidencia || gestion.planEvidencia || '',
+        archivoSeguimiento: causa.archivoSeguimiento || gestion.archivoSeguimiento || '',
+        archivoSeguimientoNombre: causa.archivoSeguimientoNombre || gestion.archivoSeguimientoNombre || '',
       };
       console.log('[DEBUG] Cargando plan con datos:', planData); // DEBUG
       setFormPlan(planData);
@@ -597,6 +634,9 @@ export default function ControlesYPlanesAccionPageNueva() {
         decision: '',
         fechaEstimada: '',
         estado: 'pendiente' as const,
+        evidencia: '',
+        archivoSeguimiento: '',
+        archivoSeguimientoNombre: '',
       };
       console.log('[DEBUG] No hay plan, usando valores vacíos'); // DEBUG
       setFormPlan(emptyPlan);
@@ -628,6 +668,7 @@ export default function ControlesYPlanesAccionPageNueva() {
           '',
         tieneControl:
           fuenteControl.tieneControl !== undefined ? fuenteControl.tieneControl : true,
+        origenPlanAccion: fuenteControl.origenPlanAccion || 'ninguno',
       });
     } else {
       // Valores por defecto cuando aún no hay evaluación
@@ -648,6 +689,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         descripcionControl: '',
         responsable: (user as any)?.fullName || '',
         tieneControl: true,
+        origenPlanAccion: 'ninguno',
       });
     }
 
@@ -708,6 +750,35 @@ export default function ControlesYPlanesAccionPageNueva() {
   const handleGuardarClasificacion = async () => {
     if (!causaEnEdicion) return;
     const { riesgoId, causa, clasificacion } = causaEnEdicion;
+    
+    // Subir archivo si hay uno seleccionado
+    let archivoUrl = formPlan.archivoSeguimiento;
+    if (selectedArchivoSeguimiento && tipoClasificacion === 'plan') {
+      try {
+        const formData = new FormData();
+        formData.append('archivo', selectedArchivoSeguimiento);
+        
+        const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+        const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        
+        if (!response.ok) {
+          throw new Error('Error al subir el archivo');
+        }
+        
+        const data = await response.json();
+        archivoUrl = data.url;
+        showSuccess('Archivo subido correctamente');
+      } catch (error) {
+        showError('Error al subir el archivo');
+        return;
+      }
+    }
+    
     // ... Validations simplified for brevity ...
     const nuevaClasificacion: ClasificacionCausa = {
       id: clasificacion?.id || `clas-${Date.now()}-${causa.id}`,
@@ -727,6 +798,8 @@ export default function ControlesYPlanesAccionPageNueva() {
       planFechaEstimada: tipoClasificacion === 'plan' ? formPlan.fechaEstimada : undefined,
       planEstado: tipoClasificacion === 'plan' ? formPlan.estado : undefined,
       planEvidencia: tipoClasificacion === 'plan' ? formPlan.evidencia : undefined,
+      archivoSeguimiento: tipoClasificacion === 'plan' ? archivoUrl : undefined,
+      archivoSeguimientoNombre: tipoClasificacion === 'plan' ? (selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre) : undefined,
       procesoId: String(procesoSeleccionado!.id),
       createdAt: clasificacion?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -739,12 +812,18 @@ export default function ControlesYPlanesAccionPageNueva() {
         tipoGestion: tipoClasificacion.toUpperCase(),
         gestion: {
           ...nuevaClasificacion,
-          tipoGestion: tipoClasificacion.toUpperCase()
+          tipoGestion: tipoClasificacion.toUpperCase(),
+          archivoSeguimiento: archivoUrl,
+          archivoSeguimientoNombre: selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre
         }
       };
       await updateCausa(payloadClasificacion).unwrap();
       showSuccess('Causa clasificada correctamente');
       setCausaEnEdicion(null);
+      setSelectedArchivoSeguimiento(null);
+      if (archivoSeguimientoInputRef.current) {
+        archivoSeguimientoInputRef.current.value = '';
+      }
     } catch (e: any) {
       showError(e?.data?.error || e?.message || 'Error al guardar clasificación');
     }
@@ -757,6 +836,36 @@ export default function ControlesYPlanesAccionPageNueva() {
   const handleGuardarEvaluacion = async () => {
     const riesgo = riesgosDelProceso.find((r: any) => r.id === riesgoIdEvaluacion);
     if (!riesgo || !causaIdEvaluacion) return;
+
+    // Subir archivo si hay uno seleccionado
+    let archivoUrl = formPlan.archivoSeguimiento;
+    if (selectedArchivoSeguimiento && (tipoClasificacion === 'PLAN' || tipoClasificacion === 'plan' || tipoClasificacion === 'AMBOS')) {
+      try {
+        const formData = new FormData();
+        formData.append('archivo', selectedArchivoSeguimiento);
+        
+        const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+        const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        
+        if (!response.ok) {
+          throw new Error('Error al subir el archivo');
+        }
+        
+        const data = await response.json();
+        archivoUrl = data.url;
+        // Actualizar formPlan con la URL del archivo
+        setFormPlan({ ...formPlan, archivoSeguimiento: archivoUrl, archivoSeguimientoNombre: selectedArchivoSeguimiento.name });
+        showSuccess('Archivo subido correctamente');
+      } catch (error) {
+        showError('Error al subir el archivo');
+        return;
+      }
+    }
 
     let causaActualizada: any = null;
     const causasUpd = riesgo.causas.map((c: any) => {
@@ -857,6 +966,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planFechaEstimada: formPlan.fechaEstimada,
               planEstado: formPlan.estado,
               planEvidencia: formPlan.evidencia,
+              archivoSeguimiento: archivoUrl,
+              archivoSeguimientoNombre: selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre,
               gestion: {
                 ...(c.gestion || {}),
                 estadoAmbos: nuevoEstadoAmbos
@@ -934,6 +1045,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planFechaEstimada: c.planFechaEstimada,
               planEstado: c.planEstado,
               planEvidencia: c.planEvidencia,
+              archivoSeguimiento: c.archivoSeguimiento,
+              archivoSeguimientoNombre: c.archivoSeguimientoNombre,
               gestion: {
                 ...(c.gestion || {}),
                 estadoAmbos: nuevoEstadoAmbos
@@ -951,6 +1064,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planFechaEstimada: formPlan.fechaEstimada,
               planEstado: formPlan.estado,
               planEvidencia: formPlan.evidencia,
+              archivoSeguimiento: archivoUrl,
+              archivoSeguimientoNombre: selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre,
               // ← PRESERVAR datos del control existente
               ...criteriosEvaluacion,
               controlDesviaciones: c.controlDesviaciones,
@@ -1018,6 +1133,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               planFechaEstimada: formPlan.fechaEstimada,
               planEstado: formPlan.estado,
               planEvidencia: formPlan.evidencia,
+              archivoSeguimiento: archivoUrl,
+              archivoSeguimientoNombre: selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre,
               gestion: {
                 estadoAmbos: { controlActivo: true, planActivo: true }
               }
@@ -1036,6 +1153,8 @@ export default function ControlesYPlanesAccionPageNueva() {
             planFechaEstimada: formPlan.fechaEstimada,
             planEstado: formPlan.estado,
             planEvidencia: formPlan.evidencia,
+            archivoSeguimiento: archivoUrl,
+            archivoSeguimientoNombre: selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre,
             puntajeTotal: undefined,
             porcentajeMitigacion: 0
           };
@@ -1157,6 +1276,10 @@ export default function ControlesYPlanesAccionPageNueva() {
 
         dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
         setEvaluacionExpandida(null);
+        setSelectedArchivoSeguimiento(null);
+        if (archivoSeguimientoInputRef.current) {
+          archivoSeguimientoInputRef.current.value = '';
+        }
         showSuccess('Gestión guardada exitosamente y Riesgo Residual Actualizado');
       } catch (e: any) {
         showError(e?.data?.error || e?.message || 'Error al guardar clasificación');
@@ -2249,11 +2372,50 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
                                                       <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
+                                                      <Box>
+                                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                                          Archivo de Seguimiento
+                                                        </Typography>
+                                                        <input 
+                                                          type="file" 
+                                                          ref={archivoSeguimientoInputRef} 
+                                                          style={{ display: 'none' }} 
+                                                          onChange={handleArchivoSeguimientoSelect} 
+                                                          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                                                        />
+                                                        {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
+                                                          <Button 
+                                                            variant="outlined" 
+                                                            onClick={() => archivoSeguimientoInputRef.current?.click()}
+                                                            fullWidth
+                                                          >
+                                                            Seleccionar Archivo
+                                                          </Button>
+                                                        )}
+                                                        {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
+                                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                                                            <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                              {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
+                                                            </Typography>
+                                                            <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
+                                                              <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                          </Box>
+                                                        )}
+                                                      </Box>
                                                     </Box>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
                                                       <Box sx={{ display: 'flex', gap: 2 }}>
-                                                        <TextField label="Fecha Estimada" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                                        <TextField 
+                                                          label="Fecha Estimada" 
+                                                          type="date" 
+                                                          value={formPlan.fechaEstimada} 
+                                                          onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} 
+                                                          InputLabelProps={{ shrink: true }} 
+                                                          disabled={esDueñoProcesos}
+                                                          fullWidth 
+                                                        />
                                                         <FormControl fullWidth>
                                                           <InputLabel>Estado del Plan</InputLabel>
                                                           <Select value={formPlan.estado || 'pendiente'} label="Estado del Plan" onChange={(e) => setFormPlan({ ...formPlan, estado: e.target.value as any })}>
@@ -3348,10 +3510,49 @@ export default function ControlesYPlanesAccionPageNueva() {
                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
                                                 <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
+                                                <Box>
+                                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                                    Archivo de Seguimiento
+                                                  </Typography>
+                                                  <input 
+                                                    type="file" 
+                                                    ref={archivoSeguimientoInputRef} 
+                                                    style={{ display: 'none' }} 
+                                                    onChange={handleArchivoSeguimientoSelect} 
+                                                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                                                  />
+                                                  {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
+                                                    <Button 
+                                                      variant="outlined" 
+                                                      onClick={() => archivoSeguimientoInputRef.current?.click()}
+                                                      fullWidth
+                                                    >
+                                                      Seleccionar Archivo
+                                                    </Button>
+                                                  )}
+                                                  {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                                                      <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
+                                                      </Typography>
+                                                      <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
+                                                        <DeleteIcon fontSize="small" />
+                                                      </IconButton>
+                                                    </Box>
+                                                  )}
+                                                </Box>
                                               </Box>
                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
-                                                <TextField label="Fecha Estimada de Finalización" type="date" value={formPlan.fechaEstimada} onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+                                                <TextField 
+                                                  label="Fecha Estimada de Finalización" 
+                                                  type="date" 
+                                                  value={formPlan.fechaEstimada} 
+                                                  onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} 
+                                                  InputLabelProps={{ shrink: true }} 
+                                                  disabled={esDueñoProcesos}
+                                                  fullWidth 
+                                                />
                                               </Box>
                                             </Box>
                                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
@@ -3777,6 +3978,37 @@ export default function ControlesYPlanesAccionPageNueva() {
                 value={formPlan.decision}
                 onChange={e => setFormPlan({ ...formPlan, decision: e.target.value })}
               />
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Archivo de Seguimiento
+                </Typography>
+                <input 
+                  type="file" 
+                  ref={archivoSeguimientoInputRef} 
+                  style={{ display: 'none' }} 
+                  onChange={handleArchivoSeguimientoSelect} 
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                />
+                {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
+                  <Button 
+                    variant="outlined" 
+                    onClick={() => archivoSeguimientoInputRef.current?.click()}
+                    fullWidth
+                  >
+                    Seleccionar Archivo
+                  </Button>
+                )}
+                {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
+                    </Typography>
+                    <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
             </Box>
           )}
         </DialogContent>

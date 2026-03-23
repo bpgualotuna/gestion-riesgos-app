@@ -2,7 +2,9 @@
  * Application Entry Point
  */
 
+// TEMPORALMENTE DESHABILITADO PARA DEBUG
 // Sin logs en consola en todo el sistema
+/*
 if (typeof console !== 'undefined') {
   ['log', 'info', 'debug', 'warn', 'error'].forEach((m) => {
     const key = m as keyof Console;
@@ -16,6 +18,7 @@ if (typeof console !== 'undefined') {
     }
   });
 }
+*/
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

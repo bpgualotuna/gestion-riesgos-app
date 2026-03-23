@@ -141,6 +141,7 @@ export const ROUTES = {
   RESUMEN_DIRECTOR: '/resumen-director',
   DASHBOARD_SUPERVISOR: '/dashboard-supervisor',
   PLAN_ACCION: '/plan-accion',
+  PLANES_ACCION_GESTION: '/planes-accion',
   EVALUACION_CONTROL: '/evaluacion-control',
   HISTORIAL: '/historial',
   RESUMEN_RIESGOS: '/resumen-riesgos',

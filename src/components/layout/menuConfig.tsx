@@ -17,6 +17,7 @@ import {
   Warning as WarningIcon,
   History as HistoryIcon,
   TrendingUp as TrendingUpIcon,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
 
@@ -36,6 +37,7 @@ export const MAIN_MENU_KEYS: Record<string, string> = {
   'Procesos': 'procesos',
   'Identificación y Calificación': 'identificacion',
   'Controles y Planes de Acción': 'controles',
+  'Gestión de Planes': 'gestionPlanes',
   'Materializar Riesgos': 'materializarRiesgos',
   'Historial': 'historial',
 };
@@ -65,6 +67,7 @@ export const menuItems: MenuItemType[] = [
   },
   { text: 'Identificación y Calificación', icon: <AssessmentIcon />, path: ROUTES.IDENTIFICACION },
   { text: 'Controles y Planes de Acción', icon: <SecurityIcon />, path: ROUTES.PLAN_ACCION },
+  { text: 'Gestión de Planes', icon: <AssignmentIcon />, path: ROUTES.PLANES_ACCION_GESTION },
   { text: 'Materializar Riesgos', icon: <WarningIcon />, path: ROUTES.INCIDENCIAS },
   { text: 'Historial', icon: <HistoryIcon />, path: ROUTES.HISTORIAL },
 ];
