@@ -1146,6 +1146,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               tieneControl: criteriosEvaluacion.tieneControl,
               tipoGestion: 'AMBOS',
               puntajeTotal: pt,
+              evaluacionPreliminar: prel,
               evaluacionDefinitiva: def,
               porcentajeMitigacion: mit,
               frecuenciaResidual: fRes,
@@ -1225,6 +1226,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               tieneControl: criteriosEvaluacion.tieneControl,
               tipoGestion: 'AMBOS', // ← Mantener AMBOS
               puntajeTotal: pt,
+              evaluacionPreliminar: prel,
               evaluacionDefinitiva: def,
               porcentajeMitigacion: mit,
               frecuenciaResidual: fRes,
@@ -1316,7 +1318,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             origenPlanAccion: criteriosEvaluacion.origenPlanAccion,
             tieneControl: criteriosEvaluacion.tieneControl,
             tipoGestion: tipoClasificacion === 'AMBOS' ? 'AMBOS' : 'CONTROL',
-            puntajeTotal: pt, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
+            puntajeTotal: pt, evaluacionPreliminar: prel, evaluacionDefinitiva: def, porcentajeMitigacion: mit,
             frecuenciaResidual: fRes, impactoResidual: iRes,
             calificacionResidual: calRes,
             nivelRiesgoResidual: nivelResidualCausa,
@@ -1546,6 +1548,13 @@ export default function ControlesYPlanesAccionPageNueva() {
     try {
       const tipoActual = (causa.tipoGestion || '').toUpperCase();
       
+      // NUEVO: Eliminar de tablas normalizadas primero
+      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      
       if (tipoActual === 'AMBOS') {
         // Calcular el nuevo estado después de eliminar
         const gestionActual = causa.gestion || {};
@@ -1555,6 +1564,35 @@ export default function ControlesYPlanesAccionPageNueva() {
           controlActivo: contexto === 'CONTROL' ? false : estadoAmbosActual.controlActivo,
           planActivo: contexto === 'PLAN' ? false : estadoAmbosActual.planActivo
         };
+        
+        // NUEVO: Eliminar de tabla normalizada
+        if (contexto === 'CONTROL' && causa.controles?.[0]?.id) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/controles-riesgo/${causa.controles[0].id}`, {
+              method: 'DELETE',
+              headers,
+              credentials: 'include'
+            });
+            if (!response.ok) {
+              console.error('Error al eliminar control de tabla ControlRiesgo');
+            }
+          } catch (error) {
+            console.error('Error al eliminar control:', error);
+          }
+        } else if (contexto === 'PLAN' && causa.planesAccion?.[0]?.id) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/planes-accion/${causa.planesAccion[0].id}`, {
+              method: 'DELETE',
+              headers,
+              credentials: 'include'
+            });
+            if (!response.ok) {
+              console.error('Error al eliminar plan de tabla PlanAccion');
+            }
+          } catch (error) {
+            console.error('Error al eliminar plan:', error);
+          }
+        }
         
         // Si ambos están inactivos, volver a estado sin clasificar
         if (!nuevoEstadoAmbos.controlActivo && !nuevoEstadoAmbos.planActivo) {
@@ -1570,6 +1608,9 @@ export default function ControlesYPlanesAccionPageNueva() {
             tipoGestion: null, // ← Volver a sin clasificar
             gestion: { historial } // Guardar historial para trazabilidad
           }).unwrap();
+          
+          // Invalidar caché para refrescar datos
+          dispatch(riesgosApi.util.invalidateTags(['Riesgos']));
           
           showSuccess('Ambos eliminados. La causa vuelve a estado sin clasificar.');
         } else {
@@ -1618,6 +1659,9 @@ export default function ControlesYPlanesAccionPageNueva() {
             gestion: gestionActualizada
           }).unwrap();
           
+          // Invalidar caché para refrescar datos
+          dispatch(riesgosApi.util.invalidateTags(['Riesgos']));
+          
           showSuccess(
             contexto === 'CONTROL' 
               ? 'Control eliminado. Puede re-agregarlo desde Clasificación.'
@@ -1626,11 +1670,44 @@ export default function ControlesYPlanesAccionPageNueva() {
         }
       } else {
         // Si NO es AMBOS, eliminar completamente la clasificación
+        
+        // NUEVO: Eliminar de tabla normalizada
+        if (contexto === 'CONTROL' && causa.controles?.[0]?.id) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/controles-riesgo/${causa.controles[0].id}`, {
+              method: 'DELETE',
+              headers,
+              credentials: 'include'
+            });
+            if (!response.ok) {
+              console.error('Error al eliminar control de tabla ControlRiesgo');
+            }
+          } catch (error) {
+            console.error('Error al eliminar control:', error);
+          }
+        } else if (contexto === 'PLAN' && causa.planesAccion?.[0]?.id) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/planes-accion/${causa.planesAccion[0].id}`, {
+              method: 'DELETE',
+              headers,
+              credentials: 'include'
+            });
+            if (!response.ok) {
+              console.error('Error al eliminar plan de tabla PlanAccion');
+            }
+          } catch (error) {
+            console.error('Error al eliminar plan:', error);
+          }
+        }
+        
         await updateCausa({
           id: causa.id,
           tipoGestion: null,
           gestion: null
         }).unwrap();
+        
+        // Invalidar caché para refrescar datos
+        dispatch(riesgosApi.util.invalidateTags(['Riesgos']));
         
         showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
       }
