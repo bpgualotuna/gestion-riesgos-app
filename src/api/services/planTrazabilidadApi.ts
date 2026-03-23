@@ -8,7 +8,7 @@ import { AUTH_TOKEN_KEY } from '../../utils/constants';
 
 // Tipos
 export interface CambiarEstadoPlanRequest {
-  estado: 'en_revision' | 'revisado';
+  estado: 'pendiente' | 'en_revision' | 'revisado';
   observacion?: string;
 }
 
@@ -119,7 +119,7 @@ export interface PlanAccionAPI {
   fechaInicio: string | null;
   fechaFin: string | null;
   fechaProgramada: string | null;
-  estado: 'en_revision' | 'revisado';
+  estado: 'pendiente' | 'en_revision' | 'revisado';
   observaciones: string;
   controlDerivadoId: number | null;
   fechaConversion: string | null;
@@ -140,6 +140,7 @@ export interface PlanesAccionResponse {
   planes: PlanAccionAPI[];
   stats: {
     total: number;
+    pendientes: number;
     enRevision: number;
     revisados: number;
   };

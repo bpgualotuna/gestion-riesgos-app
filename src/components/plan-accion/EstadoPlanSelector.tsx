@@ -3,18 +3,21 @@ import { EstadoPlan, EstadoPlanSelectorProps } from '../../types/planAccion.type
 
 // Transiciones válidas de estado
 const VALID_TRANSITIONS: Record<EstadoPlan, EstadoPlan[]> = {
-  en_revision: ['revisado'],
+  pendiente: ['en_revision'],
+  en_revision: ['revisado', 'pendiente'],
   revisado: ['en_revision'],
 };
 
 // Descripciones de cada estado
 const ESTADO_DESCRIPTIONS: Record<EstadoPlan, string> = {
+  pendiente: 'El plan está pendiente de revisión',
   en_revision: 'El plan está siendo revisado',
-  revisado: 'El plan ha sido revisado',
+  revisado: 'El plan ha sido revisado y aprobado',
 };
 
 // Etiquetas amigables para cada estado
 const ESTADO_LABELS: Record<EstadoPlan, string> = {
+  pendiente: 'Pendiente',
   en_revision: 'En Revisión',
   revisado: 'Revisado',
 };
@@ -26,6 +29,7 @@ export const EstadoPlanSelector: React.FC<EstadoPlanSelectorProps> = ({
 }) => {
   const estadosValidos = VALID_TRANSITIONS[estadoActual] || [];
   const todosLosEstados: EstadoPlan[] = [
+    'pendiente',
     'en_revision',
     'revisado',
   ];

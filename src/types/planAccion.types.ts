@@ -1,6 +1,7 @@
 // Tipos para el sistema de trazabilidad y evolución de Planes de Acción
 
 export type EstadoPlan =
+  | 'pendiente'
   | 'en_revision'
   | 'revisado';
 

@@ -68,6 +68,7 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, useGetConfiguracionResidualQuery, useGetFrecuenciasQuery, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO, AUTH_TOKEN_KEY } from '../../utils/constants';
+import { formatDateISO } from '../../utils/formatters';
 import {
   calcularRiesgoInherente,
   calcularPuntajeControl,
@@ -302,13 +303,36 @@ export default function ControlesYPlanesAccionPageNueva() {
   const riesgosDelProceso = useMemo(() => {
     if (!procesoSeleccionado?.id) return [];
     const data = ((riesgosApiData as any)?.data || []) as any[];
-    return data.map((riesgo) => ({
-      ...riesgo,
-      causas: (riesgo.causas || []).map((causa: any) => ({
-        ...causa,
-        ...(causa.gestion || {})
-      }))
-    }));
+    
+    console.log('🔵 [RIESGOS DEL PROCESO] Total riesgos:', data.length);
+    console.log('🔵 [RIESGOS DEL PROCESO] Primer riesgo:', data[0]);
+    
+    const resultado = data.map((riesgo) => {
+      const causasConRelaciones = (riesgo.causas || []).map((causa: any) => {
+        console.log('🔵 [CAUSA]', {
+          causaId: causa.id,
+          tipoGestion: causa.tipoGestion,
+          tieneControles: !!causa.controles,
+          controlesLength: causa.controles?.length,
+          tienePlanes: !!causa.planesAccion,
+          planesLength: causa.planesAccion?.length,
+          puntajeTotal: causa.puntajeTotal
+        });
+        
+        return {
+          ...causa,
+          ...(causa.gestion || {})
+        };
+      });
+      
+      return {
+        ...riesgo,
+        causas: causasConRelaciones
+      };
+    });
+    
+    console.log('🔵 [RIESGOS DEL PROCESO] Resultado procesado:', resultado.length);
+    return resultado;
   }, [procesoSeleccionado?.id, riesgosApiData]);
 
   useEffect(() => {
@@ -386,10 +410,20 @@ export default function ControlesYPlanesAccionPageNueva() {
   }, [riesgosDelProceso]);
 
   const riesgosConPlanes = useMemo(() => {
-    return riesgosDelProceso.map((r: any) => ({
+    console.log('🔍 [PLANES] Filtrando planes desde riesgosDelProceso:', riesgosDelProceso.length);
+    
+    const resultado = riesgosDelProceso.map((r: any) => ({
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || '').toUpperCase();
+        
+        console.log('🔍 [CAUSA PLAN]', {
+          causaId: c.id,
+          tipoGestion: c.tipoGestion,
+          tipoCalculado: tipo,
+          tienePlanes: !!c.planesAccion,
+          planesLength: c.planesAccion?.length
+        });
         
         if (tipo === 'PLAN') return true;
         
@@ -401,13 +435,27 @@ export default function ControlesYPlanesAccionPageNueva() {
         return false;
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
+    
+    console.log('🔍 [PLANES] Resultado final:', resultado.length, 'riesgos con planes');
+    return resultado;
   }, [riesgosDelProceso]);
 
   const riesgosConControles = useMemo(() => {
-    return riesgosDelProceso.map((r: any) => ({
+    console.log('🔍 [CONTROLES] Filtrando controles desde riesgosDelProceso:', riesgosDelProceso.length);
+    
+    const resultado = riesgosDelProceso.map((r: any) => ({
       ...r,
       causas: (r.causas || []).filter((c: any) => {
         const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : 'PENDIENTE')).toUpperCase();
+        
+        console.log('🔍 [CAUSA]', {
+          causaId: c.id,
+          tipoGestion: c.tipoGestion,
+          puntajeTotal: c.puntajeTotal,
+          tipoCalculado: tipo,
+          tieneControles: !!c.controles,
+          controlesLength: c.controles?.length
+        });
         
         if (tipo === 'CONTROL') return true;
         
@@ -419,6 +467,9 @@ export default function ControlesYPlanesAccionPageNueva() {
         return false;
       })
     })).filter((r: any) => r.causas && r.causas.length > 0);
+    
+    console.log('🔍 [CONTROLES] Resultado final:', resultado.length, 'riesgos con controles');
+    return resultado;
   }, [riesgosDelProceso]);
 
   // Ordenamiento para las listas de riesgos en las pestañas
@@ -2700,18 +2751,21 @@ export default function ControlesYPlanesAccionPageNueva() {
                             <TableBody>
                               {riesgo.causas.map((causa: any) => {
                                 // Crear objeto detalle con toda la información del control
+                                // Obtener el control desde la relación controles o desde los campos legacy
+                                const control = causa.controles?.[0] || {};
+                                
                                 const detalleControl: any = {
                                   ...causa,
                                   descripcion: causa.descripcion,
                                   fuenteCausa: causa.fuenteCausa,
                                   frecuencia: causa.frecuencia,
                                   calificacionGlobalImpacto: causa.calificacionGlobalImpacto,
-                                  controlDescripcion: causa.controlDescripcion || causa.gestion?.controlDescripcion,
-                                  controlTipo: causa.controlTipo || causa.gestion?.controlTipo,
-                                  // La fuente de verdad es siempre gestion.evaluacionDefinitiva; usar campo plano solo como fallback
-                                  evaluacionDefinitiva: causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva,
-                                  puntajeTotal: causa.puntajeTotal || causa.gestion?.puntajeTotal,
-                                  porcentajeMitigacion: causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
+                                  // Priorizar datos de la tabla ControlRiesgo
+                                  controlDescripcion: control.descripcionControl || control.descripcion || causa.controlDescripcion || causa.gestion?.controlDescripcion,
+                                  controlTipo: control.tipoControl || causa.controlTipo || causa.gestion?.controlTipo,
+                                  evaluacionDefinitiva: control.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva,
+                                  puntajeTotal: control.puntajeControl || causa.puntajeTotal || causa.gestion?.puntajeTotal,
+                                  porcentajeMitigacion: control.estandarizacionPorcentajeMitigacion || causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
                                   frecuenciaResidual: causa.frecuenciaResidual || causa.gestion?.frecuenciaResidual,
                                   impactoResidual: causa.impactoResidual || causa.gestion?.impactoResidual,
                                   riesgoResidual: causa.riesgoResidual || causa.calificacionResidual || causa.gestion?.riesgoResidual || causa.gestion?.calificacionResidual,
@@ -2732,9 +2786,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   }}
                                 >
                                   <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
-                                  <TableCell>{causa.controlDescripcion || causa.gestion?.controlDescripcion || 'Sin descripción'}</TableCell>
+                                  <TableCell>{control.descripcionControl || control.descripcion || causa.controlDescripcion || causa.gestion?.controlDescripcion || 'Sin descripción'}</TableCell>
                                   <TableCell align="center">
-                                    {causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva || 'Sin evaluar'}
+                                    {control.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva || 'Sin evaluar'}
                                   </TableCell>
                                   <TableCell align="center">
                                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
@@ -3424,17 +3478,22 @@ export default function ControlesYPlanesAccionPageNueva() {
                             </TableHead>
                             <TableBody>
                               {riesgo.causas.map((causa: any) => {
+                                // Obtener el plan desde la relación planesAccion o desde los campos legacy
+                                const plan = causa.planesAccion?.[0] || {};
+                                
                                 const detallePlan: any = {
                                   ...causa,
                                   descripcion: causa.descripcion,
                                   fuenteCausa: causa.fuenteCausa,
                                   frecuencia: causa.frecuencia,
-                                  planDescripcion: causa.planDescripcion || causa.gestion?.planDescripcion,
-                                  planDetalle: causa.planDetalle || causa.gestion?.planDetalle,
-                                  planResponsable: causa.planResponsable || causa.gestion?.planResponsable,
-                                  planDecision: causa.planDecision || causa.gestion?.planDecision,
-                                  planFechaEstimada: causa.planFechaEstimada || causa.gestion?.planFechaEstimada,
-                                  planEstado: causa.planEstado || causa.gestion?.planEstado,
+                                  // Priorizar datos de la tabla PlanAccion
+                                  planDescripcion: plan.descripcion || causa.planDescripcion || causa.gestion?.planDescripcion,
+                                  planDetalle: plan.observaciones || causa.planDetalle || causa.gestion?.planDetalle,
+                                  planResponsable: plan.responsable || causa.planResponsable || causa.gestion?.planResponsable,
+                                  planDecision: plan.decision || causa.planDecision || causa.gestion?.planDecision,
+                                  planFechaEstimada: plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || causa.gestion?.planFechaEstimada,
+                                  planEstado: plan.estado || causa.planEstado || causa.gestion?.planEstado,
+                                  planEvidencia: plan.evidencia || causa.planEvidencia || causa.gestion?.planEvidencia,
                                   tipo: causa.tipoGestion || 'PLAN'
                                 };
                                 
@@ -3449,9 +3508,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       }}
                                     >
                                     <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
-                                      <TableCell sx={{ maxWidth: 360 }}>{causa.planDetalle || causa.gestion?.planDetalle || causa.planDescripcion || causa.gestion?.planDescripcion || 'Sin descripción'}</TableCell>
-                                      <TableCell>{causa.planResponsable || causa.gestion?.planResponsable || 'N/A'}</TableCell>
-                                      <TableCell align="center">{causa.planFechaEstimada || causa.gestion?.planFechaEstimada || 'N/A'}</TableCell>
+                                      <TableCell sx={{ maxWidth: 360 }}>{plan.observaciones || plan.descripcion || causa.planDetalle || causa.gestion?.planDetalle || causa.planDescripcion || causa.gestion?.planDescripcion || 'Sin descripción'}</TableCell>
+                                      <TableCell>{plan.responsable || causa.planResponsable || causa.gestion?.planResponsable || 'N/A'}</TableCell>
+                                      <TableCell align="center">{formatDateISO(plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || causa.gestion?.planFechaEstimada) || 'N/A'}</TableCell>
                                     <TableCell align="center">
                                         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                                           <IconButton
@@ -3846,9 +3905,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                         Fecha Estimada
                       </Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {(itemDetalle as any).planFechaEstimada ||
+                        {formatDateISO((itemDetalle as any).planFechaEstimada ||
                           (itemDetalle as any).gestion?.planFechaEstimada ||
-                          causaDetalleView?.causa?.planFechaEstimada ||
+                          causaDetalleView?.causa?.planFechaEstimada) ||
                           'N/A'}
                       </Typography>
                     </Box>

@@ -25,6 +25,7 @@ import { useState, useEffect } from 'react';
 
 // Colores para cada estado
 const ESTADO_COLORS: Record<EstadoPlan, 'default' | 'primary' | 'warning' | 'success' | 'secondary'> = {
+  pendiente: 'warning',
   en_revision: 'primary',
   revisado: 'success',
 };

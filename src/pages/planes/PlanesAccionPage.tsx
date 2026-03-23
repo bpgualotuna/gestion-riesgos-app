@@ -71,6 +71,7 @@ export const PlanesAccionPage = () => {
   const planes = data?.planes || [];
   const stats = data?.stats || {
     total: 0,
+    pendientes: 0,
     enRevision: 0,
     revisados: 0,
   };
@@ -82,6 +83,7 @@ export const PlanesAccionPage = () => {
   );
 
   // Obtener planes por estado
+  const planesPendientes = planesFiltrados.filter((p) => p.estado === 'pendiente');
   const planesEnRevision = planesFiltrados.filter((p) => p.estado === 'en_revision');
   const planesRevisados = planesFiltrados.filter((p) => p.estado === 'revisado');
 
@@ -95,6 +97,7 @@ export const PlanesAccionPage = () => {
       
       // Mapear estado del frontend al backend
       const estadoMap: Record<EstadoPlan, string> = {
+        'pendiente': 'pendiente',
         'en_revision': 'en_revision',
         'revisado': 'revisado'
       };
@@ -276,6 +279,13 @@ export const PlanesAccionPage = () => {
             />
             <Tab
               label={
+                <Badge badgeContent={stats.pendientes} color="warning">
+                  Pendientes
+                </Badge>
+              }
+            />
+            <Tab
+              label={
                 <Badge badgeContent={stats.enRevision} color="primary">
                   En Revisión
                 </Badge>
@@ -296,9 +306,12 @@ export const PlanesAccionPage = () => {
           {renderPlanes(planesFiltrados)}
         </TabPanel>
         <TabPanel value={tabValue} index={1}>
-          {renderPlanes(planesEnRevision)}
+          {renderPlanes(planesPendientes)}
         </TabPanel>
         <TabPanel value={tabValue} index={2}>
+          {renderPlanes(planesEnRevision)}
+        </TabPanel>
+        <TabPanel value={tabValue} index={3}>
           {renderPlanes(planesRevisados)}
         </TabPanel>
       </Box>
