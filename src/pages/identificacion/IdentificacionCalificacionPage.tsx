@@ -2361,9 +2361,14 @@ export default function IdentificacionPage() {
       }} maxWidth="xs" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
-              {causaEditando ? 'Editar Causa' : 'Agregar Causa'}
-            </Typography>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                {causaEditando ? 'Editar Causa' : 'Agregar Causa'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, maxWidth: 450 }}>
+                Conjunto de sucesos que se consideran como fundamento u origen de un evento de riesgo. Máximo 4 por riesgo
+              </Typography>
+            </Box>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Button
                 onClick={() => {
