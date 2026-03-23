@@ -965,6 +965,7 @@ export default function ControlesYPlanesAccionPageNueva() {
    */
   const guardarPlanEnTabla = async (
     causaId: number,
+    riesgoId: string,
     planData: any,
     planExistente?: any
   ) => {
@@ -1002,8 +1003,8 @@ export default function ControlesYPlanesAccionPageNueva() {
 
         return await response.json();
       } else {
-        // Crear nuevo plan
-        const response = await fetch(`${API_BASE_URL}/planes-accion/riesgo/${causaId}`, {
+        // Crear nuevo plan - USAR riesgoId en la URL
+        const response = await fetch(`${API_BASE_URL}/planes-accion/riesgo/${riesgoId}`, {
           method: 'POST',
           headers,
           credentials: 'include',
@@ -1491,7 +1492,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               detalle: formPlan.detalle
             };
 
-            await guardarPlanEnTabla(causaIdEvaluacion, planData, planExistente);
+            await guardarPlanEnTabla(causaIdEvaluacion, riesgoIdEvaluacion, planData, planExistente);
             console.log('✅ Plan guardado en PlanAccion');
           }
         } catch (error) {
