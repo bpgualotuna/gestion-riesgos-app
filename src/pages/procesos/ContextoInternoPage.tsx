@@ -294,17 +294,63 @@ export default function ContextoInternoPage() {
     const existingExternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('EXTERNO_')) || [];
 
     const currentDofa = (Array.isArray(dofaItems) ? [...dofaItems] : []) as Array<{ tipo: string; descripcion: string }>;
-    const descInDofa = new Set(currentDofa.map((d) => `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`));
+    
+    // Crear un mapa de textos antiguos a nuevos para actualizar DOFA
+    const textosAntiguosANuevos = new Map<string, { nuevoTexto: string; dimension: string }>();
+    
+    // Comparar con los valores iniciales para detectar cambios de texto
+    CATEGORIAS.forEach(({ key }) => {
+      // Positivos
+      itemsPositivo[key].forEach((itemActual) => {
+        const itemInicial = initialPositivo[key].find(i => i.id === itemActual.id);
+        if (itemInicial && itemInicial.descripcion.trim() !== itemActual.descripcion.trim()) {
+          // El texto cambió, verificar si el texto antiguo está en DOFA
+          const textoAntiguo = itemInicial.descripcion.trim().toLowerCase();
+          const textoNuevo = itemActual.descripcion.trim();
+          const enDofa = dofaItems?.find((d: any) => (d.descripcion || '').trim().toLowerCase() === textoAntiguo);
+          if (enDofa) {
+            textosAntiguosANuevos.set(`${enDofa.tipo}:${textoAntiguo}`, { nuevoTexto: textoNuevo, dimension: enDofa.tipo });
+          }
+        }
+      });
+      
+      // Negativos
+      itemsNegativo[key].forEach((itemActual) => {
+        const itemInicial = initialNegativo[key].find(i => i.id === itemActual.id);
+        if (itemInicial && itemInicial.descripcion.trim() !== itemActual.descripcion.trim()) {
+          const textoAntiguo = itemInicial.descripcion.trim().toLowerCase();
+          const textoNuevo = itemActual.descripcion.trim();
+          const enDofa = dofaItems?.find((d: any) => (d.descripcion || '').trim().toLowerCase() === textoAntiguo);
+          if (enDofa) {
+            textosAntiguosANuevos.set(`${enDofa.tipo}:${textoAntiguo}`, { nuevoTexto: textoNuevo, dimension: enDofa.tipo });
+          }
+        }
+      });
+    });
+    
+    // Actualizar textos en DOFA que fueron editados
+    const dofaActualizado = currentDofa.map((d) => {
+      const key = `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`;
+      const cambio = textosAntiguosANuevos.get(key);
+      if (cambio) {
+        return { tipo: d.tipo, descripcion: cambio.nuevoTexto };
+      }
+      return d;
+    });
+    
+    // Agregar nuevos items marcados para enviar a DOFA
+    const descInDofa = new Set(dofaActualizado.map((d) => `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`));
     itemsInterno.forEach((it) => {
       if (it.enviarADofa && it.dofaDimension && it.descripcion) {
         const key = `${it.dofaDimension}:${it.descripcion.trim().toLowerCase()}`;
         if (!descInDofa.has(key)) {
-          currentDofa.push({ tipo: it.dofaDimension, descripcion: it.descripcion });
+          dofaActualizado.push({ tipo: it.dofaDimension, descripcion: it.descripcion });
           descInDofa.add(key);
         }
       }
     });
-    const dofaPayload = currentDofa.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
+    
+    const dofaPayload = dofaActualizado.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
 
     try {
       setIsSaving(true);
@@ -317,6 +363,8 @@ export default function ContextoInternoPage() {
       setInitialPositivo(itemsPositivo);
       setInitialNegativo(itemsNegativo);
       markAsSaved();
+      // Refrescar datos para que getDofaStatus use los nuevos textos
+      await refetchProceso();
       showSuccess('Contexto interno guardado.');
     } catch {
       showError('Error al guardar.');

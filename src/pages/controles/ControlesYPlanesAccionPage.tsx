@@ -880,6 +880,149 @@ export default function ControlesYPlanesAccionPageNueva() {
     }
   };
 
+  /**
+   * Guarda o actualiza un control en la tabla ControlRiesgo
+   */
+  const guardarControlEnTabla = async (
+    causaId: number,
+    controlData: any,
+    controlExistente?: any
+  ) => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+
+    // Mapear desviaciones de letra a número
+    const desviacionesNumero = 
+      controlData.desviaciones === 'A' ? 100 :
+      controlData.desviaciones === 'B' ? 75 :
+      controlData.desviaciones === 'C' ? 50 :
+      controlData.desviaciones === 'D' ? 25 : 100;
+
+    const payload = {
+      descripcion: controlData.descripcionControl || '',
+      tipoControl: 'PREVENTIVO',
+      responsable: controlData.responsable,
+      aplicabilidad: controlData.puntajeAplicabilidad || 0,
+      cobertura: controlData.puntajeCobertura || 0,
+      facilidadUso: controlData.puntajeFacilidad || 0,
+      segregacion: controlData.puntajeSegregacion || 0,
+      naturaleza: controlData.puntajeNaturaleza || 0,
+      desviaciones: desviacionesNumero,
+      puntajeControl: controlData.puntajeTotal || 0,
+      evaluacionPreliminar: controlData.evaluacionPreliminar,
+      evaluacionDefinitiva: controlData.evaluacionDefinitiva,
+      estandarizacionPorcentajeMitigacion: Math.round((controlData.porcentajeMitigacion || 0) * 100),
+      disminuyeFrecuenciaImpactoAmbas: controlData.tipoMitigacion,
+      descripcionControl: controlData.descripcionControl,
+      recomendacion: controlData.recomendacion || '',
+      tipoMitigacion: controlData.tipoMitigacion,
+      estadoAmbos: controlData.estadoAmbos
+    };
+
+    try {
+      if (controlExistente) {
+        // Actualizar control existente
+        const response = await fetch(`${API_BASE_URL}/controles-riesgo/${controlExistente.id}`, {
+          method: 'PUT',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Error al actualizar control');
+        }
+
+        return await response.json();
+      } else {
+        // Crear nuevo control
+        const response = await fetch(`${API_BASE_URL}/controles-riesgo/causa/${causaId}`, {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Error al crear control');
+        }
+
+        return await response.json();
+      }
+    } catch (error) {
+      console.error('Error guardando control:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Guarda o actualiza un plan de acción en la tabla PlanAccion
+   */
+  const guardarPlanEnTabla = async (
+    causaId: number,
+    planData: any,
+    planExistente?: any
+  ) => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+
+    const payload = {
+      causaRiesgoId: causaId,
+      descripcion: planData.descripcion || '',
+      responsable: planData.responsable,
+      fechaInicio: null,
+      fechaFin: planData.fechaEstimada || null,
+      estado: planData.estado || 'pendiente',
+      observaciones: planData.detalle || '',
+      tipoGestion: 'PLAN'
+    };
+
+    try {
+      if (planExistente) {
+        // Actualizar plan existente
+        const response = await fetch(`${API_BASE_URL}/planes-accion/${planExistente.id}`, {
+          method: 'PUT',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Error al actualizar plan');
+        }
+
+        return await response.json();
+      } else {
+        // Crear nuevo plan
+        const response = await fetch(`${API_BASE_URL}/planes-accion/riesgo/${causaId}`, {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Error al crear plan');
+        }
+
+        return await response.json();
+      }
+    } catch (error) {
+      console.error('Error guardando plan:', error);
+      throw error;
+    }
+  };
+
   const getRiesgoNombre = (riesgoId: string) => {
     const r = riesgosDelProceso.find((r: any) => r.id === riesgoId);
     return r?.nombre || r?.descripcionRiesgo || riesgoId;
@@ -1303,6 +1446,57 @@ export default function ControlesYPlanesAccionPageNueva() {
         nivelRiesgoResidual = 'Medio';
       } else if (maxRiesgoResidual >= 1 && maxRiesgoResidual <= 4) {
         nivelRiesgoResidual = 'Bajo';
+      }
+
+      // NUEVO: Guardar en tablas normalizadas (ControlRiesgo y PlanAccion)
+      if (causaActualizada) {
+        try {
+          // Guardar control si aplica
+          if (tipoClasificacion === 'CONTROL' || tipoClasificacion === 'AMBOS') {
+            const controlExistente = causaActualizada.controles?.[0];
+            
+            const controlData = {
+              descripcionControl: criteriosEvaluacion.descripcionControl,
+              responsable: criteriosEvaluacion.responsable,
+              puntajeAplicabilidad: criteriosEvaluacion.puntajeAplicabilidad,
+              puntajeCobertura: criteriosEvaluacion.puntajeCobertura,
+              puntajeFacilidad: criteriosEvaluacion.puntajeFacilidad,
+              puntajeSegregacion: criteriosEvaluacion.puntajeSegregacion,
+              puntajeNaturaleza: criteriosEvaluacion.puntajeNaturaleza,
+              desviaciones: criteriosEvaluacion.desviaciones,
+              puntajeTotal: causaActualizada.puntajeTotal,
+              evaluacionPreliminar: causaActualizada.evaluacionPreliminar || 'Inefectivo',
+              evaluacionDefinitiva: causaActualizada.evaluacionDefinitiva,
+              porcentajeMitigacion: causaActualizada.porcentajeMitigacion,
+              tipoMitigacion: criteriosEvaluacion.tipoMitigacion,
+              recomendacion: criteriosEvaluacion.recomendacion,
+              estadoAmbos: tipoClasificacion === 'AMBOS' ? 'ACTIVO' : null
+            };
+
+            await guardarControlEnTabla(causaIdEvaluacion, controlData, controlExistente);
+            console.log('✅ Control guardado en ControlRiesgo');
+          }
+
+          // Guardar plan si aplica
+          if (tipoClasificacion === 'PLAN' || tipoClasificacion === 'AMBOS') {
+            const planExistente = causaActualizada.planesAccion?.[0];
+            
+            const planData = {
+              descripcion: formPlan.descripcion,
+              responsable: formPlan.responsable,
+              fechaEstimada: formPlan.fechaEstimada,
+              estado: formPlan.estado,
+              detalle: formPlan.detalle
+            };
+
+            await guardarPlanEnTabla(causaIdEvaluacion, planData, planExistente);
+            console.log('✅ Plan guardado en PlanAccion');
+          }
+        } catch (error) {
+          console.error('❌ Error guardando en tablas normalizadas:', error);
+          showError('Error al guardar: ' + (error as Error).message);
+          return; // No continuar si falla el guardado
+        }
       }
 
       try {
@@ -2423,37 +2617,40 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
                                                       <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
-                                                      <Box>
-                                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                                                          Archivo de Seguimiento
-                                                        </Typography>
-                                                        <input 
-                                                          type="file" 
-                                                          ref={archivoSeguimientoInputRef} 
-                                                          style={{ display: 'none' }} 
-                                                          onChange={handleArchivoSeguimientoSelect} 
-                                                          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
-                                                        />
-                                                        {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
-                                                          <Button 
-                                                            variant="outlined" 
-                                                            onClick={() => archivoSeguimientoInputRef.current?.click()}
-                                                            fullWidth
-                                                          >
-                                                            Seleccionar Archivo
-                                                          </Button>
-                                                        )}
-                                                        {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
-                                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                                                            <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                              {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
-                                                            </Typography>
-                                                            <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
-                                                              <DeleteIcon fontSize="small" />
-                                                            </IconButton>
-                                                          </Box>
-                                                        )}
-                                                      </Box>
+                                                      {/* Solo mostrar archivo de seguimiento si es un plan existente (edición) */}
+                                                      {(causa.planDescripcion || causa.tipoGestion === 'PLAN' || causa.tipoGestion === 'AMBOS') && (
+                                                        <Box>
+                                                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                                            Archivo de Seguimiento
+                                                          </Typography>
+                                                          <input 
+                                                            type="file" 
+                                                            ref={archivoSeguimientoInputRef} 
+                                                            style={{ display: 'none' }} 
+                                                            onChange={handleArchivoSeguimientoSelect} 
+                                                            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                                                          />
+                                                          {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
+                                                            <Button 
+                                                              variant="outlined" 
+                                                              onClick={() => archivoSeguimientoInputRef.current?.click()}
+                                                              fullWidth
+                                                            >
+                                                              Seleccionar Archivo
+                                                            </Button>
+                                                          )}
+                                                          {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                                                              <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
+                                                              </Typography>
+                                                              <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
+                                                                <DeleteIcon fontSize="small" />
+                                                              </IconButton>
+                                                            </Box>
+                                                          )}
+                                                        </Box>
+                                                      )}
                                                     </Box>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                       <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
@@ -2753,6 +2950,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 // Crear objeto detalle con toda la información del control
                                 // Obtener el control desde la relación controles o desde los campos legacy
                                 const control = causa.controles?.[0] || {};
+                                // Obtener el plan desde la relación planesAccion o desde los campos legacy
+                                const plan = causa.planesAccion?.[0] || {};
                                 
                                 const detalleControl: any = {
                                   ...causa,
@@ -2771,6 +2970,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   riesgoResidual: causa.riesgoResidual || causa.calificacionResidual || causa.gestion?.riesgoResidual || causa.gestion?.calificacionResidual,
                                   nivelRiesgoResidual: causa.nivelRiesgoResidual || causa.gestion?.nivelRiesgoResidual,
                                   impactosResiduales: causa.impactosResiduales || causa.gestion?.impactosResiduales,
+                                  // Agregar datos del plan desde la tabla PlanAccion
+                                  planDescripcion: plan.descripcion || causa.planDescripcion || causa.gestion?.planDescripcion,
+                                  planDetalle: plan.observaciones || causa.planDetalle || causa.gestion?.planDetalle,
+                                  planResponsable: plan.responsable || causa.planResponsable || causa.gestion?.planResponsable,
+                                  planDecision: causa.planDecision || causa.gestion?.planDecision,
+                                  planFechaEstimada: plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || causa.gestion?.planFechaEstimada,
+                                  planEstado: plan.estado || causa.planEstado || causa.gestion?.planEstado,
+                                  planEvidencia: plan.evidencia || causa.planEvidencia || causa.gestion?.planEvidencia,
                                   tipo: causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')
                                 };
                                 
@@ -3480,12 +3687,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                               {riesgo.causas.map((causa: any) => {
                                 // Obtener el plan desde la relación planesAccion o desde los campos legacy
                                 const plan = causa.planesAccion?.[0] || {};
+                                // Obtener el control desde la relación controles o desde los campos legacy
+                                const control = causa.controles?.[0] || {};
                                 
                                 const detallePlan: any = {
                                   ...causa,
                                   descripcion: causa.descripcion,
                                   fuenteCausa: causa.fuenteCausa,
                                   frecuencia: causa.frecuencia,
+                                  calificacionGlobalImpacto: causa.calificacionGlobalImpacto,
                                   // Priorizar datos de la tabla PlanAccion
                                   planDescripcion: plan.descripcion || causa.planDescripcion || causa.gestion?.planDescripcion,
                                   planDetalle: plan.observaciones || causa.planDetalle || causa.gestion?.planDetalle,
@@ -3494,6 +3704,17 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   planFechaEstimada: plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || causa.gestion?.planFechaEstimada,
                                   planEstado: plan.estado || causa.planEstado || causa.gestion?.planEstado,
                                   planEvidencia: plan.evidencia || causa.planEvidencia || causa.gestion?.planEvidencia,
+                                  // Agregar datos del control desde la tabla ControlRiesgo
+                                  controlDescripcion: control.descripcionControl || control.descripcion || causa.controlDescripcion || causa.gestion?.controlDescripcion,
+                                  controlTipo: control.tipoControl || causa.controlTipo || causa.gestion?.controlTipo,
+                                  evaluacionDefinitiva: control.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva,
+                                  puntajeTotal: control.puntajeControl || causa.puntajeTotal || causa.gestion?.puntajeTotal,
+                                  porcentajeMitigacion: control.estandarizacionPorcentajeMitigacion || causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
+                                  frecuenciaResidual: causa.frecuenciaResidual || causa.gestion?.frecuenciaResidual,
+                                  impactoResidual: causa.impactoResidual || causa.gestion?.impactoResidual,
+                                  riesgoResidual: causa.riesgoResidual || causa.calificacionResidual || causa.gestion?.riesgoResidual || causa.gestion?.calificacionResidual,
+                                  nivelRiesgoResidual: causa.nivelRiesgoResidual || causa.gestion?.nivelRiesgoResidual,
+                                  impactosResiduales: causa.impactosResiduales || causa.gestion?.impactosResiduales,
                                   tipo: causa.tipoGestion || 'PLAN'
                                 };
                                 
@@ -3569,37 +3790,40 @@ export default function ControlesYPlanesAccionPageNueva() {
                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
                                                 <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
-                                                <Box>
-                                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                                                    Archivo de Seguimiento
-                                                  </Typography>
-                                                  <input 
-                                                    type="file" 
-                                                    ref={archivoSeguimientoInputRef} 
-                                                    style={{ display: 'none' }} 
-                                                    onChange={handleArchivoSeguimientoSelect} 
-                                                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
-                                                  />
-                                                  {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
-                                                    <Button 
-                                                      variant="outlined" 
-                                                      onClick={() => archivoSeguimientoInputRef.current?.click()}
-                                                      fullWidth
-                                                    >
-                                                      Seleccionar Archivo
-                                                    </Button>
-                                                  )}
-                                                  {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                                                      <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
-                                                      </Typography>
-                                                      <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
-                                                        <DeleteIcon fontSize="small" />
-                                                      </IconButton>
-                                                    </Box>
-                                                  )}
-                                                </Box>
+                                                {/* Solo mostrar archivo de seguimiento si es un plan existente (edición) */}
+                                                {(causa.planDescripcion || causa.tipoGestion === 'PLAN' || causa.tipoGestion === 'AMBOS') && (
+                                                  <Box>
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                                      Archivo de Seguimiento
+                                                    </Typography>
+                                                    <input 
+                                                      type="file" 
+                                                      ref={archivoSeguimientoInputRef} 
+                                                      style={{ display: 'none' }} 
+                                                      onChange={handleArchivoSeguimientoSelect} 
+                                                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                                                    />
+                                                    {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
+                                                      <Button 
+                                                        variant="outlined" 
+                                                        onClick={() => archivoSeguimientoInputRef.current?.click()}
+                                                        fullWidth
+                                                      >
+                                                        Seleccionar Archivo
+                                                      </Button>
+                                                    )}
+                                                    {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
+                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                                                        <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                          {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
+                                                        </Typography>
+                                                        <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
+                                                          <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                      </Box>
+                                                    )}
+                                                  </Box>
+                                                )}
                                               </Box>
                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
@@ -4037,37 +4261,40 @@ export default function ControlesYPlanesAccionPageNueva() {
                 value={formPlan.decision}
                 onChange={e => setFormPlan({ ...formPlan, decision: e.target.value })}
               />
-              <Box>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                  Archivo de Seguimiento
-                </Typography>
-                <input 
-                  type="file" 
-                  ref={archivoSeguimientoInputRef} 
-                  style={{ display: 'none' }} 
-                  onChange={handleArchivoSeguimientoSelect} 
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
-                />
-                {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
-                  <Button 
-                    variant="outlined" 
-                    onClick={() => archivoSeguimientoInputRef.current?.click()}
-                    fullWidth
-                  >
-                    Seleccionar Archivo
-                  </Button>
-                )}
-                {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
-                    </Typography>
-                    <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </Box>
+              {/* Solo mostrar archivo de seguimiento si es un plan existente (edición) */}
+              {causaEnEdicion?.clasificacion && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                    Archivo de Seguimiento
+                  </Typography>
+                  <input 
+                    type="file" 
+                    ref={archivoSeguimientoInputRef} 
+                    style={{ display: 'none' }} 
+                    onChange={handleArchivoSeguimientoSelect} 
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                  />
+                  {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
+                    <Button 
+                      variant="outlined" 
+                      onClick={() => archivoSeguimientoInputRef.current?.click()}
+                      fullWidth
+                    >
+                      Seleccionar Archivo
+                    </Button>
+                  )}
+                  {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                      <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
+                      </Typography>
+                      <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
