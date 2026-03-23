@@ -136,8 +136,8 @@ const handleAlertasClose = () => {
 Para probar la funcionalidad:
 
 1. Iniciar sesión con usuario operativo (no admin):
-   - Email: `vbarahona@comware.com.ec`
-   - Password: `Vini2026`
+   - Email: `usuario@ejemplo.com`
+   - Password: `password_de_prueba`
 
 2. Verificar que aparece campana naranja en AppBar
 

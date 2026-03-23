@@ -86,7 +86,7 @@ function mapearPersonas(csvData) {
       nombre: row.Nombre || '',
       cargo: row.Cargo || '',
       activo: row.Activo === true || row.Activo === 'True' || row.Activo === 'true',
-      email: `${(row.Nombre || 'usuario').toLowerCase().replace(/\s+/g, '.')}@comware.com`,
+      email: `${(row.Nombre || 'usuario').toLowerCase().replace(/\s+/g, '.')}@ejemplo.com`,
       role: row.Cargo?.includes('Director') ? 'manager' : 'owner',
     };
   }).filter(p => p.nombre);
@@ -232,32 +232,32 @@ function migrarDatos() {
     db.usuarios = [
       {
         id: "1",
-        email: "admin@comware.com",
-        password: "admin123",
+        email: "admin@ejemplo.com",
+        password: "password123",
         fullName: "Administrador",
         role: "admin",
         position: "Administrador del Sistema"
       },
       {
         id: "2",
-        email: "owner@comware.com",
-        password: "owner123",
+        email: "owner@ejemplo.com",
+        password: "password123",
         fullName: "Katherine Chavez",
         role: "owner",
         position: "Dueño de Procesos"
       },
       {
         id: "3",
-        email: "manager@comware.com",
-        password: "manager123",
+        email: "manager@ejemplo.com",
+        password: "password123",
         fullName: "Marco Alvarado",
         role: "manager",
         position: "Gerente"
       },
       {
         id: "4",
-        email: "director@comware.com",
-        password: "director123",
+        email: "director@ejemplo.com",
+        password: "password123",
         fullName: "Carlos Rodríguez",
         role: "director",
         position: "Director de Procesos"

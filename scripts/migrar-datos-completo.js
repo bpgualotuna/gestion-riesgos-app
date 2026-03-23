@@ -127,7 +127,7 @@ function migrarDatosCompleto() {
     nombre: row.Nombre || '',
     cargo: row.Cargo || '',
     activo: row.Activo === true || row.Activo === 'True',
-    email: `${(row.Nombre || 'usuario').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '')}@comware.com`,
+    email: `${(row.Nombre || 'usuario').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '')}@ejemplo.com`,
     role: row.Cargo?.includes('Director') ? 'manager' : 'owner',
   })).filter(p => p.nombre);
   console.log(`   ✅ ${db.personas.length} personas`);
@@ -307,10 +307,10 @@ function migrarDatosCompleto() {
   // 11. USUARIOS (mantener si existen)
   if (!db.usuarios || db.usuarios.length === 0) {
     db.usuarios = [
-      { id: "1", email: "admin@comware.com", password: "admin123", fullName: "Administrador", role: "admin", position: "Administrador del Sistema" },
-      { id: "2", email: "owner@comware.com", password: "owner123", fullName: "Katherine Chavez", role: "owner", position: "Dueño de Procesos" },
-      { id: "3", email: "manager@comware.com", password: "manager123", fullName: "Marco Alvarado", role: "manager", position: "Gerente" },
-      { id: "4", email: "director@comware.com", password: "director123", fullName: "Carlos Rodríguez", role: "director", position: "Director de Procesos" }
+      { id: "1", email: "admin@ejemplo.com", password: "password123", fullName: "Administrador", role: "admin", position: "Administrador del Sistema" },
+      { id: "2", email: "owner@ejemplo.com", password: "password123", fullName: "Katherine Chavez", role: "owner", position: "Dueño de Procesos" },
+      { id: "3", email: "manager@ejemplo.com", password: "password123", fullName: "Marco Alvarado", role: "manager", position: "Gerente" },
+      { id: "4", email: "director@ejemplo.com", password: "password123", fullName: "Carlos Rodríguez", role: "director", position: "Director de Procesos" }
     ];
   }
   
