@@ -704,6 +704,7 @@ export default function MainLayout() {
                 { text: 'Parámetros de Calificación', icon: <SettingsIcon />, path: '/admin/parametros-calificacion' },
                 { text: 'Calificación Inherente', icon: <SettingsIcon />, path: '/admin/calificacion-inherente' },
                 { text: 'Calificación Residual', icon: <SettingsIcon />, path: ROUTES.ADMIN_CALIFICACION_RESIDUAL },
+                // { text: 'Autenticación 2FA', icon: <SecurityIcon />, path: ROUTES.ADMIN_2FA }, // Temporalmente oculto
                 { text: 'Historial', icon: <HistoryIcon />, path: ROUTES.HISTORIAL },
               ].map((item) => {
                 const isActive = location.pathname === item.path;

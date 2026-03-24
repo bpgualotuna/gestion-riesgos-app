@@ -545,8 +545,10 @@ export default function UsuariosPage() {
             renderCell: (params) => params.value || <Box component="span" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>Sin cargo</Box>
         },
         {
-            field: 'role', headerName: 'Rol', flex: 1,
-            valueFormatter: (params) => {
+            field: 'role', 
+            headerName: 'Rol', 
+            flex: 1,
+            renderCell: (params) => {
                 const roles: Record<string, string> = {
                     'admin': 'Administrador',
                     'manager': 'Gerente',
@@ -554,7 +556,8 @@ export default function UsuariosPage() {
                     'dueño_procesos': 'Dueño del Proceso',
                     'director_procesos': 'Director de Procesos'
                 };
-                return roles[(params as any).value as string] || (params as any).value as string;
+                const roleValue = params.value as string;
+                return roles[roleValue] || roleValue || 'Sin rol';
             }
         },
         {

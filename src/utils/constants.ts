@@ -160,6 +160,7 @@ export const ROUTES = {
   ADMIN_CONFIGURACION: '/administracion/configuracion',
   ADMIN_MAPA_CONFIG: '/admin/configuracion-mapa',
   ADMIN_CALIFICACION_RESIDUAL: '/admin/calificacion-residual',
+  ADMIN_2FA: '/admin/2fa',
 } as const;
 
 // API Base URL (configurar según entorno)

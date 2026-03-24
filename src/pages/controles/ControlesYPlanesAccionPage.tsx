@@ -2415,6 +2415,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         causa.gestion?.evaluacionDefinitiva ?? def;
                                                       const displayMit =
                                                         causa.gestion?.porcentajeMitigacion ?? mit;
+                                                      
+                                                      // Normalizar displayMit: si es > 1, ya está en formato 0-100, sino está en formato 0-1
+                                                      const displayMitNormalizado = displayMit > 1 ? displayMit : displayMit * 100;
 
                                                       const displayFrecuenciaResidual =
                                                         causa.frecuenciaResidual ??
@@ -2677,7 +2680,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                   % Mitigación
                                                                 </Typography>
                                                                 <Typography variant="h6" color="primary">
-                                                                  {(displayMit * 100).toFixed(0)}%
+                                                                  {displayMitNormalizado.toFixed(0)}%
                                                                 </Typography>
                                                               </Box>
                                                               <Box>
@@ -4293,13 +4296,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Box>
                         <Typography variant="caption" color="text.secondary">% Mitigación</Typography>
                         <Typography variant="body2" fontWeight={600} color="primary">
-                          {(itemDetalle as any).porcentajeMitigacion !== undefined
-                            ? `${((itemDetalle as any).porcentajeMitigacion * 100).toFixed(0)}%`
-                            : (itemDetalle as any).gestion?.porcentajeMitigacion !== undefined
-                            ? `${((itemDetalle as any).gestion.porcentajeMitigacion * 100).toFixed(0)}%`
-                            : causaDetalleView?.causa?.porcentajeMitigacion !== undefined
-                            ? `${(causaDetalleView.causa.porcentajeMitigacion * 100).toFixed(0)}%`
-                            : 'N/A'}
+                          {(() => {
+                            const mitValue = (itemDetalle as any).porcentajeMitigacion ?? 
+                                           (itemDetalle as any).gestion?.porcentajeMitigacion ?? 
+                                           causaDetalleView?.causa?.porcentajeMitigacion;
+                            if (mitValue === undefined) return 'N/A';
+                            // Si el valor es > 1, ya está en formato 0-100, sino está en formato 0-1
+                            const normalizado = mitValue > 1 ? mitValue : mitValue * 100;
+                            return `${normalizado.toFixed(0)}%`;
+                          })()}
                         </Typography>
                       </Box>
                     </Box>

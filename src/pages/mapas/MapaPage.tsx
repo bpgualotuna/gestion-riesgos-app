@@ -2339,7 +2339,9 @@ export default function MapaPage() {
                                     <TableCell sx={{ maxWidth: 200 }}>{controlDescripcion}</TableCell>
                                     <TableCell align="center">{efectividad}</TableCell>
                                     <TableCell align="center">
-                                      {porcentajeMitigacion > 0 ? `${(porcentajeMitigacion * 100).toFixed(0)}%` : 'N/A'}
+                                      {porcentajeMitigacion > 0 
+                                        ? `${(porcentajeMitigacion > 1 ? porcentajeMitigacion : porcentajeMitigacion * 100).toFixed(0)}%` 
+                                        : 'N/A'}
                                     </TableCell>
                                     <TableCell align="center">{frecuenciaResidual}</TableCell>
                                     <TableCell align="center">{impactoResidual}</TableCell>

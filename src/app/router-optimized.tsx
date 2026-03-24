@@ -64,6 +64,7 @@ const ParametrosCalificacionPage = lazy(() => import('../pages/admin/ParametrosC
 const MapasConfigPage = lazy(() => import('../pages/admin/MapasConfigPage'));
 const CalificacionInherentePage = lazy(() => import('../pages/admin/CalificacionInherentePage'));
 const AdminPanelPage = lazy(() => import('../pages/admin/AdminPanelPage'));
+// const TwoFactorAdminPage = lazy(() => import('../pages/admin/TwoFactorAdminPage')); // Temporalmente deshabilitado
 
 // Wrapper for lazy loaded components with Suspense
 const LazyRoute = ({ component: Component }: { component: React.LazyExoticComponent<React.ComponentType<any>> }) => (
@@ -329,6 +330,18 @@ export const router = createBrowserRouter([
     ),
     errorElement: <RouteErrorElement />,
   },
+  // Temporalmente deshabilitado - 2FA en desarrollo
+  // {
+  //   path: '/admin/2fa',
+  //   element: (
+  //     <ProtectedRoute>
+  //       <RoleGuard allowedRoles={['admin']}>
+  //         <LazyRoute component={TwoFactorAdminPage} />
+  //       </RoleGuard>
+  //     </ProtectedRoute>
+  //   ),
+  //   errorElement: <RouteErrorElement />,
+  // },
   {
     path: '*',
     element: <RouteErrorElement />,

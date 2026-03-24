@@ -65,15 +65,20 @@ export const TwoFactorAdminPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [configRes, usersRes] = await Promise.all([
-        axios.get('/api/admin/2fa/config'),
-        axios.get('/api/admin/2fa/users')
-      ]);
+      console.log('Cargando configuración 2FA...');
+      
+      const configRes = await axios.get('/api/admin/2fa/config');
+      console.log('Configuración recibida:', configRes.data);
+      
+      const usersRes = await axios.get('/api/admin/2fa/users');
+      console.log('Usuarios recibidos:', usersRes.data);
 
       setConfig(configRes.data);
       setUsers(usersRes.data.usuarios || []);
     } catch (err: any) {
-      showError(err.response?.data?.error || 'Error al cargar datos');
+      console.error('Error al cargar datos 2FA:', err);
+      console.error('Respuesta del error:', err.response);
+      showError(err.response?.data?.error || err.message || 'Error al cargar datos');
     } finally {
       setLoading(false);
     }
