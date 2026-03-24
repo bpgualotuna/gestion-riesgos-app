@@ -645,15 +645,53 @@ export default function ControlesYPlanesAccionPageNueva() {
     setRiesgoIdEvaluacion(riesgoId);
     setCausaIdEvaluacion(causa.id);
 
-    // Fuente principal de datos guardados: gestion (backend guarda ahí todo lo del control/plan)
+    // NUEVO: Obtener el control desde la relación controles (tabla ControlRiesgo)
+    const control = causa.controles?.[0] || {};
+    const plan = causa.planesAccion?.[0] || {};
+    
+    // Fuente principal de datos guardados: control (tabla ControlRiesgo), luego gestion (legacy), luego causa
     const gestion = causa.gestion || {};
-    const fuenteControl = gestion && Object.keys(gestion).length > 0 ? gestion : causa;
+    const fuenteControl = Object.keys(control).length > 0 ? control : (Object.keys(gestion).length > 0 ? gestion : causa);
 
+    console.log('[DEBUG] control:', control); // DEBUG
+    console.log('[DEBUG] plan:', plan); // DEBUG
     console.log('[DEBUG] gestion:', gestion); // DEBUG
     console.log('[DEBUG] fuenteControl:', fuenteControl); // DEBUG
 
-    // Initial load for Plan si ya existe (en causa o en gestion)
+    // Funciones helper para convertir puntajes a valores textuales
+    const getPuntajeToAplicabilidad = (puntaje: number): string => {
+      if (puntaje === 100) return 'totalmente';
+      if (puntaje === 30) return 'parcial';
+      return 'nula';
+    };
+    
+    const getPuntajeToCobertura = (puntaje: number): string => {
+      if (puntaje === 100) return 'total';
+      if (puntaje === 70) return 'parcial';
+      return 'eventual';
+    };
+    
+    const getPuntajeToFacilidad = (puntaje: number): string => {
+      if (puntaje === 100) return 'coherente';
+      if (puntaje === 70) return 'complejo';
+      return 'sencillo';
+    };
+    
+    const getPuntajeToSegregacion = (puntaje: number): string => {
+      if (puntaje === 100) return 'si';
+      if (puntaje === 0) return 'no';
+      return 'na';
+    };
+    
+    const getPuntajeToNaturaleza = (puntaje: number): string => {
+      if (puntaje === 80) return 'automatico';
+      if (puntaje === 60) return 'semiautomatico';
+      return 'manual';
+    };
+
+    // Initial load for Plan si ya existe (desde tabla PlanAccion, causa o gestion)
     const tienePlan =
+      Object.keys(plan).length > 0 ||
       causa.planDescripcion ||
       gestion.planDescripcion ||
       (causa.tipoGestion && causa.tipoGestion.toUpperCase() === 'PLAN') ||
@@ -663,17 +701,18 @@ export default function ControlesYPlanesAccionPageNueva() {
 
     if (tienePlan) {
       const planData = {
-        descripcion: causa.planDescripcion || gestion.planDescripcion || '',
-        detalle: causa.planDetalle || gestion.planDetalle || '',
+        descripcion: plan.descripcion || plan.nombre || causa.planDescripcion || gestion.planDescripcion || '',
+        detalle: plan.observaciones || plan.detalle || causa.planDetalle || gestion.planDetalle || '',
         responsable:
+          plan.responsable ||
           causa.planResponsable ||
           gestion.planResponsable ||
           (user as any)?.fullName ||
           '',
         decision: causa.planDecision || gestion.planDecision || '',
-        fechaEstimada: causa.planFechaEstimada || gestion.planFechaEstimada || '',
-        estado: causa.planEstado || gestion.planEstado || 'pendiente',
-        evidencia: causa.planEvidencia || gestion.planEvidencia || '',
+        fechaEstimada: plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || gestion.planFechaEstimada || '',
+        estado: plan.estado || causa.planEstado || gestion.planEstado || 'pendiente',
+        evidencia: plan.evidencia || causa.planEvidencia || gestion.planEvidencia || '',
         archivoSeguimiento: causa.archivoSeguimiento || gestion.archivoSeguimiento || '',
         archivoSeguimientoNombre: causa.archivoSeguimientoNombre || gestion.archivoSeguimientoNombre || '',
       };
@@ -698,32 +737,44 @@ export default function ControlesYPlanesAccionPageNueva() {
     }
 
     // Cargar criterios del control si ya hubo evaluación previa
-    if (fuenteControl.puntajeTotal !== undefined) {
+    // NUEVO: Priorizar datos de la tabla ControlRiesgo
+    const tieneControl = Object.keys(control).length > 0 || fuenteControl.puntajeTotal !== undefined || fuenteControl.puntajeControl !== undefined;
+    
+    if (tieneControl) {
+      // Obtener puntajes (pueden venir como números o strings desde diferentes fuentes)
+      const puntajeAplicabilidad = Number(control.aplicabilidad || fuenteControl.puntajeAplicabilidad || 0);
+      const puntajeCobertura = Number(control.cobertura || fuenteControl.puntajeCobertura || 0);
+      const puntajeFacilidad = Number(control.facilidadUso || fuenteControl.puntajeFacilidad || 0);
+      const puntajeSegregacion = Number(control.segregacion || fuenteControl.puntajeSegregacion || 0);
+      const puntajeNaturaleza = Number(control.naturaleza || fuenteControl.puntajeNaturaleza || 0);
+      
       setCriteriosEvaluacion({
-        aplicabilidad: fuenteControl.aplicabilidad || '',
-        puntajeAplicabilidad: fuenteControl.puntajeAplicabilidad || 0,
-        cobertura: fuenteControl.cobertura || '',
-        puntajeCobertura: fuenteControl.puntajeCobertura || 0,
-        facilidadUso: fuenteControl.facilidadUso || '',
-        puntajeFacilidad: fuenteControl.puntajeFacilidad || 0,
-        segregacion: fuenteControl.segregacion || '',
-        puntajeSegregacion: fuenteControl.puntajeSegregacion || 0,
-        naturaleza: fuenteControl.naturaleza || '',
-        puntajeNaturaleza: fuenteControl.puntajeNaturaleza || 0,
+        // Convertir puntajes a valores textuales
+        aplicabilidad: puntajeAplicabilidad > 0 ? getPuntajeToAplicabilidad(puntajeAplicabilidad) : (fuenteControl.aplicabilidad || ''),
+        puntajeAplicabilidad,
+        cobertura: puntajeCobertura > 0 ? getPuntajeToCobertura(puntajeCobertura) : (fuenteControl.cobertura || ''),
+        puntajeCobertura,
+        facilidadUso: puntajeFacilidad > 0 ? getPuntajeToFacilidad(puntajeFacilidad) : (fuenteControl.facilidadUso || ''),
+        puntajeFacilidad,
+        segregacion: puntajeSegregacion >= 0 ? getPuntajeToSegregacion(puntajeSegregacion) : (fuenteControl.segregacion || ''),
+        puntajeSegregacion,
+        naturaleza: puntajeNaturaleza > 0 ? getPuntajeToNaturaleza(puntajeNaturaleza) : (fuenteControl.naturaleza || ''),
+        puntajeNaturaleza,
         // En versiones nuevas se guarda como controlDesviaciones, en otras como desviaciones
-        desviaciones: fuenteControl.desviaciones || fuenteControl.controlDesviaciones || 'A',
-        tipoMitigacion: fuenteControl.tipoMitigacion || 'AMBAS',
-        recomendacion: fuenteControl.recomendacion || '',
-        descripcionControl: fuenteControl.controlDescripcion || '',
+        desviaciones: control.desviaciones || fuenteControl.desviaciones || fuenteControl.controlDesviaciones || 'A',
+        tipoMitigacion: control.tipoMitigacion || control.disminuyeFrecuenciaImpactoAmbas || fuenteControl.tipoMitigacion || 'AMBAS',
+        recomendacion: control.recomendacion || fuenteControl.recomendacion || '',
+        descripcionControl: control.descripcionControl || control.descripcion || fuenteControl.controlDescripcion || '',
         responsable:
+          control.responsable ||
           fuenteControl.controlResponsable ||
           fuenteControl.responsable ||
           (user as any)?.fullName ||
           '',
         tieneControl:
           fuenteControl.tieneControl !== undefined ? fuenteControl.tieneControl : true,
-        origenPlanAccion: fuenteControl.origenPlanAccion || 'ninguno',
-        planAccionVinculadoId: fuenteControl.planAccionVinculadoId || null,
+        origenPlanAccion: control.origenPlanAccion || fuenteControl.origenPlanAccion || 'ninguno',
+        planAccionVinculadoId: control.planAccionVinculadoId || fuenteControl.planAccionVinculadoId || null,
       });
     } else {
       // Valores por defecto cuando aún no hay evaluación
