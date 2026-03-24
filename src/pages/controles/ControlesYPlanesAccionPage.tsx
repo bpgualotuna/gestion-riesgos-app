@@ -1950,7 +1950,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                   sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
                   onClick={() => handleSortPendientes('estado')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">FALTA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">PENDIENTE</Typography>
                   {sortPendientes.field === 'estado' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -2099,7 +2099,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 <TableCell align="center">Frecuencia</TableCell>
                                 <TableCell align="center">Impacto</TableCell>
                                 <TableCell align="center" width="250">Tipo de Gestión</TableCell>
-                                <TableCell align="center">Falta</TableCell>
+                                <TableCell align="center">Pendiente</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
@@ -2425,10 +2425,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         nivelRes;
 
                                                       const getColorNivel = (n: string) => {
-                                                        if (n === NIVELES_RIESGO.CRITICO) return '#d32f2f';
-                                                        if (n === NIVELES_RIESGO.ALTO) return '#f57c00';
-                                                        if (n === NIVELES_RIESGO.MEDIO) return '#fdd835';
-                                                        if (n === NIVELES_RIESGO.BAJO) return '#388e3c';
+                                                        const nivel = (n || '').toUpperCase();
+                                                        if (nivel.includes('CRÍTICO') || nivel.includes('CRITICO')) return '#d32f2f';
+                                                        if (nivel.includes('ALTO')) return '#f57c00';
+                                                        if (nivel.includes('MEDIO')) return '#fdd835';
+                                                        if (nivel.includes('BAJO')) return '#388e3c';
                                                         return '#e0e0e0';
                                                       };
 
@@ -3203,10 +3204,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                 nivelRes;
 
                                               const getColorNivel = (n: string) => {
-                                                if (n === NIVELES_RIESGO.CRITICO) return '#d32f2f';
-                                                if (n === NIVELES_RIESGO.ALTO) return '#f57c00';
-                                                if (n === NIVELES_RIESGO.MEDIO) return '#fdd835';
-                                                if (n === NIVELES_RIESGO.BAJO) return '#388e3c';
+                                                const nivel = (n || '').toUpperCase();
+                                                if (nivel.includes('CRÍTICO') || nivel.includes('CRITICO')) return '#d32f2f';
+                                                if (nivel.includes('ALTO')) return '#f57c00';
+                                                if (nivel.includes('MEDIO')) return '#fdd835';
+                                                if (nivel.includes('BAJO')) return '#388e3c';
                                                 return '#e0e0e0';
                                               };
 
@@ -3439,13 +3441,106 @@ export default function ControlesYPlanesAccionPageNueva() {
 
                         {/* Resumen de calificaciones residuales (por causa y final, como en Identificación) */}
                         {(() => {
+                          // Obtener datos residuales del riesgo (nivel global)
+                          const evaluacion = riesgo.evaluacion || {};
+                          const probabilidadResidualGlobal = evaluacion.probabilidadResidual;
+                          const impactoResidualGlobal = evaluacion.impactoResidual;
+                          const riesgoResidualGlobal = evaluacion.riesgoResidual;
+                          const nivelRiesgoResidualGlobal = evaluacion.nivelRiesgoResidual;
+                          
+                          console.log('[DEBUG RESUMEN] Evaluación completa:', evaluacion);
+                          console.log('[DEBUG RESUMEN] Datos residuales globales:', {
+                            probabilidadResidualGlobal,
+                            impactoResidualGlobal,
+                            riesgoResidualGlobal,
+                            nivelRiesgoResidualGlobal
+                          });
+                          
+                          // Si el riesgo tiene datos residuales globales, mostrarlos
+                          if (riesgoResidualGlobal != null && riesgoResidualGlobal >= 0) {
+                            const calificacionResidualFinal = Number(riesgoResidualGlobal);
+                            let nivelFinal = nivelRiesgoResidualGlobal || 'Sin Calificar';
+                            
+                            if (!nivelFinal || nivelFinal === 'Sin Calificar') {
+                              if (calificacionResidualFinal >= 15 && calificacionResidualFinal <= 25) nivelFinal = 'Crítico';
+                              else if (calificacionResidualFinal >= 10 && calificacionResidualFinal < 15) nivelFinal = 'Alto';
+                              else if (calificacionResidualFinal >= 4 && calificacionResidualFinal < 10) nivelFinal = 'Medio';
+                              else if (calificacionResidualFinal >= 1 && calificacionResidualFinal < 4) nivelFinal = 'Bajo';
+                            }
+                            
+                            const getColorNivel = (n: string) => {
+                              const nn = String(n).toLowerCase();
+                              if (nn.includes('crítico') || nn.includes('critico')) return { color: '#fff', bg: '#d32f2f' };
+                              if (nn.includes('alto')) return { color: '#fff', bg: '#f57c00' };
+                              if (nn.includes('medio')) return { color: '#000', bg: '#fbc02d' };
+                              if (nn.includes('bajo')) return { color: '#fff', bg: '#388e3c' };
+                              return { color: '#666', bg: '#f5f5f5' };
+                            };
+                            
+                            const { color: colorFinal, bg: bgFinal } = getColorNivel(nivelFinal);
+                            
+                            return (
+                              <Paper elevation={0} sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                                  Resumen de Calificaciones Residuales del Riesgo
+                                </Typography>
+                                
+                                <Box
+                                  sx={{
+                                    p: 2,
+                                    borderRadius: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 2,
+                                    backgroundColor: bgFinal,
+                                    color: colorFinal,
+                                  }}
+                                >
+                                  <Box>
+                                    <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                      CALIFICACIÓN RESIDUAL FINAL DEL RIESGO
+                                    </Typography>
+                                    <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
+                                      {calificacionResidualFinal === 3.99 ? '3.99' : calificacionResidualFinal.toFixed(2)}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', mt: 0.5 }}>
+                                      (Máximo de las calificaciones residuales de las causas con control. Esta calificación se ubica en el mapa de riesgos residuales.)
+                                    </Typography>
+                                  </Box>
+                                  <Chip
+                                    label={nivelFinal.toUpperCase()}
+                                    sx={{
+                                      backgroundColor: 'rgba(255,255,255,0.25)',
+                                      color: colorFinal,
+                                      fontWeight: 700,
+                                      fontSize: '0.875rem',
+                                    }}
+                                  />
+                                </Box>
+                              </Paper>
+                            );
+                          }
+                          
+                          // Si no hay datos globales, intentar con datos por causa
                           // Solo trabajar con datos residuales reales (BD). Si una causa no tiene
-                          // frecuencia/impacto residual, se omite del resumen.
+                          // frecuencia/impacto residual, usar los datos globales del riesgo
                           const causasConResidual = (riesgo.causas || [])
                             .map((c: any) => {
-                              const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual;
-                              const irRaw = c.impactoResidual ?? c.gestion?.impactoResidual;
+                              console.log('[DEBUG CAUSA]', c.id, {
+                                frecuenciaResidual: c.frecuenciaResidual,
+                                impactoResidual: c.impactoResidual,
+                                calificacionResidual: c.calificacionResidual,
+                                gestion: c.gestion
+                              });
+                              
+                              // Buscar datos residuales en la causa o usar los globales del riesgo
+                              const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual ?? probabilidadResidualGlobal;
+                              const irRaw = c.impactoResidual ?? c.gestion?.impactoResidual ?? impactoResidualGlobal;
+                              
                               if (frRaw == null || irRaw == null) {
+                                console.log('[DEBUG] Causa sin datos residuales:', c.id);
                                 return null;
                               }
                               const fr = Number(frRaw);
@@ -3453,9 +3548,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                               const calRaw =
                                 c.calificacionResidual ??
                                 c.gestion?.calificacionResidual ??
+                                riesgoResidualGlobal ??
                                 (fr === 2 && ir === 2 ? 3.99 : fr * ir);
                               const calNum = Number(calRaw);
-                              let nivel = c.nivelRiesgoResidual ?? c.gestion?.nivelRiesgoResidual;
+                              let nivel = c.nivelRiesgoResidual ?? c.gestion?.nivelRiesgoResidual ?? nivelRiesgoResidualGlobal;
                               if (!nivel && !isNaN(calNum)) {
                                 if (calNum >= 15 && calNum <= 25) nivel = 'Crítico';
                                 else if (calNum >= 10 && calNum < 15) nivel = 'Alto';

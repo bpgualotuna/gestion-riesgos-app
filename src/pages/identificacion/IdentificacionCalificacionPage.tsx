@@ -2130,6 +2130,10 @@ export default function IdentificacionPage() {
                           setConfirmDeleteOpen(true);
                         }}
                         causaEliminando={causaEliminando}
+                        onVerDetalleCausa={(causa) => {
+                          setCausaSeleccionadaDetalle(causa);
+                          setCausaDetalleOpen(true);
+                        }}
                         tiposRiesgos={tiposRiesgos}
                         origenes={origenes}
                         tiposProceso={tiposProceso}
@@ -2251,7 +2255,19 @@ export default function IdentificacionPage() {
                                   </TableHead>
                                   <TableBody>
                                     {causasConCalificacion.map((causa: any, index: number) => (
-                                      <TableRow key={causa.id}>
+                                      <TableRow 
+                                        key={causa.id}
+                                        onClick={() => {
+                                          setCausaSeleccionadaDetalle(causa);
+                                          setCausaDetalleOpen(true);
+                                        }}
+                                        sx={{ 
+                                          cursor: 'pointer',
+                                          '&:hover': { 
+                                            backgroundColor: 'action.hover' 
+                                          }
+                                        }}
+                                      >
                                         <TableCell>
                                           <Typography variant="body2">
                                             Causa {index + 1}: {causa.descripcion.length > 60
@@ -2358,7 +2374,12 @@ export default function IdentificacionPage() {
         }
         setNuevaCausaFuente(primeraFuente);
         setNuevaCausaFrecuencia(3);
-      }} maxWidth="xs" fullWidth>
+      }} maxWidth="sm" PaperProps={{
+        sx: {
+          width: '550px',
+          maxWidth: '90vw'
+        }
+      }}>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
@@ -2479,12 +2500,82 @@ export default function IdentificacionPage() {
                 value={nuevaCausaFrecuencia}
                 onChange={(e) => setNuevaCausaFrecuencia(Number(e.target.value))}
                 label="Frecuencia"
+                renderValue={(value) => {
+                  const labels: Record<number, string> = {
+                    1: 'Muy baja - Ocurre muy rara vez',
+                    2: 'Baja - Ocurre raramente',
+                    3: 'Media - Ocurre ocasionalmente',
+                    4: 'Alta - Ocurre con frecuencia',
+                    5: 'Muy alta - Ocurre con mucha frecuencia'
+                  };
+                  return labels[value as number] || '';
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      '& .MuiMenuItem-root': {
+                        whiteSpace: 'normal',
+                        wordWrap: 'break-word'
+                      }
+                    }
+                  }
+                }}
               >
-                {(Object.entries(labelsFrecuencia) as [string, { label: string; descripcion: string }][]).map(([key, value]) => (
-                  <MenuItem key={key} value={Number(key)}>
-                    {value.label} - {value.descripcion}
-                  </MenuItem>
-                ))}
+                <MenuItem 
+                  value={1}
+                  title="La actividad que causa el riesgo tiene una frecuencia mayor a anual"
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>Muy baja - Ocurre muy rara vez</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Mayor a anual
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem 
+                  value={2}
+                  title="La actividad que causa el riesgo tiene una frecuencia mayor a trimestral y hasta anual"
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>Baja - Ocurre raramente</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Mayor a trimestral y hasta anual
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem 
+                  value={3}
+                  title="La actividad que causa el riesgo tiene una frecuencia mayor a mensual y hasta trimestral"
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>Media - Ocurre ocasionalmente</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Mayor a mensual y hasta trimestral
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem 
+                  value={4}
+                  title="La actividad que causa el riesgo tiene una frecuencia mayor a diaria y hasta mensual"
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>Alta - Ocurre con frecuencia</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Mayor a diaria y hasta mensual
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem 
+                  value={5}
+                  title="La actividad que causa el riesgo tiene una frecuencia diaria o de varias veces al día"
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>Muy alta - Ocurre con mucha frecuencia</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Diaria o varias veces al día
+                    </Typography>
+                  </Box>
+                </MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -2853,7 +2944,17 @@ export default function IdentificacionPage() {
       </Dialog>
 
       {/* DIALOG DETALLE CAUSA */}
-      <Dialog open={causaDetalleOpen} onClose={() => setCausaDetalleOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog 
+        open={causaDetalleOpen} 
+        onClose={() => setCausaDetalleOpen(false)} 
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            width: '500px',
+            maxWidth: '90vw'
+          }
+        }}
+      >
         <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white' }}>Detalle de la Causa</DialogTitle>
         <DialogContent dividers>
           {causaSeleccionadaDetalle && (
@@ -2996,6 +3097,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
   fuentesCausa,
   descripcionesImpacto,
   causaEliminando,
+  onVerDetalleCausa,
 }: {
   riesgo: RiesgoFormData;
   actualizarRiesgo: (riesgoId: string, actualizacion: Partial<RiesgoFormData>) => void;
@@ -3006,6 +3108,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
   onEditarCausa: (riesgoId: string, causa: CausaRiesgo) => void;
   onEliminarCausa: (riesgoId: string, causaId: string) => void;
   causaEliminando?: string | null;
+  onVerDetalleCausa: (causa: CausaRiesgo) => void;
   // Dynamic props
   tiposRiesgos: any[];
   origenes: any[];
@@ -3564,7 +3667,9 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                     .map((causa: CausaRiesgo, index: number) => (
                     <TableRow
                       key={causa.id}
+                      onClick={() => onVerDetalleCausa(causa)}
                       sx={{
+                        cursor: 'pointer',
                         '&:hover': {
                           backgroundColor: 'rgba(0, 0, 0, 0.04)',
                         },
