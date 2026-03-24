@@ -3305,7 +3305,29 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                 actualizarRiesgo(riesgo.id, { tipoRiesgoId: null, tipoRiesgo: '', subtipoRiesgoId: null, subtipoRiesgo: '' });
                               }
                             }}
-                            options={tiposRiesgos || []}
+                            options={(() => {
+                              // Filtrar opciones según el proceso de gestión
+                              const esGestionEstrategica = procesoSeleccionado?.nombre?.toLowerCase().includes('estratégica') || 
+                                                          procesoSeleccionado?.nombre?.toLowerCase().includes('estrategica');
+                              
+                              if (esGestionEstrategica) {
+                                // Solo mostrar "Estratégico"
+                                return (tiposRiesgos || []).filter((t: any) => 
+                                  t.nombre?.toLowerCase().includes('estratégico') || 
+                                  t.nombre?.toLowerCase().includes('estrategico') ||
+                                  t.codigo?.toLowerCase().includes('estratégico') ||
+                                  t.codigo?.toLowerCase().includes('estrategico')
+                                );
+                              } else {
+                                // Mostrar todos EXCEPTO "Estratégico"
+                                return (tiposRiesgos || []).filter((t: any) => 
+                                  !(t.nombre?.toLowerCase().includes('estratégico') || 
+                                    t.nombre?.toLowerCase().includes('estrategico') ||
+                                    t.codigo?.toLowerCase().includes('estratégico') ||
+                                    t.codigo?.toLowerCase().includes('estrategico'))
+                                );
+                              }
+                            })()}
                             getOptionLabel={(option) => option.nombre || option.codigo}
                             disabled={isReadOnly}
                             size="small"
