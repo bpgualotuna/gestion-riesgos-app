@@ -1271,6 +1271,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               origenPlanAccion: c.origenPlanAccion,
               tieneControl: c.tieneControl,
               puntajeTotal: c.puntajeTotal,
+              evaluacionPreliminar: c.evaluacionPreliminar,
               evaluacionDefinitiva: c.evaluacionDefinitiva,
               porcentajeMitigacion: c.porcentajeMitigacion,
               frecuenciaResidual: c.frecuenciaResidual,
@@ -1353,6 +1354,7 @@ export default function ControlesYPlanesAccionPageNueva() {
             archivoSeguimiento: archivoUrl,
             archivoSeguimientoNombre: selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre,
             puntajeTotal: undefined,
+            evaluacionPreliminar: undefined,
             porcentajeMitigacion: 0
           };
           return causaActualizada;
@@ -1476,7 +1478,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               estadoAmbos: tipoClasificacion === 'AMBOS' ? 'ACTIVO' : null
             };
 
-            await guardarControlEnTabla(causaIdEvaluacion, controlData, controlExistente);
+            await guardarControlEnTabla(Number(causaIdEvaluacion), controlData, controlExistente);
             console.log('✅ Control guardado en ControlRiesgo');
           }
 
@@ -1492,7 +1494,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               detalle: formPlan.detalle
             };
 
-            await guardarPlanEnTabla(causaIdEvaluacion, riesgoIdEvaluacion, planData, planExistente);
+            await guardarPlanEnTabla(Number(causaIdEvaluacion), riesgoIdEvaluacion, planData, planExistente);
             console.log('✅ Plan guardado en PlanAccion');
           }
         } catch (error) {
