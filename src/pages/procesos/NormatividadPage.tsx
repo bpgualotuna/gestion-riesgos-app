@@ -84,7 +84,7 @@ const NormatividadCard = memo(function NormatividadCard({
       onClick={() => onVerDetalle(item)}
     >
       <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '56px 1fr 100px 120px 100px 90px auto' }, gap: 1.5, alignItems: 'center' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '56px 2.5fr 110px 200px 110px 120px 120px' }, gap: 1.5, alignItems: 'center' }}>
           <Typography variant="subtitle2" fontWeight={700} color="primary" sx={{ fontSize: '0.85rem' }}>{item.numero}</Typography>
           <Typography variant="body2" fontWeight={500} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minWidth: 0 }}>{item.nombre || 'Sin nombre'}</Typography>
           <Box>{renderChipEstado(item.estado)}</Box>
@@ -341,7 +341,7 @@ export default function NormatividadPage() {
           <Box
             sx={{
               display: { xs: 'none', sm: 'grid' },
-              gridTemplateColumns: '56px 1fr 100px 120px 100px 90px auto',
+              gridTemplateColumns: { xs: '1fr', sm: '56px 2.5fr 110px 200px 110px 120px 120px' },
               gap: 1.5,
               px: 2,
               py: 1.25,
@@ -374,7 +374,9 @@ export default function NormatividadPage() {
               <Typography variant="caption" fontWeight={700} color="text.secondary">Clasificación</Typography>
               {sortField === 'clasificacion' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
-            <Box />
+            <Box sx={{ display: 'flex', justifyContent: 'center', pl: 2 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">Acciones</Typography>
+            </Box>
           </Box>
         )}
 
