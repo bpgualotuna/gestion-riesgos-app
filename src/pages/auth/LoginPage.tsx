@@ -46,6 +46,23 @@ export default function LoginPage() {
 
         setIsLoading(false);
 
+        // Si requiere configurar 2FA (primera vez)
+        if (result.requiresSetup2FA && result.email) {
+            navigate('/setup-2fa-required', { 
+                state: { 
+                    email: result.email,
+                    obligatorio: result.obligatorio 
+                } 
+            });
+            return;
+        }
+
+        // Si requiere 2FA, redirigir a página de verificación
+        if (result.requires2FA && result.email) {
+            navigate('/verify-2fa', { state: { email: result.email } });
+            return;
+        }
+
         if (result.success) {
             // Redirigir según ámbito: SISTEMA → administración; OPERATIVO → dashboard/sistema de riesgos
             const userData = result.user || user;

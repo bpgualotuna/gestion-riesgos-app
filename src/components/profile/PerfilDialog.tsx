@@ -18,12 +18,31 @@ import {
   InputAdornment,
   Alert,
   CircularProgress,
+  Tabs,
+  Tab,
+  Divider,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Chip
 } from '@mui/material';
-import { Person as PersonIcon, Visibility, VisibilityOff, PhotoCamera } from '@mui/icons-material';
+import { 
+  Person as PersonIcon, 
+  Visibility, 
+  VisibilityOff, 
+  PhotoCamera,
+  Security as SecurityIcon,
+  CheckCircle as CheckIcon,
+  Cancel as CancelIcon
+} from '@mui/icons-material';
 import type { User } from '../../contexts/AuthContext';
 import { AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useNotification } from '../../hooks/useNotification';
 import PhotoUpdateFlowContent from './PhotoUpdateFlowContent';
+import TwoFactorSetup from '../auth/TwoFactorSetup';
+import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -36,6 +55,7 @@ interface PerfilDialogProps {
 
 export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDialogProps) {
   const { showSuccess } = useNotification();
+  const [activeTab, setActiveTab] = useState(0);
   const [nombre, setNombre] = useState(user?.fullName ?? '');
   const [passwordActual, setPasswordActual] = useState('');
   const [passwordNueva, setPasswordNueva] = useState('');
@@ -48,6 +68,12 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
   const [photoLoadError, setPhotoLoadError] = useState(false);
   const [photoFlowOpen, setPhotoFlowOpen] = useState(false);
   const [photoCacheKey, setPhotoCacheKey] = useState(0);
+  
+  // Estados para 2FA
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [showTwoFactorSetup, setShowTwoFactorSetup] = useState(false);
+  const [twoFactorStatus, setTwoFactorStatus] = useState<any>(null);
 
   useEffect(() => {
     if (open && user) {
@@ -63,8 +89,59 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
       setError('');
       setPhotoLoadError(false);
       setPhotoFlowOpen(false);
+      setActiveTab(0);
+      setShowTwoFactorSetup(false);
+      
+      // Cargar estado de 2FA
+      loadTwoFactorStatus();
     }
   }, [open, user]);
+
+  const loadTwoFactorStatus = async () => {
+    try {
+      const response = await axios.get('/api/auth/2fa/status');
+      setTwoFactorStatus(response.data);
+      setTwoFactorEnabled(response.data.enabled);
+    } catch (err) {
+      console.error('Error al cargar estado de 2FA:', err);
+    }
+  };
+
+  const handleEnable2FA = () => {
+    setShowTwoFactorSetup(true);
+  };
+
+  const handleDisable2FA = async () => {
+    if (!passwordActual.trim()) {
+      setError('Ingresa tu contraseña actual para desactivar 2FA');
+      return;
+    }
+
+    setTwoFactorLoading(true);
+    setError('');
+
+    try {
+      await axios.post('/api/auth/2fa/disable', {
+        password: passwordActual
+      });
+
+      setTwoFactorEnabled(false);
+      setPasswordActual('');
+      showSuccess('2FA desactivado correctamente');
+      loadTwoFactorStatus();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al desactivar 2FA');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handle2FASetupComplete = () => {
+    setShowTwoFactorSetup(false);
+    setTwoFactorEnabled(true);
+    showSuccess('2FA activado correctamente');
+    loadTwoFactorStatus();
+  };
 
   const handlePhotoSelected = (file: File) => {
     setPendingFile(file);

@@ -18,6 +18,8 @@ import RouteErrorElement from '../components/common/RouteErrorElement';
 
 // Auth Pages - Load immediately (critical)
 import LoginPage from '../pages/auth/LoginPage';
+import TwoFactorVerifyPage from '../pages/auth/TwoFactorVerifyPage';
+import TwoFactorSetupRequiredPage from '../pages/auth/TwoFactorSetupRequiredPage';
 import ModoGerenteGeneralSelector from '../components/auth/ModoGerenteGeneralSelector';
 
 // Loading Component: skeleton en lugar de icono de carga
@@ -74,6 +76,14 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/verify-2fa',
+    element: <TwoFactorVerifyPage />,
+  },
+  {
+    path: '/setup-2fa-required',
+    element: <TwoFactorSetupRequiredPage />,
   },
   {
     path: ROUTES.MODO_GERENTE_GENERAL,

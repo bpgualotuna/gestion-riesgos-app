@@ -148,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => window.removeEventListener('auth:session-expired', handler);
   }, []);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User; requires2FA?: boolean; requiresSetup2FA?: boolean; email?: string; obligatorio?: boolean }> => {
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/auth/login`, {
@@ -158,6 +158,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       const data = await response.json();
+
+      // Verificar si requiere configurar 2FA (primera vez)
+      if (response.ok && data.requiresSetup2FA) {
+        return { 
+          success: false, 
+          requiresSetup2FA: true, 
+          email: data.email,
+          obligatorio: data.obligatorio,
+          error: '2FA está habilitado. Debes configurarlo para continuar.'
+        };
+      }
+
+      // Verificar si requiere 2FA
+      if (response.ok && data.requires2FA) {
+        return { 
+          success: false, 
+          requires2FA: true, 
+          email: data.email,
+          error: 'Se requiere verificación de dos factores'
+        };
+      }
 
       if (response.ok && data.success) {
         const backendUser = data.user;

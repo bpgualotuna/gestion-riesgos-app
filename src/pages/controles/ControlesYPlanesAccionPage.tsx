@@ -314,6 +314,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         console.log('🔵 [CAUSA]', {
           causaId: causa.id,
           tipoGestion: causa.tipoGestion,
+          calificacionGlobalImpacto: causa.calificacionGlobalImpacto,
           tieneControles: !!causa.controles,
           controlesLength: causa.controles?.length,
           tienePlanes: !!causa.planesAccion,
