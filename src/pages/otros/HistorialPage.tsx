@@ -569,6 +569,21 @@ export default function HistorialPage() {
               <TextField
                 select
                 size="small"
+                label="Filas por página"
+                value={paginacion.pageSize}
+                onChange={(e) => {
+                  setPaginacion((p) => ({ ...p, pageSize: Number(e.target.value), page: 1 }));
+                }}
+                sx={{ minWidth: 120 }}
+              >
+                <MenuItem value={5}>5</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
                 label="Ordenar por"
                 value={`${sortField}:${sortDir}`}
                 onChange={(e) => {

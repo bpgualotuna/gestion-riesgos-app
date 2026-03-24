@@ -239,7 +239,8 @@ export default function ControlesYPlanesAccionPageNueva() {
     descripcionControl: '',
     responsable: '',
     tieneControl: true,
-    origenPlanAccion: 'ninguno'
+    origenPlanAccion: 'ninguno',
+    planAccionVinculadoId: null as number | null
   });
 
   // OPTIMIZADO: Cargar riesgos con paginación razonable
@@ -721,6 +722,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         tieneControl:
           fuenteControl.tieneControl !== undefined ? fuenteControl.tieneControl : true,
         origenPlanAccion: fuenteControl.origenPlanAccion || 'ninguno',
+        planAccionVinculadoId: fuenteControl.planAccionVinculadoId || null,
       });
     } else {
       // Valores por defecto cuando aún no hay evaluación
@@ -742,6 +744,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         responsable: (user as any)?.fullName || '',
         tieneControl: true,
         origenPlanAccion: 'ninguno',
+        planAccionVinculadoId: null,
       });
     }
 
@@ -920,7 +923,8 @@ export default function ControlesYPlanesAccionPageNueva() {
       descripcionControl: controlData.descripcionControl,
       recomendacion: controlData.recomendacion || '',
       tipoMitigacion: controlData.tipoMitigacion,
-      estadoAmbos: controlData.estadoAmbos
+      estadoAmbos: controlData.estadoAmbos,
+      planAccionVinculadoId: controlData.planAccionVinculadoId || null
     };
 
     try {
@@ -1476,7 +1480,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               porcentajeMitigacion: causaActualizada.porcentajeMitigacion,
               tipoMitigacion: criteriosEvaluacion.tipoMitigacion,
               recomendacion: criteriosEvaluacion.recomendacion,
-              estadoAmbos: tipoClasificacion === 'AMBOS' ? 'ACTIVO' : null
+              estadoAmbos: tipoClasificacion === 'AMBOS' ? 'ACTIVO' : null,
+              planAccionVinculadoId: criteriosEvaluacion.planAccionVinculadoId
             };
 
             await guardarControlEnTabla(Number(causaIdEvaluacion), controlData, controlExistente);
@@ -2603,6 +2608,43 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                         <MenuItem value="fallo">Plan de Acción Fallido</MenuItem>
                                                                       </Select>
                                                                     </FormControl>
+
+                                                                    <FormControl fullWidth size="small">
+                                                                      <InputLabel>Plan de Acción Vinculado</InputLabel>
+                                                                      <Select
+                                                                        value={criteriosEvaluacion.planAccionVinculadoId || ''}
+                                                                        label="Plan de Acción Vinculado"
+                                                                        onChange={(e) => {
+                                                                          setCriteriosEvaluacion(pr => ({ 
+                                                                            ...pr, 
+                                                                            planAccionVinculadoId: e.target.value ? Number(e.target.value) : null 
+                                                                          }));
+                                                                        }}
+                                                                      >
+                                                                        <MenuItem value="">
+                                                                          <em>Ninguno</em>
+                                                                        </MenuItem>
+                                                                        {(() => {
+                                                                          // Obtener planes de acción de la causa actual
+                                                                          const planesDisponibles = causa.planesAccion || [];
+                                                                          
+                                                                          if (planesDisponibles.length === 0) {
+                                                                            return (
+                                                                              <MenuItem disabled value="">
+                                                                                <em>No hay planes de acción disponibles</em>
+                                                                              </MenuItem>
+                                                                            );
+                                                                          }
+                                                                          
+                                                                          return planesDisponibles.map((plan: any) => (
+                                                                            <MenuItem key={plan.id} value={plan.id}>
+                                                                              {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
+                                                                              {plan.estado && ` (${plan.estado})`}
+                                                                            </MenuItem>
+                                                                          ));
+                                                                        })()}
+                                                                      </Select>
+                                                                    </FormControl>
                                                                   </Box>
                                                                 </Box>
                                                               </Box>
@@ -3361,6 +3403,43 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                 <MenuItem value="A" sx={{ whiteSpace: 'normal' }}>A. El control ha fallado 0 veces durante el último año</MenuItem>
                                                                 <MenuItem value="B" sx={{ whiteSpace: 'normal' }}>B. Se han encontrado desviaciones en el desempeño del control</MenuItem>
                                                                 <MenuItem value="C" sx={{ whiteSpace: 'normal' }}>C. El control falla la mayoría de las veces</MenuItem>
+                                                              </Select>
+                                                            </FormControl>
+
+                                                            <FormControl fullWidth size="small">
+                                                              <InputLabel>Plan de Acción Vinculado</InputLabel>
+                                                              <Select
+                                                                value={criteriosEvaluacion.planAccionVinculadoId || ''}
+                                                                label="Plan de Acción Vinculado"
+                                                                onChange={(e) => {
+                                                                  setCriteriosEvaluacion(pr => ({ 
+                                                                    ...pr, 
+                                                                    planAccionVinculadoId: e.target.value ? Number(e.target.value) : null 
+                                                                  }));
+                                                                }}
+                                                              >
+                                                                <MenuItem value="">
+                                                                  <em>Ninguno</em>
+                                                                </MenuItem>
+                                                                {(() => {
+                                                                  // Obtener planes de acción de la causa actual
+                                                                  const planesDisponibles = causa.planesAccion || [];
+                                                                  
+                                                                  if (planesDisponibles.length === 0) {
+                                                                    return (
+                                                                      <MenuItem disabled value="">
+                                                                        <em>No hay planes de acción disponibles</em>
+                                                                      </MenuItem>
+                                                                    );
+                                                                  }
+                                                                  
+                                                                  return planesDisponibles.map((plan: any) => (
+                                                                    <MenuItem key={plan.id} value={plan.id}>
+                                                                      {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
+                                                                      {plan.estado && ` (${plan.estado})`}
+                                                                    </MenuItem>
+                                                                  ));
+                                                                })()}
                                                               </Select>
                                                             </FormControl>
                                                           </Box>

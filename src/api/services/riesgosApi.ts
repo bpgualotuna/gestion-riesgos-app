@@ -1278,6 +1278,68 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Configuracion', 'Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas'],
     }),
 
+    // ============================================
+    // REUNIONES Y ASISTENTES
+    // ============================================
+    getAsistentesProceso: builder.query<any[], string>({
+      query: (procesoId) => `procesos/${procesoId}/asistentes`,
+      providesTags: (_result, _error, procesoId) => [{ type: 'Proceso', id: procesoId }],
+    }),
+
+    asignarAsistentesProceso: builder.mutation<any[], { procesoId: string; usuariosIds: number[] }>({
+      query: ({ procesoId, usuariosIds }) => ({
+        url: `procesos/${procesoId}/asistentes`,
+        method: 'POST',
+        body: { usuariosIds },
+      }),
+      invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }],
+    }),
+
+    getReuniones: builder.query<any[], string>({
+      query: (procesoId) => `procesos/${procesoId}/reuniones`,
+      providesTags: (_result, _error, procesoId) => [{ type: 'Proceso', id: procesoId }],
+    }),
+
+    crearReunion: builder.mutation<any, { procesoId: string; fecha: string; descripcion: string; estado: string }>({
+      query: ({ procesoId, ...body }) => ({
+        url: `procesos/${procesoId}/reuniones`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }],
+    }),
+
+    actualizarReunion: builder.mutation<any, { id: number; fecha?: string; descripcion?: string; estado?: string }>({
+      query: ({ id, ...body }) => ({
+        url: `reuniones/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Proceso'],
+    }),
+
+    eliminarReunion: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `reuniones/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Proceso'],
+    }),
+
+    getAsistencias: builder.query<any[], number>({
+      query: (reunionId) => `reuniones/${reunionId}/asistencias`,
+      providesTags: ['Proceso'],
+    }),
+
+    actualizarAsistencias: builder.mutation<any[], { reunionId: number; asistencias: Array<{ id: number; asistio: boolean }> }>({
+      query: ({ reunionId, asistencias }) => ({
+        url: `reuniones/${reunionId}/asistencias`,
+        method: 'PUT',
+        body: { asistencias },
+      }),
+      invalidatesTags: ['Proceso'],
+    }),
+
   }),
 });
 
@@ -1457,6 +1519,15 @@ export const {
   useGetConfiguracionResidualQuery,
   useUpdateConfiguracionResidualMutation,
   useRecalcularClasificacionResidualMutation,
+  // Reuniones y Asistentes
+  useGetAsistentesProcesoQuery,
+  useAsignarAsistentesProcesoMutation,
+  useGetReunionesQuery,
+  useCrearReunionMutation,
+  useActualizarReunionMutation,
+  useEliminarReunionMutation,
+  useGetAsistenciasQuery,
+  useActualizarAsistenciasMutation,
 } = riesgosApi;
 
 // Alias para compatibilidad con código existente

@@ -27,12 +27,15 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Dialog,
+  DialogTitle,
 } from '@mui/material';
-import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as VisibilityIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as VisibilityIcon, ExpandMore as ExpandMoreIcon, Add as AddIcon, People as PeopleIcon, Event as EventIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdateProcesoMutation, useGetGerenciasQuery } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation, useGetGerenciasQuery, useGetAsistentesProcesoQuery, useAsignarAsistentesProcesoMutation, useGetReunionesQuery, useCrearReunionMutation, useActualizarReunionMutation, useEliminarReunionMutation, useGetAsistenciasQuery, useActualizarAsistenciasMutation } from '../../api/services/riesgosApi';
+import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useEffect } from 'react';
 import { useProcesosFiltradosPorArea } from '../../hooks/useAsignaciones';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -52,12 +55,43 @@ import type { ScreenContext } from '../../types/ia.types';interface FichaData {
   objetivoProceso: string;
 }
 
+interface Asistente {
+  id: number;
+  nombre: string;
+  email: string;
+  rol: 'dueño_procesos' | 'supervisor_riesgos';
+}
+
+interface Reunion {
+  id: number;
+  procesoId: number;
+  fecha: string;
+  descripcion: string;
+  estado: 'programada' | 'realizada' | 'cancelada';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AsistenciaReunion {
+  id: number;
+  reunionId: number;
+  usuarioId: number;
+  asistio: boolean;
+  observaciones?: string;
+  usuario?: {
+    id: number;
+    nombre: string;
+    email: string;
+  };
+}
+
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar, isLoading: isLoadingProceso } = useProceso();
   const { user, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso } = useAuth();
   const [updateProceso] = useUpdateProcesoMutation();
-  const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
+  const { setScreenContext } = useCoraIAContext();
+  
   const {
     procesosVisibles: procesosDisponibles,
     areasDisponibles,
@@ -68,6 +102,47 @@ export default function FichaPage() {
   } = useProcesosFiltradosPorArea('all');
   const { data: gerencias = [] } = useGetGerenciasQuery();
   const { procesoId } = useParams<{ procesoId?: string }>();
+
+  // Obtener proceso del parámetro de ruta o del contexto
+  const procesoActual = procesoId
+    ? procesosDisponibles.find((p: any) => String(p.id) === String(procesoId))
+    : procesoSeleccionado;
+  
+  // Hooks de API para reuniones y asistentes
+  const { data: asistentesData = [], refetch: refetchAsistentes, error: errorAsistentes, isLoading: loadingAsistentes } = useGetAsistentesProcesoQuery(
+    procesoActual?.id ? String(procesoActual.id) : '',
+    { skip: !procesoActual?.id }
+  );
+  const [asignarAsistentes] = useAsignarAsistentesProcesoMutation();
+  const { data: reunionesData = [], refetch: refetchReuniones, error: errorReuniones, isLoading: loadingReuniones } = useGetReunionesQuery(
+    procesoActual?.id ? String(procesoActual.id) : '',
+    { skip: !procesoActual?.id }
+  );
+  const [crearReunionMutation] = useCrearReunionMutation();
+  const [actualizarReunionMutation] = useActualizarReunionMutation();
+  const [eliminarReunionMutation] = useEliminarReunionMutation();
+  const [actualizarAsistenciasMutation] = useActualizarAsistenciasMutation();
+  
+  // Log de errores y datos de API para diagnóstico
+  useEffect(() => {
+    if (procesoActual?.id) {
+      console.log('[FichaPage] Proceso actual ID:', procesoActual.id);
+      console.log('[FichaPage] Loading asistentes:', loadingAsistentes);
+      console.log('[FichaPage] Loading reuniones:', loadingReuniones);
+      
+      if (errorAsistentes) {
+        console.error('[FichaPage/Asistentes] Error:', errorAsistentes);
+      } else if (!loadingAsistentes) {
+        console.log('[FichaPage/Asistentes] Datos cargados:', asistentesData);
+      }
+      
+      if (errorReuniones) {
+        console.error('[FichaPage/Reuniones] Error:', errorReuniones);
+      } else if (!loadingReuniones) {
+        console.log('[FichaPage/Reuniones] Datos cargados:', reunionesData);
+      }
+    }
+  }, [procesoActual?.id, errorAsistentes, errorReuniones, loadingAsistentes, loadingReuniones, asistentesData, reunionesData]);
 
   // Memoizar gerencia map para evitar recalcular constantemente
   const gerenciaMap = useMemo(() => {
@@ -88,11 +163,6 @@ export default function FichaPage() {
     // Si es un string, devolverlo directamente
     return String(gerenciaValue);
   }, [gerenciaMap]);
-
-  // Obtener proceso del parámetro de ruta o del contexto
-  const procesoActual = procesoId
-    ? procesosDisponibles.find((p: any) => String(p.id) === String(procesoId))
-    : procesoSeleccionado;
 
   // Skeleton mientras carga el proceso
   if (isLoadingProceso) {
@@ -159,13 +229,9 @@ export default function FichaPage() {
   // Cargar datos del proceso seleccionado
   const [formData, setFormData] = useState<FichaData>(() => {
     if (procesoActual) {
-      // Extraer sigla del catálogo de gerencias si existe
-      const gerenciaObj = gerencias?.find((g: any) => String(g.id) === String(procesoActual.gerencia));
-      const gerenciaSigla = gerenciaObj?.sigla || '';
-      
       return {
         vicepresidencia: procesoActual.vicepresidencia || '',
-        gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
+        gerencia: (procesoActual as any).gerenciaNombre || (procesoActual as any).gerencia?.nombre || '',
         sigla: (procesoActual as any).sigla || '',
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
@@ -205,16 +271,56 @@ export default function FichaPage() {
 
   const [isSaving, setIsSaving] = useState(false);
 
+  // Estados para Asistentes y Reuniones
+  const [dialogReunionOpen, setDialogReunionOpen] = useState(false);
+  const [dialogAsistenciaOpen, setDialogAsistenciaOpen] = useState(false);
+  const [reunionEnEdicion, setReunionEnEdicion] = useState<Reunion | null>(null);
+  const [reunionParaAsistencia, setReunionParaAsistencia] = useState<Reunion | null>(null);
+  const [asistencias, setAsistencias] = useState<AsistenciaReunion[]>([]);
+  const [formReunion, setFormReunion] = useState({
+    fecha: '',
+    descripcion: '',
+    estado: 'programada' as 'programada' | 'realizada' | 'cancelada'
+  });
+
+  // Usar directamente los datos del backend sin estados intermedios
+  const asistentesSeleccionados = useMemo(() => {
+    return (asistentesData || []).map((a: any) => a.id);
+  }, [asistentesData]);
+
+  const reuniones = useMemo(() => {
+    return reunionesData || [];
+  }, [reunionesData]);
+
+  // Obtener usuarios asignados al proceso (Dueños y Supervisores)
+  const usuariosDisponibles: Asistente[] = useMemo(() => {
+    if (!procesoActual) return [];
+    
+    const usuarios: Asistente[] = [];
+    
+    // Agregar responsables del proceso (pueden ser dueños o supervisores)
+    if ((procesoActual as any).responsablesList) {
+      (procesoActual as any).responsablesList.forEach((resp: any) => {
+        if (resp.role === 'dueño_procesos' || resp.role === 'supervisor_riesgos') {
+          usuarios.push({
+            id: resp.id,
+            nombre: resp.nombre,
+            email: resp.email,
+            rol: resp.role
+          });
+        }
+      });
+    }
+    
+    return usuarios;
+  }, [procesoActual]);
+
   // Actualizar formData cuando cambie el proceso seleccionado
   useEffect(() => {
     if (procesoActual) {
-      // Extraer sigla del catálogo de gerencias si existe
-      const gerenciaObj = gerencias?.find((g: any) => String(g.id) === String(procesoActual.gerencia));
-      const gerenciaSigla = gerenciaObj?.sigla || '';
-      
       const newData = {
         vicepresidencia: procesoActual.vicepresidencia || '',
-        gerencia: getGerenciaNombre(procesoActual.gerencia) || '',
+        gerencia: (procesoActual as any).gerenciaNombre || (procesoActual as any).gerencia?.nombre || '',
         sigla: (procesoActual as any).sigla || '',
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
@@ -227,7 +333,7 @@ export default function FichaPage() {
       setFormData(newData);
       setInitialFormData(newData);
     }
-  }, [procesoActual, gerencias, getGerenciaNombre]);
+  }, [procesoActual, gerencias]);
 
   // NUEVO: useEffect para capturar contexto de pantalla para CORA IA
   useEffect(() => {
@@ -316,6 +422,159 @@ export default function FichaPage() {
   const handleDiscardChanges = () => {
     setFormData(initialFormData);
     forceNavigate();
+  };
+
+  // Handlers para Asistentes
+  const handleToggleAsistente = async (usuarioId: number) => {
+    if (!procesoActual?.id) return;
+    
+    const nuevosAsistentes = asistentesSeleccionados.includes(usuarioId)
+      ? asistentesSeleccionados.filter(id => id !== usuarioId)
+      : [...asistentesSeleccionados, usuarioId];
+    
+    try {
+      await asignarAsistentes({
+        procesoId: String(procesoActual.id),
+        usuariosIds: nuevosAsistentes
+      }).unwrap();
+      
+      await refetchAsistentes();
+    } catch (error) {
+      showError('Error al actualizar asistentes');
+    }
+  };
+
+  // Handlers para Reuniones
+  const handleAbrirDialogReunion = (reunion?: Reunion) => {
+    if (reunion) {
+      setReunionEnEdicion(reunion);
+      setFormReunion({
+        fecha: reunion.fecha.split('T')[0], // Formato YYYY-MM-DD para input date
+        descripcion: reunion.descripcion,
+        estado: reunion.estado
+      });
+    } else {
+      setReunionEnEdicion(null);
+      setFormReunion({
+        fecha: '',
+        descripcion: '',
+        estado: 'programada'
+      });
+    }
+    setDialogReunionOpen(true);
+  };
+
+  const handleGuardarReunion = async () => {
+    if (!formReunion.fecha || !formReunion.descripcion) {
+      showError('Fecha y descripción son requeridas');
+      return;
+    }
+
+    if (!procesoActual?.id) {
+      showError('No hay proceso seleccionado');
+      return;
+    }
+
+    try {
+      if (reunionEnEdicion) {
+        // Actualizar reunión existente
+        await actualizarReunionMutation({
+          id: reunionEnEdicion.id,
+          fecha: formReunion.fecha,
+          descripcion: formReunion.descripcion,
+          estado: formReunion.estado
+        }).unwrap();
+        showSuccess('Reunión actualizada');
+      } else {
+        // Crear nueva reunión
+        await crearReunionMutation({
+          procesoId: String(procesoActual.id),
+          fecha: formReunion.fecha,
+          descripcion: formReunion.descripcion,
+          estado: formReunion.estado
+        }).unwrap();
+        showSuccess('Reunión creada');
+      }
+      
+      await refetchReuniones();
+      setDialogReunionOpen(false);
+    } catch (error) {
+      showError('Error al guardar reunión');
+    }
+  };
+
+  const handleEliminarReunion = async (reunionId: number) => {
+    if (!window.confirm('¿Está seguro de eliminar esta reunión?')) return;
+    
+    try {
+      await eliminarReunionMutation(reunionId).unwrap();
+      showSuccess('Reunión eliminada');
+      await refetchReuniones();
+    } catch (error) {
+      showError('Error al eliminar reunión');
+    }
+  };
+
+  // Handlers para Asistencia
+  const handleAbrirDialogAsistencia = async (reunion: Reunion) => {
+    console.log('[FichaPage] Abriendo diálogo de asistencia para reunión:', reunion);
+    setReunionParaAsistencia(reunion);
+    
+    // Cargar asistencias de esta reunión desde el backend
+    try {
+      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+      console.log('[FichaPage] Token presente:', !!token);
+      console.log('[FichaPage] URL:', `${API_BASE_URL}/reuniones/${reunion.id}/asistencias`);
+      
+      const response = await fetch(`${API_BASE_URL}/reuniones/${reunion.id}/asistencias`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('[FichaPage] Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[FichaPage] Asistencias cargadas:', data);
+        console.log('[FichaPage] Cantidad de asistencias:', data.length);
+        setAsistencias(data);
+      } else {
+        const errorText = await response.text();
+        console.error('[FichaPage] Error en respuesta:', errorText);
+      }
+    } catch (error) {
+      console.error('[FichaPage] Error al cargar asistencias:', error);
+    }
+    
+    setDialogAsistenciaOpen(true);
+  };
+
+  const handleToggleAsistencia = (asistenciaId: number) => {
+    setAsistencias(prev => prev.map(a => 
+      a.id === asistenciaId 
+        ? { ...a, asistio: !a.asistio }
+        : a
+    ));
+  };
+
+  const handleGuardarAsistencia = async () => {
+    if (!reunionParaAsistencia) return;
+    
+    try {
+      await actualizarAsistenciasMutation({
+        reunionId: reunionParaAsistencia.id,
+        asistencias: asistencias.map(a => ({
+          id: a.id,
+          asistio: a.asistio
+        }))
+      }).unwrap();
+      
+      showSuccess('Asistencia registrada');
+      setDialogAsistenciaOpen(false);
+    } catch (error) {
+      showError('Error al guardar asistencia');
+    }
   };
 
   if (!procesoActual && mostrarFiltrosProceso) {
@@ -590,6 +849,172 @@ export default function FichaPage() {
           </Box>
         </Box>
 
+        <Divider />
+
+        {/* NUEVA SECCIÓN: ASISTENTES Y REUNIONES */}
+        <Box>
+          <Typography variant="h6" fontWeight={700} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box component="span" sx={{ width: 4, height: 24, bgcolor: 'primary.main', borderRadius: 1 }} />
+            Asistentes y Reuniones
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Gestione los asistentes del proceso y programe reuniones de seguimiento.
+          </Typography>
+
+          {/* Subsección: Asistentes */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PeopleIcon color="primary" />
+              Asistentes del Proceso
+            </Typography>
+            
+            {usuariosDisponibles.length === 0 ? (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                No hay usuarios asignados a este proceso. Los asistentes deben ser Dueños de Procesos o Supervisores de Riesgos asignados al proceso.
+              </Alert>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {usuariosDisponibles.map(usuario => (
+                  <Card 
+                    key={usuario.id} 
+                    sx={{ 
+                      cursor: esSupervisorRiesgos ? 'pointer' : 'default',
+                      border: asistentesSeleccionados.includes(usuario.id) ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                      bgcolor: asistentesSeleccionados.includes(usuario.id) ? 'rgba(25, 118, 210, 0.04)' : 'white',
+                      transition: 'all 0.2s',
+                      '&:hover': esSupervisorRiesgos ? { boxShadow: 2 } : {}
+                    }}
+                    onClick={() => esSupervisorRiesgos && handleToggleAsistente(usuario.id)}
+                  >
+                    <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          {asistentesSeleccionados.includes(usuario.id) && (
+                            <CheckCircleIcon color="primary" />
+                          )}
+                          <Box>
+                            <Typography variant="body1" fontWeight={600}>
+                              {usuario.nombre}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {usuario.email} • {usuario.rol === 'dueño_procesos' ? 'Dueño de Procesos' : 'Supervisor de Riesgos'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          {/* Subsección: Reuniones */}
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <EventIcon color="primary" />
+                Reuniones Programadas
+              </Typography>
+              {esSupervisorRiesgos && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAbrirDialogReunion()}
+                  disabled={asistentesSeleccionados.length === 0}
+                  sx={{ borderRadius: 2 }}
+                >
+                  Nueva Reunión
+                </Button>
+              )}
+            </Box>
+
+            {asistentesSeleccionados.length === 0 ? (
+              <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                Debe seleccionar al menos un asistente antes de crear reuniones.
+              </Alert>
+            ) : reuniones.length === 0 ? (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                No hay reuniones programadas. {esSupervisorRiesgos && 'Haga clic en "Nueva Reunión" para crear una.'}
+              </Alert>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {reuniones.map(reunion => {
+                  const asistenciasReunion = asistencias.filter(a => a.reunionId === reunion.id);
+                  const totalAsistentes = asistenciasReunion.length;
+                  const asistieron = asistenciasReunion.filter(a => a.asistio).length;
+                  
+                  return (
+                    <Card key={reunion.id} sx={{ borderRadius: 2 }}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                              <Typography variant="h6" fontWeight={600}>
+                                {new Date(reunion.fecha).toLocaleDateString('es-ES', { 
+                                  weekday: 'long', 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric' 
+                                })}
+                              </Typography>
+                              <Chip 
+                                label={reunion.estado.charAt(0).toUpperCase() + reunion.estado.slice(1)}
+                                color={
+                                  reunion.estado === 'realizada' ? 'success' : 
+                                  reunion.estado === 'cancelada' ? 'error' : 
+                                  'primary'
+                                }
+                                size="small"
+                              />
+                            </Box>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              {reunion.descripcion}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Asistencia: {asistieron} de {totalAsistentes} asistentes
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleAbrirDialogAsistencia(reunion)}
+                            >
+                              {esSupervisorRiesgos ? 'Registrar Asistencia' : 'Ver Asistencia'}
+                            </Button>
+                            {esSupervisorRiesgos && (
+                              <>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => handleAbrirDialogReunion(reunion)}
+                                >
+                                  Editar
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  onClick={() => handleEliminarReunion(reunion.id)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </Button>
+                              </>
+                            )}
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
+        </Box>
+
         {!isReadOnly && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, pt: 2 }}>
             <Button
@@ -637,6 +1062,174 @@ export default function FichaPage() {
         )}
       </Box>
     </AppPageLayout>
+
+      {/* Dialog para Crear/Editar Reunión */}
+      <Dialog 
+        open={dialogReunionOpen} 
+        onClose={() => setDialogReunionOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {reunionEnEdicion ? 'Editar Reunión' : 'Nueva Reunión'}
+        </DialogTitle>
+        <Box sx={{ px: 3, pb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Fecha de la Reunión"
+              type="date"
+              value={formReunion.fecha}
+              onChange={(e) => setFormReunion(prev => ({ ...prev, fecha: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              required
+            />
+            
+            <TextField
+              label="Descripción / Agenda"
+              value={formReunion.descripcion}
+              onChange={(e) => setFormReunion(prev => ({ ...prev, descripcion: e.target.value }))}
+              multiline
+              rows={3}
+              fullWidth
+              required
+              placeholder="Ej: Revisión mensual de riesgos y controles"
+            />
+            
+            <FormControl fullWidth>
+              <InputLabel>Estado</InputLabel>
+              <Select
+                value={formReunion.estado}
+                label="Estado"
+                onChange={(e) => setFormReunion(prev => ({ ...prev, estado: e.target.value as any }))}
+              >
+                <MenuItem value="programada">Programada</MenuItem>
+                <MenuItem value="realizada">Realizada</MenuItem>
+                <MenuItem value="cancelada">Cancelada</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Alert severity="info" sx={{ mt: 1 }}>
+              Esta reunión incluirá a los {asistentesSeleccionados.length} asistentes seleccionados.
+            </Alert>
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+            <Button onClick={() => setDialogReunionOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={handleGuardarReunion}
+              disabled={!formReunion.fecha || !formReunion.descripcion}
+            >
+              {reunionEnEdicion ? 'Actualizar' : 'Crear Reunión'}
+            </Button>
+          </Box>
+        </Box>
+      </Dialog>
+
+      {/* Dialog para Registrar Asistencia */}
+      <Dialog 
+        open={dialogAsistenciaOpen} 
+        onClose={() => setDialogAsistenciaOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Registro de Asistencia
+        </DialogTitle>
+        <Box sx={{ px: 3, pb: 3 }}>
+          {reunionParaAsistencia && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Reunión: {new Date(reunionParaAsistencia.fecha).toLocaleDateString('es-ES')} - {reunionParaAsistencia.descripcion}
+              </Typography>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {(() => {
+                  console.log('[FichaPage] Estado asistencias completo:', asistencias);
+                  console.log('[FichaPage] Reunión para asistencia ID:', reunionParaAsistencia.id);
+                  
+                  const asistenciasFiltradas = asistencias.filter(a => {
+                    console.log('[FichaPage] Comparando:', a.reunionId, '===', reunionParaAsistencia.id);
+                    return a.reunionId === reunionParaAsistencia.id;
+                  });
+                  
+                  console.log('[FichaPage] Asistencias filtradas:', asistenciasFiltradas);
+                  console.log('[FichaPage] Cantidad filtrada:', asistenciasFiltradas.length);
+                  
+                  if (asistenciasFiltradas.length === 0) {
+                    return (
+                      <Alert severity="warning">
+                        No se encontraron asistentes para esta reunión. 
+                        Asegúrese de haber seleccionado asistentes en la sección "Asistentes".
+                      </Alert>
+                    );
+                  }
+                  
+                  return asistenciasFiltradas.map(asistencia => (
+                    <Card 
+                      key={asistencia.id}
+                      sx={{ 
+                        cursor: esSupervisorRiesgos ? 'pointer' : 'default',
+                        border: asistencia.asistio ? '2px solid #4caf50' : '1px solid #e0e0e0',
+                        bgcolor: asistencia.asistio ? 'rgba(76, 175, 80, 0.04)' : 'white'
+                      }}
+                      onClick={() => esSupervisorRiesgos && handleToggleAsistencia(asistencia.id)}
+                    >
+                      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            {asistencia.asistio ? (
+                              <CheckCircleIcon color="success" />
+                            ) : (
+                              <CancelIcon color="disabled" />
+                            )}
+                            <Box>
+                              <Typography variant="body1" fontWeight={600}>
+                                {asistencia.usuario?.nombre}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {asistencia.usuario?.email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Chip 
+                            label={asistencia.asistio ? 'Asistió' : 'No Asistió'}
+                            color={asistencia.asistio ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ));
+                })()}
+              </Box>
+
+              {esSupervisorRiesgos && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  Haga clic en cada asistente para marcar/desmarcar su asistencia.
+                </Alert>
+              )}
+            </>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+            <Button onClick={() => setDialogAsistenciaOpen(false)}>
+              {esSupervisorRiesgos ? 'Cancelar' : 'Cerrar'}
+            </Button>
+            {esSupervisorRiesgos && (
+              <Button 
+                variant="contained" 
+                onClick={handleGuardarAsistencia}
+              >
+                Guardar Asistencia
+              </Button>
+            )}
+          </Box>
+        </Box>
+      </Dialog>
     </>
   );
 }

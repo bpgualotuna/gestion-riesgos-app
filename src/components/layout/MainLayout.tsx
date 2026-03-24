@@ -92,6 +92,7 @@ const VirtualAssistantDemo = lazy(() => import("../common/VirtualAssistantDemo")
 import NotificationsMenu from "../common/NotificationsMenu";
 import AlertasNotificationsMenu from "../common/AlertasNotificationsMenu";
 import { useAuditNotifications } from "../../hooks/useAuditNotifications";
+import { useRiesgosCriticosNotifications } from "../../hooks/useRiesgosCriticosNotifications";
 import { useCalificacionInherenteConfig } from '../../hooks/useCalificacionInherenteConfig';
 import { useObtenerAlertasQuery } from "../../api/services/planTrazabilidadApi";
 import {
@@ -196,6 +197,10 @@ export default function MainLayout() {
     }
   );
   const alertasNoLeidas = alertasData?.noLeidas || 0;
+
+  // Hook de riesgos críticos para usuarios operativos (no admin)
+  const { conteo: conteoRiesgosCriticos } = useRiesgosCriticosNotifications(!esAdmin && !!user && !isLoading);
+  const totalNotificaciones = alertasNoLeidas + (conteoRiesgosCriticos.total || 0);
 
   useEffect(() => {
     setProfileImgError(false);
@@ -1041,7 +1046,7 @@ export default function MainLayout() {
                     }}
                     aria-label="Alertas de Vencimiento"
                   >
-                    <Badge badgeContent={alertasNoLeidas} color="warning" max={99}>
+                    <Badge badgeContent={totalNotificaciones} color="warning" max={99}>
                       <NotificationsIcon sx={{ color: '#ff9800', fontSize: 24 }} />
                     </Badge>
                   </IconButton>
