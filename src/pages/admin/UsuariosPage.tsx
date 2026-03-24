@@ -659,6 +659,13 @@ export default function UsuariosPage() {
                         id="usuario-tab-3"
                         aria-controls="usuario-tabpanel-3"
                     />
+                    <Tab
+                        icon={<SecurityIcon sx={{ fontSize: 24 }} />}
+                        iconPosition="top"
+                        label="Autenticación 2FA"
+                        id="usuario-tab-4"
+                        aria-controls="usuario-tabpanel-4"
+                    />
                 </Tabs>
 
                 {/* TAB 0: USUARIOS */}
@@ -910,6 +917,140 @@ export default function UsuariosPage() {
                             getRowId={(row) => row.id}
                             onRowClick={(params) => handleOpenGerenciaDetailDialog(params.row)}
                         />
+                    </Box>
+                </TabPanel>
+
+                {/* TAB 4: AUTENTICACIÓN 2FA */}
+                <TabPanel value={currentTab} index={4}>
+                    <Box sx={{ p: 3 }}>
+                        <Paper sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                                <SecurityIcon sx={{ fontSize: 48, color: '#1976d2' }} />
+                                <Box>
+                                    <Typography variant="h5" fontWeight={600} gutterBottom>
+                                        Autenticación de Dos Factores (2FA)
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Configure la autenticación de dos factores para todos los usuarios del sistema
+                                    </Typography>
+                                </Box>
+                            </Box>
+
+                            <Alert severity="info" sx={{ mb: 3 }}>
+                                La autenticación de dos factores agrega una capa adicional de seguridad requiriendo un código de verificación además de la contraseña.
+                            </Alert>
+
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                {/* Activar 2FA Global */}
+                                <Paper variant="outlined" sx={{ p: 3 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Box>
+                                            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                                                Activar 2FA para Todos los Usuarios
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Cuando está activado, todos los usuarios deberán configurar la autenticación de dos factores en su próximo inicio de sesión
+                                            </Typography>
+                                        </Box>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={false}
+                                                    disabled
+                                                    color="primary"
+                                                />
+                                            }
+                                            label=""
+                                        />
+                                    </Box>
+                                </Paper>
+
+                                {/* Método de Autenticación */}
+                                <Paper variant="outlined" sx={{ p: 3 }}>
+                                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                                        Método de Autenticación
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                        Seleccione el método de autenticación de dos factores
+                                    </Typography>
+                                    <FormControl fullWidth disabled>
+                                        <InputLabel>Método 2FA</InputLabel>
+                                        <Select
+                                            value="google_authenticator"
+                                            label="Método 2FA"
+                                        >
+                                            <MenuItem value="google_authenticator">Google Authenticator</MenuItem>
+                                            <MenuItem value="sms">SMS</MenuItem>
+                                            <MenuItem value="email">Correo Electrónico</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Paper>
+
+                                {/* Configuración Avanzada */}
+                                <Paper variant="outlined" sx={{ p: 3 }}>
+                                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                                        Configuración Avanzada
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                                        <FormControlLabel
+                                            control={<Switch checked={true} disabled />}
+                                            label="Permitir códigos de respaldo"
+                                        />
+                                        <FormControlLabel
+                                            control={<Switch checked={false} disabled />}
+                                            label="Requerir 2FA para administradores únicamente"
+                                        />
+                                        <FormControlLabel
+                                            control={<Switch checked={true} disabled />}
+                                            label="Recordar dispositivo por 30 días"
+                                        />
+                                    </Box>
+                                </Paper>
+
+                                {/* Estadísticas */}
+                                <Paper variant="outlined" sx={{ p: 3, bgcolor: '#f5f5f5' }}>
+                                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                                        Estadísticas de 2FA
+                                    </Typography>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mt: 2 }}>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="h4" color="primary" fontWeight={600}>
+                                                0
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Usuarios con 2FA activo
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="h4" color="text.secondary" fontWeight={600}>
+                                                {usuariosMapeados.length}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Total de usuarios
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="h4" color="warning.main" fontWeight={600}>
+                                                0%
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Tasa de adopción
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Paper>
+
+                                {/* Botones de Acción */}
+                                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                                    <Button variant="outlined" disabled>
+                                        Restablecer Configuración
+                                    </Button>
+                                    <Button variant="contained" disabled startIcon={<SaveIcon />}>
+                                        Guardar Cambios
+                                    </Button>
+                                </Box>
+                            </Box>
+                        </Paper>
                     </Box>
                 </TabPanel>
             </Box>
@@ -1240,9 +1381,18 @@ export default function UsuariosPage() {
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Contraseña</Typography>
-                                <Typography variant="body1">
-                                    ******** (no visible por seguridad)
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body1">
+                                        {showPassword ? (selectedUserDetail.password || '(sin contraseña)') : '********'}
+                                    </Typography>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        sx={{ ml: 1 }}
+                                    >
+                                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                    </IconButton>
+                                </Box>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Cargo</Typography>
@@ -1262,6 +1412,39 @@ export default function UsuariosPage() {
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Estado</Typography>
                                 <Typography variant="body1">{selectedUserDetail.activo ? 'Activo' : 'Inactivo'}</Typography>
+                            </Box>
+                            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <SecurityIcon sx={{ color: '#1976d2' }} />
+                                        <Box>
+                                            <Typography variant="body2" fontWeight={600}>
+                                                Autenticación de Dos Factores (2FA)
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Protege tu cuenta con un código de verificación adicional
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={false}
+                                                disabled
+                                                color="primary"
+                                            />
+                                        }
+                                        label={
+                                            <Typography variant="caption" color="text.secondary">
+                                                Desactivado
+                                            </Typography>
+                                        }
+                                        labelPlacement="start"
+                                    />
+                                </Box>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                    La autenticación de dos factores agrega una capa adicional de seguridad a tu cuenta.
+                                </Typography>
                             </Box>
                         </Box>
                     )}
