@@ -176,9 +176,9 @@ export default function UsuariosPage() {
             ...u,
             cargoNombre: u.cargo?.nombre || u.cargoNombre || null,
             cargoId: u.cargoId || u.cargo?.id || null,
-            role: u.role?.codigo || u.role || null,
-            roleId: u.roleId || u.role?.id || null,
-            roleNombre: u.role?.nombre || null
+            role: u.roleRelacion?.codigo || u.role?.codigo || u.role || null,
+            roleId: u.roleId || u.roleRelacion?.id || u.role?.id || null,
+            roleNombre: u.roleRelacion?.nombre || u.role?.nombre || null
         }));
     }, [usuariosData]);
 
@@ -504,7 +504,7 @@ export default function UsuariosPage() {
             return;
         }
         if (!isValidEmail(formData.email.trim())) {
-            showError('El correo no tiene un formato válido. Puede usar dominios como .com, .co, .com.co, etc.');
+            showError('El correo no tiene un formato válido. Debe contener @ y un dominio válido.');
             return;
         }
 

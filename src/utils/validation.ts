@@ -21,16 +21,15 @@ export function sanitizeString(input: string): string {
 }
 
 /**
- * Validate email format (acepta cualquier TLD: .com, .co, .ce, .cl, .com.co, .org, etc.)
+ * Validate email format (acepta cualquier dominio válido)
  */
 export function isValidEmail(email: string): boolean {
   if (!email || typeof email !== 'string') {
     return false;
   }
   const trimmed = email.trim();
-  // Una @, al menos un punto en la parte dominio; TLD de 2+ caracteres (.co, .ce, .cl, .com, etc.)
-  const emailRegex = /^[^\s@]+@[^\s@]+(\.[^\s@]+)+$/;
-  return emailRegex.test(trimmed);
+  // Validación simple: debe tener @ y al menos un punto después del @
+  return trimmed.includes('@') && trimmed.split('@')[1]?.includes('.');
 }
 
 /**
