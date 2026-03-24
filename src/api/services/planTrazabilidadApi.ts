@@ -149,7 +149,10 @@ export interface PlanesAccionResponse {
 export const planTrazabilidadApi = createApi({
   reducerPath: 'planTrazabilidadApi',
   baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+    baseUrl:
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_API_URL ||
+      'http://localhost:8080/api',
     prepareHeaders: (headers) => {
       const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {

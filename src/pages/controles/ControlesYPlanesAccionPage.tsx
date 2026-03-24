@@ -271,7 +271,8 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { data: frecuenciasCatalog = [] } = useGetFrecuenciasQuery();
 
   // Manejo de archivos de seguimiento
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
