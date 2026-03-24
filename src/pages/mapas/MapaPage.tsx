@@ -70,7 +70,9 @@ const calcularResidualDesdeCausas = (riesgo: Riesgo | any) => {
 
   const causasConControles = causas.filter((c: any) => {
     const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-    return tipo === 'CONTROL' || tipo === 'AMBOS';
+    // También verificar si tiene controles en la relación
+    const tieneControles = c.controles && c.controles.length > 0;
+    return tipo === 'CONTROL' || tipo === 'AMBOS' || tieneControles;
   });
   if (causasConControles.length === 0) return null;
 
@@ -79,14 +81,47 @@ const calcularResidualDesdeCausas = (riesgo: Riesgo | any) => {
   let mejorImpacto = 0;
 
   causasConControles.forEach((c: any) => {
+    // Obtener el control desde la relación (tabla ControlRiesgo)
+    const control = c.controles?.[0] || {};
     const g = c.gestion && typeof c.gestion === 'object' ? c.gestion : {};
-    const fr = Number(c.frecuenciaResidual ?? g.frecuenciaResidual ?? c.frecuencia ?? 3);
-    const ir = Number(c.impactoResidual ?? g.impactoResidual ?? c.calificacionGlobalImpacto ?? 1);
-    let cal = c.calificacionResidual != null
-      ? Number(c.calificacionResidual)
-      : (c.riesgoResidual != null
-        ? Number(c.riesgoResidual)
-        : (fr === 2 && ir === 2 ? 3.99 : fr * ir));
+    
+    // Obtener porcentaje de mitigación (puede estar en formato 0-1 o 0-100)
+    let porcentajeMitigacion = 0;
+    if (control.estandarizacionPorcentajeMitigacion !== undefined) {
+      // Viene de la tabla ControlRiesgo como entero 0-100
+      porcentajeMitigacion = Number(control.estandarizacionPorcentajeMitigacion) / 100;
+    } else if (g.porcentajeMitigacion !== undefined) {
+      // Viene del campo gestion (legacy)
+      const valor = Number(g.porcentajeMitigacion);
+      porcentajeMitigacion = valor > 1 ? valor / 100 : valor;
+    } else if (c.porcentajeMitigacion !== undefined) {
+      const valor = Number(c.porcentajeMitigacion);
+      porcentajeMitigacion = valor > 1 ? valor / 100 : valor;
+    }
+    
+    // Obtener tipo de mitigación
+    const tipoMitigacion = control.disminuyeFrecuenciaImpactoAmbas || control.tipoMitigacion || g.tipoMitigacion || 'AMBAS';
+    
+    // Obtener frecuencia e impacto inherentes
+    const frecuenciaInherente = Number(c.frecuencia || 3);
+    const impactoInherente = Number(c.calificacionGlobalImpacto || 1);
+    
+    // Calcular frecuencia residual
+    let fr = frecuenciaInherente;
+    if (tipoMitigacion === 'FRECUENCIA' || tipoMitigacion === 'AMBAS') {
+      fr = frecuenciaInherente - (frecuenciaInherente * porcentajeMitigacion);
+      fr = Math.max(1, Math.min(5, Math.ceil(fr)));
+    }
+    
+    // Calcular impacto residual
+    let ir = impactoInherente;
+    if (tipoMitigacion === 'IMPACTO' || tipoMitigacion === 'AMBAS') {
+      ir = impactoInherente - (impactoInherente * porcentajeMitigacion);
+      ir = Math.max(1, Math.min(5, Math.ceil(ir)));
+    }
+    
+    // Calcular calificación residual
+    let cal = fr === 2 && ir === 2 ? 3.99 : fr * ir;
 
     if (isNaN(cal) || cal <= 0) return;
 
