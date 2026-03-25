@@ -182,6 +182,16 @@ export default function MapaPage() {
   const [puntoSeleccionadoDetalle, setPuntoSeleccionadoDetalle] = useState<PuntoMapa | null>(null);
   const [tipoMapaDetalle, setTipoMapaDetalle] = useState<'inherente' | 'residual'>('inherente');
   const [riesgosExpandidos, setRiesgosExpandidos] = useState<Record<string, boolean>>({});
+  const [tipoMapaSeleccionado, setTipoMapaSeleccionado] = useState<'inherente' | 'residual'>('inherente');
+  const [seccionesExpandidas, setSeccionesExpandidas] = useState<{
+    causas: boolean;
+    residual: boolean;
+    controles: boolean;
+  }>({
+    causas: false,
+    residual: false,
+    controles: false,
+  });
 
   // Limpiar estados de diálogos al desmontar el componente para evitar bloqueos de navegación
   useEffect(() => {
@@ -657,7 +667,6 @@ export default function MapaPage() {
   }, [puntosFiltrados, riesgosCompletos]);
 
   // Obtener riesgos de la celda seleccionada usando puntos filtrados
-  const [tipoMapaSeleccionado, setTipoMapaSeleccionado] = useState<'inherente' | 'residual'>('inherente');
   const matrizActual = tipoMapaSeleccionado === 'inherente' ? matrizInherente : matrizResidual;
 
   const riesgosCeldaSeleccionada = useMemo(() => {
@@ -1113,16 +1122,7 @@ export default function MapaPage() {
 
 
 
-  // Estado para secciones expandidas en el diálogo
-  const [seccionesExpandidas, setSeccionesExpandidas] = useState<{
-    causas: boolean;
-    residual: boolean;
-    controles: boolean;
-  }>({
-    causas: false,
-    residual: false,
-    controles: false,
-  });
+  // Handlers y lógica para el diálogo de detalle de riesgo
 
 
   // Obtener evaluación del riesgo seleccionado para el diálogo de detalles
