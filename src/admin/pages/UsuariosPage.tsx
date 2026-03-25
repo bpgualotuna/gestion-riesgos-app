@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import axios from 'axios';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 interface UsuariosPageProps {
   user: any;
@@ -44,6 +45,7 @@ export default function UsuariosPage({ user }: UsuariosPageProps) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDelete } = useConfirm();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState({
@@ -115,15 +117,14 @@ export default function UsuariosPage({ user }: UsuariosPageProps) {
   };
 
   const handleEliminar = async (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar este usuario?')) {
-      try {
-        await axios.delete(`${API_URL}/usuarios/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        cargarUsuarios();
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Error al eliminar usuario');
-      }
+    if (!(await confirmDelete('este usuario'))) return;
+    try {
+      await axios.delete(`${API_URL}/usuarios/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      cargarUsuarios();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al eliminar usuario');
     }
   };
 

@@ -3,7 +3,7 @@
  * Documentación del análisis del proceso según análisis Excel
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,7 +11,6 @@ import {
   CardContent,
   TextField,
   Button,
-  Paper,
   List,
   ListItem,
   ListItemIcon,
@@ -28,14 +27,12 @@ import {
 } from '@mui/material';
 import {
   Save as SaveIcon,
-  Upload as UploadIcon,
   Description as DescriptionIcon,
   AccountTree as AccountTreeIcon,
   Timeline as TimelineIcon,
   Settings as SettingsIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
-  Delete as DeleteIcon,
   Edit as EditIcon,
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
@@ -50,6 +47,7 @@ import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import MaxFilesUploadPanel from '../../components/common/MaxFilesUploadPanel';
 
 export default function AnalisisProcesoPage() {
   const theme = useTheme();
@@ -100,7 +98,6 @@ export default function AnalisisProcesoPage() {
 
   const [selectedCaracterizacion, setSelectedCaracterizacion] = useState<File | null>(null);
   const [selectedFlujoGrama, setSelectedFlujoGrama] = useState<File | null>(null);
-  const [uploadTarget, setUploadTarget] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | null>(null);
@@ -127,53 +124,14 @@ export default function AnalisisProcesoPage() {
   const [fileToDelete, setFileToDelete] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
   const [deleteModalLoading, setDeleteModalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dragOver, setDragOver] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
-  const setFileIfValid = (file: File, target: 'caracterizacion' | 'flujoGrama') => {
-    if (file.size > MAX_FILE_SIZE) {
-      showError('El archivo es demasiado grande. Máximo 5MB.');
-      return;
-    }
-    if (!acceptedMimeTypes.includes(file.type)) {
-      showError('Formato no permitido. Use PDF, PNG, JPG o DOCX.');
-      return;
-    }
-    if (target === 'caracterizacion') setSelectedCaracterizacion(file);
-    else setSelectedFlujoGrama(file);
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && uploadTarget) {
-      setFileIfValid(file, uploadTarget);
-      setUploadTarget(null);
-    }
-    event.target.value = '';
-  };
-
-  const handleDragOver = (e: React.DragEvent, target: 'caracterizacion' | 'flujoGrama') => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) setDragOver(target);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, target: 'caracterizacion' | 'flujoGrama') => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(null);
-    const file = e.dataTransfer.files?.[0];
-    if (file) setFileIfValid(file, target);
+  const validateProcesoFile = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) return 'El archivo es demasiado grande. Máximo 5MB.';
+    if (!acceptedMimeTypes.includes(file.type)) return 'Formato no permitido. Use PDF, PNG, JPG o DOCX.';
+    return null;
   };
 
   const handleRequestDelete = (type: 'caracterizacion' | 'flujoGrama') => {
@@ -196,7 +154,6 @@ export default function AnalisisProcesoPage() {
       if (selected) {
         if (isCaracterizacion) setSelectedCaracterizacion(null);
         else setSelectedFlujoGrama(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
       } else if (saved) {
         const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(saved.url)}`;
         const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
@@ -333,7 +290,7 @@ export default function AnalisisProcesoPage() {
     const isPdf = name.toLowerCase().endsWith('.pdf');
     const isImage = /\.(jpg|jpeg|png|gif)$/i.test(name);
     const u = (url || '').trim();
-    if (!u.startsWith('http')) {
+    if (!u.startsWith('http') && !u.startsWith('blob:')) {
       showError('URL del archivo no válida');
       return;
     }
@@ -348,11 +305,6 @@ export default function AnalisisProcesoPage() {
       setPreviewUrl(urlSinCache);
       setPreviewOpen(true);
     }
-  };
-
-  const handleUploadClick = (target: 'caracterizacion' | 'flujoGrama') => {
-    setUploadTarget(target);
-    fileInputRef.current?.click();
   };
 
   const instrucciones = [
@@ -582,125 +534,83 @@ export default function AnalisisProcesoPage() {
                   />
                 </Box>
 
-                {/* 1. Flujograma (primer apartado: lo ya subido se muestra aquí) */}
+                {/* 1. Flujograma — mismo panel que Controles/Evidencias (max 2 filas: guardado + pendiente) */}
                 <Box>
                   <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Flujograma</Typography>
-                  <Paper
-                    elevation={0}
-                    onDragOver={(e) => handleDragOver(e, 'flujoGrama')}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, 'flujoGrama')}
-                    sx={{
-                      p: 2.5,
-                      backgroundColor: dragOver === 'flujoGrama' ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 165, 0, 0.05)',
-                      border: '2px dashed',
-                      borderColor: dragOver === 'flujoGrama' ? 'primary.main' : '#FFA500',
-                      borderRadius: 2,
-                      transition: 'background-color 0.2s, border-color 0.2s',
+                  <MaxFilesUploadPanel
+                    label=""
+                    buttonLabel="Subir flujograma"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    maxFiles={2}
+                    selectedFiles={
+                      savedFlujoGrama?.url && selectedFlujoGrama
+                        ? [null, selectedFlujoGrama]
+                        : [selectedFlujoGrama, null]
+                    }
+                    existingUrls={
+                      savedFlujoGrama?.url && selectedFlujoGrama
+                        ? [savedFlujoGrama.url, '']
+                        : [savedFlujoGrama?.url || '', '']
+                    }
+                    existingNames={
+                      savedFlujoGrama?.url && selectedFlujoGrama
+                        ? [savedFlujoGrama.name, '']
+                        : [savedFlujoGrama?.name || '', '']
+                    }
+                    validateFile={validateProcesoFile}
+                    onError={showError}
+                    onAddFiles={(files) => {
+                      const f = files[0];
+                      if (f) setSelectedFlujoGrama(f);
                     }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
-                      <TimelineIcon sx={{ color: '#FFA500', mt: 0.5 }} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          PDF, PNG, JPG, DOCX. Máx. 5MB.
-                        </Typography>
-                        {savedFlujoGrama && (
-                          <Box sx={{ mt: 1, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <DescriptionIcon color="primary" />
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" fontWeight={600}>{savedFlujoGrama.name}</Typography>
-                                <Chip label="Guardado" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
-                              </Box>
-                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(savedFlujoGrama.url, savedFlujoGrama.name)}>Ver</Button>
-                              {!isReadOnly && (
-                                <IconButton size="small" color="error" onClick={() => handleRequestDelete('flujoGrama')} title="Eliminar"><DeleteIcon fontSize="small" /></IconButton>
-                              )}
-                            </Box>
-                          </Box>
-                        )}
-                        {selectedFlujoGrama && (
-                          <Box sx={{ mt: 1, p: 2, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc80' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <UploadIcon color="warning" />
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" fontWeight={600}>{selectedFlujoGrama.name} ({(selectedFlujoGrama.size / 1024).toFixed(1)} KB)</Typography>
-                                <Chip label="Por subir" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />
-                              </Box>
-                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(URL.createObjectURL(selectedFlujoGrama), selectedFlujoGrama.name)}>Ver</Button>
-                              <IconButton size="small" color="error" onClick={() => handleRequestDelete('flujoGrama')} title="Quitar"><DeleteIcon fontSize="small" /></IconButton>
-                            </Box>
-                          </Box>
-                        )}
-                        {!isReadOnly && (
-                          <Button variant="outlined" size="small" startIcon={<UploadIcon />} onClick={() => handleUploadClick('flujoGrama')} sx={{ mt: 1 }}>Subir flujograma</Button>
-                        )}
-                      </Box>
-                    </Box>
-                  </Paper>
+                    onRemoveAt={() => handleRequestDelete('flujoGrama')}
+                    disabled={isReadOnly}
+                    leadingIcon={<TimelineIcon sx={{ color: '#FFA500', mt: 0.5 }} />}
+                    onPreviewUrl={(url) =>
+                      savedFlujoGrama && handlePreview(url, savedFlujoGrama.name)
+                    }
+                    onPreviewFile={(file) => handlePreview(URL.createObjectURL(file), file.name)}
+                  />
                 </Box>
 
-                {/* 2. Caracterización (segundo apartado, debajo) */}
+                {/* 2. Caracterización */}
                 <Box>
                   <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Caracterización</Typography>
-                  <Paper
-                    elevation={0}
-                    onDragOver={(e) => handleDragOver(e, 'caracterizacion')}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, 'caracterizacion')}
-                    sx={{
-                      p: 2.5,
-                      backgroundColor: dragOver === 'caracterizacion' ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 165, 0, 0.05)',
-                      border: '2px dashed',
-                      borderColor: dragOver === 'caracterizacion' ? 'primary.main' : '#FFA500',
-                      borderRadius: 2,
-                      transition: 'background-color 0.2s, border-color 0.2s',
+                  <MaxFilesUploadPanel
+                    label=""
+                    buttonLabel="Subir caracterización"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    maxFiles={2}
+                    selectedFiles={
+                      savedCaracterizacion?.url && selectedCaracterizacion
+                        ? [null, selectedCaracterizacion]
+                        : [selectedCaracterizacion, null]
+                    }
+                    existingUrls={
+                      savedCaracterizacion?.url && selectedCaracterizacion
+                        ? [savedCaracterizacion.url, '']
+                        : [savedCaracterizacion?.url || '', '']
+                    }
+                    existingNames={
+                      savedCaracterizacion?.url && selectedCaracterizacion
+                        ? [savedCaracterizacion.name, '']
+                        : [savedCaracterizacion?.name || '', '']
+                    }
+                    validateFile={validateProcesoFile}
+                    onError={showError}
+                    onAddFiles={(files) => {
+                      const f = files[0];
+                      if (f) setSelectedCaracterizacion(f);
                     }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
-                      <SettingsIcon sx={{ color: '#FFA500', mt: 0.5 }} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          PDF, PNG, JPG, DOCX. Máx. 5MB.
-                        </Typography>
-                        {savedCaracterizacion && (
-                          <Box sx={{ mt: 1, p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #90caf9' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <DescriptionIcon color="primary" />
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" fontWeight={600}>{savedCaracterizacion.name}</Typography>
-                                <Chip label="Guardado" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
-                              </Box>
-                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(savedCaracterizacion.url, savedCaracterizacion.name)}>Ver</Button>
-                              {!isReadOnly && (
-                                <IconButton size="small" color="error" onClick={() => handleRequestDelete('caracterizacion')} title="Eliminar"><DeleteIcon fontSize="small" /></IconButton>
-                              )}
-                            </Box>
-                          </Box>
-                        )}
-                        {selectedCaracterizacion && (
-                          <Box sx={{ mt: 1, p: 2, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc80' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <UploadIcon color="warning" />
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" fontWeight={600}>{selectedCaracterizacion.name} ({(selectedCaracterizacion.size / 1024).toFixed(1)} KB)</Typography>
-                                <Chip label="Por subir" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />
-                              </Box>
-                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handlePreview(URL.createObjectURL(selectedCaracterizacion), selectedCaracterizacion.name)}>Ver</Button>
-                              <IconButton size="small" color="error" onClick={() => handleRequestDelete('caracterizacion')} title="Quitar"><DeleteIcon fontSize="small" /></IconButton>
-                            </Box>
-                          </Box>
-                        )}
-                        {!isReadOnly && (
-                          <Button variant="outlined" size="small" startIcon={<UploadIcon />} onClick={() => handleUploadClick('caracterizacion')} sx={{ mt: 1 }}>Subir caracterización</Button>
-                        )}
-                      </Box>
-                    </Box>
-                  </Paper>
+                    onRemoveAt={() => handleRequestDelete('caracterizacion')}
+                    disabled={isReadOnly}
+                    leadingIcon={<SettingsIcon sx={{ color: '#FFA500', mt: 0.5 }} />}
+                    onPreviewUrl={(url) =>
+                      savedCaracterizacion && handlePreview(url, savedCaracterizacion.name)
+                    }
+                    onPreviewFile={(file) => handlePreview(URL.createObjectURL(file), file.name)}
+                  />
                 </Box>
-
-                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" />
 
                 {!isReadOnly && (
                   <Box>

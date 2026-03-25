@@ -22,9 +22,9 @@ import {
     Close as CloseIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
-import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef } from '@mui/x-data-grid';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 interface ImpactosCatalogProps {
     tipos: { id: number; clave: string; nombre: string }[];
@@ -42,6 +42,7 @@ export default function ImpactosCatalog({
     onDeleteTipo,
 }: ImpactosCatalogProps) {
     const { puedeEditar } = useAuth();
+    const { confirmDelete } = useConfirm();
     const canEdit = puedeEditar !== false;
     const [open, setOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -122,10 +123,9 @@ export default function ImpactosCatalog({
         handleCloseNew();
     };
 
-    const handleDeleteImpact = (row: any) => {
-        if (confirmarEliminar(`el tipo de impacto "${row.nombre}"`)) {
-            onDeleteTipo(row.id);
-        }
+    const handleDeleteImpact = async (row: any) => {
+        if (!(await confirmDelete(`el tipo de impacto "${row.nombre}"`))) return;
+        onDeleteTipo(row.id);
     };
 
     const columns: GridColDef[] = [

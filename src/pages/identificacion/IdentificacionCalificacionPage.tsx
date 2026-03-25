@@ -3638,9 +3638,9 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
         </CardContent>
       </Card>
 
-      {/* Panel CAUSAS */}
+      {/* Panel CAUSAS (frecuencia en tabla) */}
       <Card sx={{ display: 'flex', flexDirection: 'column' }}>
-        {/* Header azul con "CAUSAS" */}
+        {/* Header azul */}
         <Box
           sx={{
             backgroundColor: '#1976d2',
@@ -3651,7 +3651,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
           }}
         >
           <Typography variant="h6" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
-            CAUSAS
+            CAUSAS (FRECUENCIA)
           </Typography>
         </Box>
         <CardContent sx={{ flexGrow: 1, p: 3 }}>

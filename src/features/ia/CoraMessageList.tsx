@@ -1,6 +1,59 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
+import ReactMarkdown from 'react-markdown';
+
+/** Contenido del chat con Markdown real (negritas, cursivas, listas, reglas ---). */
+function CoraMarkdownBody({ content, isUser }: { content: string; isUser: boolean }) {
+  return (
+    <Box
+      sx={{
+        '& p': { margin: 0, mb: 1, '&:last-child': { mb: 0 } },
+        '& strong': { fontWeight: 700 },
+        '& em': { fontStyle: 'italic' },
+        '& strong em, & em strong': { fontWeight: 700, fontStyle: 'italic' },
+        '& hr': {
+          border: 0,
+          borderTop: '1px solid',
+          borderColor: isUser ? 'rgba(0,0,0,0.12)' : '#e5e7eb',
+          my: 1.25,
+        },
+        '& ul, & ol': { pl: 2, my: 0.5, mb: 1 },
+        '& li': { mb: 0.35 },
+        '& h1, & h2, & h3': { fontWeight: 700, mt: 1, mb: 0.75, fontSize: '0.95rem' },
+        '& h1:first-of-type, & h2:first-of-type, & h3:first-of-type': { mt: 0 },
+        '& code': {
+          fontSize: '0.85em',
+          bgcolor: isUser ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.05)',
+          px: 0.4,
+          py: 0.1,
+          borderRadius: 0.5,
+          fontFamily: 'ui-monospace, monospace',
+        },
+        '& pre': {
+          overflow: 'auto',
+          maxWidth: '100%',
+          p: 1,
+          borderRadius: 1,
+          bgcolor: isUser ? 'rgba(0,0,0,0.06)' : '#f9fafb',
+          fontSize: '0.8rem',
+          my: 1,
+        },
+        '& pre code': { bgcolor: 'transparent', p: 0 },
+        '& blockquote': {
+          borderLeft: '3px solid',
+          borderColor: 'primary.main',
+          pl: 1.25,
+          my: 1,
+          color: 'text.secondary',
+        },
+        '& a': { color: 'primary.main', wordBreak: 'break-word' },
+      }}
+    >
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </Box>
+  );
+}
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -61,12 +114,11 @@ const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, stream
               p: 1.25,
               boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
               border: m.role === 'assistant' ? '1px solid #e5e7eb' : 'none',
-              whiteSpace: 'pre-wrap',
               fontSize: '0.875rem',
               lineHeight: 1.5,
             }}
           >
-            {m.content}
+            <CoraMarkdownBody content={m.content} isUser={m.role === 'user'} />
           </Box>
         </Box>
       ))}

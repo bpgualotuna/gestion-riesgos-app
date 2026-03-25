@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, Typography, Alert } from '@mui/material';
 import ResumenEstadisticasCards from './ResumenEstadisticasCards';
 import TablaComparativaRiesgos, { type ComparativaRiesgo } from './TablaComparativaRiesgos';
 import ResumenNarrativoMapas from './ResumenNarrativoMapas';
+import type { Riesgo } from '../../types';
+import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
 
 interface ResumenEstadisticasProps {
   matrizInherente: { [key: string]: unknown[] };
@@ -22,11 +24,14 @@ interface ResumenEstadisticasProps {
     probabilidadResidual?: number;
     impactoResidual?: number;
   }[];
+  /** Misma fuente que el mapa residual (causas → punto residual → inherente). */
+  riesgosCompletos?: Riesgo[];
 }
 
 export default function ResumenEstadisticasMapas({
   procesos,
   puntosFiltrados,
+  riesgosCompletos = [],
 }: ResumenEstadisticasProps) {
   const estadisticas = useMemo(() => {
     const riesgosComparativa: ComparativaRiesgo[] = [];
@@ -40,8 +45,11 @@ export default function ResumenEstadisticasMapas({
       const impInh = Number(punto.impacto) || 1;
       const valorInherente = probInh === 2 && impInh === 2 ? 3.99 : probInh * impInh;
 
-      const probRes = Number(punto.probabilidadResidual) ?? probInh;
-      const impRes = Number(punto.impactoResidual) ?? impInh;
+      const riesgo = riesgosCompletos.find((r) => String(r.id) === String(punto.riesgoId));
+      const { probabilidadResidual: probRes, impactoResidual: impRes } = resolverCoordsResidualMapa(
+        punto,
+        riesgo ?? undefined
+      );
       const valorResidual = probRes === 2 && impRes === 2 ? 3.99 : probRes * impRes;
 
       let cambio: 'bajo' | 'subio' | 'se-mantuvo' = 'se-mantuvo';
@@ -83,7 +91,7 @@ export default function ResumenEstadisticasMapas({
       conteos,
       porcentajeReduccionTotal,
     };
-  }, [puntosFiltrados, procesos]);
+  }, [puntosFiltrados, procesos, riesgosCompletos]);
 
   if (estadisticas.riesgosComparativa.length === 0) {
     return (

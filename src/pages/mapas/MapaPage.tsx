@@ -37,7 +37,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -61,93 +62,13 @@ import ResumenEstadisticasMapas from '../../components/mapas/ResumenEstadisticas
 import MapaFiltersPanel from '../../features/mapas/MapaFiltersPanel';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
+import {
+  calcularResidualDesdeCausas,
+  calcularResidualPorCausa,
+  getDatosEvaluacionControlDesdeCausa,
+} from '../../utils/residualDesdeCausas';
+import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
 
-// Calcula calificación y posición residual global del riesgo desde sus causas con control
-// Regla: usar la causa con mayor calificación residual (misma que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO")
-const calcularResidualDesdeCausas = (riesgo: Riesgo | any) => {
-  const causas = (riesgo && Array.isArray((riesgo as any).causas)) ? (riesgo as any).causas : [];
-  if (!causas || causas.length === 0) return null;
-
-  const causasConControles = causas.filter((c: any) => {
-    const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-    // También verificar si tiene controles en la relación
-    const tieneControles = c.controles && c.controles.length > 0;
-    return tipo === 'CONTROL' || tipo === 'AMBOS' || tieneControles;
-  });
-  if (causasConControles.length === 0) return null;
-
-  let mejorCal = 0;
-  let mejorFrecuencia = 0;
-  let mejorImpacto = 0;
-
-  causasConControles.forEach((c: any) => {
-    // Obtener el control desde la relación (tabla ControlRiesgo)
-    const control = c.controles?.[0] || {};
-    const g = c.gestion && typeof c.gestion === 'object' ? c.gestion : {};
-    
-    // Obtener porcentaje de mitigación (puede estar en formato 0-1 o 0-100)
-    let porcentajeMitigacion = 0;
-    if (control.estandarizacionPorcentajeMitigacion !== undefined) {
-      // Viene de la tabla ControlRiesgo como entero 0-100
-      porcentajeMitigacion = Number(control.estandarizacionPorcentajeMitigacion) / 100;
-    } else if (g.porcentajeMitigacion !== undefined) {
-      // Viene del campo gestion (legacy)
-      const valor = Number(g.porcentajeMitigacion);
-      porcentajeMitigacion = valor > 1 ? valor / 100 : valor;
-    } else if (c.porcentajeMitigacion !== undefined) {
-      const valor = Number(c.porcentajeMitigacion);
-      porcentajeMitigacion = valor > 1 ? valor / 100 : valor;
-    }
-    
-    // Obtener tipo de mitigación
-    const tipoMitigacion = control.disminuyeFrecuenciaImpactoAmbas || control.tipoMitigacion || g.tipoMitigacion || 'AMBAS';
-    
-    // Obtener frecuencia e impacto inherentes
-    const frecuenciaInherente = Number(c.frecuencia || 3);
-    const impactoInherente = Number(c.calificacionGlobalImpacto || 1);
-    
-    // Calcular frecuencia residual
-    let fr = frecuenciaInherente;
-    if (tipoMitigacion === 'FRECUENCIA' || tipoMitigacion === 'AMBAS') {
-      fr = frecuenciaInherente - (frecuenciaInherente * porcentajeMitigacion);
-      fr = Math.max(1, Math.min(5, Math.ceil(fr)));
-    }
-    
-    // Calcular impacto residual
-    let ir = impactoInherente;
-    if (tipoMitigacion === 'IMPACTO' || tipoMitigacion === 'AMBAS') {
-      ir = impactoInherente - (impactoInherente * porcentajeMitigacion);
-      ir = Math.max(1, Math.min(5, Math.ceil(ir)));
-    }
-    
-    // Calcular calificación residual
-    let cal = fr === 2 && ir === 2 ? 3.99 : fr * ir;
-
-    if (isNaN(cal) || cal <= 0) return;
-
-    if (cal > mejorCal) {
-      mejorCal = cal;
-      mejorFrecuencia = fr;
-      mejorImpacto = ir;
-    }
-  });
-
-  if (mejorCal <= 0) return null;
-
-  // Mismas bandas que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO"
-  let nivel = 'Sin Calificar';
-  if (mejorCal >= 15 && mejorCal <= 25) nivel = 'Crítico';
-  else if (mejorCal >= 10 && mejorCal < 15) nivel = 'Alto';
-  else if (mejorCal >= 4 && mejorCal < 10) nivel = 'Medio';
-  else if (mejorCal >= 1 && mejorCal < 4) nivel = 'Bajo'; // incluye 3.99 (2×2)
-
-  return {
-    probabilidadResidual: mejorFrecuencia,
-    impactoResidual: mejorImpacto,
-    riesgoResidual: mejorCal,
-    nivelRiesgoResidual: nivel,
-  };
-};
 // Función para generar ID del riesgo (número + sigla)
 // Prioriza numeroIdentificacion del backend si existe, sino genera desde número
 const generarIdRiesgo = (punto: PuntoMapa): string => {
@@ -159,6 +80,49 @@ const generarIdRiesgo = (punto: PuntoMapa): string => {
   const numero = punto.numero || 0;
   return `${numero}`;
 };
+
+/** Vista corta de la descripción del control en tablas del mapa (texto completo en tooltip). */
+const MAX_DESCRIPCION_CONTROL_VISIBLE = 100;
+
+function DescripcionControlCorta({ texto }: { texto: string }) {
+  const full = String(texto ?? '').trim();
+  if (!full) {
+    return (
+      <Typography variant="body2" component="span" color="text.secondary">
+        —
+      </Typography>
+    );
+  }
+  const largo = full.length > MAX_DESCRIPCION_CONTROL_VISIBLE;
+  const visible = largo
+    ? `${full.slice(0, MAX_DESCRIPCION_CONTROL_VISIBLE).trimEnd()}…`
+    : full;
+  const body = (
+    <Typography
+      variant="body2"
+      component="span"
+      sx={{
+        display: 'block',
+        maxWidth: 280,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {visible}
+    </Typography>
+  );
+  if (largo) {
+    return (
+      <Tooltip title={full} placement="top-start" enterDelay={400}>
+        <Box component="span" sx={{ cursor: 'help' }}>
+          {body}
+        </Box>
+      </Tooltip>
+    );
+  }
+  return body;
+}
 
 export default function MapaPage() {
   const location = useLocation(); // CRÍTICO: Mover al inicio para cumplir con las reglas de hooks
@@ -465,34 +429,7 @@ export default function MapaPage() {
       }
       
       const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
-
-      // PRIORIDAD 1: usar causa con mayor calificación residual (BY/BZ) — misma lógica que Controles
-      let probabilidadResidual: number | undefined | null = undefined;
-      let impactoResidual: number | undefined | null = undefined;
-
-      if (riesgo) {
-        const desdeCausas = calcularResidualDesdeCausas(riesgo);
-        if (desdeCausas) {
-          probabilidadResidual = desdeCausas.probabilidadResidual;
-          impactoResidual = desdeCausas.impactoResidual;
-        }
-      }
-
-      // PRIORIDAD 2: si no se pudo calcular desde causas, usar valores residuales del backend
-      if (!probabilidadResidual || !impactoResidual) {
-        probabilidadResidual = punto.probabilidadResidual;
-        impactoResidual = punto.impactoResidual;
-      }
-
-      // PRIORIDAD 3: si no hay residuales, caer a inherentes (misma celda)
-      if (!probabilidadResidual || !impactoResidual) {
-        probabilidadResidual = punto.probabilidad || 1;
-        impactoResidual = punto.impacto || 1;
-      }
-      
-      // Validar y redondear (asegurar que estén en rango 1-5)
-      probabilidadResidual = Math.max(1, Math.min(5, Math.round(Number(probabilidadResidual))));
-      impactoResidual = Math.max(1, Math.min(5, Math.round(Number(impactoResidual))));
+      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(punto, riesgo ?? undefined);
 
       const clave = `${probabilidadResidual}-${impactoResidual}`;
       if (!matriz[clave]) {
@@ -1833,87 +1770,55 @@ export default function MapaPage() {
                                   </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                      {controlesAplicados.map((control: any, idx: number) => {
-                                        let gestionJson: any = null;
-                                        try {
-                                          if (control.gestion && typeof control.gestion === 'string') {
-                                            gestionJson = JSON.parse(control.gestion);
-                                          } else if (control.gestion && typeof control.gestion === 'object') {
-                                            gestionJson = control.gestion;
-                                          }
-                                        } catch (e) {
-                                          // Error parsing - usar valores directos
+                                      {controlesAplicados.map((causa: any, idx: number) => {
+                                        const datosCtrl = getDatosEvaluacionControlDesdeCausa(causa);
+                                        const residualCausa = calcularResidualPorCausa(causa);
+
+                                        let calificacionResidual: number | null = residualCausa?.riesgoResidual ?? null;
+                                        let nivelRiesgoResidual: string | null = residualCausa?.nivelRiesgoResidual ?? null;
+
+                                        if (calificacionResidual == null && causa.calificacionResidual != null) {
+                                          const n = Number(causa.calificacionResidual);
+                                          if (!isNaN(n) && n > 0) calificacionResidual = n;
                                         }
-                                        
-                                        const controlDescripcion = gestionJson?.controlDescripcion || control.controlDescripcion || control.descripcion || 'Sin descripción';
-                                        const tipoControl = gestionJson?.tipoControl || control.tipoControl || 'N/A';
-                                        const efectividad = gestionJson?.evaluacionDefinitiva || control.evaluacionDefinitiva || 'Sin evaluar';
-                                        const porcentajeMitigacion = gestionJson?.porcentajeMitigacion || control.porcentajeMitigacion || 0;
-                                        const calificacionResidual = gestionJson?.calificacionResidual || control.calificacionResidual;
-                                        
-                                        // Calcular nivel residual: primero intentar leerlo, si no calcularlo desde calificacionResidual
-                                        let nivelRiesgoResidual = gestionJson?.nivelRiesgoResidual || control.nivelRiesgoResidual;
-                                        
-                                        // Normalizar el valor leído (puede venir como string o número)
-                                        if (nivelRiesgoResidual && typeof nivelRiesgoResidual === 'number') {
-                                          // Si es un número, no es un nivel válido, calcularlo
-                                          nivelRiesgoResidual = null;
-                                        } else if (nivelRiesgoResidual && typeof nivelRiesgoResidual === 'string') {
-                                          // Verificar que sea un nivel válido, no un número como string
-                                          const nivelStr = nivelRiesgoResidual.trim();
-                                          if (nivelStr === '4' || nivelStr === '3' || nivelStr === '2' || nivelStr === '1') {
-                                            // Es un número como string, calcularlo
-                                            nivelRiesgoResidual = null;
-                                          } else if (!['Crítico', 'Critico', 'Alto', 'Medio', 'Bajo', 'Sin Calificar'].includes(nivelStr)) {
-                                            // No es un nivel válido conocido
-                                            nivelRiesgoResidual = null;
-                                          }
-                                        }
-                                        
-                                        // Si no hay nivel residual válido pero sí hay calificación residual, calcularlo
-                                        if (!nivelRiesgoResidual && calificacionResidual !== undefined && calificacionResidual !== null) {
+                                        if (!nivelRiesgoResidual && calificacionResidual != null) {
                                           const calResNum = Number(calificacionResidual);
                                           if (!isNaN(calResNum) && calResNum > 0) {
-                                            // Usar la misma lógica que calcularNivelRiesgo pero desde la calificación
-                                            if (calResNum >= 15 && calResNum <= 25) {
-                                              nivelRiesgoResidual = NIVELES_RIESGO.CRITICO;
-                                            } else if (calResNum >= 10 && calResNum <= 14) {
-                                              nivelRiesgoResidual = NIVELES_RIESGO.ALTO;
-                                            } else if (calResNum >= 5 && calResNum <= 9) {
-                                              nivelRiesgoResidual = NIVELES_RIESGO.MEDIO;
-                                            } else if (calResNum >= 1 && calResNum <= 4) {
-                                              nivelRiesgoResidual = NIVELES_RIESGO.BAJO;
-                                            } else {
-                                              nivelRiesgoResidual = 'Sin Calificar';
-                                            }
+                                            if (calResNum >= 15 && calResNum <= 25) nivelRiesgoResidual = NIVELES_RIESGO.CRITICO;
+                                            else if (calResNum >= 10 && calResNum < 15) nivelRiesgoResidual = NIVELES_RIESGO.ALTO;
+                                            else if (calResNum >= 4 && calResNum < 10) nivelRiesgoResidual = NIVELES_RIESGO.MEDIO;
+                                            else if (calResNum >= 1 && calResNum < 4) nivelRiesgoResidual = NIVELES_RIESGO.BAJO;
+                                            else nivelRiesgoResidual = 'Sin Calificar';
                                           }
                                         }
-                                        
-                                        // Si aún no hay nivel, intentar calcular desde frecuenciaResidual e impactoResidual
-                                        if (!nivelRiesgoResidual || nivelRiesgoResidual === 'Sin Calificar') {
-                                          const frecuenciaResidual = gestionJson?.frecuenciaResidual || control.frecuenciaResidual;
-                                          const impactoResidual = gestionJson?.impactoResidual || control.impactoResidual;
-                                          
-                                          if (frecuenciaResidual !== undefined && frecuenciaResidual !== null && 
-                                              impactoResidual !== undefined && impactoResidual !== null) {
-                                            const freqResNum = Number(frecuenciaResidual);
-                                            const impResNum = Number(impactoResidual);
-                                            
-                                            if (!isNaN(freqResNum) && !isNaN(impResNum) && 
-                                                freqResNum >= 1 && freqResNum <= 5 && 
-                                                impResNum >= 1 && impResNum <= 5) {
-                                              nivelRiesgoResidual = calcularNivelRiesgo(freqResNum, impResNum);
-                                            }
+                                        if (
+                                          (!nivelRiesgoResidual || nivelRiesgoResidual === 'Sin Calificar') &&
+                                          causa.frecuenciaResidual != null &&
+                                          causa.impactoResidual != null
+                                        ) {
+                                          const freqResNum = Number(causa.frecuenciaResidual);
+                                          const impResNum = Number(causa.impactoResidual);
+                                          if (
+                                            !isNaN(freqResNum) &&
+                                            !isNaN(impResNum) &&
+                                            freqResNum >= 1 &&
+                                            freqResNum <= 5 &&
+                                            impResNum >= 1 &&
+                                            impResNum <= 5
+                                          ) {
+                                            nivelRiesgoResidual = calcularNivelRiesgo(freqResNum, impResNum);
                                           }
                                         }
-                                        
+
                                         return (
-                                          <TableRow key={control.id || idx}>
-                                            <TableCell>{controlDescripcion}</TableCell>
-                                            <TableCell align="center">{efectividad}</TableCell>
-                                            <TableCell align="center">{porcentajeMitigacion}%</TableCell>
+                                          <TableRow key={causa.id || idx}>
+                                            <TableCell sx={{ maxWidth: 300 }}>
+                                              <DescripcionControlCorta texto={datosCtrl.descripcionControl} />
+                                            </TableCell>
+                                            <TableCell align="center">{datosCtrl.efectividad}</TableCell>
+                                            <TableCell align="center">{datosCtrl.porcentajeMitigacionEntero}%</TableCell>
                                             <TableCell align="center">
-                                              {calificacionResidual !== undefined && calificacionResidual !== null
+                                              {calificacionResidual != null
                                                 ? calificacionResidual.toFixed(2)
                                                 : 'N/A'}
                                             </TableCell>
@@ -1928,7 +1833,9 @@ export default function MapaPage() {
                                                     fontSize: '0.7rem',
                                                   }}
                                                 />
-                                              ) : 'N/A'}
+                                              ) : (
+                                                'N/A'
+                                              )}
                                             </TableCell>
                                           </TableRow>
                                         );
@@ -2348,40 +2255,48 @@ export default function MapaPage() {
                                 return tipo === 'CONTROL';
                               })
                               .map((causa: any, idx: number) => {
-                                // Leer datos del control desde gestion JSON o directamente
-                                let gestionJson: any = null;
-                                try {
-                                  if (causa.gestion && typeof causa.gestion === 'string') {
-                                    gestionJson = JSON.parse(causa.gestion);
-                                  } else if (causa.gestion && typeof causa.gestion === 'object') {
-                                    gestionJson = causa.gestion;
-                                  }
-                                } catch (e) {
-                                  // Error parsing gestion JSON - usar valores por defecto
-                                }
+                                const datosCtrl = getDatosEvaluacionControlDesdeCausa(causa);
+                                const residualCausa = calcularResidualPorCausa(causa);
 
-                                const controlDescripcion = gestionJson?.controlDescripcion || causa.controlDescripcion || 'Sin descripción';
-                                const efectividad = gestionJson?.evaluacionDefinitiva || causa.evaluacionDefinitiva || 'Sin evaluar';
-                                const porcentajeMitigacion = gestionJson?.porcentajeMitigacion || causa.porcentajeMitigacion || 0;
-                                const frecuenciaResidual = gestionJson?.frecuenciaResidual || causa.frecuenciaResidual || 'N/A';
-                                const impactoResidual = gestionJson?.impactoResidual || causa.impactoResidual || 'N/A';
-                                const calificacionResidual = gestionJson?.calificacionResidual || gestionJson?.riesgoResidual || causa.calificacionResidual || causa.riesgoResidual || 'N/A';
-                                const nivelRiesgoResidual = gestionJson?.nivelRiesgoResidual || causa.nivelRiesgoResidual || 'N/A';
+                                let frecuenciaResidual: number | string =
+                                  residualCausa?.probabilidadResidual ?? causa.frecuenciaResidual ?? 'N/A';
+                                let impactoResidual: number | string =
+                                  residualCausa?.impactoResidual ?? causa.impactoResidual ?? 'N/A';
+
+                                let calificacionResidual: number | string | null =
+                                  residualCausa?.riesgoResidual ?? causa.calificacionResidual ?? causa.riesgoResidual ?? null;
+                                let nivelRiesgoResidual: string =
+                                  residualCausa?.nivelRiesgoResidual || causa.nivelRiesgoResidual || 'N/A';
+
+                                if (
+                                  (nivelRiesgoResidual === 'N/A' || !nivelRiesgoResidual) &&
+                                  typeof calificacionResidual === 'number'
+                                ) {
+                                  const calResNum = calificacionResidual;
+                                  if (calResNum >= 15 && calResNum <= 25) nivelRiesgoResidual = NIVELES_RIESGO.CRITICO;
+                                  else if (calResNum >= 10 && calResNum < 15) nivelRiesgoResidual = NIVELES_RIESGO.ALTO;
+                                  else if (calResNum >= 4 && calResNum < 10) nivelRiesgoResidual = NIVELES_RIESGO.MEDIO;
+                                  else if (calResNum >= 1 && calResNum < 4) nivelRiesgoResidual = NIVELES_RIESGO.BAJO;
+                                }
 
                                 return (
                                   <TableRow key={causa.id || idx}>
                                     <TableCell sx={{ maxWidth: 200 }}>{causa.descripcion || 'Sin descripción'}</TableCell>
-                                    <TableCell sx={{ maxWidth: 200 }}>{controlDescripcion}</TableCell>
-                                    <TableCell align="center">{efectividad}</TableCell>
+                                    <TableCell sx={{ maxWidth: 220 }}>
+                                      <DescripcionControlCorta texto={datosCtrl.descripcionControl} />
+                                    </TableCell>
+                                    <TableCell align="center">{datosCtrl.efectividad}</TableCell>
                                     <TableCell align="center">
-                                      {porcentajeMitigacion > 0 
-                                        ? `${(porcentajeMitigacion > 1 ? porcentajeMitigacion : porcentajeMitigacion * 100).toFixed(0)}%` 
+                                      {datosCtrl.porcentajeMitigacionEntero > 0
+                                        ? `${datosCtrl.porcentajeMitigacionEntero}%`
                                         : 'N/A'}
                                     </TableCell>
                                     <TableCell align="center">{frecuenciaResidual}</TableCell>
                                     <TableCell align="center">{impactoResidual}</TableCell>
                                     <TableCell align="center">
-                                      {typeof calificacionResidual === 'number' ? calificacionResidual.toFixed(2) : calificacionResidual}
+                                      {typeof calificacionResidual === 'number'
+                                        ? calificacionResidual.toFixed(2)
+                                        : calificacionResidual ?? 'N/A'}
                                     </TableCell>
                                     <TableCell align="center">
                                       <Chip
@@ -2419,6 +2334,7 @@ export default function MapaPage() {
           filtroArea={filtroArea}
           filtroProceso={filtroProceso}
           puntosFiltrados={puntosFiltrados}
+          riesgosCompletos={riesgosCompletos}
         />
       </>
         )

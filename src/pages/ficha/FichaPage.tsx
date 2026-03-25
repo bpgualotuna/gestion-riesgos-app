@@ -32,6 +32,7 @@ import {
 } from '@mui/material';
 import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as VisibilityIcon, ExpandMore as ExpandMoreIcon, Add as AddIcon, People as PeopleIcon, Event as EventIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUpdateProcesoMutation, useGetGerenciasQuery, useGetAsistentesProcesoQuery, useAsignarAsistentesProcesoMutation, useGetReunionesQuery, useCrearReunionMutation, useActualizarReunionMutation, useEliminarReunionMutation, useGetAsistenciasQuery, useActualizarAsistenciasMutation, useGetUsuariosQuery } from '../../api/services/riesgosApi';
@@ -87,6 +88,7 @@ interface AsistenciaReunion {
 
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
   const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar, isLoading: isLoadingProceso } = useProceso();
   const { user, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso } = useAuth();
   const [updateProceso] = useUpdateProcesoMutation();
@@ -559,7 +561,7 @@ export default function FichaPage() {
   };
 
   const handleEliminarReunion = async (reunionId: number) => {
-    if (!window.confirm('¿Está seguro de eliminar esta reunión?')) return;
+    if (!(await confirmDelete('esta reunión'))) return;
     
     try {
       await eliminarReunionMutation(reunionId).unwrap();

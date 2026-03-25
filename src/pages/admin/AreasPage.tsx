@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -62,7 +63,6 @@ import {
     useGetRolesQuery,
 } from '../../api/services/riesgosApi';
 import Grid2 from '../../utils/Grid2';
-import { useConfirm } from '../../contexts/ConfirmContext';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
     const { children, value, index, ...other } = props;
@@ -78,6 +78,7 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
 export default function AreasPage() {
     const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
     const { showSuccess, showError } = useNotification();
+    const { confirmDelete } = useConfirm();
     const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
     const { data: usuariosData = [] } = useGetUsuariosQuery();
     const { data: rolesData = [] } = useGetRolesQuery();
@@ -251,13 +252,12 @@ export default function AreasPage() {
     };
 
     const handleDeleteArea = async (areaId: string | number) => {
-        if (confirmarEliminar('esta área')) {
-            try {
-                await deleteArea(areaId).unwrap();
-                showSuccess('Área eliminada correctamente');
-            } catch (error) {
-                showError((error as any)?.data?.error || 'Error al eliminar el área');
-            }
+        if (!(await confirmDelete('esta área'))) return;
+        try {
+            await deleteArea(areaId).unwrap();
+            showSuccess('Área eliminada correctamente');
+        } catch (error) {
+            showError((error as any)?.data?.error || 'Error al eliminar el área');
         }
     };
 

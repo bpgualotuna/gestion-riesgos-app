@@ -38,7 +38,8 @@ import {
   Paper,
   Collapse,
   FormControlLabel,
-  Switch
+  Switch,
+  Link,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -61,6 +62,7 @@ import {
 } from '@mui/icons-material';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -88,6 +90,7 @@ import { useUnsavedChanges, useFormChanges, useArrayChanges } from '../../hooks/
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
+import MaxFilesUploadPanel from '../../components/common/MaxFilesUploadPanel';
 
 // Helpers que usan la configuración residual del admin (API), sin datos quemados
 function getEvaluacionPreliminarFromRangos(rangos: any[] | undefined, puntajeTotal: number): string {
@@ -159,6 +162,17 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   const { user, esDueñoProcesos } = useAuth();
   const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
+
+  const toDateInputValue = (value: unknown): string => {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString().split('T')[0];
+    const s = String(value);
+    // MUI TextField type="date" expects YYYY-MM-DD
+    if (s.includes('T')) return s.split('T')[0];
+    if (s.includes(' ')) return s.split(' ')[0];
+    return s;
+  };
   const dispatch = useAppDispatch();
   const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA desde contexto global
   
@@ -189,10 +203,29 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [tipoClasificacion, setTipoClasificacion] = useState<'seleccion' | 'control' | 'plan' | 'CONTROL' | 'PLAN' | 'AMBOS'>('seleccion');
   const [formControl, setFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
   const [initialFormControl, setInitialFormControl] = useState({ descripcion: '', tipo: 'prevención' as 'prevención' | 'detección' | 'corrección' });
-  const [formPlan, setFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '', archivoSeguimiento: '', archivoSeguimientoNombre: '' });
-  const [initialFormPlan, setInitialFormPlan] = useState({ descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado', evidencia: '', archivoSeguimiento: '', archivoSeguimientoNombre: '' });
+  const emptyFormPlanBase = () => ({
+    descripcion: '',
+    detalle: '',
+    responsable: (user as any)?.fullName || '',
+    decision: '',
+    fechaEstimada: '',
+    fechaFinalizacion: '',
+    seguimientoDetalle: '',
+    seguimientoEvidenciaUrl1: '',
+    seguimientoEvidenciaUrl2: '',
+    estado: 'pendiente' as 'pendiente' | 'en_progreso' | 'completado' | 'cancelado',
+    evidencia: '',
+    archivoSeguimiento: '',
+    archivoSeguimientoNombre: '',
+  });
+  const [formPlan, setFormPlan] = useState(emptyFormPlanBase);
+  const [initialFormPlan, setInitialFormPlan] = useState(emptyFormPlanBase);
   const [selectedArchivoSeguimiento, setSelectedArchivoSeguimiento] = useState<File | null>(null);
+  const [selectedSeguimientoFiles, setSelectedSeguimientoFiles] = useState<[File | null, File | null]>([null, null]);
   const archivoSeguimientoInputRef = useRef<HTMLInputElement>(null);
+
+  const fechaEstimadaBloqueada = Boolean(String(initialFormPlan.fechaEstimada || '').trim());
+  const evidenciaCierreVisible = Boolean(String(formPlan.fechaFinalizacion || '').trim());
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [initialImpactosResiduales, setInitialImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [frecuenciaResidual, setFrecuenciaResidual] = useState(1);
@@ -277,6 +310,58 @@ export default function ControlesYPlanesAccionPageNueva() {
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
+  const uploadPlanArchivoBlob = async (file: File): Promise<string> => {
+    if (file.size > MAX_FILE_SIZE) throw new Error('El archivo es demasiado grande. Máximo 5MB.');
+    if (!acceptedMimeTypes.includes(file.type)) throw new Error('Formato no permitido. Use PDF, PNG, JPG o DOCX.');
+    const formData = new FormData();
+    formData.append('archivo', file);
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error('Error al subir el archivo');
+    const data = await response.json();
+    return data.url as string;
+  };
+
+  const validateEvidenciaFile = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) return 'El archivo es demasiado grande. Máximo 5MB.';
+    if (!acceptedMimeTypes.includes(file.type)) return 'Formato no permitido. Use PDF, PNG, JPG o DOCX.';
+    return null;
+  };
+
+  const filenameFromUrl = (url: string): string => {
+    const u = String(url || '').trim();
+    if (!u) return '';
+    try {
+      const path = new URL(u).pathname || '';
+      const last = decodeURIComponent(path.split('/').filter(Boolean).pop() || '');
+      return last;
+    } catch {
+      const raw = u.split('?')[0].split('#')[0];
+      const last = raw.split('/').filter(Boolean).pop() || '';
+      try {
+        return decodeURIComponent(last);
+      } catch {
+        return last;
+      }
+    }
+  };
+
+  const addSeguimientoFiles = (files: File[]) => {
+    setSelectedSeguimientoFiles((prev) => {
+      const next: [File | null, File | null] = [...prev];
+      for (const f of files) {
+        if (!next[0]) next[0] = f;
+        else if (!next[1]) next[1] = f;
+      }
+      return next;
+    });
+  };
+
   const handleArchivoSeguimientoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -300,6 +385,19 @@ export default function ControlesYPlanesAccionPageNueva() {
     if (archivoSeguimientoInputRef.current) {
       archivoSeguimientoInputRef.current.value = '';
     }
+  };
+
+  const clearSeguimientoEvidenciaSlot = (index: 0 | 1) => {
+    setSelectedSeguimientoFiles((prev) => {
+      const next: [File | null, File | null] = [...prev];
+      next[index] = null;
+      return next;
+    });
+    setFormPlan((p) =>
+      index === 0
+        ? { ...p, seguimientoEvidenciaUrl1: '' }
+        : { ...p, seguimientoEvidenciaUrl2: '' },
+    );
   };
 
   const riesgosDelProceso = useMemo(() => {
@@ -542,6 +640,34 @@ export default function ControlesYPlanesAccionPageNueva() {
     [riesgosConPlanes, sortPlanes],
   );
 
+  /** Misma lógica que la tabla de Planes: lista real por riesgo para el contexto de CORA. */
+  const coraPlanesResumen = useMemo(() => {
+    return riesgosConPlanes.map((riesgo: any) => ({
+      riesgoId: String(riesgo.numeroIdentificacion || riesgo.numero || riesgo.id),
+      riesgoDescripcion: riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || '',
+      planes: (riesgo.causas || []).map((causa: any) => {
+        const plan = causa.planesAccion?.[0] || {};
+        return {
+          causaId: causa.id,
+          causaOriginal: causa.descripcion || '',
+          planDescripcion:
+            plan.descripcion || causa.planDescripcion || causa.gestion?.planDescripcion || '',
+          planDetalle:
+            plan.observaciones || causa.planDetalle || causa.gestion?.planDetalle || '',
+          responsable:
+            plan.responsable || causa.planResponsable || causa.gestion?.planResponsable || '',
+          fechaEstimada:
+            plan.fechaFin ||
+            plan.fechaProgramada ||
+            causa.planFechaEstimada ||
+            causa.gestion?.planFechaEstimada ||
+            null,
+          estado: plan.estado || causa.planEstado || causa.gestion?.planEstado || '',
+        };
+      }),
+    }));
+  }, [riesgosConPlanes]);
+
   const toggleSort =
     (setter: React.Dispatch<React.SetStateAction<{ field: RiesgoSortFieldSimple; direction: 'asc' | 'desc' }>>) =>
     (field: RiesgoSortFieldSimple) => {
@@ -578,19 +704,29 @@ export default function ControlesYPlanesAccionPageNueva() {
         module: 'planes',
         screen: screenName,
         action: causaEnEdicion ? 'edit' : 'view',
-        processId: procesoSeleccionado.id,
+        processId: Number(procesoSeleccionado.id),
         route: window.location.pathname,
         formData: {
+          procesoSigla: procesoSeleccionado?.sigla || '',
+          procesoNombre: procesoSeleccionado?.nombre || '',
           activeTab,
           clasificaciones: clasificaciones.length,
-          planesActivos: clasificaciones.filter(c => c.tipo === 'plan' || c.tipo === 'PLAN').length,
-          controlesActivos: clasificaciones.filter(c => c.tipo === 'control' || c.tipo === 'CONTROL').length,
+          // AMBOS cuenta como plan y como control; antes solo 'plan' dejaba planesActivos en 0.
+          planesActivos: clasificaciones.filter((c) => {
+            const t = String(c.tipo || '').toLowerCase();
+            return t === 'plan' || t === 'ambos';
+          }).length,
+          controlesActivos: clasificaciones.filter((c) => {
+            const t = String(c.tipo || '').toLowerCase();
+            return t === 'control' || t === 'ambos';
+          }).length,
+          ...(coraPlanesResumen.length > 0 && { planesResumen: coraPlanesResumen }),
           // Si estamos en la pestaña de controles sin editar, enviar lista de controles visibles
           ...(screenName === 'controles' && !causaEnEdicion && riesgosConControles.length > 0 && {
-            controlesVisibles: riesgosConControles.slice(0, 3).map((r: any) => ({
+            controlesVisibles: riesgosConControles.slice(0, 10).map((r: any) => ({
               riesgoId: r.numeroIdentificacion || r.numero || r.id,
               riesgoDescripcion: r.descripcion || r.descripcionRiesgo || 'Sin descripción',
-              controles: (r.causas || []).slice(0, 2).map((c: any) => {
+              controles: (r.causas || []).slice(0, 5).map((c: any) => {
                 // Intentar obtener la descripción del control de múltiples fuentes
                 const desc = c.controlDescripcion || 
                             c.gestion?.controlDescripcion || 
@@ -611,8 +747,14 @@ export default function ControlesYPlanesAccionPageNueva() {
               riesgoId: causaEnEdicion.riesgoId,
               causaDescripcion: causaEnEdicion.causa?.descripcion,
               tipoClasificacion,
-              formControl: tipoClasificacion === 'control' || tipoClasificacion === 'CONTROL' ? formControl : undefined,
-              formPlan: tipoClasificacion === 'plan' || tipoClasificacion === 'PLAN' ? formPlan : undefined,
+              formControl: (() => {
+                const t = String(tipoClasificacion || '').toUpperCase();
+                return t === 'CONTROL' || t === 'AMBOS' ? formControl : undefined;
+              })(),
+              formPlan: (() => {
+                const t = String(tipoClasificacion || '').toUpperCase();
+                return t === 'PLAN' || t === 'AMBOS' ? formPlan : undefined;
+              })(),
             }
           })
         }
@@ -625,7 +767,18 @@ export default function ControlesYPlanesAccionPageNueva() {
         setScreenContext: !!setScreenContext 
       });
     }
-  }, [procesoSeleccionado, activeTab, clasificaciones, causaEnEdicion, tipoClasificacion, formControl, formPlan, riesgosConControles, setScreenContext]);
+  }, [
+    procesoSeleccionado,
+    activeTab,
+    clasificaciones,
+    causaEnEdicion,
+    tipoClasificacion,
+    formControl,
+    formPlan,
+    riesgosConControles,
+    coraPlanesResumen,
+    setScreenContext,
+  ]);
 
   // Actualizar Riesgo en API (Residual)
   const actualizarRiesgoApi = async (riesgoId: string, updates: Partial<RiesgoFormData>) => {
@@ -644,6 +797,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     
     setRiesgoIdEvaluacion(riesgoId);
     setCausaIdEvaluacion(causa.id);
+    setSelectedSeguimientoFiles([null, null]);
 
     // NUEVO: Obtener el control desde la relación controles (tabla ControlRiesgo)
     const control = causa.controles?.[0] || {};
@@ -689,6 +843,16 @@ export default function ControlesYPlanesAccionPageNueva() {
       return 'manual';
     };
 
+    const toDateInputValue = (value: unknown): string => {
+      if (!value) return '';
+      if (value instanceof Date) return value.toISOString().split('T')[0];
+      const s = String(value);
+      // MUI TextField type="date" expects YYYY-MM-DD
+      if (s.includes('T')) return s.split('T')[0];
+      if (s.includes(' ')) return s.split(' ')[0];
+      return s;
+    };
+
     // Initial load for Plan si ya existe (desde tabla PlanAccion, causa o gestion)
     const tienePlan =
       Object.keys(plan).length > 0 ||
@@ -710,7 +874,13 @@ export default function ControlesYPlanesAccionPageNueva() {
           (user as any)?.fullName ||
           '',
         decision: causa.planDecision || gestion.planDecision || '',
-        fechaEstimada: plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || gestion.planFechaEstimada || '',
+        fechaEstimada: toDateInputValue(
+          plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || gestion.planFechaEstimada || '',
+        ),
+        fechaFinalizacion: toDateInputValue(plan.fechaFinalizacion),
+        seguimientoDetalle: plan.seguimientoDetalle || '',
+        seguimientoEvidenciaUrl1: plan.seguimientoEvidenciaUrl1 || '',
+        seguimientoEvidenciaUrl2: plan.seguimientoEvidenciaUrl2 || '',
         estado: plan.estado || causa.planEstado || gestion.planEstado || 'pendiente',
         evidencia: plan.evidencia || causa.planEvidencia || gestion.planEvidencia || '',
         archivoSeguimiento: causa.archivoSeguimiento || gestion.archivoSeguimiento || '',
@@ -726,6 +896,10 @@ export default function ControlesYPlanesAccionPageNueva() {
         responsable: (user as any)?.fullName || '',
         decision: '',
         fechaEstimada: '',
+        fechaFinalizacion: '',
+        seguimientoDetalle: '',
+        seguimientoEvidenciaUrl1: '',
+        seguimientoEvidenciaUrl2: '',
         estado: 'pendiente' as const,
         evidencia: '',
         archivoSeguimiento: '',
@@ -823,7 +997,21 @@ export default function ControlesYPlanesAccionPageNueva() {
         setFormPlan(initialFormPlan);
         setInitialFormPlan(initialFormPlan);
       } else if (clasificacionExistente.tipo === 'plan') {
-        const fp = { descripcion: clasificacionExistente.planDescripcion || '', detalle: clasificacionExistente.planDetalle || '', responsable: clasificacionExistente.planResponsable || '', decision: clasificacionExistente.planDecision || '', fechaEstimada: clasificacionExistente.planFechaEstimada || '', estado: clasificacionExistente.planEstado || 'pendiente', evidencia: clasificacionExistente.planEvidencia || '' };
+        const fp = {
+          descripcion: clasificacionExistente.planDescripcion || '',
+          detalle: clasificacionExistente.planDetalle || '',
+          responsable: clasificacionExistente.planResponsable || '',
+          decision: clasificacionExistente.planDecision || '',
+          fechaEstimada: toDateInputValue(clasificacionExistente.planFechaEstimada || ''),
+          fechaFinalizacion: toDateInputValue((clasificacionExistente as any).planFechaFinalizacion || ''),
+          seguimientoDetalle: (clasificacionExistente as any).seguimientoDetalle || '',
+          seguimientoEvidenciaUrl1: (clasificacionExistente as any).seguimientoEvidenciaUrl1 || '',
+          seguimientoEvidenciaUrl2: (clasificacionExistente as any).seguimientoEvidenciaUrl2 || '',
+          estado: clasificacionExistente.planEstado || 'pendiente',
+          evidencia: clasificacionExistente.planEvidencia || '',
+          archivoSeguimiento: clasificacionExistente.archivoSeguimiento || '',
+          archivoSeguimientoNombre: clasificacionExistente.archivoSeguimientoNombre || '',
+        };
         setFormPlan(fp);
         setInitialFormPlan(fp);
         setFormControl(initialFormControl);
@@ -841,7 +1029,21 @@ export default function ControlesYPlanesAccionPageNueva() {
     } else {
       setTipoClasificacion('seleccion');
       const emptyControl = { descripcion: '', tipo: 'prevención' as const };
-      const emptyPlan = { descripcion: '', detalle: '', responsable: (user as any)?.fullName || '', decision: '', fechaEstimada: '', estado: 'pendiente' as const, evidencia: '' };
+      const emptyPlan = {
+        descripcion: '',
+        detalle: '',
+        responsable: (user as any)?.fullName || '',
+        decision: '',
+        fechaEstimada: '',
+        fechaFinalizacion: '',
+        seguimientoDetalle: '',
+        seguimientoEvidenciaUrl1: '',
+        seguimientoEvidenciaUrl2: '',
+        estado: 'pendiente' as const,
+        evidencia: '',
+        archivoSeguimiento: '',
+        archivoSeguimientoNombre: '',
+      };
       const emptyImpactos = { personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 };
       setFormControl(emptyControl);
       setInitialFormControl(emptyControl);
@@ -1032,16 +1234,28 @@ export default function ControlesYPlanesAccionPageNueva() {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    const payload = {
+    const ff = planData.fechaFinalizacion ? String(planData.fechaFinalizacion).trim() : '';
+    const payload: Record<string, unknown> = {
       causaRiesgoId: causaId,
-      descripcion: planData.descripcion || '',
+      descripcion: planData.descripcion ?? '',
       responsable: planData.responsable,
       fechaInicio: null,
       fechaFin: planData.fechaEstimada || null,
-      estado: planData.estado || 'pendiente',
-      observaciones: planData.detalle || '',
+      // Detalle opcional: enviar siempre (incluso '') para que el backend pueda limpiar observaciones
+      observaciones: planData.detalle ?? '',
       tipoGestion: 'PLAN'
     };
+    // Compatibilidad: solo enviar campos nuevos si hay fecha de finalización (evita 500 si la migración SQL aún no está aplicada)
+    if (ff) {
+      payload.fechaFinalizacion = ff;
+      payload.seguimientoDetalle = planData.seguimientoDetalle ?? '';
+      payload.seguimientoEvidenciaUrl1 = planData.seguimientoEvidenciaUrl1 ?? '';
+      payload.seguimientoEvidenciaUrl2 = planData.seguimientoEvidenciaUrl2 ?? '';
+    }
+    // Estado lo gestiona el supervisor en otro flujo: al actualizar no enviamos estado para no sobrescribirlo.
+    if (!planExistente) {
+      payload.estado = planData.estado || 'pendiente';
+    }
 
     try {
       if (planExistente) {
@@ -1118,6 +1332,49 @@ export default function ControlesYPlanesAccionPageNueva() {
         return;
       }
     }
+
+    let seguimientoUrl1 = formPlan.seguimientoEvidenciaUrl1;
+    let seguimientoUrl2 = formPlan.seguimientoEvidenciaUrl2;
+    const tienePlanForm =
+      tipoClasificacion === 'PLAN' ||
+      tipoClasificacion === 'plan' ||
+      tipoClasificacion === 'AMBOS';
+    if (tienePlanForm) {
+      const ff = String(formPlan.fechaFinalizacion || '').trim();
+      if ((selectedSeguimientoFiles[0] || selectedSeguimientoFiles[1]) && !ff) {
+        showError('Indique la fecha de finalización antes de adjuntar evidencias de seguimiento.');
+        return;
+      }
+      if (ff) {
+        try {
+          if (selectedSeguimientoFiles[0]) {
+            seguimientoUrl1 = await uploadPlanArchivoBlob(selectedSeguimientoFiles[0]);
+          }
+          if (selectedSeguimientoFiles[1]) {
+            seguimientoUrl2 = await uploadPlanArchivoBlob(selectedSeguimientoFiles[1]);
+          }
+        } catch (e) {
+          showError((e as Error).message || 'Error al subir evidencias de seguimiento');
+          return;
+        }
+      } else {
+        seguimientoUrl1 = '';
+        seguimientoUrl2 = '';
+      }
+    }
+
+    const ffTrimPlan = String(formPlan.fechaFinalizacion || '').trim();
+    const planPayloadParaApi = {
+      descripcion: formPlan.descripcion,
+      responsable: formPlan.responsable,
+      fechaEstimada: formPlan.fechaEstimada,
+      fechaFinalizacion: ffTrimPlan || null,
+      seguimientoDetalle: ffTrimPlan ? (formPlan.seguimientoDetalle ?? '') : null,
+      seguimientoEvidenciaUrl1: ffTrimPlan ? seguimientoUrl1 : null,
+      seguimientoEvidenciaUrl2: ffTrimPlan ? seguimientoUrl2 : null,
+      estado: 'pendiente' as const,
+      detalle: formPlan.detalle,
+    };
 
     let causaActualizada: any = null;
     const causasUpd = riesgo.causas.map((c: any) => {
@@ -1543,16 +1800,13 @@ export default function ControlesYPlanesAccionPageNueva() {
           // Guardar plan si aplica
           if (tipoClasificacion === 'PLAN' || tipoClasificacion === 'AMBOS') {
             const planExistente = causaActualizada.planesAccion?.[0];
-            
-            const planData = {
-              descripcion: formPlan.descripcion,
-              responsable: formPlan.responsable,
-              fechaEstimada: formPlan.fechaEstimada,
-              estado: formPlan.estado,
-              detalle: formPlan.detalle
-            };
 
-            await guardarPlanEnTabla(Number(causaIdEvaluacion), riesgoIdEvaluacion, planData, planExistente);
+            if (!String(formPlan.descripcion ?? '').trim()) {
+              showError('La descripción del plan es obligatoria. La descripción detallada es opcional.');
+              return;
+            }
+
+            await guardarPlanEnTabla(Number(causaIdEvaluacion), riesgoIdEvaluacion, planPayloadParaApi, planExistente);
             console.log('✅ Plan guardado en PlanAccion');
           }
         } catch (error) {
@@ -1585,6 +1839,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
         setEvaluacionExpandida(null);
         setSelectedArchivoSeguimiento(null);
+        setSelectedSeguimientoFiles([null, null]);
         if (archivoSeguimientoInputRef.current) {
           archivoSeguimientoInputRef.current.value = '';
         }
@@ -1606,6 +1861,8 @@ export default function ControlesYPlanesAccionPageNueva() {
     causa: any, 
     contexto: 'CONTROL' | 'PLAN'
   ) => {
+    const desc = contexto === 'CONTROL' ? 'este control' : 'este plan de acción';
+    if (!(await confirmDelete(desc))) return;
     try {
       const tipoActual = (causa.tipoGestion || '').toUpperCase();
       
@@ -1671,7 +1928,7 @@ export default function ControlesYPlanesAccionPageNueva() {
           }).unwrap();
           
           // Invalidar caché para refrescar datos
-          dispatch(riesgosApi.util.invalidateTags(['Riesgos']));
+          dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
           
           showSuccess('Ambos eliminados. La causa vuelve a estado sin clasificar.');
         } else {
@@ -1721,7 +1978,7 @@ export default function ControlesYPlanesAccionPageNueva() {
           }).unwrap();
           
           // Invalidar caché para refrescar datos
-          dispatch(riesgosApi.util.invalidateTags(['Riesgos']));
+          dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
           
           showSuccess(
             contexto === 'CONTROL' 
@@ -1768,7 +2025,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         }).unwrap();
         
         // Invalidar caché para refrescar datos
-        dispatch(riesgosApi.util.invalidateTags(['Riesgos']));
+          dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
         
         showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
       }
@@ -2843,66 +3100,71 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     )}
                                                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                      <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
+                                                      <TextField
+                                                        label="Descripción del Plan"
+                                                        value={formPlan.descripcion}
+                                                        onChange={(e) => setFormPlan({ ...formPlan, descripcion: e.target.value })}
+                                                        fullWidth
+                                                        multiline
+                                                        minRows={4}
+                                                        maxRows={10}
+                                                        helperText="Describe el plan de acción (puede ser extenso)."
+                                                        sx={{ '& textarea': { overflow: 'auto' } }}
+                                                      />
                                                       <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
-                                                      {/* Solo mostrar archivo de seguimiento si es un plan existente (edición) */}
-                                                      {(causa.planDescripcion || causa.tipoGestion === 'PLAN' || causa.tipoGestion === 'AMBOS') && (
+                                                      {(causa.planDescripcion || causa.tipoGestion === 'PLAN' || causa.tipoGestion === 'AMBOS') && formPlan.archivoSeguimiento && (
                                                         <Box>
-                                                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                                                            Archivo de Seguimiento
+                                                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                                                            Archivo en causa (histórico)
                                                           </Typography>
-                                                          <input 
-                                                            type="file" 
-                                                            ref={archivoSeguimientoInputRef} 
-                                                            style={{ display: 'none' }} 
-                                                            onChange={handleArchivoSeguimientoSelect} 
-                                                            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
-                                                          />
-                                                          {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
-                                                            <Button 
-                                                              variant="outlined" 
-                                                              onClick={() => archivoSeguimientoInputRef.current?.click()}
-                                                              fullWidth
-                                                            >
-                                                              Seleccionar Archivo
-                                                            </Button>
-                                                          )}
-                                                          {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                                                              <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
-                                                              </Typography>
-                                                              <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
-                                                                <DeleteIcon fontSize="small" />
-                                                              </IconButton>
-                                                            </Box>
-                                                          )}
+                                                          <Link href={formPlan.archivoSeguimiento} target="_blank" rel="noopener noreferrer" variant="body2">
+                                                            {formPlan.archivoSeguimientoNombre || 'Ver archivo'}
+                                                          </Link>
                                                         </Box>
                                                       )}
                                                     </Box>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                      <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
-                                                      <Box sx={{ display: 'flex', gap: 2 }}>
-                                                        <TextField 
-                                                          label="Fecha Estimada" 
-                                                          type="date" 
-                                                          value={formPlan.fechaEstimada} 
-                                                          onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} 
-                                                          InputLabelProps={{ shrink: true }} 
-                                                          disabled={esDueñoProcesos}
-                                                          fullWidth 
+                                                      <TextField
+                                                        label="Descripción detallada (opcional)"
+                                                        multiline
+                                                        minRows={2}
+                                                        maxRows={6}
+                                                        value={formPlan.detalle || ''}
+                                                        onChange={(e) => setFormPlan({ ...formPlan, detalle: e.target.value })}
+                                                        fullWidth
+                                                        helperText="Opcional: agrega pasos, alcance, consideraciones o notas."
+                                                        sx={{ '& textarea': { overflow: 'auto' } }}
+                                                      />
+                                                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                                        <TextField
+                                                          label="Fecha estimada de finalización"
+                                                          type="date"
+                                                          value={formPlan.fechaEstimada}
+                                                          onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
+                                                          InputLabelProps={{ shrink: true }}
+                                                          disabled={fechaEstimadaBloqueada}
+                                                          fullWidth
+                                                          sx={{ flex: '1 1 200px' }}
+                                                          helperText={fechaEstimadaBloqueada ? 'Ya registrada; no se puede modificar.' : undefined}
                                                         />
-                                                        <FormControl fullWidth>
-                                                          <InputLabel>Estado del Plan</InputLabel>
-                                                          <Select value={formPlan.estado || 'pendiente'} label="Estado del Plan" onChange={(e) => setFormPlan({ ...formPlan, estado: e.target.value as any })}>
-                                                            <MenuItem value="pendiente">Pendiente</MenuItem>
-                                                            <MenuItem value="en_progreso">En Progreso</MenuItem>
-                                                            <MenuItem value="completado">Completado</MenuItem>
-                                                            <MenuItem value="cancelado">Cancelado</MenuItem>
-                                                          </Select>
-                                                        </FormControl>
+                                                        <TextField
+                                                          label="Estado del Plan"
+                                                          value="Pendiente"
+                                                          disabled
+                                                          fullWidth
+                                                          sx={{ flex: '1 1 200px' }}
+                                                          helperText="El cambio de estado lo realiza el supervisor en su flujo."
+                                                        />
                                                       </Box>
-                                                      <TextField label="Evidencia (URL, Comentario o Ref.)" value={formPlan.evidencia || ''} onChange={e => setFormPlan({ ...formPlan, evidencia: e.target.value })} fullWidth />
+                                                      <TextField
+                                                        label="Fecha de finalización"
+                                                        type="date"
+                                                        value={formPlan.fechaFinalizacion}
+                                                        onChange={(e) => setFormPlan({ ...formPlan, fechaFinalizacion: e.target.value })}
+                                                        InputLabelProps={{ shrink: true }}
+                                                        fullWidth
+                                                        helperText="Puede ajustarla en cualquier momento (antes o después de la fecha estimada)."
+                                                      />
                                                       {(() => {
                                                          if (formPlan.fechaEstimada && formPlan.estado !== 'completado' && formPlan.estado !== 'cancelado') {
                                                             const todayStr = new Date().toISOString().split('T')[0];
@@ -2917,6 +3179,45 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                          return null;
                                                       })()}
                                                     </Box>
+                                                  <Box sx={{ gridColumn: '1 / -1' }}>
+                                                    <Collapse in={evidenciaCierreVisible} timeout="auto" unmountOnExit>
+                                                      <Box
+                                                        sx={{
+                                                          mt: 1.5,
+                                                          pt: 2,
+                                                          borderTop: '1px solid',
+                                                          borderColor: 'divider',
+                                                        }}
+                                                      >
+                                                        <TextField
+                                                          label="Descripción de la evidencia"
+                                                          multiline
+                                                          minRows={2}
+                                                          maxRows={6}
+                                                          value={formPlan.seguimientoDetalle || ''}
+                                                          onChange={(e) => setFormPlan({ ...formPlan, seguimientoDetalle: e.target.value })}
+                                                          fullWidth
+                                                          sx={{ mb: 2, '& textarea': { overflow: 'auto' } }}
+                                                        />
+                                                      <MaxFilesUploadPanel
+                                                        label="Evidencias"
+                                                        buttonLabel="Subir evidencias (máx. 2)"
+                                                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                                        maxFiles={2}
+                                                        selectedFiles={[selectedSeguimientoFiles[0], selectedSeguimientoFiles[1]]}
+                                                        existingUrls={[formPlan.seguimientoEvidenciaUrl1 || '', formPlan.seguimientoEvidenciaUrl2 || '']}
+                                                        existingNames={[
+                                                          filenameFromUrl(formPlan.seguimientoEvidenciaUrl1 || ''),
+                                                          filenameFromUrl(formPlan.seguimientoEvidenciaUrl2 || ''),
+                                                        ]}
+                                                        validateFile={validateEvidenciaFile}
+                                                        onError={showError}
+                                                        onAddFiles={addSeguimientoFiles}
+                                                        onRemoveAt={(idx) => clearSeguimientoEvidenciaSlot(idx as 0 | 1)}
+                                                      />
+                                                      </Box>
+                                                    </Collapse>
+                                                  </Box>
                                                   </Box>
                                                 </Box>
                                               )}
@@ -4123,7 +4424,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       }}
                                     >
                                     <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
-                                      <TableCell sx={{ maxWidth: 360 }}>{plan.observaciones || plan.descripcion || causa.planDetalle || causa.gestion?.planDetalle || causa.planDescripcion || causa.gestion?.planDescripcion || 'Sin descripción'}</TableCell>
+                                      <TableCell sx={{ maxWidth: 360 }}>
+                                        {plan.descripcion ||
+                                          causa.planDescripcion ||
+                                          causa.gestion?.planDescripcion ||
+                                          'Sin descripción'}
+                                      </TableCell>
                                       <TableCell>{plan.responsable || causa.planResponsable || causa.gestion?.planResponsable || 'N/A'}</TableCell>
                                       <TableCell align="center">{formatDateISO(plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || causa.gestion?.planFechaEstimada) || 'N/A'}</TableCell>
                                     <TableCell align="center">
@@ -4182,54 +4488,110 @@ export default function ControlesYPlanesAccionPageNueva() {
                                             <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>Configurar Plan de Acción</Typography>
                                             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                <TextField label="Nombre del Plan / Acción" value={formPlan.descripcion} onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })} fullWidth />
+                                                <TextField
+                                                  label="Descripción del Plan"
+                                                  value={formPlan.descripcion}
+                                                  onChange={(e) => setFormPlan({ ...formPlan, descripcion: e.target.value })}
+                                                  fullWidth
+                                                  multiline
+                                                  minRows={4}
+                                                  maxRows={10}
+                                                  helperText="Describe el plan de acción (puede ser extenso)."
+                                                  sx={{ '& textarea': { overflow: 'auto' } }}
+                                                />
                                                 <TextField label="Responsable" value={formPlan.responsable} onChange={e => setFormPlan({ ...formPlan, responsable: e.target.value })} fullWidth />
-                                                {/* Solo mostrar archivo de seguimiento si es un plan existente (edición) */}
-                                                {(causa.planDescripcion || causa.tipoGestion === 'PLAN' || causa.tipoGestion === 'AMBOS') && (
+                                                {(causa.planDescripcion || causa.tipoGestion === 'PLAN' || causa.tipoGestion === 'AMBOS') && formPlan.archivoSeguimiento && (
                                                   <Box>
-                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                                                      Archivo de Seguimiento
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                                                      Archivo en causa (histórico)
                                                     </Typography>
-                                                    <input 
-                                                      type="file" 
-                                                      ref={archivoSeguimientoInputRef} 
-                                                      style={{ display: 'none' }} 
-                                                      onChange={handleArchivoSeguimientoSelect} 
-                                                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
-                                                    />
-                                                    {!selectedArchivoSeguimiento && !formPlan.archivoSeguimiento && (
-                                                      <Button 
-                                                        variant="outlined" 
-                                                        onClick={() => archivoSeguimientoInputRef.current?.click()}
-                                                        fullWidth
-                                                      >
-                                                        Seleccionar Archivo
-                                                      </Button>
-                                                    )}
-                                                    {(selectedArchivoSeguimiento || formPlan.archivoSeguimientoNombre) && (
-                                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                                                        <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                          {selectedArchivoSeguimiento?.name || formPlan.archivoSeguimientoNombre}
-                                                        </Typography>
-                                                        <IconButton size="small" onClick={handleRemoveArchivoSeguimiento}>
-                                                          <DeleteIcon fontSize="small" />
-                                                        </IconButton>
-                                                      </Box>
-                                                    )}
+                                                    <Link href={formPlan.archivoSeguimiento} target="_blank" rel="noopener noreferrer" variant="body2">
+                                                      {formPlan.archivoSeguimientoNombre || 'Ver archivo'}
+                                                    </Link>
                                                   </Box>
                                                 )}
                                               </Box>
                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                <TextField label="Descripción Detallada" multiline rows={3} value={formPlan.detalle || ''} onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })} fullWidth />
-                                                <TextField 
-                                                  label="Fecha Estimada de Finalización" 
-                                                  type="date" 
-                                                  value={formPlan.fechaEstimada} 
-                                                  onChange={e => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} 
-                                                  InputLabelProps={{ shrink: true }} 
-                                                  disabled={esDueñoProcesos}
-                                                  fullWidth 
+                                                <TextField
+                                                  label="Descripción detallada (opcional)"
+                                                  multiline
+                                                  minRows={2}
+                                                  maxRows={6}
+                                                  value={formPlan.detalle || ''}
+                                                  onChange={(e) => setFormPlan({ ...formPlan, detalle: e.target.value })}
+                                                  fullWidth
+                                                  helperText="Opcional: agrega pasos, alcance, consideraciones o notas."
+                                                  sx={{ '& textarea': { overflow: 'auto' } }}
                                                 />
+                                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                                  <TextField
+                                                    label="Fecha estimada de finalización"
+                                                    type="date"
+                                                    value={formPlan.fechaEstimada}
+                                                    onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
+                                                    InputLabelProps={{ shrink: true }}
+                                                    disabled={fechaEstimadaBloqueada}
+                                                    fullWidth
+                                                    sx={{ flex: '1 1 200px' }}
+                                                    helperText={fechaEstimadaBloqueada ? 'Ya registrada; no se puede modificar.' : undefined}
+                                                  />
+                                                  <TextField
+                                                    label="Estado del Plan"
+                                                    value="Pendiente"
+                                                    disabled
+                                                    fullWidth
+                                                    sx={{ flex: '1 1 200px' }}
+                                                    helperText="El cambio de estado lo realiza el supervisor en su flujo."
+                                                  />
+                                                </Box>
+                                                <TextField
+                                                  label="Fecha de finalización"
+                                                  type="date"
+                                                  value={formPlan.fechaFinalizacion}
+                                                  onChange={(e) => setFormPlan({ ...formPlan, fechaFinalizacion: e.target.value })}
+                                                  InputLabelProps={{ shrink: true }}
+                                                  fullWidth
+                                                  helperText="Puede ajustarla en cualquier momento (antes o después de la fecha estimada)."
+                                                />
+                                              </Box>
+                                              <Box sx={{ gridColumn: '1 / -1' }}>
+                                                <Collapse in={evidenciaCierreVisible} timeout="auto" unmountOnExit>
+                                                  <Box
+                                                    sx={{
+                                                      mt: 1.5,
+                                                      pt: 2,
+                                                      borderTop: '1px solid',
+                                                      borderColor: 'divider',
+                                                    }}
+                                                  >
+                                                    <TextField
+                                                      label="Descripción de la evidencia"
+                                                      multiline
+                                                      minRows={2}
+                                                      maxRows={6}
+                                                      value={formPlan.seguimientoDetalle || ''}
+                                                      onChange={(e) => setFormPlan({ ...formPlan, seguimientoDetalle: e.target.value })}
+                                                      fullWidth
+                                                      sx={{ mb: 2, '& textarea': { overflow: 'auto' } }}
+                                                    />
+                                                    <MaxFilesUploadPanel
+                                                      label="Evidencias"
+                                                      buttonLabel="Subir evidencias (máx. 2)"
+                                                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                                      maxFiles={2}
+                                                      selectedFiles={[selectedSeguimientoFiles[0], selectedSeguimientoFiles[1]]}
+                                                      existingUrls={[formPlan.seguimientoEvidenciaUrl1 || '', formPlan.seguimientoEvidenciaUrl2 || '']}
+                                                      existingNames={[
+                                                        filenameFromUrl(formPlan.seguimientoEvidenciaUrl1 || ''),
+                                                        filenameFromUrl(formPlan.seguimientoEvidenciaUrl2 || ''),
+                                                      ]}
+                                                      validateFile={validateEvidenciaFile}
+                                                      onError={showError}
+                                                      onAddFiles={addSeguimientoFiles}
+                                                      onRemoveAt={(idx) => clearSeguimientoEvidenciaSlot(idx as 0 | 1)}
+                                                    />
+                                                  </Box>
+                                                </Collapse>
                                               </Box>
                                             </Box>
                                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
@@ -4639,17 +5001,25 @@ export default function ControlesYPlanesAccionPageNueva() {
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 fullWidth
-                label="Nombre del Plan / Acción"
+                label="Descripción del Plan"
                 value={formPlan.descripcion}
                 onChange={e => setFormPlan({ ...formPlan, descripcion: e.target.value })}
+                multiline
+                minRows={4}
+                maxRows={10}
+                helperText="Describe el plan de acción (puede ser extenso)."
+                sx={{ '& textarea': { overflow: 'auto' } }}
               />
               <TextField
                 fullWidth
-                label="Descripción detallada"
+                label="Descripción detallada (opcional)"
                 multiline
-                rows={3}
+                minRows={2}
+                maxRows={6}
                 value={formPlan.detalle || ''}
                 onChange={e => setFormPlan({ ...formPlan, detalle: e.target.value })}
+                helperText="Opcional: agrega pasos, alcance, consideraciones o notas."
+                sx={{ '& textarea': { overflow: 'auto' } }}
               />
               <TextField
                 fullWidth

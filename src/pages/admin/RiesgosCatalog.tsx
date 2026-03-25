@@ -26,10 +26,10 @@ import {
     Close as CloseIcon,
 } from '@mui/icons-material';
 import AppDataGrid from '../../components/ui/AppDataGrid';
-import { confirmarEliminar } from '../../utils/constants';
 import { GridColDef } from '@mui/x-data-grid';
 import { TipoRiesgo } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 interface RiesgosCatalogProps {
     data: TipoRiesgo[];
@@ -38,6 +38,7 @@ interface RiesgosCatalogProps {
 
 export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     const { puedeEditar } = useAuth();
+    const { confirmDelete } = useConfirm();
     const canEdit = puedeEditar !== false;
     const [open, setOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<TipoRiesgo | null>(null);
@@ -95,11 +96,10 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         handleClose();
     };
 
-    const handleDelete = (codigo: string) => {
-        if (confirmarEliminar('esta tipología tipo I')) {
-            const newData = data.filter(d => d.codigo !== codigo);
-            onSave(newData);
-        }
+    const handleDelete = async (codigo: string) => {
+        if (!(await confirmDelete('esta tipología tipo I'))) return;
+        const newData = data.filter(d => d.codigo !== codigo);
+        onSave(newData);
     };
 
     const handleAddSubtipo = () => {

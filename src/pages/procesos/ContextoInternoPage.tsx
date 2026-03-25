@@ -3,7 +3,8 @@
  * Análisis de factores internos: pestañas Positivo/Negativo, cada categoría con ítems (características) añadibles.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   Box,
   Typography,
@@ -19,19 +20,30 @@ import {
   Chip,
   Divider,
 } from '@mui/material';
-import { Save as SaveIcon, Visibility as VisibilityIcon, Edit as EditIcon, ThumbUp as PositivoIcon, ThumbDown as NegativoIcon, Add as AddIcon, Delete as DeleteIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, MoreVert as MoreVertIcon, Send as SendIcon } from '@mui/icons-material';
+import { Visibility as VisibilityIcon, Edit as EditIcon, ThumbUp as PositivoIcon, ThumbDown as NegativoIcon, Add as AddIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { Alert } from '@mui/material';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
-import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation, riesgosApi } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import EnviarDofaContextoButton from '../../components/contexto/EnviarDofaContextoButton';
+import GuardarContextoButton from '../../components/contexto/GuardarContextoButton';
 import type { ScreenContext } from '../../types/ia.types';
+import {
+  dofaTipoDesdeContextoInterno,
+  enviarADofaDesdeApi,
+  encuentraEnDofaCuadrante,
+  mergeDofaItemsWithContext,
+  normDesc,
+  normalizeDofaTipoToCanonical,
+} from '../../utils/contextoDofaSync';
 
 type CategoryKey = 'financieros' | 'gente' | 'procesos' | 'activosFisicos' | 'cadenaSuministro' | 'informacion' | 'sistemas' | 'proyectos' | 'impuestos' | 'gruposInteresInternos';
 
@@ -118,10 +130,12 @@ const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
   CATEGORIAS.reduce((acc, { key }) => ({ ...acc, [key]: [] }), {} as Record<CategoryKey, CaracteristicaItem[]>);
 
 export default function ContextoInternoPage() {
+  const dispatch = useDispatch();
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
   const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
+  const { confirmDelete } = useConfirm();
 
   const { data: procesoData, refetch: refetchProceso } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
@@ -131,10 +145,9 @@ export default function ContextoInternoPage() {
   const [initialPositivo, setInitialPositivo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
   const [initialNegativo, setInitialNegativo] = useState<Record<CategoryKey, CaracteristicaItem[]>>(emptyItems);
   const [tabValue, setTabValue] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
+  const [saving, setSaving] = useState<'idle' | 'context' | 'dofa'>('idle');
+  const isBusy = saving !== 'idle';
   const [accionMenuAnchor, setAccionMenuAnchor] = useState<{ el: HTMLElement; signo: 'POSITIVO' | 'NEGATIVO'; key: CategoryKey; id: string } | null>(null);
-  const [enviandoDofa, setEnviandoDofa] = useState(false);
-
   const arraysEqual = (a: CaracteristicaItem[], b: CaracteristicaItem[]) =>
     a.length === b.length && a.every((x, i) =>
       x.id === b[i].id && x.descripcion === b[i].descripcion &&
@@ -162,7 +175,8 @@ export default function ContextoInternoPage() {
         const entry: CaracteristicaItem = {
           id: String(it.id ?? `${Date.now()}-${Math.random()}`),
           descripcion: it.descripcion ?? '',
-          enviarADofa: it.enviarADofa === true,
+          /** Por defecto sí va al DOFA al guardar; `false` en BD legado se trata como "incluir" (ver enviarADofaDesdeApi). */
+          enviarADofa: enviarADofaDesdeApi(it.enviarADofa),
           dofaDimension: (it.dofaDimension && DOFA_DIMENSIONES.some(d => d.value === it.dofaDimension)) ? (it.dofaDimension as DofaDimension) : undefined,
         };
         if (String(it.signo).toUpperCase() === 'POSITIVO') pos[cat.key].push(entry);
@@ -177,7 +191,7 @@ export default function ContextoInternoPage() {
         const tipoBase = isNeg ? c.tipo.replace(/_NEG$/, '') : c.tipo;
         const cat = CATEGORIAS.find((c2) => c2.tipo === tipoBase);
         if (!cat || !c.descripcion?.trim()) return;
-        const entry: CaracteristicaItem = { id: `legacy-${c.tipo}`, descripcion: c.descripcion.trim(), enviarADofa: false };
+        const entry: CaracteristicaItem = { id: `legacy-${c.tipo}`, descripcion: c.descripcion.trim(), enviarADofa: undefined };
         // Si esa categoría aún no tiene ítems (p. ej. solo hay datos legacy), añadir este
         if (isNeg) {
           if (neg[cat.key].length === 0) neg[cat.key].push(entry);
@@ -207,7 +221,7 @@ export default function ContextoInternoPage() {
           descripcion: it.descripcion,
           enviarADofa: it.enviarADofa,
           dofaDimension: it.dofaDimension,
-          enDofa: it.descripcion.trim() ? !!getDofaStatus(it.descripcion) : false
+          enDofa: it.descripcion.trim() ? !!getDofaStatus(it.descripcion, signo) : false
         }))
       }));
 
@@ -235,7 +249,7 @@ export default function ContextoInternoPage() {
     const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
     setter((prev) => ({
       ...prev,
-      [key]: [...prev[key], { id: `temp-${Date.now()}-${Math.random()}`, descripcion: '', enviarADofa: false }],
+      [key]: [...prev[key], { id: `temp-${Date.now()}-${Math.random()}`, descripcion: '' }],
     }));
   };
 
@@ -247,44 +261,53 @@ export default function ContextoInternoPage() {
     }));
   };
 
-  const updateItemDofa = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string, enviarADofa?: boolean, dofaDimension?: DofaDimension) => {
-    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
-    setter((prev) => ({
-      ...prev,
-      [key]: prev[key].map((it) =>
-        it.id === id ? { ...it, enviarADofa: enviarADofa ?? it.enviarADofa, dofaDimension: dofaDimension !== undefined ? dofaDimension : it.dofaDimension } : it
-      ),
-    }));
-  };
-
-  const removeItem = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
-    const setter = signo === 'POSITIVO' ? setItemsPositivo : setItemsNegativo;
-    setter((prev) => ({ ...prev, [key]: prev[key].filter((it) => it.id !== id) }));
-  };
-
   const dofaItems = (procesoData as any)?.dofaItems as Array<{ tipo: string; descripcion: string }> | undefined;
-  /** Busca en todo el DOFA (D, O, F, A); si el texto existe en alguna dimensión devuelve cuál, si no null. Solo puede estar en una. */
-  const getDofaStatus = (descripcion: string): { dimension: string } | null => {
-    if (!descripcion?.trim() || !Array.isArray(dofaItems)) return null;
-    const text = descripcion.trim().toLowerCase();
-    const found = dofaItems.find((d: any) => (d.descripcion || '').trim().toLowerCase() === text);
-    return found ? { dimension: found.tipo } : null;
-  };
+  /** ✓ si el texto está en el cuadrante correcto (F/D). No depende de enviarADofa (evita ✗ con datos viejos). */
+  const getDofaStatus = (descripcion: string, signo: 'POSITIVO' | 'NEGATIVO') =>
+    encuentraEnDofaCuadrante(dofaItems, descripcion, signo, 'INTERNO');
 
-  const handleSave = async () => {
-    if (!procesoSeleccionado) return;
+  const hasPendingDofaSync = useMemo(() => {
+    for (const { key } of CATEGORIAS) {
+      for (const it of itemsPositivo[key]) {
+        if (it.descripcion.trim() && !encuentraEnDofaCuadrante(dofaItems, it.descripcion, 'POSITIVO', 'INTERNO')) return true;
+      }
+      for (const it of itemsNegativo[key]) {
+        if (it.descripcion.trim() && !encuentraEnDofaCuadrante(dofaItems, it.descripcion, 'NEGATIVO', 'INTERNO')) return true;
+      }
+    }
+    return false;
+  }, [itemsPositivo, itemsNegativo, dofaItems]);
+
+  const canEnviarDofa = !isReadOnly && (hasAnyChanges || hasPendingDofaSync);
+
+  const buildContextoPayloadFromState = (
+    pos: Record<CategoryKey, CaracteristicaItem[]>,
+    neg: Record<CategoryKey, CaracteristicaItem[]>
+  ) => {
     const itemsInterno: Array<{ tipo: string; signo: string; descripcion: string; enviarADofa?: boolean; dofaDimension?: string }> = [];
     CATEGORIAS.forEach(({ key, tipo }) => {
-      itemsPositivo[key].forEach((it) => {
-        if (it.descripcion.trim()) itemsInterno.push({
-          tipo, signo: 'POSITIVO', descripcion: it.descripcion.trim(),
-          enviarADofa: it.enviarADofa === true, dofaDimension: it.dofaDimension || undefined,
+      pos[key].forEach((it) => {
+        if (!it.descripcion.trim()) return;
+        const excluir = it.enviarADofa === false;
+        const dim = dofaTipoDesdeContextoInterno('POSITIVO');
+        itemsInterno.push({
+          tipo,
+          signo: 'POSITIVO',
+          descripcion: it.descripcion.trim(),
+          enviarADofa: !excluir,
+          dofaDimension: !excluir ? dim : undefined,
         });
       });
-      itemsNegativo[key].forEach((it) => {
-        if (it.descripcion.trim()) itemsInterno.push({
-          tipo, signo: 'NEGATIVO', descripcion: it.descripcion.trim(),
-          enviarADofa: it.enviarADofa === true, dofaDimension: it.dofaDimension || undefined,
+      neg[key].forEach((it) => {
+        if (!it.descripcion.trim()) return;
+        const excluir = it.enviarADofa === false;
+        const dim = dofaTipoDesdeContextoInterno('NEGATIVO');
+        itemsInterno.push({
+          tipo,
+          signo: 'NEGATIVO',
+          descripcion: it.descripcion.trim(),
+          enviarADofa: !excluir,
+          dofaDimension: !excluir ? dim : undefined,
         });
       });
     });
@@ -292,6 +315,49 @@ export default function ContextoInternoPage() {
     const itemsExterno = Array.isArray(items) ? items.filter((it: any) => String(it.tipo).startsWith('EXTERNO_')) : [];
     const contextoItems = [...itemsInterno, ...itemsExterno];
     const existingExternos = procesoData?.contextos?.filter((c: any) => c.tipo.startsWith('EXTERNO_')) || [];
+    return { contextoItems, existingExternos };
+  };
+
+  const buildContextoPayload = () => buildContextoPayloadFromState(itemsPositivo, itemsNegativo);
+
+  const handleGuardarContexto = async () => {
+    if (!procesoSeleccionado) return;
+    const { contextoItems, existingExternos } = buildContextoPayload();
+    const patchContextoCache = () => {
+      const pid = procesoSeleccionado?.id;
+      if (pid == null || pid === '') return;
+      dispatch(
+        riesgosApi.util.updateQueryData('getProcesoById', String(pid), (draft) => {
+          const d = draft as { contextoItems?: typeof contextoItems };
+          d.contextoItems = contextoItems;
+        })
+      );
+    };
+    try {
+      setSaving('context');
+      await updateProceso({
+        id: String(procesoSeleccionado.id),
+        contextos: existingExternos,
+        contextoItems,
+      } as any).unwrap();
+      patchContextoCache();
+      setInitialPositivo(itemsPositivo);
+      setInitialNegativo(itemsNegativo);
+      markAsSaved();
+      await refetchProceso();
+      patchContextoCache();
+      showSuccess('Guardado.');
+    } catch (e) {
+      showError('Error al guardar.');
+      throw e;
+    } finally {
+      setSaving('idle');
+    }
+  };
+
+  const handleEnviarDofa = async () => {
+    if (!procesoSeleccionado) return;
+    const { contextoItems, existingExternos } = buildContextoPayload();
 
     const currentDofa = (Array.isArray(dofaItems) ? [...dofaItems] : []) as Array<{ tipo: string; descripcion: string }>;
     
@@ -300,128 +366,176 @@ export default function ContextoInternoPage() {
     
     // Comparar con los valores iniciales para detectar cambios de texto
     CATEGORIAS.forEach(({ key }) => {
-      // Positivos
       itemsPositivo[key].forEach((itemActual) => {
-        const itemInicial = initialPositivo[key].find(i => i.id === itemActual.id);
+        const itemInicial = initialPositivo[key].find((i) => i.id === itemActual.id);
         if (itemInicial && itemInicial.descripcion.trim() !== itemActual.descripcion.trim()) {
-          // El texto cambió, verificar si el texto antiguo está en DOFA
-          const textoAntiguo = itemInicial.descripcion.trim().toLowerCase();
-          const textoNuevo = itemActual.descripcion.trim();
-          const enDofa = dofaItems?.find((d: any) => (d.descripcion || '').trim().toLowerCase() === textoAntiguo);
+          const esperado = dofaTipoDesdeContextoInterno('POSITIVO');
+          const enDofa = dofaItems?.find(
+            (d: { tipo: string; descripcion: string }) =>
+              normalizeDofaTipoToCanonical(d.tipo) === esperado &&
+              normDesc(d.descripcion) === normDesc(itemInicial.descripcion)
+          );
           if (enDofa) {
-            textosAntiguosANuevos.set(`${enDofa.tipo}:${textoAntiguo}`, { nuevoTexto: textoNuevo, dimension: enDofa.tipo });
+            const tc = normalizeDofaTipoToCanonical(enDofa.tipo) ?? esperado;
+            textosAntiguosANuevos.set(`${tc}:${normDesc(itemInicial.descripcion)}`, {
+              nuevoTexto: itemActual.descripcion.trim(),
+              dimension: enDofa.tipo,
+            });
           }
         }
       });
-      
-      // Negativos
+
       itemsNegativo[key].forEach((itemActual) => {
-        const itemInicial = initialNegativo[key].find(i => i.id === itemActual.id);
+        const itemInicial = initialNegativo[key].find((i) => i.id === itemActual.id);
         if (itemInicial && itemInicial.descripcion.trim() !== itemActual.descripcion.trim()) {
-          const textoAntiguo = itemInicial.descripcion.trim().toLowerCase();
-          const textoNuevo = itemActual.descripcion.trim();
-          const enDofa = dofaItems?.find((d: any) => (d.descripcion || '').trim().toLowerCase() === textoAntiguo);
+          const esperado = dofaTipoDesdeContextoInterno('NEGATIVO');
+          const enDofa = dofaItems?.find(
+            (d: { tipo: string; descripcion: string }) =>
+              normalizeDofaTipoToCanonical(d.tipo) === esperado &&
+              normDesc(d.descripcion) === normDesc(itemInicial.descripcion)
+          );
           if (enDofa) {
-            textosAntiguosANuevos.set(`${enDofa.tipo}:${textoAntiguo}`, { nuevoTexto: textoNuevo, dimension: enDofa.tipo });
+            const tc = normalizeDofaTipoToCanonical(enDofa.tipo) ?? esperado;
+            textosAntiguosANuevos.set(`${tc}:${normDesc(itemInicial.descripcion)}`, {
+              nuevoTexto: itemActual.descripcion.trim(),
+              dimension: enDofa.tipo,
+            });
           }
         }
       });
     });
-    
-    // Actualizar textos en DOFA que fueron editados
+
     const dofaActualizado = currentDofa.map((d) => {
-      const key = `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`;
+      const tc = normalizeDofaTipoToCanonical(d.tipo);
+      if (!tc) return d;
+      const key = `${tc}:${normDesc(d.descripcion)}`;
       const cambio = textosAntiguosANuevos.get(key);
-      if (cambio) {
-        return { tipo: d.tipo, descripcion: cambio.nuevoTexto };
-      }
-      return d;
+      if (cambio) return { tipo: tc, descripcion: cambio.nuevoTexto };
+      return { ...d, tipo: tc };
     });
     
-    // Agregar nuevos items marcados para enviar a DOFA
-    const descInDofa = new Set(dofaActualizado.map((d) => `${d.tipo}:${(d.descripcion || '').trim().toLowerCase()}`));
-    itemsInterno.forEach((it) => {
-      if (it.enviarADofa && it.dofaDimension && it.descripcion) {
-        const key = `${it.dofaDimension}:${it.descripcion.trim().toLowerCase()}`;
-        if (!descInDofa.has(key)) {
-          dofaActualizado.push({ tipo: it.dofaDimension, descripcion: it.descripcion });
-          descInDofa.add(key);
-        }
-      }
-    });
-    
-    const dofaPayload = dofaActualizado.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
+    const dofaMerged = mergeDofaItemsWithContext(dofaActualizado, contextoItems);
+    const dofaPayload = dofaMerged.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
+
+    const patchProcesoCacheConDofa = () => {
+      const pid = procesoSeleccionado?.id;
+      if (pid == null || pid === '') return;
+      dispatch(
+        riesgosApi.util.updateQueryData('getProcesoById', String(pid), (draft) => {
+          const d = draft as { dofaItems?: typeof dofaPayload; contextoItems?: typeof contextoItems };
+          d.dofaItems = dofaPayload;
+          d.contextoItems = contextoItems;
+        })
+      );
+    };
 
     try {
-      setIsSaving(true);
+      setSaving('dofa');
       await updateProceso({
         id: String(procesoSeleccionado.id),
         contextos: existingExternos,
         contextoItems,
         dofaItems: dofaPayload,
       } as any).unwrap();
+      patchProcesoCacheConDofa();
       setInitialPositivo(itemsPositivo);
       setInitialNegativo(itemsNegativo);
       markAsSaved();
-      // Refrescar datos para que getDofaStatus use los nuevos textos
       await refetchProceso();
-      showSuccess('Contexto interno guardado.');
+      patchProcesoCacheConDofa();
+      showSuccess('Matriz DOFA actualizada con las características pendientes.');
     } catch {
-      showError('Error al guardar.');
+      showError('Error al enviar a la matriz DOFA.');
     } finally {
-      setIsSaving(false);
+      setSaving('idle');
     }
   };
 
-  const handleSaveFromDialog = async () => {
-    await handleSave();
-    if (!isSaving) forceNavigate();
+  const handleGuardarContextoFromDialog = async () => {
+    try {
+      await handleGuardarContexto();
+      forceNavigate();
+    } catch {
+      /* error ya mostrado */
+    }
+  };
+
+  const handleEliminarCaracteristica = async (
+    signo: 'POSITIVO' | 'NEGATIVO',
+    key: CategoryKey,
+    id: string,
+    row: CaracteristicaItem
+  ) => {
+    if (!procesoSeleccionado) return;
+    const ok = await confirmDelete(
+      'esta fila del análisis. Si está en la matriz DOFA, también se eliminará de allí al confirmar'
+    );
+    if (!ok) return;
+
+    const nextPos =
+      signo === 'POSITIVO'
+        ? { ...itemsPositivo, [key]: itemsPositivo[key].filter((x) => x.id !== id) }
+        : itemsPositivo;
+    const nextNeg =
+      signo === 'NEGATIVO'
+        ? { ...itemsNegativo, [key]: itemsNegativo[key].filter((x) => x.id !== id) }
+        : itemsNegativo;
+
+    const { contextoItems, existingExternos } = buildContextoPayloadFromState(nextPos, nextNeg);
+    const currentDofa = (Array.isArray(dofaItems) ? [...dofaItems] : []) as Array<{ tipo: string; descripcion: string }>;
+    const expected = dofaTipoDesdeContextoInterno(signo);
+    const textNorm = normDesc(row.descripcion);
+    const dofaFiltered =
+      row.descripcion.trim().length > 0
+        ? currentDofa.filter((d) => {
+            const tc = normalizeDofaTipoToCanonical(d.tipo);
+            return !(tc === expected && normDesc(d.descripcion) === textNorm);
+          })
+        : currentDofa;
+
+    const dofaMerged = mergeDofaItemsWithContext(dofaFiltered, contextoItems);
+    const dofaPayload = dofaMerged.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion }));
+
+    const patchFull = () => {
+      const pid = procesoSeleccionado?.id;
+      if (pid == null || pid === '') return;
+      dispatch(
+        riesgosApi.util.updateQueryData('getProcesoById', String(pid), (draft) => {
+          const d = draft as { dofaItems?: typeof dofaPayload; contextoItems?: typeof contextoItems };
+          d.dofaItems = dofaPayload;
+          d.contextoItems = contextoItems;
+        })
+      );
+    };
+
+    try {
+      setSaving('context');
+      await updateProceso({
+        id: String(procesoSeleccionado.id),
+        contextos: existingExternos,
+        contextoItems,
+        dofaItems: dofaPayload,
+      } as any).unwrap();
+      patchFull();
+      setItemsPositivo(nextPos);
+      setItemsNegativo(nextNeg);
+      setInitialPositivo(nextPos);
+      setInitialNegativo(nextNeg);
+      markAsSaved();
+      await refetchProceso();
+      patchFull();
+      showSuccess('Eliminado.');
+    } catch {
+      showError('Error al eliminar.');
+    } finally {
+      setSaving('idle');
+    }
   };
 
   const handleDiscardChanges = () => {
     setItemsPositivo(initialPositivo);
     setItemsNegativo(initialNegativo);
     forceNavigate();
-  };
-
-  const enviarADofaAhora = async (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
-    if (!procesoSeleccionado || !procesoData) return;
-    
-    // Determinar automáticamente la dimensión DOFA según el contexto y signo
-    // Contexto Interno + Positivo → Fortaleza (F)
-    // Contexto Interno + Negativo → Debilidad (D)
-    // Contexto Externo + Positivo → Oportunidad (O)
-    // Contexto Externo + Negativo → Amenaza (A)
-    const dimension: DofaDimension = signo === 'POSITIVO' ? 'FORTALEZA' : 'DEBILIDAD';
-    const label = DOFA_DIMENSIONES.find(d => d.value === dimension)?.label || dimension;
-    
-    const items = signo === 'POSITIVO' ? itemsPositivo[key] : itemsNegativo[key];
-    const it = items.find((i) => i.id === id);
-    if (!it?.descripcion.trim()) return;
-    const desc = it.descripcion.trim();
-    const currentDofa = (Array.isArray((procesoData as any).dofaItems) ? (procesoData as any).dofaItems : []) as Array<{ tipo: string; descripcion: string }>;
-    const yaExiste = currentDofa.some((d) => (d.descripcion || '').trim().toLowerCase() === desc.toLowerCase());
-    if (yaExiste) {
-      showError('Esta característica ya está en el DOFA.');
-      setAccionMenuAnchor(null);
-      return;
-    }
-    const newDofa = [...currentDofa.map((d) => ({ tipo: d.tipo, descripcion: d.descripcion })), { tipo: dimension, descripcion: desc }];
-    setEnviandoDofa(true);
-    setAccionMenuAnchor(null);
-    try {
-      await updateProceso({
-        id: String(procesoSeleccionado.id),
-        dofaItems: newDofa,
-      } as any).unwrap();
-      updateItemDofa(signo, key, id, true, dimension);
-      await refetchProceso();
-      showSuccess(`Enviado a ${label}.`);
-    } catch {
-      showError('Error al enviar a DOFA.');
-    } finally {
-      setEnviandoDofa(false);
-    }
   };
 
   const renderCategoria = (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, label: string, descripcion: string, items: CaracteristicaItem[]) => (
@@ -453,10 +567,9 @@ export default function ContextoInternoPage() {
           <Typography variant="body2" color="text.secondary" fontStyle="italic">Sin características. Añada al menos una.</Typography>
         )}
         {items.map((it) => {
-          const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion) : null;
-          const estaEnDofa = !!enDofa;
-          const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
-          const mostrarVisto = estaEnDofa || marcadoParaEnviar;
+          const excluidoDofa = it.enviarADofa === false;
+          const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion, signo) : null;
+          const mostrarVisto = !!enDofa;
           return (
             <Box key={it.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
@@ -464,11 +577,11 @@ export default function ContextoInternoPage() {
                 <Box sx={{ pt: 1, flexShrink: 0, width: 28, display: 'flex', justifyContent: 'center' }}>
                   {it.descripcion.trim() ? (
                     mostrarVisto ? (
-                      <Tooltip title={enDofa ? `En DOFA (${DOFA_DIMENSIONES.find(d => d.value === enDofa.dimension)?.label ?? enDofa.dimension})` : `Enviar como ${it.dofaDimension ? DOFA_DIMENSIONES.find(d => d.value === it.dofaDimension)?.label : ''} (guardar para aplicar)`}>
+                      <Tooltip title={`En DOFA (${DOFA_DIMENSIONES.find((d) => d.value === enDofa!.dimension)?.label ?? enDofa!.dimension})`}>
                         <CheckCircleIcon fontSize="small" color="success" />
                       </Tooltip>
                     ) : (
-                      <Tooltip title="No está en ningún cuadrante DOFA">
+                      <Tooltip title={excluidoDofa ? 'Excluido del DOFA (dato antiguo)' : 'Aún no figura en el cuadrante DOFA (guarda contexto para sincronizar)'}>
                         <CancelIcon fontSize="small" color="disabled" />
                       </Tooltip>
                     )
@@ -496,11 +609,6 @@ export default function ContextoInternoPage() {
                 />
                 {!isReadOnly && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                    {marcadoParaEnviar && (
-                      <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
-                        Enviar a: {DOFA_DIMENSIONES.find(d => d.value === it.dofaDimension)?.letra ?? it.dofaDimension?.slice(0, 1)}
-                      </Typography>
-                    )}
                     <Tooltip title="Acciones">
                       <IconButton
                         size="small"
@@ -542,10 +650,10 @@ export default function ContextoInternoPage() {
     <>
       <UnsavedChangesDialog
         open={blocker.state === 'blocked'}
-        onSave={handleSaveFromDialog}
+        onSave={handleGuardarContextoFromDialog}
         onDiscard={handleDiscardChanges}
         onCancel={() => blocker.reset?.()}
-        isSaving={isSaving}
+        isSaving={isBusy}
         message="Tiene cambios sin guardar en el análisis de contexto interno."
         description="¿Guardar antes de salir?"
       />
@@ -558,9 +666,18 @@ export default function ContextoInternoPage() {
             {isReadOnly && <Chip icon={<VisibilityIcon />} label="Modo Visualización" color="info" sx={{ fontWeight: 600 }} />}
             {modoProceso === 'editar' && <Chip icon={<EditIcon />} label="Modo Edición" color="warning" sx={{ fontWeight: 600 }} />}
             {!isReadOnly && (
-              <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={isSaving || !hasAnyChanges} sx={{ background: '#1976d2', color: '#fff' }}>
-                {isSaving ? 'Guardando...' : 'Guardar'}
-              </Button>
+              <>
+                <GuardarContextoButton
+                  onClick={handleGuardarContexto}
+                  disabled={!hasAnyChanges || isBusy}
+                  isSaving={saving === 'context'}
+                />
+                <EnviarDofaContextoButton
+                  onClick={handleEnviarDofa}
+                  disabled={!canEnviarDofa || isBusy}
+                  isSaving={saving === 'dofa'}
+                />
+              </>
             )}
           </Box>
         }
@@ -568,8 +685,36 @@ export default function ContextoInternoPage() {
       >
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-            <Tab icon={<PositivoIcon />} iconPosition="start" label="Positivo" />
-            <Tab icon={<NegativoIcon />} iconPosition="start" label="Negativo" />
+            <Tab
+              label={
+                <Tooltip
+                  title="Fortalezas (F). Guarde con «Guardar»; envíe a la matriz con «Enviar a DOFA»."
+                  placement="bottom"
+                  arrow
+                  enterDelay={400}
+                >
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                    <PositivoIcon fontSize="small" />
+                    Positivo
+                  </Box>
+                </Tooltip>
+              }
+            />
+            <Tab
+              label={
+                <Tooltip
+                  title="Debilidades (D). Guarde con «Guardar»; envíe a la matriz con «Enviar a DOFA»."
+                  placement="bottom"
+                  arrow
+                  enterDelay={400}
+                >
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                    <NegativoIcon fontSize="small" />
+                    Negativo
+                  </Box>
+                </Tooltip>
+              }
+            />
           </Tabs>
         </Box>
 
@@ -598,47 +743,24 @@ export default function ContextoInternoPage() {
             const items = accionMenuAnchor.signo === 'POSITIVO' ? itemsPositivo[accionMenuAnchor.key] : itemsNegativo[accionMenuAnchor.key];
             const it = items.find((i) => i.id === accionMenuAnchor.id);
             if (!it) return null;
-            const enDofa = it.descripcion.trim() ? getDofaStatus(it.descripcion) : null;
-            const estaEnDofa = !!enDofa;
-            const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
-            const puedeEnviar = !estaEnDofa && !!it.descripcion.trim();
-            
-            // Determinar automáticamente la dimensión según contexto y signo
-            const dimensionAutomatica: DofaDimension = accionMenuAnchor.signo === 'POSITIVO' ? 'FORTALEZA' : 'DEBILIDAD';
-            const labelAutomatico = DOFA_DIMENSIONES.find(d => d.value === dimensionAutomatica)?.label || dimensionAutomatica;
-            
             return (
               <>
-                {puedeEnviar && (
-                  <MenuItem
-                    onClick={() => {
-                      enviarADofaAhora(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
-                    }}
-                  >
-                    <SendIcon fontSize="small" sx={{ mr: 1 }} />
-                    Enviar a {labelAutomatico}
-                  </MenuItem>
-                )}
-                {estaEnDofa && (
-                  <MenuItem disabled sx={{ opacity: 1 }}>
-                    <Typography variant="caption" color="text.secondary">Ya está en DOFA</Typography>
-                  </MenuItem>
-                )}
-                {marcadoParaEnviar && (
-                  <MenuItem
-                    onClick={() => {
-                      updateItemDofa(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id, false, undefined);
-                      setAccionMenuAnchor(null);
-                    }}
-                  >
-                    Quitar de DOFA
-                  </MenuItem>
-                )}
+                <MenuItem disabled sx={{ opacity: 1, whiteSpace: 'normal', maxWidth: 280 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    «Guardar» / «Enviar a DOFA» sincronizan con la matriz. Eliminar aquí quita la fila del contexto y del DOFA (un solo paso). Para quitar solo del DOFA sin borrar el contexto, usa la pantalla Matriz DOFA.
+                  </Typography>
+                </MenuItem>
                 <Divider />
                 <MenuItem
-                  onClick={() => {
-                    removeItem(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
+                  onClick={async () => {
+                    const signo = accionMenuAnchor.signo;
+                    const key = accionMenuAnchor.key;
+                    const id = accionMenuAnchor.id;
                     setAccionMenuAnchor(null);
+                    const lista = signo === 'POSITIVO' ? itemsPositivo[key] : itemsNegativo[key];
+                    const row = lista.find((i) => i.id === id);
+                    if (!row) return;
+                    await handleEliminarCaracteristica(signo, key, id, row);
                   }}
                   sx={{ color: 'error.main' }}
                 >

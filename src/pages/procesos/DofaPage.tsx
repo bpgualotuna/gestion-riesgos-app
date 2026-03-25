@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  TextField,
   Button,
   Tabs,
   Tab,
@@ -29,9 +28,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Tooltip,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Save as SaveIcon,
   Visibility as VisibilityIcon,
   Edit as EditIcon,
@@ -58,6 +57,12 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
+import {
+  aplicarSincronizacionDofaAContextoItems,
+  describeOrigenItemDofaMatriz,
+  normalizeDofaTipoToCanonical,
+  type DofaTipoCuadrante,
+} from '../../utils/contextoDofaSync';
 
 
 
@@ -66,12 +71,16 @@ interface DofaItem {
   descripcion: string;
 }
 
-// Solo las 4 dimensiones DOFA (sin estrategias FO/FA/DO/DA)
-const TIPOS_DOFA_DIMENSIONES = ['FORTALEZA', 'OPORTUNIDAD', 'DEBILIDAD', 'AMENAZA'] as const;
-
-function isTipoDofaDimension(tipo: string): tipo is typeof TIPOS_DOFA_DIMENSIONES[number] {
-  return TIPOS_DOFA_DIMENSIONES.includes(tipo as any);
-}
+const TOOLTIP_TAB_MATRIZ =
+  'Vista conjunta. Fortalezas y Debilidades provienen del Contexto interno; Oportunidades y Amenazas del Contexto externo.';
+const TOOLTIP_TAB_OPORTUNIDADES =
+  'Oportunidades = factor externo positivo. Edítalo en Contexto externo (pestaña Positivo). En esta pantalla solo puedes eliminar.';
+const TOOLTIP_TAB_AMENAZAS =
+  'Amenazas = factor externo negativo. Edítalo en Contexto externo (pestaña Negativo). En esta pantalla solo puedes eliminar.';
+const TOOLTIP_TAB_FORTALEZAS =
+  'Fortalezas = factor interno positivo. Edítalo en Contexto interno (pestaña Positivo). En esta pantalla solo puedes eliminar.';
+const TOOLTIP_TAB_DEBILIDADES =
+  'Debilidades = factor interno negativo. Edítalo en Contexto interno (pestaña Negativo). En esta pantalla solo puedes eliminar.';
 
 export default function DofaPage() {
   const { showSuccess, showError } = useNotification();
@@ -122,11 +131,8 @@ export default function DofaPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<DofaItem | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [itemSeleccionado, setItemSeleccionado] = useState<{ item: DofaItem; tipo: string; titulo: string } | null>(null);
-  const [detalleDialogOpen, setDetalleDialogOpen] = useState(false);
-
   // Fetch process details directly
-  const { data: procesoData } = useSafeProcesoById(procesoSeleccionado?.id);
+  const { data: procesoData, refetch: refetchProceso } = useSafeProcesoById(procesoSeleccionado?.id);
   const [updateProceso] = useUpdateProcesoMutation();
 
   // Estados para los cuadrantes DOFA (DEBEN estar ANTES de los useEffect)
@@ -163,14 +169,22 @@ export default function DofaPage() {
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ tipo: string; id: string } | null>(null);
 
+  const contextoItems = useMemo(() => {
+    const raw = (procesoData as { contextoItems?: unknown } | undefined)?.contextoItems;
+    return Array.isArray(raw) ? raw : [];
+  }, [procesoData]);
+
   useEffect(() => {
     if (procesoData && Array.isArray(procesoData.dofaItems)) {
       const items = procesoData.dofaItems as Array<{ id?: string; tipo?: string; descripcion?: string }>;
-      const toItem = (i: { id?: string; descripcion?: string }) => ({ id: i.id ?? `temp-${Date.now()}-${Math.random()}`, descripcion: i.descripcion ?? '' });
-      const fortalezasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'FORTALEZA').map(toItem);
-      const oportunidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'OPORTUNIDAD').map(toItem);
-      const debilidadesData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'DEBILIDAD').map(toItem);
-      const amenazasData = items.filter((i) => isTipoDofaDimension(String(i.tipo ?? '')) && i.tipo === 'AMENAZA').map(toItem);
+      const toItem = (i: { id?: string; descripcion?: string }) => ({
+        id: String(i.id ?? `temp-${Date.now()}-${Math.random()}`),
+        descripcion: i.descripcion ?? '',
+      });
+      const fortalezasData = items.filter((i) => normalizeDofaTipoToCanonical(i.tipo) === 'FORTALEZA').map(toItem);
+      const oportunidadesData = items.filter((i) => normalizeDofaTipoToCanonical(i.tipo) === 'OPORTUNIDAD').map(toItem);
+      const debilidadesData = items.filter((i) => normalizeDofaTipoToCanonical(i.tipo) === 'DEBILIDAD').map(toItem);
+      const amenazasData = items.filter((i) => normalizeDofaTipoToCanonical(i.tipo) === 'AMENAZA').map(toItem);
       
       setFortalezas(fortalezasData);
       setOportunidades(oportunidadesData);
@@ -218,52 +232,6 @@ export default function DofaPage() {
     }
   }, [procesoSeleccionado, fortalezas, oportunidades, debilidades, amenazas, isReadOnly, hasAnyChanges, setScreenContext]);
 
-  const handleAdd = (tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades') => {
-    const newItem: DofaItem = {
-      id: Date.now().toString(),
-      descripcion: '',
-    };
-
-    switch (tipo) {
-      case 'oportunidades':
-        setOportunidades([...oportunidades, newItem]);
-        break;
-      case 'amenazas':
-        setAmenazas([...amenazas, newItem]);
-        break;
-      case 'fortalezas':
-        setFortalezas([...fortalezas, newItem]);
-        break;
-      case 'debilidades':
-        setDebilidades([...debilidades, newItem]);
-        break;
-    }
-  };
-
-  const handleChange = (
-    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades',
-    id: string,
-    value: string
-  ) => {
-    const updateItem = (items: DofaItem[]) =>
-      items.map((item) => (item.id === id ? { ...item, descripcion: value } : item));
-
-    switch (tipo) {
-      case 'oportunidades':
-        setOportunidades(updateItem(oportunidades));
-        break;
-      case 'amenazas':
-        setAmenazas(updateItem(amenazas));
-        break;
-      case 'fortalezas':
-        setFortalezas(updateItem(fortalezas));
-        break;
-      case 'debilidades':
-        setDebilidades(updateItem(debilidades));
-        break;
-    }
-  };
-
   const handleDelete = (
     tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades',
     id: string
@@ -296,12 +264,36 @@ export default function DofaPage() {
       ...debilidades.map(i => ({ descripcion: i.descripcion, tipo: 'DEBILIDAD' })),
     ];
 
+    const rawCtx = (procesoData as any)?.contextoItems as Array<{ tipo: string; signo: string; descripcion: string }> | undefined;
+    const contextosLegacy = (procesoData as any)?.contextos ?? [];
+    const contextoItemsActualizados =
+      Array.isArray(rawCtx) && rawCtx.length > 0
+        ? aplicarSincronizacionDofaAContextoItems(rawCtx, {
+            FORTALEZA: fortalezas,
+            OPORTUNIDAD: oportunidades,
+            DEBILIDAD: debilidades,
+            AMENAZA: amenazas,
+          })
+        : null;
+
     try {
       setIsSaving(true);
       await updateProceso({
         id: String(procesoSeleccionado.id),
-        dofaItems: allItems
-      }).unwrap();
+        dofaItems: allItems,
+        ...(contextoItemsActualizados
+          ? {
+              contextos: contextosLegacy,
+              contextoItems: contextoItemsActualizados.map((c) => ({
+                tipo: c.tipo,
+                signo: c.signo,
+                descripcion: c.descripcion,
+                enviarADofa: c.enviarADofa,
+                dofaDimension: c.dofaDimension,
+              })),
+            }
+          : {}),
+      } as any).unwrap();
 
       setInitialOportunidades(oportunidades);
       setInitialAmenazas(amenazas);
@@ -309,6 +301,7 @@ export default function DofaPage() {
       setInitialDebilidades(debilidades);
 
       markAsSaved();
+      await refetchProceso();
       showSuccess('Matriz DOFA guardada exitosamente');
     } catch (error: any) {
       console.error('[DOFA] Error al guardar la matriz', error);
@@ -338,27 +331,6 @@ export default function DofaPage() {
     setFortalezas(initialFortalezas);
     setDebilidades(initialDebilidades);
     forceNavigate();
-  };
-
-  const handleVerDetalle = (
-    e: React.MouseEvent,
-    item: DofaItem,
-    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades'
-  ) => {
-    e.stopPropagation(); // Prevenir que se active el cambio de pestaña
-    const titulos: Record<string, string> = {
-      oportunidades: 'Oportunidad',
-      amenazas: 'Amenaza',
-      fortalezas: 'Fortaleza',
-      debilidades: 'Debilidad',
-    };
-    setItemSeleccionado({ item, tipo, titulo: titulos[tipo] });
-    setDetalleDialogOpen(true);
-  };
-
-  const handleCerrarDetalle = () => {
-    setDetalleDialogOpen(false);
-    setItemSeleccionado(null);
   };
 
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
@@ -432,7 +404,8 @@ export default function DofaPage() {
   const renderDofaSection = (
     title: string,
     items: DofaItem[],
-    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades'
+    tipo: 'oportunidades' | 'amenazas' | 'fortalezas' | 'debilidades',
+    cuadrante: DofaTipoCuadrante
   ) => (
     <Box>
       <FiltroProcesoSupervisor />
@@ -441,39 +414,52 @@ export default function DofaPage() {
         <Typography variant="h6" fontWeight={600}>
           {title}
         </Typography>
-        {!isReadOnly && (
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => handleAdd(tipo)}
-            sx={{
-              background: '#1976d2',
-              color: '#fff',
-            }}
-          >
-            Agregar
-          </Button>
-        )}
       </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        El texto se edita en Contexto interno o Contexto externo. Aquí solo puedes eliminar ítems de la matriz (pulsa Guardar DOFA para aplicar).
+      </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {items.map((item, index) => (
           <Box key={item.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <TextField
-              fullWidth
-              label={`${title} ${index + 1}`}
-              value={item.descripcion}
-              onChange={(e) => handleChange(tipo, item.id, e.target.value)}
-              disabled={isReadOnly}
-              multiline
-              rows={3}
-              variant="outlined"
-            />
+            <Tooltip
+              title={describeOrigenItemDofaMatriz(item.descripcion, cuadrante, contextoItems)}
+              placement="top"
+              enterDelay={400}
+              slotProps={{ tooltip: { sx: { maxWidth: 420 } } }}
+            >
+              <Paper
+                component="div"
+                variant="outlined"
+                sx={{
+                  flex: 1,
+                  p: 2,
+                  minHeight: 88,
+                  borderRadius: 2,
+                  backgroundColor: '#fafafa',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  {title} {index + 1}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    lineHeight: 1.6,
+                    color: '#424242',
+                  }}
+                >
+                  {item.descripcion?.trim() ? item.descripcion : 'Sin descripción'}
+                </Typography>
+              </Paper>
+            </Tooltip>
             {!isReadOnly && (
               <IconButton
                 color="error"
                 onClick={() => requestDelete(tipo, item.id)}
-                title="Eliminar"
-                sx={{ mt: 1 }}
+                title="Eliminar de la matriz DOFA"
+                sx={{ mt: 0.5 }}
               >
                 <DeleteIcon />
               </IconButton>
@@ -482,7 +468,7 @@ export default function DofaPage() {
         ))}
         {items.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-            No hay elementos registrados. Haz clic en "Agregar" para comenzar.
+            No hay elementos. Añádelos desde Contexto interno o Contexto externo.
           </Typography>
         )}
       </Box>
@@ -606,7 +592,12 @@ export default function DofaPage() {
                     },
                   }}
                 >
-                  <Tab icon={<FactCheckIcon />} iconPosition="start" label="MATRIZ DOFA" />
+                  <Tab
+                    icon={<FactCheckIcon />}
+                    iconPosition="start"
+                    label="MATRIZ DOFA"
+                    title={TOOLTIP_TAB_MATRIZ}
+                  />
                 </Tabs>
               </Box>
               <Box
@@ -653,10 +644,34 @@ export default function DofaPage() {
                     },
                   }}
                 >
-                  <Tab icon={<TrendingUpIcon />} iconPosition="start" label="Oportunidades" value={1} />
-                  <Tab icon={<WarningIcon />} iconPosition="start" label="Amenazas" value={2} />
-                  <Tab icon={<CheckCircleIcon />} iconPosition="start" label="Fortalezas" value={3} />
-                  <Tab icon={<CancelIcon />} iconPosition="start" label="Debilidades" value={4} />
+                  <Tab
+                    icon={<CheckCircleIcon />}
+                    iconPosition="start"
+                    label="Fortalezas"
+                    value={1}
+                    title={TOOLTIP_TAB_FORTALEZAS}
+                  />
+                  <Tab
+                    icon={<TrendingUpIcon />}
+                    iconPosition="start"
+                    label="Oportunidades"
+                    value={2}
+                    title={TOOLTIP_TAB_OPORTUNIDADES}
+                  />
+                  <Tab
+                    icon={<CancelIcon />}
+                    iconPosition="start"
+                    label="Debilidades"
+                    value={3}
+                    title={TOOLTIP_TAB_DEBILIDADES}
+                  />
+                  <Tab
+                    icon={<WarningIcon />}
+                    iconPosition="start"
+                    label="Amenazas"
+                    value={4}
+                    title={TOOLTIP_TAB_AMENAZAS}
+                  />
                 </Tabs>
               </Box>
             </Box>
@@ -669,7 +684,7 @@ export default function DofaPage() {
                   Matriz DOFA Completa
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Haz clic en cualquier cuadrante para ver o editar los detalles. Cada sección tiene scroll independiente.
+                  Haz clic en cualquier cuadrante para ver los detalles. Para añadir o editar texto, usa Contexto interno o Contexto externo; aquí solo puedes eliminar ítems.
                 </Typography>
               </Box>
               <Box
@@ -683,7 +698,7 @@ export default function DofaPage() {
                 {/* Fortalezas */}
                 <Paper
                   elevation={4}
-                  onClick={() => setTabValue(3)}
+                  onClick={() => setTabValue(1)}
                   sx={{
                     p: 0,
                     backgroundColor: '#fff',
@@ -754,28 +769,34 @@ export default function DofaPage() {
                   >
                     {fortalezas.length > 0 ? (
                       fortalezas.map((item, index) => (
-                        <Box
+                        <Tooltip
                           key={item.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(item);
-                            setSelectedCategory('Fortalezas');
-                            setDialogOpen(true);
-                          }}
-                          sx={{
-                            p: 2,
-                            backgroundColor: '#f5f5f5',
-                            borderRadius: 2,
-                            border: '2px solid #e0e0e0',
-                            transition: 'all 0.2s ease',
-                            cursor: 'pointer',
-                            '&:hover': {
-                              backgroundColor: '#e8f5e9',
-                              borderColor: '#4caf50',
-                              transform: 'translateX(4px)',
-                            },
-                          }}
+                          title={describeOrigenItemDofaMatriz(item.descripcion, 'FORTALEZA', contextoItems)}
+                          placement="top"
+                          enterDelay={400}
+                          slotProps={{ tooltip: { sx: { maxWidth: 420 } } }}
                         >
+                          <Box
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedItem(item);
+                              setSelectedCategory('Fortalezas');
+                              setDialogOpen(true);
+                            }}
+                            sx={{
+                              p: 2,
+                              backgroundColor: '#f5f5f5',
+                              borderRadius: 2,
+                              border: '2px solid #e0e0e0',
+                              transition: 'all 0.2s ease',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                backgroundColor: '#e8f5e9',
+                                borderColor: '#4caf50',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
                             <Box
                               sx={{
@@ -810,6 +831,7 @@ export default function DofaPage() {
                             </Typography>
                           </Box>
                         </Box>
+                        </Tooltip>
                       ))
                     ) : (
                       <Box
@@ -832,7 +854,7 @@ export default function DofaPage() {
                 {/* Oportunidades */}
                 <Paper
                   elevation={4}
-                  onClick={() => setTabValue(1)}
+                  onClick={() => setTabValue(2)}
                   sx={{
                     p: 0,
                     backgroundColor: '#fff',
@@ -903,28 +925,34 @@ export default function DofaPage() {
                   >
                     {oportunidades.length > 0 ? (
                       oportunidades.map((item, index) => (
-                        <Box
+                        <Tooltip
                           key={item.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(item);
-                            setSelectedCategory('Oportunidades');
-                            setDialogOpen(true);
-                          }}
-                          sx={{
-                            p: 2,
-                            backgroundColor: '#f5f5f5',
-                            borderRadius: 2,
-                            border: '2px solid #e0e0e0',
-                            transition: 'all 0.2s ease',
-                            cursor: 'pointer',
-                            '&:hover': {
-                              backgroundColor: '#e3f2fd',
-                              borderColor: '#03a9f4',
-                              transform: 'translateX(4px)',
-                            },
-                          }}
+                          title={describeOrigenItemDofaMatriz(item.descripcion, 'OPORTUNIDAD', contextoItems)}
+                          placement="top"
+                          enterDelay={400}
+                          slotProps={{ tooltip: { sx: { maxWidth: 420 } } }}
                         >
+                          <Box
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedItem(item);
+                              setSelectedCategory('Oportunidades');
+                              setDialogOpen(true);
+                            }}
+                            sx={{
+                              p: 2,
+                              backgroundColor: '#f5f5f5',
+                              borderRadius: 2,
+                              border: '2px solid #e0e0e0',
+                              transition: 'all 0.2s ease',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                backgroundColor: '#e3f2fd',
+                                borderColor: '#03a9f4',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
                             <Box
                               sx={{
@@ -959,6 +987,7 @@ export default function DofaPage() {
                             </Typography>
                           </Box>
                         </Box>
+                        </Tooltip>
                       ))
                     ) : (
                       <Box
@@ -981,7 +1010,7 @@ export default function DofaPage() {
                 {/* Debilidades */}
                 <Paper
                   elevation={4}
-                  onClick={() => setTabValue(4)}
+                  onClick={() => setTabValue(3)}
                   sx={{
                     p: 0,
                     backgroundColor: '#fff',
@@ -1052,28 +1081,34 @@ export default function DofaPage() {
                   >
                     {debilidades.length > 0 ? (
                       debilidades.map((item, index) => (
-                        <Box
+                        <Tooltip
                           key={item.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(item);
-                            setSelectedCategory('Debilidades');
-                            setDialogOpen(true);
-                          }}
-                          sx={{
-                            p: 2,
-                            backgroundColor: '#f5f5f5',
-                            borderRadius: 2,
-                            border: '2px solid #e0e0e0',
-                            transition: 'all 0.2s ease',
-                            cursor: 'pointer',
-                            '&:hover': {
-                              backgroundColor: '#fff3e0',
-                              borderColor: '#ff9800',
-                              transform: 'translateX(4px)',
-                            },
-                          }}
+                          title={describeOrigenItemDofaMatriz(item.descripcion, 'DEBILIDAD', contextoItems)}
+                          placement="top"
+                          enterDelay={400}
+                          slotProps={{ tooltip: { sx: { maxWidth: 420 } } }}
                         >
+                          <Box
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedItem(item);
+                              setSelectedCategory('Debilidades');
+                              setDialogOpen(true);
+                            }}
+                            sx={{
+                              p: 2,
+                              backgroundColor: '#f5f5f5',
+                              borderRadius: 2,
+                              border: '2px solid #e0e0e0',
+                              transition: 'all 0.2s ease',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                backgroundColor: '#fff3e0',
+                                borderColor: '#ff9800',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
                             <Box
                               sx={{
@@ -1108,6 +1143,7 @@ export default function DofaPage() {
                             </Typography>
                           </Box>
                         </Box>
+                        </Tooltip>
                       ))
                     ) : (
                       <Box
@@ -1130,7 +1166,7 @@ export default function DofaPage() {
                 {/* Amenazas */}
                 <Paper
                   elevation={4}
-                  onClick={() => setTabValue(2)}
+                  onClick={() => setTabValue(4)}
                   sx={{
                     p: 0,
                     backgroundColor: '#fff',
@@ -1201,28 +1237,34 @@ export default function DofaPage() {
                   >
                     {amenazas.length > 0 ? (
                       amenazas.map((item, index) => (
-                        <Box
+                        <Tooltip
                           key={item.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(item);
-                            setSelectedCategory('Amenazas');
-                            setDialogOpen(true);
-                          }}
-                          sx={{
-                            p: 2,
-                            backgroundColor: '#f5f5f5',
-                            borderRadius: 2,
-                            border: '2px solid #e0e0e0',
-                            transition: 'all 0.2s ease',
-                            cursor: 'pointer',
-                            '&:hover': {
-                              backgroundColor: '#ffebee',
-                              borderColor: '#f44336',
-                              transform: 'translateX(4px)',
-                            },
-                          }}
+                          title={describeOrigenItemDofaMatriz(item.descripcion, 'AMENAZA', contextoItems)}
+                          placement="top"
+                          enterDelay={400}
+                          slotProps={{ tooltip: { sx: { maxWidth: 420 } } }}
                         >
+                          <Box
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedItem(item);
+                              setSelectedCategory('Amenazas');
+                              setDialogOpen(true);
+                            }}
+                            sx={{
+                              p: 2,
+                              backgroundColor: '#f5f5f5',
+                              borderRadius: 2,
+                              border: '2px solid #e0e0e0',
+                              transition: 'all 0.2s ease',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                backgroundColor: '#ffebee',
+                                borderColor: '#f44336',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
                             <Box
                               sx={{
@@ -1257,6 +1299,7 @@ export default function DofaPage() {
                             </Typography>
                           </Box>
                         </Box>
+                        </Tooltip>
                       ))
                     ) : (
                       <Box
@@ -1278,10 +1321,10 @@ export default function DofaPage() {
               </Box>
             </Box>
           )}
-          {tabValue === 1 && renderDofaSection('Oportunidades', oportunidades, 'oportunidades')}
-          {tabValue === 2 && renderDofaSection('Amenazas', amenazas, 'amenazas')}
-          {tabValue === 3 && renderDofaSection('Fortalezas', fortalezas, 'fortalezas')}
-          {tabValue === 4 && renderDofaSection('Debilidades', debilidades, 'debilidades')}
+          {tabValue === 1 && renderDofaSection('Fortalezas', fortalezas, 'fortalezas', 'FORTALEZA')}
+          {tabValue === 2 && renderDofaSection('Oportunidades', oportunidades, 'oportunidades', 'OPORTUNIDAD')}
+          {tabValue === 3 && renderDofaSection('Debilidades', debilidades, 'debilidades', 'DEBILIDAD')}
+          {tabValue === 4 && renderDofaSection('Amenazas', amenazas, 'amenazas', 'AMENAZA')}
         </CardContent>
       </Card>
 

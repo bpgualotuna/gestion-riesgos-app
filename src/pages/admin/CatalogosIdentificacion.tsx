@@ -16,7 +16,7 @@ import {
     FactCheck as ObjetivoIcon,
 } from '@mui/icons-material';
 import SimpleCatalog from './SimpleCatalog';
-import { confirmarEliminar } from '../../utils/constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import {
@@ -52,6 +52,7 @@ function TabPanel(props: TabPanelProps) {
 export default function CatalogosIdentificacion({ embedded = false }: { embedded?: boolean }) {
     const [currentTab, setCurrentTab] = useState(0);
     const { showSuccess, showError } = useNotification();
+    const { confirmDelete } = useConfirm();
 
     // Queries
     const { data: tiposRiesgo = [], isLoading: loadingTipos } = useGetTiposRiesgosQuery();
@@ -123,7 +124,7 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
                         }
                     }}
                     onDelete={async (id) => {
-                        if (!confirmarEliminar('esta tipología')) return;
+                        if (!(await confirmDelete('esta tipología'))) return;
                         try {
                             await deleteTipologia(id).unwrap();
                             showSuccess('Tipología eliminada');
@@ -158,7 +159,7 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
                         }
                     }}
                     onDelete={async (id) => {
-                        if (!confirmarEliminar('este objetivo')) return;
+                        if (!(await confirmDelete('este objetivo'))) return;
                         try {
                             await deleteObjetivo(id).unwrap();
                             showSuccess('Objetivo eliminado');
