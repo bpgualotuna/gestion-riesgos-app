@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type RefObject } from 'react';
 import { Box, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
 import ReactMarkdown from 'react-markdown';
@@ -65,6 +65,8 @@ interface Props {
   loading: boolean;
   streaming: boolean;
   error: string | null;
+  /** Ancla al final del área con scroll (debe ir dentro del contenedor overflow) */
+  listEndRef?: RefObject<HTMLDivElement | null>;
 }
 
 const thinkingDots = keyframes`
@@ -74,7 +76,7 @@ const thinkingDots = keyframes`
   100% { opacity: 0.2; transform: translateY(0); }
 `;
 
-const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, streaming, error }) => {
+const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, streaming, error, listEndRef }) => {
   const lastMsg = mensajes.length > 0 ? mensajes[mensajes.length - 1] : null;
   const lastIsAssistantWithContent =
     lastMsg?.role === 'assistant' && (lastMsg?.content?.trim() ?? '') !== '';
@@ -90,6 +92,7 @@ const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, stream
     <Box
       sx={{
         flex: 1,
+        minHeight: 0,
         mb: 1.5,
         px: 0.25,
         overflowY: 'auto',
@@ -98,7 +101,8 @@ const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, stream
         gap: 1.5,
       }}
     >
-      {visibleMessages.map((m, idx) => (
+      {visibleMessages.map((m, idx) => {
+        return (
         <Box
           key={idx}
           sx={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}
@@ -121,7 +125,8 @@ const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, stream
             <CoraMarkdownBody content={m.content} isUser={m.role === 'user'} />
           </Box>
         </Box>
-      ))}
+        );
+      })}
 
       {showThinking && (
         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, pl: 0.5, minHeight: 34 }}>
@@ -168,6 +173,8 @@ const CoraMessageList: React.FC<Props> = React.memo(({ mensajes, loading, stream
           {error}
         </Typography>
       )}
+
+      <div ref={listEndRef} aria-hidden style={{ height: 1, width: '100%', flexShrink: 0 }} />
     </Box>
   );
 });

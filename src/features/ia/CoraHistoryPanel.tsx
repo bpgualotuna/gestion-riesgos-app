@@ -9,6 +9,7 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import { Search as SearchIcon, MoreVert as MoreVertIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
@@ -21,6 +22,8 @@ export interface CoraHistoryItem {
 
 interface Props {
   items: CoraHistoryItem[];
+  /** Carga inicial de la lista desde el servidor */
+  loading?: boolean;
   searchText: string;
   onSearchChange: (value: string) => void;
   onSelect: (id: string) => void;
@@ -30,6 +33,7 @@ interface Props {
 
 const CoraHistoryPanel: React.FC<Props> = React.memo(({
   items,
+  loading = false,
   searchText,
   onSearchChange,
   onSelect,
@@ -90,7 +94,14 @@ const CoraHistoryPanel: React.FC<Props> = React.memo(({
       </Box>
 
       <Box sx={{ flex: 1, overflowY: 'auto', p: 0.5 }}>
-        {filtered.length === 0 ? (
+        {loading && items.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1.5 }}>
+            <CircularProgress size={28} />
+            <Typography variant="caption" color="text.secondary">
+              Cargando conversaciones…
+            </Typography>
+          </Box>
+        ) : filtered.length === 0 ? (
           <Typography
             variant="body2"
             color="text.secondary"

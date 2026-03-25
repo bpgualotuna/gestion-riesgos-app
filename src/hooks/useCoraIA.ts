@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { 
   enviarMensajeIA, 
   enviarMensajeIAStream,
@@ -10,12 +10,28 @@ import {
 } from '../api/services/iaApi';
 import type { ChatMessage, ScreenContext } from '../types/ia.types';
 
+/** Asegura role/content por mensaje (Mongo puede traer createdAt u otros campos). */
+function normalizeMensajesDesdeApi(raw: unknown): ChatMessage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ChatMessage[] = [];
+  for (const m of raw) {
+    if (!m || typeof m !== 'object') continue;
+    const role = (m as { role?: string }).role === 'user' ? 'user' : 'assistant';
+    const content = (m as { content?: unknown }).content;
+    const str = typeof content === 'string' ? content : content != null ? String(content) : '';
+    out.push({ role, content: str });
+  }
+  return out;
+}
+
 export function useCoraIA() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [mensajes, setMensajes] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
+  /** Evita aplicar respuestas viejas si el usuario cambia de conversación rápido. */
+  const detalleLoadSeqRef = useRef(0);
 
   const enviar = async (texto: string) => {
     const message = texto.trim();
@@ -104,15 +120,23 @@ export function useCoraIA() {
 
   const seleccionarConversacion = useCallback(async (id: string) => {
     setError(null);
+    setStreaming(false);
+    setMensajes([]);
     setLoading(true);
+    detalleLoadSeqRef.current += 1;
+    const seq = detalleLoadSeqRef.current;
     try {
       const data = await obtenerDetalleConversacion(id);
+      if (seq !== detalleLoadSeqRef.current) return;
       setConversationId(data.id);
-      setMensajes(data.messages || []);
+      setMensajes(normalizeMensajesDesdeApi(data.messages));
     } catch (e: any) {
+      if (seq !== detalleLoadSeqRef.current) return;
       setError(e?.response?.data?.error || 'Error al cargar la conversación.');
     } finally {
-      setLoading(false);
+      if (seq === detalleLoadSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 

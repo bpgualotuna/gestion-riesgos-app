@@ -116,7 +116,9 @@ export async function obtenerConversaciones() {
 }
 
 export async function obtenerDetalleConversacion(id: string) {
-  const { data } = await axiosClient.get(`/ia/conversaciones/${id}`);
+  const { data } = await axiosClient.get(`/ia/conversaciones/${id}`, {
+    timeout: 60000,
+  });
   return data;
 }
 export async function eliminarConversacion(id: string) {

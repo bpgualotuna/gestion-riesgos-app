@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { Box, Paper, Typography, IconButton, Skeleton } from '@mui/material';
 import { History as HistoryIcon, Add as AddIcon } from '@mui/icons-material';
 import { useCoraIA } from '../../hooks/useCoraIA';
@@ -26,19 +27,18 @@ const CoraChatWindow: React.FC = React.memo(() => {
 
   const [showHistory, setShowHistory] = useState(false);
   const [historyList, setHistoryList] = useState<CoraHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const fetchHistory = useCallback(async () => {
-    const hist = await cargarHistorial();
-    setHistoryList(hist);
-  }, [cargarHistorial]);
-
-  const handleToggleHistory = useCallback(async () => {
+  const handleToggleHistory = useCallback(() => {
     if (!showHistory) {
-      const hist = await cargarHistorial();
-      setHistoryList(hist);
+      setHistoryLoading(true);
+      cargarHistorial()
+        .then(setHistoryList)
+        .catch(() => setHistoryList([]))
+        .finally(() => setHistoryLoading(false));
     }
     setShowHistory((prev) => !prev);
   }, [showHistory, cargarHistorial]);
@@ -49,17 +49,19 @@ const CoraChatWindow: React.FC = React.memo(() => {
   }, [limpiar]);
 
   const handleSelectConversation = useCallback(async (id: string) => {
-    setShowHistory(false);
+    flushSync(() => {
+      setShowHistory(false);
+    });
     await seleccionarConversacion(id);
   }, [seleccionarConversacion]);
 
   const handleSend = useCallback(() => {
-    if (!inputValue.trim() || loading) return;
+    if (!inputValue.trim() || loading || streaming) return;
     console.log('🚀🚀🚀 [CORA ENVIANDO] Mensaje:', inputValue);
     console.log('🚀🚀🚀 [CORA ENVIANDO] Contexto:', JSON.stringify(screenContext, null, 2));
     enviarStream(inputValue, screenContext || undefined); // CORREGIDO: Pasar screenContext
     setInputValue('');
-  }, [inputValue, loading, enviarStream, screenContext]);
+  }, [inputValue, loading, streaming, enviarStream, screenContext]);
 
   const handleDeleteHistory = useCallback(
     async (item: CoraHistoryItem) => {
@@ -85,16 +87,20 @@ const CoraChatWindow: React.FC = React.memo(() => {
     [renombrar, cargarHistorial]
   );
 
-  // Scroll al final sin bloquear el hilo principal
+  // Scroll al final del listado (ancla dentro del overflow de CoraMessageList)
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       const el = messagesEndRef.current;
       if (el?.scrollIntoView) {
-        el.scrollIntoView({ behavior: 'smooth' });
+        el.scrollIntoView({
+          block: 'end',
+          inline: 'nearest',
+          behavior: streaming ? 'auto' : 'smooth',
+        });
       }
     });
     return () => cancelAnimationFrame(id);
-  }, [mensajes]);
+  }, [mensajes, streaming]);
 
   return (
     <Paper
@@ -152,6 +158,7 @@ const CoraChatWindow: React.FC = React.memo(() => {
       {showHistory ? (
         <CoraHistoryPanel
           items={historyList}
+          loading={historyLoading}
           searchText={searchText}
           onSearchChange={setSearchText}
           onSelect={handleSelectConversation}
@@ -169,7 +176,7 @@ const CoraChatWindow: React.FC = React.memo(() => {
               ))}
             </Box>
           ) : (
-            <>
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {mensajes.length === 0 && (
                 <Box
                   sx={{
@@ -179,6 +186,7 @@ const CoraChatWindow: React.FC = React.memo(() => {
                     borderRadius: 2,
                     bgcolor: '#f0f7ff',
                     border: '1px solid #dbeafe',
+                    flexShrink: 0,
                   }}
                 >
                   <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
@@ -188,13 +196,13 @@ const CoraChatWindow: React.FC = React.memo(() => {
                 </Box>
               )}
               <CoraMessageList
+                listEndRef={messagesEndRef}
                 mensajes={mensajes}
                 loading={loading}
                 streaming={streaming}
                 error={error}
               />
-              <div ref={messagesEndRef} />
-            </>
+            </Box>
           )}
         </>
       )}
@@ -204,7 +212,7 @@ const CoraChatWindow: React.FC = React.memo(() => {
           value={inputValue}
           onChange={setInputValue}
           onSend={handleSend}
-          disabled={loading}
+          disabled={loading || streaming}
         />
       )}
     </Paper>
