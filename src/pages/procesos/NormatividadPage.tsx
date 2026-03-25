@@ -47,6 +47,7 @@ interface Normatividad {
   riesgoIdentificado: string;
   clasificacion: string;
   comentarios: string;
+  responsable?: string;
 }
 
 
@@ -140,6 +141,16 @@ export default function NormatividadPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogDetalleOpen, setDialogDetalleOpen] = useState(false);
   const [selectedNormatividad, setSelectedNormatividad] = useState<Normatividad | null>(null);
+  const [cumplimientoSeleccionado, setCumplimientoSeleccionado] = useState<string>('Total');
+
+  // Sincronizar cumplimientoSeleccionado cuando se abre el diálogo de edición
+  useEffect(() => {
+    if (dialogOpen && selectedNormatividad) {
+      setCumplimientoSeleccionado(selectedNormatividad.cumplimiento || 'Total');
+    } else if (dialogOpen && !selectedNormatividad) {
+      setCumplimientoSeleccionado('Total');
+    }
+  }, [dialogOpen, selectedNormatividad]);
 
   const [sortField, setSortField] = useState<'numero' | 'nombre' | 'estado' | 'regulador' | 'cumplimiento' | 'clasificacion'>('numero');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -179,6 +190,7 @@ export default function NormatividadPage() {
   const handleEditar = useCallback((e: React.MouseEvent, row: Normatividad) => {
     e.stopPropagation();
     setSelectedNormatividad(row);
+    setCumplimientoSeleccionado(row.cumplimiento || 'Total');
     setDialogOpen(true);
   }, []);
 
@@ -311,6 +323,7 @@ export default function NormatividadPage() {
               startIcon={<AddIcon />}
               onClick={() => {
                 setSelectedNormatividad(null);
+                setCumplimientoSeleccionado('Total');
                 setDialogOpen(true);
               }}
               sx={{
@@ -366,7 +379,7 @@ export default function NormatividadPage() {
               <Typography variant="caption" fontWeight={700} color="text.secondary">Regulador</Typography>
               {sortField === 'regulador' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
-            <Box component="button" onClick={() => handleSort('cumplimiento')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+            <Box component="button" onClick={() => handleSort('cumplimiento')} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit', ml: -2 }}>
               <Typography variant="caption" fontWeight={700} color="text.secondary">Cumplimiento</Typography>
               {sortField === 'cumplimiento' ? (sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />) : null}
             </Box>
@@ -512,6 +525,16 @@ export default function NormatividadPage() {
                   sx={{ mb: 2 }}
                 />
               </Box>
+              {selectedNormatividad.cumplimiento === 'Parcial' && selectedNormatividad.responsable && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Responsable
+                  </Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    {selectedNormatividad.responsable}
+                  </Typography>
+                </Box>
+              )}
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Detalle del Incumplimiento
@@ -559,6 +582,28 @@ export default function NormatividadPage() {
           if (!procesoSeleccionado) return;
           const formData = new FormData(e.currentTarget);
           
+          const cumplimiento = formData.get('cumplimiento') as string;
+          
+          // Validación: si cumplimiento es "Parcial", plazoImplementacion, detalleIncumplimiento y responsable son obligatorios
+          if (cumplimiento === 'Parcial') {
+            const plazo = formData.get('plazoImplementacion') as string;
+            const detalle = formData.get('detalleIncumplimiento') as string;
+            const responsable = formData.get('responsable') as string;
+            
+            if (!plazo || plazo.trim() === '') {
+              showError('El campo "Plazo para Implementación" es obligatorio cuando el cumplimiento es Parcial');
+              return;
+            }
+            if (!detalle || detalle.trim() === '') {
+              showError('El campo "Detalle del Incumplimiento" es obligatorio cuando el cumplimiento es Parcial');
+              return;
+            }
+            if (!responsable || responsable.trim() === '') {
+              showError('El campo "Responsable" es obligatorio cuando el cumplimiento es Parcial');
+              return;
+            }
+          }
+          
           const newItem: any = {
             id: selectedNormatividad?.id || `temp-${Date.now()}`,
             numero: selectedNormatividad?.numero || normatividades.length + 1,
@@ -572,6 +617,7 @@ export default function NormatividadPage() {
             riesgoIdentificado: formData.get('riesgoIdentificado'),
             clasificacion: formData.get('clasificacion'),
             comentarios: formData.get('comentarios'),
+            responsable: formData.get('responsable') || '',
           };
 
           const updatedList = selectedNormatividad
@@ -618,7 +664,10 @@ export default function NormatividadPage() {
                   </Button>
                 )}
                 <IconButton
-                  onClick={() => setDialogOpen(false)}
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setCumplimientoSeleccionado('Total');
+                  }}
                   size="small"
                   sx={{ ml: 1 }}
                 >
@@ -686,6 +735,8 @@ export default function NormatividadPage() {
                   defaultValue={selectedNormatividad?.plazoImplementacion || ''}
                   disabled={isReadOnly}
                   variant="outlined"
+                  required={cumplimientoSeleccionado === 'Parcial'}
+                  helperText={cumplimientoSeleccionado === 'Parcial' ? 'Obligatorio para cumplimiento Parcial' : ''}
                 />
               </Box>
               <Box>
@@ -697,6 +748,7 @@ export default function NormatividadPage() {
                   defaultValue={selectedNormatividad?.cumplimiento || 'Total'}
                   disabled={isReadOnly}
                   variant="outlined"
+                  onChange={(e) => setCumplimientoSeleccionado(e.target.value)}
                 >
                   {NIVELES_CUMPLIMIENTO.map((nivel) => (
                     <MenuItem key={nivel} value={nivel}>
@@ -715,8 +767,24 @@ export default function NormatividadPage() {
                   defaultValue={selectedNormatividad?.detalleIncumplimiento || ''}
                   disabled={isReadOnly}
                   variant="outlined"
+                  required={cumplimientoSeleccionado === 'Parcial'}
+                  helperText={cumplimientoSeleccionado === 'Parcial' ? 'Obligatorio para cumplimiento Parcial' : ''}
                 />
               </Box>
+              {cumplimientoSeleccionado === 'Parcial' && (
+                <Box sx={{ gridColumn: '1 / -1' }}>
+                  <TextField
+                    fullWidth
+                    label="Responsable"
+                    name="responsable"
+                    defaultValue={selectedNormatividad?.responsable || ''}
+                    disabled={isReadOnly}
+                    variant="outlined"
+                    required
+                    helperText="Obligatorio para cumplimiento Parcial"
+                  />
+                </Box>
+              )}
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <TextField
                   fullWidth

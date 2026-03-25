@@ -1,5 +1,6 @@
 import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from '@mui/material';
 import { EstadoPlan, EstadoPlanSelectorProps } from '../../types/planAccion.types';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Transiciones válidas de estado
 const VALID_TRANSITIONS: Record<EstadoPlan, EstadoPlan[]> = {
@@ -27,6 +28,9 @@ export const EstadoPlanSelector: React.FC<EstadoPlanSelectorProps> = ({
   onChange,
   disabled = false,
 }) => {
+  const { user } = useAuth();
+  const userRole = user?.role?.toLowerCase() || '';
+
   const estadosValidos = VALID_TRANSITIONS[estadoActual] || [];
   const todosLosEstados: EstadoPlan[] = [
     'pendiente',
@@ -47,8 +51,55 @@ export const EstadoPlanSelector: React.FC<EstadoPlanSelectorProps> = ({
   const isEstadoDisponible = (estado: EstadoPlan): boolean => {
     // El estado actual siempre está disponible (para mostrar)
     if (estado === estadoActual) return true;
-    // Los estados válidos para transición están disponibles
-    return estadosValidos.includes(estado);
+    
+    // Verificar si la transición es válida según el flujo
+    if (!estadosValidos.includes(estado)) return false;
+
+    // RESTRICCIÓN 1: Solo SUPERVISOR puede cambiar de "pendiente" a "en_revision"
+    if (estadoActual === 'pendiente' && estado === 'en_revision') {
+      return userRole === 'supervisor';
+    }
+
+    // RESTRICCIÓN 2: Solo GERENTE puede cambiar de "en_revision" a "revisado"
+    if (estadoActual === 'en_revision' && estado === 'revisado') {
+      return userRole === 'gerente' || userRole === 'gerente_general' || userRole === 'manager';
+    }
+
+    // RESTRICCIÓN 3: GERENTE NO puede volver a "pendiente" desde "en_revision"
+    if (estadoActual === 'en_revision' && estado === 'pendiente') {
+      if (userRole === 'gerente' || userRole === 'gerente_general' || userRole === 'manager') {
+        return false;
+      }
+    }
+
+    // Otras transiciones permitidas
+    return true;
+  };
+
+  const getDisabledReason = (estado: EstadoPlan): string => {
+    if (estado === estadoActual) return ESTADO_DESCRIPTIONS[estado];
+    if (!estadosValidos.includes(estado)) return 'Transición no permitida desde el estado actual';
+
+    // Mensajes específicos para restricciones de roles
+    if (estadoActual === 'pendiente' && estado === 'en_revision') {
+      if (userRole !== 'supervisor') {
+        return 'Solo el Supervisor puede cambiar de Pendiente a Revisado';
+      }
+    }
+
+    if (estadoActual === 'en_revision' && estado === 'revisado') {
+      if (userRole !== 'gerente' && userRole !== 'gerente_general' && userRole !== 'manager') {
+        return 'Solo el Gerente puede cambiar de Revisado a Aprobado';
+      }
+    }
+
+    if (estadoActual === 'en_revision' && estado === 'pendiente') {
+      if (userRole === 'gerente' || userRole === 'gerente_general' || userRole === 'manager') {
+        return 'El Gerente no puede devolver planes a estado Pendiente';
+      }
+    }
+
+    return ESTADO_DESCRIPTIONS[estado];
   };
 
   return (
@@ -69,7 +120,7 @@ export const EstadoPlanSelector: React.FC<EstadoPlanSelectorProps> = ({
               key={estado}
               value={estado}
               disabled={!disponible}
-              title={disponible ? ESTADO_DESCRIPTIONS[estado] : 'Transición no permitida desde el estado actual'}
+              title={getDisabledReason(estado)}
             >
               {ESTADO_LABELS[estado]}
             </MenuItem>

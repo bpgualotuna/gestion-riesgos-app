@@ -41,9 +41,9 @@ export const AlertasVencimientoPanel: React.FC<AlertasVencimientoPanelProps> = (
     }
   };
 
-  const handleVerPlan = (causaId: number) => {
-    // Navegar a la página de riesgos con el plan específico
-    navigate(`/riesgos?causaId=${causaId}`);
+  const handleVerPlan = () => {
+    // Navegar a la página de controles y planes de acción
+    navigate('/plan-accion');
   };
 
   const formatFecha = (fecha: string) => {
@@ -140,7 +140,7 @@ export const AlertasVencimientoPanel: React.FC<AlertasVencimientoPanelProps> = (
                   <IconButton
                     edge="end"
                     size="small"
-                    onClick={() => handleVerPlan(alerta.plan.causaId)}
+                    onClick={() => handleVerPlan()}
                     title="Ver plan"
                   >
                     <ViewIcon />
@@ -162,7 +162,7 @@ export const AlertasVencimientoPanel: React.FC<AlertasVencimientoPanelProps> = (
                 opacity: alerta.leida ? 0.7 : 1,
               }}
             >
-              <ListItemButton onClick={() => handleVerPlan(alerta.plan.causaId)}>
+              <ListItemButton onClick={() => handleVerPlan()}>
                 <Box sx={{ mr: 2 }}>
                   {alerta.tipo === 'vencido' ? (
                     <ErrorIcon color="error" />

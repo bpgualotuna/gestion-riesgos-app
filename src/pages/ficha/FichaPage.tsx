@@ -34,7 +34,7 @@ import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as Vis
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdateProcesoMutation, useGetGerenciasQuery, useGetAsistentesProcesoQuery, useAsignarAsistentesProcesoMutation, useGetReunionesQuery, useCrearReunionMutation, useActualizarReunionMutation, useEliminarReunionMutation, useGetAsistenciasQuery, useActualizarAsistenciasMutation } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation, useGetGerenciasQuery, useGetAsistentesProcesoQuery, useAsignarAsistentesProcesoMutation, useGetReunionesQuery, useCrearReunionMutation, useActualizarReunionMutation, useEliminarReunionMutation, useGetAsistenciasQuery, useActualizarAsistenciasMutation, useGetUsuariosQuery } from '../../api/services/riesgosApi';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useEffect } from 'react';
 import { useProcesosFiltradosPorArea } from '../../hooks/useAsignaciones';
@@ -122,6 +122,14 @@ export default function FichaPage() {
   const [actualizarReunionMutation] = useActualizarReunionMutation();
   const [eliminarReunionMutation] = useEliminarReunionMutation();
   const [actualizarAsistenciasMutation] = useActualizarAsistenciasMutation();
+  const { data: todosUsuarios = [], isLoading: loadingUsuarios } = useGetUsuariosQuery();
+  
+  // Log para depuración de usuarios
+  useEffect(() => {
+    console.log('[FichaPage/Usuarios] Cargando:', loadingUsuarios);
+    console.log('[FichaPage/Usuarios] Total usuarios:', todosUsuarios?.length);
+    console.log('[FichaPage/Usuarios] Datos:', todosUsuarios);
+  }, [todosUsuarios, loadingUsuarios]);
   
   // Log de errores y datos de API para diagnóstico
   useEffect(() => {
@@ -274,6 +282,7 @@ export default function FichaPage() {
   // Estados para Asistentes y Reuniones
   const [dialogReunionOpen, setDialogReunionOpen] = useState(false);
   const [dialogAsistenciaOpen, setDialogAsistenciaOpen] = useState(false);
+  const [dialogAsistentesExternosOpen, setDialogAsistentesExternosOpen] = useState(false);
   const [reunionEnEdicion, setReunionEnEdicion] = useState<Reunion | null>(null);
   const [reunionParaAsistencia, setReunionParaAsistencia] = useState<Reunion | null>(null);
   const [asistencias, setAsistencias] = useState<AsistenciaReunion[]>([]);
@@ -282,6 +291,7 @@ export default function FichaPage() {
     descripcion: '',
     estado: 'programada' as 'programada' | 'realizada' | 'cancelada'
   });
+  const [busquedaUsuario, setBusquedaUsuario] = useState('');
 
   // Usar directamente los datos del backend sin estados intermedios
   const asistentesSeleccionados = useMemo(() => {
@@ -314,6 +324,51 @@ export default function FichaPage() {
     
     return usuarios;
   }, [procesoActual]);
+
+  // Filtrar usuarios externos (que no están en el proceso pero están seleccionados como asistentes)
+  const usuariosExternosSeleccionados = useMemo(() => {
+    const idsUsuariosDelProceso = usuariosDisponibles.map(u => u.id);
+    return asistentesSeleccionados.filter(id => !idsUsuariosDelProceso.includes(id));
+  }, [asistentesSeleccionados, usuariosDisponibles]);
+
+  // Obtener información completa de usuarios externos
+  const usuariosExternosInfo = useMemo(() => {
+    return usuariosExternosSeleccionados.map(id => {
+      const usuario = todosUsuarios.find((u: any) => u.id === id);
+      return usuario ? {
+        id: usuario.id,
+        nombre: usuario.nombre,
+        email: usuario.email,
+        rol: usuario.role
+      } : null;
+    }).filter(Boolean);
+  }, [usuariosExternosSeleccionados, todosUsuarios]);
+
+  // Filtrar usuarios para el diálogo de asistentes externos
+  const usuariosFiltrados = useMemo(() => {
+    console.log('[FichaPage] Filtrando usuarios. Total:', todosUsuarios?.length);
+    console.log('[FichaPage] Búsqueda:', busquedaUsuario);
+    
+    if (!todosUsuarios || !Array.isArray(todosUsuarios)) {
+      console.log('[FichaPage] todosUsuarios no es un array válido');
+      return [];
+    }
+    
+    if (!busquedaUsuario.trim()) {
+      console.log('[FichaPage] Sin búsqueda, retornando todos');
+      return todosUsuarios;
+    }
+    
+    const busqueda = busquedaUsuario.toLowerCase();
+    const filtrados = todosUsuarios.filter((u: any) => {
+      const nombreMatch = u.nombre?.toLowerCase().includes(busqueda);
+      const emailMatch = u.email?.toLowerCase().includes(busqueda);
+      return nombreMatch || emailMatch;
+    });
+    
+    console.log('[FichaPage] Usuarios filtrados:', filtrados.length);
+    return filtrados;
+  }, [todosUsuarios, busquedaUsuario]);
 
   // Actualizar formData cuando cambie el proceso seleccionado
   useEffect(() => {
@@ -863,49 +918,110 @@ export default function FichaPage() {
 
           {/* Subsección: Asistentes */}
           <Box sx={{ mb: 4 }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PeopleIcon color="primary" />
-              Asistentes del Proceso
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PeopleIcon color="primary" />
+                Asistentes del Proceso
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setDialogAsistentesExternosOpen(true)}
+                sx={{ borderRadius: 2 }}
+              >
+                Agregar Externos
+              </Button>
+            </Box>
             
-            {usuariosDisponibles.length === 0 ? (
+            {usuariosDisponibles.length === 0 && usuariosExternosInfo.length === 0 ? (
               <Alert severity="info" sx={{ borderRadius: 2 }}>
-                No hay usuarios asignados a este proceso. Los asistentes deben ser Dueños de Procesos o Supervisores de Riesgos asignados al proceso.
+                No hay usuarios asignados a este proceso. Los asistentes deben ser Dueños de Procesos o Supervisores de Riesgos asignados al proceso, o puede agregar asistentes externos.
               </Alert>
             ) : (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {usuariosDisponibles.map(usuario => (
-                  <Card 
-                    key={usuario.id} 
-                    sx={{ 
-                      cursor: 'pointer',
-                      border: asistentesSeleccionados.includes(usuario.id) ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                      bgcolor: asistentesSeleccionados.includes(usuario.id) ? 'rgba(25, 118, 210, 0.04)' : 'white',
-                      transition: 'all 0.2s',
-                      '&:hover': { boxShadow: 2 },
-                      maxWidth: 300,
-                      flex: '0 1 auto'
-                    }}
-                    onClick={() => handleToggleAsistente(usuario.id)}
-                  >
-                    <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        {asistentesSeleccionados.includes(usuario.id) && (
-                          <CheckCircleIcon color="primary" fontSize="small" />
-                        )}
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2" fontWeight={600} noWrap>
-                            {usuario.nombre}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap>
-                            {usuario.rol === 'dueño_procesos' ? 'Dueño' : 'Supervisor'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Box>
+              <>
+                {/* Asistentes del Proceso */}
+                {usuariosDisponibles.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                      Usuarios del Proceso
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {usuariosDisponibles.map(usuario => (
+                        <Card 
+                          key={usuario.id} 
+                          sx={{ 
+                            cursor: 'pointer',
+                            border: asistentesSeleccionados.includes(usuario.id) ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                            bgcolor: asistentesSeleccionados.includes(usuario.id) ? 'rgba(25, 118, 210, 0.04)' : 'white',
+                            transition: 'all 0.2s',
+                            '&:hover': { boxShadow: 2 },
+                            maxWidth: 300,
+                            flex: '0 1 auto'
+                          }}
+                          onClick={() => handleToggleAsistente(usuario.id)}
+                        >
+                          <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              {asistentesSeleccionados.includes(usuario.id) && (
+                                <CheckCircleIcon color="primary" fontSize="small" />
+                              )}
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" fontWeight={600} noWrap>
+                                  {usuario.nombre}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {usuario.rol === 'dueño_procesos' ? 'Dueño' : 'Supervisor'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Asistentes Externos */}
+                {usuariosExternosInfo.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                      Asistentes Externos ({usuariosExternosInfo.length})
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {usuariosExternosInfo.map((usuario: any) => (
+                        <Card 
+                          key={usuario.id} 
+                          sx={{ 
+                            cursor: 'pointer',
+                            border: '2px solid #9c27b0',
+                            bgcolor: 'rgba(156, 39, 176, 0.04)',
+                            transition: 'all 0.2s',
+                            '&:hover': { boxShadow: 2 },
+                            maxWidth: 300,
+                            flex: '0 1 auto'
+                          }}
+                          onClick={() => handleToggleAsistente(usuario.id)}
+                        >
+                          <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <CheckCircleIcon sx={{ color: '#9c27b0' }} fontSize="small" />
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" fontWeight={600} noWrap>
+                                  {usuario.nombre}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  Externo
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </>
             )}
           </Box>
 
@@ -1061,8 +1177,7 @@ export default function FichaPage() {
       <Dialog 
         open={dialogReunionOpen} 
         onClose={() => setDialogReunionOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        maxWidth="xs"
       >
         <DialogTitle>
           {reunionEnEdicion ? 'Editar Reunión' : 'Nueva Reunión'}
@@ -1089,19 +1204,6 @@ export default function FichaPage() {
               required
               placeholder="Ej: Revisión mensual de riesgos y controles"
             />
-            
-            <FormControl fullWidth>
-              <InputLabel>Estado</InputLabel>
-              <Select
-                value={formReunion.estado}
-                label="Estado"
-                onChange={(e) => setFormReunion(prev => ({ ...prev, estado: e.target.value as any }))}
-              >
-                <MenuItem value="programada">Programada</MenuItem>
-                <MenuItem value="realizada">Realizada</MenuItem>
-                <MenuItem value="cancelada">Cancelada</MenuItem>
-              </Select>
-            </FormControl>
 
             <Alert severity="info" sx={{ mt: 1 }}>
               Esta reunión incluirá a los {asistentesSeleccionados.length} asistentes seleccionados.
@@ -1127,8 +1229,7 @@ export default function FichaPage() {
       <Dialog 
         open={dialogAsistenciaOpen} 
         onClose={() => setDialogAsistenciaOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        maxWidth="xs"
       >
         <DialogTitle>
           Registro de Asistencia
@@ -1216,6 +1317,140 @@ export default function FichaPage() {
               onClick={handleGuardarAsistencia}
             >
               Guardar Asistencia
+            </Button>
+          </Box>
+        </Box>
+      </Dialog>
+
+      {/* Dialog para Agregar Asistentes Externos */}
+      <Dialog 
+        open={dialogAsistentesExternosOpen} 
+        onClose={() => {
+          setDialogAsistentesExternosOpen(false);
+          setBusquedaUsuario('');
+        }}
+        maxWidth="xs"
+      >
+        <DialogTitle>
+          Agregar Asistentes Externos
+        </DialogTitle>
+        <Box sx={{ px: 3, pb: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Seleccione usuarios externos al proceso para agregarlos como asistentes a las reuniones.
+          </Typography>
+
+          {/* Buscador */}
+          <TextField
+            fullWidth
+            placeholder="Buscar por nombre o email..."
+            value={busquedaUsuario}
+            onChange={(e) => setBusquedaUsuario(e.target.value)}
+            sx={{ mb: 2 }}
+            autoFocus
+          />
+          {/* Lista de usuarios */}
+          <Box sx={{ 
+            maxHeight: 400, 
+            overflowY: 'auto',
+            border: '1px solid #e0e0e0',
+            borderRadius: 2,
+            p: 1
+          }}>
+            {loadingUsuarios ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <Typography color="text.secondary">Cargando usuarios...</Typography>
+              </Box>
+            ) : !todosUsuarios || todosUsuarios.length === 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
+                <Typography color="text.secondary">No hay usuarios disponibles</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                  Verifique la consola del navegador para más detalles
+                </Typography>
+              </Box>
+            ) : usuariosFiltrados.length === 0 ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <Typography color="text.secondary">
+                  No se encontraron usuarios con "{busquedaUsuario}"
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {usuariosFiltrados.map((usuario: any) => {
+                  const estaSeleccionado = asistentesSeleccionados.includes(usuario.id);
+                  const esDelProceso = usuariosDisponibles.some(u => u.id === usuario.id);
+                  
+                  return (
+                    <Card 
+                      key={usuario.id}
+                      sx={{ 
+                        cursor: 'pointer',
+                        border: estaSeleccionado ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                        bgcolor: estaSeleccionado ? 'rgba(25, 118, 210, 0.04)' : 'white',
+                        transition: 'all 0.2s',
+                        '&:hover': { boxShadow: 2 }
+                      }}
+                      onClick={() => handleToggleAsistente(usuario.id)}
+                    >
+                      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            {estaSeleccionado && (
+                              <CheckCircleIcon color="primary" />
+                            )}
+                            <Box>
+                              <Typography variant="body1" fontWeight={600}>
+                                {usuario.nombre}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {usuario.email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {esDelProceso && (
+                              <Chip 
+                                label="Del Proceso" 
+                                size="small" 
+                                color="primary"
+                                variant="outlined"
+                              />
+                            )}
+                            <Chip 
+                              label={
+                                usuario.roleRelacion?.codigo === 'dueño_procesos' ? 'Dueño' : 
+                                usuario.roleRelacion?.codigo === 'supervisor_riesgos' ? 'Supervisor' : 
+                                usuario.roleRelacion?.nombre || usuario.roleRelacion?.codigo || 'Sin rol'
+                              }
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
+
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Los usuarios seleccionados serán incluidos automáticamente en todas las reuniones del proceso.
+          </Alert>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              {asistentesSeleccionados.length} asistente(s) seleccionado(s)
+            </Typography>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setDialogAsistentesExternosOpen(false);
+                setBusquedaUsuario('');
+                showSuccess('Asistentes actualizados');
+              }}
+            >
+              Cerrar
             </Button>
           </Box>
         </Box>

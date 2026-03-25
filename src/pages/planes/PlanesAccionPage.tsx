@@ -97,6 +97,13 @@ export const PlanesAccionPage = () => {
     try {
       console.log('🔄 Cambiando estado:', { planId, nuevoEstado });
       
+      // Buscar el plan para obtener el causaRiesgoId
+      const plan = planes.find(p => p.id === planId);
+      if (!plan || !plan.causaRiesgoId) {
+        showError('No se pudo encontrar la causa asociada al plan');
+        return;
+      }
+      
       // Mapear estado del frontend al backend
       const estadoMap: Record<EstadoPlan, string> = {
         'pendiente': 'pendiente',
@@ -105,10 +112,10 @@ export const PlanesAccionPage = () => {
       };
 
       const estadoBackend = estadoMap[nuevoEstado] || 'en_revision';
-      console.log('📤 Enviando al backend:', { estadoBackend });
+      console.log('📤 Enviando al backend:', { causaRiesgoId: plan.causaRiesgoId, estadoBackend });
 
       await cambiarEstado({
-        causaId: planId,
+        causaId: plan.causaRiesgoId,
         data: { estado: estadoBackend as any }
       }).unwrap();
 
@@ -124,9 +131,18 @@ export const PlanesAccionPage = () => {
       });
 
       showSuccess('Estado del plan actualizado correctamente');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error al cambiar estado:', error);
-      showError('Error al cambiar el estado del plan');
+      
+      // Mostrar mensaje específico si es error de permisos
+      if (error?.status === 403 || error?.data?.error === 'Permiso denegado') {
+        showError(error?.data?.message || 'No tienes permiso para realizar este cambio de estado');
+      } else {
+        showError('Error al cambiar el estado del plan');
+      }
+      
+      // Refrescar para restaurar el estado anterior
+      refetch();
     }
   };
 
