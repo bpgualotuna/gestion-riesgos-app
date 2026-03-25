@@ -161,6 +161,7 @@ const generarIdRiesgo = (punto: PuntoMapa): string => {
 };
 
 export default function MapaPage() {
+  const location = useLocation(); // CRÍTICO: Mover al inicio para cumplir con las reglas de hooks
   const { procesoSeleccionado } = useProceso();
   const { iniciarVer } = useRiesgo();
   const { esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
@@ -206,7 +207,6 @@ export default function MapaPage() {
 
   // CRÍTICO: Cerrar todos los diálogos cuando cambia la ruta (navegación)
   // Esto previene que los diálogos abiertos bloqueen la navegación
-  const location = useLocation();
   useEffect(() => {
     setDialogoResumenAbierto(false);
     setDialogoDetalleRiesgoAbierto(false);
