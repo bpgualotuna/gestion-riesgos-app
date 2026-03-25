@@ -98,6 +98,7 @@ export interface PlanAccionCardProps {
   onDelete?: (planId: number) => void;
   onVerDetalle?: (planId: number) => void;
   showConversionButton?: boolean;
+  disableEstadoChange?: boolean;
 }
 
 export interface ConversionDialogProps {

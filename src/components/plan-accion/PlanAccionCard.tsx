@@ -38,6 +38,7 @@ export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
   onDelete,
   onVerDetalle,
   showConversionButton = true,
+  disableEstadoChange = false,
 }) => {
   const [estadoLocal, setEstadoLocal] = useState<EstadoPlan>(plan.estado);
 
@@ -95,8 +96,15 @@ export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
   };
 
   const formatEstado = (estado: EstadoPlan) => {
-    if (!estado) return 'EN REVISIÓN';
-    return estado.replace(/_/g, ' ').toUpperCase();
+    if (!estado) return 'REVISADO';
+    
+    const estadoLabels: Record<EstadoPlan, string> = {
+      pendiente: 'PENDIENTE',
+      en_revision: 'REVISADO',
+      revisado: 'APROBADO',
+    };
+    
+    return estadoLabels[estado] || estado.replace(/_/g, ' ').toUpperCase();
   };
 
   const puedeConvertir = false; // Ya no se permite conversión a control
@@ -194,7 +202,7 @@ export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
           <EstadoPlanSelector
             estadoActual={estadoLocal}
             onChange={handleEstadoChange}
-            disabled={esConvertido}
+            disabled={esConvertido || disableEstadoChange}
           />
         </Box>
       </CardContent>

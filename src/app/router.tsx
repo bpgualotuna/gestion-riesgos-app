@@ -179,7 +179,7 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.PLANES_ACCION_GESTION,
         element: (
-          <RoleGuard allowedRoles={['supervisor', 'gerente']}>
+          <RoleGuard allowedRoles={['supervisor', 'gerente', 'dueño_procesos']}>
             <LazyRoute component={PlanesAccionPage} />
           </RoleGuard>
         ),

@@ -2669,6 +2669,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                       <Select
                                                                         value={criteriosEvaluacion.planAccionVinculadoId || ''}
                                                                         label="Plan de Acción Vinculado"
+                                                                        onOpen={() => {
+                                                                          console.log('[DEBUG OPEN] Select abierto');
+                                                                          console.log('[DEBUG OPEN] riesgoIdEvaluacion:', riesgoIdEvaluacion);
+                                                                          console.log('[DEBUG OPEN] causaIdEvaluacion:', causaIdEvaluacion);
+                                                                          console.log('[DEBUG OPEN] riesgosApiData:', riesgosApiData);
+                                                                        }}
                                                                         onChange={(e) => {
                                                                           setCriteriosEvaluacion(pr => ({ 
                                                                             ...pr, 
@@ -2680,10 +2686,52 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                           <em>Ninguno</em>
                                                                         </MenuItem>
                                                                         {(() => {
-                                                                          // Obtener planes de acción de la causa actual
-                                                                          const planesDisponibles = causa.planesAccion || [];
+                                                                          // Obtener planes de acción de la causa actual usando los IDs guardados
+                                                                          // Buscar en los datos originales de la API, no en los filtrados
+                                                                          console.log('[DEBUG RENDER] Renderizando opciones del Select');
+                                                                          const datosOriginales = ((riesgosApiData as any)?.data || []) as any[];
+                                                                          console.log('[DEBUG RENDER] datosOriginales length:', datosOriginales.length);
+                                                                          const riesgoActual = datosOriginales?.find((r: any) => r.id === riesgoIdEvaluacion);
+                                                                          console.log('[DEBUG RENDER] riesgoActual:', riesgoActual);
+                                                                          const causaActual = riesgoActual?.causas?.find((c: any) => c.id === causaIdEvaluacion);
+                                                                          console.log('[DEBUG RENDER] causaActual:', causaActual);
                                                                           
-                                                                          if (planesDisponibles.length === 0) {
+                                                                          // Obtener planes de la causa Y del riesgo completo
+                                                                          const planesDeCausa = causaActual?.planesAccion || [];
+                                                                          const planesDeRiesgo = riesgoActual?.planesAccion || [];
+                                                                          console.log('[DEBUG RENDER] planesDeCausa:', planesDeCausa);
+                                                                          console.log('[DEBUG RENDER] planesDeRiesgo:', planesDeRiesgo);
+                                                                          
+                                                                          // NUEVO: También buscar planes en el campo gestion (legacy JSONB)
+                                                                          const planesLegacy: any[] = [];
+                                                                          
+                                                                          // Buscar en todas las causas del riesgo que tengan planes en gestion
+                                                                          riesgoActual?.causas?.forEach((causa: any) => {
+                                                                            const gestion = causa.gestion || {};
+                                                                            
+                                                                            // Si tiene datos de plan en gestion, crear un objeto plan virtual
+                                                                            if (gestion.planDescripcion || gestion.planDetalle) {
+                                                                              planesLegacy.push({
+                                                                                id: `legacy-${causa.id}`, // ID virtual para planes legacy
+                                                                                nombre: gestion.planDescripcion || gestion.planDetalle || 'Plan sin nombre',
+                                                                                descripcion: gestion.planDescripcion || gestion.planDetalle,
+                                                                                estado: gestion.planEstado || 'pendiente',
+                                                                                causaId: causa.id,
+                                                                                isLegacy: true // Marcar como legacy
+                                                                              });
+                                                                            }
+                                                                          });
+                                                                          
+                                                                          console.log('[DEBUG RENDER] planesLegacy:', planesLegacy);
+                                                                          
+                                                                          // Combinar todos los arrays y eliminar duplicados por ID
+                                                                          const todosLosPlanes = [...planesDeCausa, ...planesDeRiesgo, ...planesLegacy];
+                                                                          const planesUnicos = todosLosPlanes.filter((plan, index, self) => 
+                                                                            index === self.findIndex((p) => p.id === plan.id)
+                                                                          );
+                                                                          console.log('[DEBUG RENDER] planesUnicos:', planesUnicos);
+                                                                          
+                                                                          if (planesUnicos.length === 0) {
                                                                             return (
                                                                               <MenuItem disabled value="">
                                                                                 <em>No hay planes de acción disponibles</em>
@@ -2691,10 +2739,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                             );
                                                                           }
                                                                           
-                                                                          return planesDisponibles.map((plan: any) => (
+                                                                          return planesUnicos.map((plan: any) => (
                                                                             <MenuItem key={plan.id} value={plan.id}>
                                                                               {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
                                                                               {plan.estado && ` (${plan.estado})`}
+                                                                              {plan.isLegacy && ' [Legacy]'}
                                                                             </MenuItem>
                                                                           ));
                                                                         })()}
@@ -3477,10 +3526,43 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                   <em>Ninguno</em>
                                                                 </MenuItem>
                                                                 {(() => {
-                                                                  // Obtener planes de acción de la causa actual
-                                                                  const planesDisponibles = causa.planesAccion || [];
+                                                                  // Obtener planes de acción de la causa actual usando los IDs guardados
+                                                                  // Buscar en los datos originales de la API, no en los filtrados
+                                                                  const datosOriginales = ((riesgosApiData as any)?.data || []) as any[];
+                                                                  const riesgoActual = datosOriginales?.find((r: any) => r.id === riesgoIdEvaluacion);
+                                                                  const causaActual = riesgoActual?.causas?.find((c: any) => c.id === causaIdEvaluacion);
                                                                   
-                                                                  if (planesDisponibles.length === 0) {
+                                                                  // Obtener planes de la causa Y del riesgo completo
+                                                                  const planesDeCausa = causaActual?.planesAccion || [];
+                                                                  const planesDeRiesgo = riesgoActual?.planesAccion || [];
+                                                                  
+                                                                  // NUEVO: También buscar planes en el campo gestion (legacy JSONB)
+                                                                  const planesLegacy: any[] = [];
+                                                                  
+                                                                  // Buscar en todas las causas del riesgo que tengan planes en gestion
+                                                                  riesgoActual?.causas?.forEach((causa: any) => {
+                                                                    const gestion = causa.gestion || {};
+                                                                    
+                                                                    // Si tiene datos de plan en gestion, crear un objeto plan virtual
+                                                                    if (gestion.planDescripcion || gestion.planDetalle) {
+                                                                      planesLegacy.push({
+                                                                        id: `legacy-${causa.id}`, // ID virtual para planes legacy
+                                                                        nombre: gestion.planDescripcion || gestion.planDetalle || 'Plan sin nombre',
+                                                                        descripcion: gestion.planDescripcion || gestion.planDetalle,
+                                                                        estado: gestion.planEstado || 'pendiente',
+                                                                        causaId: causa.id,
+                                                                        isLegacy: true // Marcar como legacy
+                                                                      });
+                                                                    }
+                                                                  });
+                                                                  
+                                                                  // Combinar todos los arrays y eliminar duplicados por ID
+                                                                  const todosLosPlanes = [...planesDeCausa, ...planesDeRiesgo, ...planesLegacy];
+                                                                  const planesUnicos = todosLosPlanes.filter((plan, index, self) => 
+                                                                    index === self.findIndex((p) => p.id === plan.id)
+                                                                  );
+                                                                  
+                                                                  if (planesUnicos.length === 0) {
                                                                     return (
                                                                       <MenuItem disabled value="">
                                                                         <em>No hay planes de acción disponibles</em>
@@ -3488,10 +3570,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                     );
                                                                   }
                                                                   
-                                                                  return planesDisponibles.map((plan: any) => (
+                                                                  return planesUnicos.map((plan: any) => (
                                                                     <MenuItem key={plan.id} value={plan.id}>
                                                                       {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
                                                                       {plan.estado && ` (${plan.estado})`}
+                                                                      {plan.isLegacy && ' [Legacy]'}
                                                                     </MenuItem>
                                                                   ));
                                                                 })()}

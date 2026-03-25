@@ -48,6 +48,7 @@ const SupervisionPage = lazy(() => import('../pages/supervision/SupervisionPage'
 const ResumenDirectorPage = lazy(() => import('../pages/dashboard/ResumenDirectorPage'));
 const DashboardSupervisorPage = lazy(() => import('../pages/supervision/DashboardSupervisorPage'));
 const ControlesYPlanesAccionPage = lazy(() => import('../pages/controles/ControlesYPlanesAccionPage'));
+const PlanesAccionPage = lazy(() => import('../pages/planes/PlanesAccionPage'));
 const EvaluacionControlPage = lazy(() => import('../pages/controles/EvaluacionControlPage'));
 const HistorialPage = lazy(() => import('../pages/otros/HistorialPage'));
 const ResumenRiesgosPage = lazy(() => import('../pages/dashboard/ResumenRiesgosPage'));
@@ -172,6 +173,14 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.PLAN_ACCION,
         element: <LazyRoute component={ControlesYPlanesAccionPage} />,
+      },
+      {
+        path: ROUTES.PLANES_ACCION_GESTION,
+        element: (
+          <RoleGuard allowedRoles={['supervisor', 'gerente', 'dueño_procesos']}>
+            <LazyRoute component={PlanesAccionPage} />
+          </RoleGuard>
+        ),
       },
       {
         path: ROUTES.EVALUACION_CONTROL,

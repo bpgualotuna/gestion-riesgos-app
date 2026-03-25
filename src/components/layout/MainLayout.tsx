@@ -90,7 +90,7 @@ import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, useProcesosVisibles } from "../../hooks/useAsignaciones";
 const VirtualAssistantDemo = lazy(() => import("../common/VirtualAssistantDemo"));
 import NotificationsMenu from "../common/NotificationsMenu";
-import AlertasNotificationsMenu from "../common/AlertasNotificationsMenu";
+import AlertasNotificationsMenuWithTabs from "../common/AlertasNotificationsMenuWithTabs";
 import { useAuditNotifications } from "../../hooks/useAuditNotifications";
 import { useRiesgosCriticosNotifications } from "../../hooks/useRiesgosCriticosNotifications";
 import { useCalificacionInherenteConfig } from '../../hooks/useCalificacionInherenteConfig';
@@ -773,8 +773,8 @@ export default function MainLayout() {
                   return allowedMenus.includes(item.text);
                 }
                 if (esDueñoProcesos) {
-                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Materializar Riesgos, Historial
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Materializar Riesgos', 'Historial'];
+                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Gestión de Planes, Materializar Riesgos, Historial
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Gestión de Planes', 'Materializar Riesgos', 'Historial'];
                   return allowedMenus.includes(item.text);
                 }
                 if (esGerenteGeneral && !gerenteGeneralMode) {
@@ -1404,7 +1404,7 @@ export default function MainLayout() {
 
           {/* Menú de Alertas de Vencimiento - Para usuarios operativos */}
           {!esAdmin && (
-            <AlertasNotificationsMenu
+            <AlertasNotificationsMenuWithTabs
               anchorEl={alertasAnchorEl}
               open={Boolean(alertasAnchorEl)}
               onClose={handleAlertasClose}

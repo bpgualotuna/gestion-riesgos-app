@@ -26,6 +26,7 @@ import {
 } from '../../api/services/planTrazabilidadApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -60,6 +61,7 @@ export const PlanesAccionPage = () => {
 
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado } = useProceso();
+  const { esDuenoProcesos } = useAuth();
 
   // Obtener planes desde el backend, filtrados por proceso si hay uno seleccionado
   const { data, isLoading, error, refetch } = useObtenerPlanesAccionQuery(
@@ -193,6 +195,7 @@ export const PlanesAccionPage = () => {
           onConvertirAControl={handleConvertirAControl}
           onVerDetalle={handleVerDetalle}
           showConversionButton={false}
+          disableEstadoChange={esDuenoProcesos}
         />
         {selectedPlanForTimeline === plan.id && (
           <Paper sx={{ p: 3, mb: 2 }}>
@@ -287,14 +290,14 @@ export const PlanesAccionPage = () => {
             <Tab
               label={
                 <Badge badgeContent={stats.enRevision} color="primary">
-                  En Revisión
+                  Revisados
                 </Badge>
               }
             />
             <Tab
               label={
                 <Badge badgeContent={stats.revisados} color="success">
-                  Revisados
+                  Aprobados
                 </Badge>
               }
             />

@@ -260,8 +260,17 @@ export default function ContextoExternoPage() {
     return found ? { dimension: found.tipo } : null;
   };
 
-  const enviarADofaAhora = async (dimension: DofaDimension, label: string, signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
+  const enviarADofaAhora = async (signo: 'POSITIVO' | 'NEGATIVO', key: CategoryKey, id: string) => {
     if (!procesoSeleccionado) return;
+    
+    // Determinar automáticamente la dimensión DOFA según el contexto y signo
+    // Contexto Interno + Positivo → Fortaleza (F)
+    // Contexto Interno + Negativo → Debilidad (D)
+    // Contexto Externo + Positivo → Oportunidad (O)
+    // Contexto Externo + Negativo → Amenaza (A)
+    const dimension: DofaDimension = signo === 'POSITIVO' ? 'OPORTUNIDAD' : 'AMENAZA';
+    const label = DOFA_DIMENSIONES.find(d => d.value === dimension)?.label || dimension;
+    
     const source = signo === 'POSITIVO' ? itemsPositivo : itemsNegativo;
     const it = source[key].find((x) => x.id === id);
     if (!it?.descripcion?.trim()) return;
@@ -535,35 +544,22 @@ export default function ContextoExternoPage() {
             const estaEnDofa = !!enDofa;
             const marcadoParaEnviar = !!(it.enviarADofa && it.dofaDimension);
             const puedeEnviar = !estaEnDofa && !!it.descripcion.trim();
+            
+            // Determinar automáticamente la dimensión según contexto y signo
+            const dimensionAutomatica: DofaDimension = accionMenuAnchor.signo === 'POSITIVO' ? 'OPORTUNIDAD' : 'AMENAZA';
+            const labelAutomatico = DOFA_DIMENSIONES.find(d => d.value === dimensionAutomatica)?.label || dimensionAutomatica;
+            
             return (
               <>
                 {puedeEnviar && (
-                  <>
-                    <MenuItem disabled sx={{ opacity: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Enviar a DOFA (D, O, F, A):</Typography>
-                    </MenuItem>
-                    {DOFA_DIMENSIONES.map((d) => (
-                      <MenuItem
-                        key={d.value}
-                        disableRipple
-                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
-                      >
-                        <Typography variant="body2">{d.letra} — {d.label}</Typography>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          startIcon={<SendIcon />}
-                          disabled={enviandoDofa}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            enviarADofaAhora(d.value, d.label, accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
-                          }}
-                        >
-                          Enviar
-                        </Button>
-                      </MenuItem>
-                    ))}
-                  </>
+                  <MenuItem
+                    onClick={() => {
+                      enviarADofaAhora(accionMenuAnchor.signo, accionMenuAnchor.key, accionMenuAnchor.id);
+                    }}
+                  >
+                    <SendIcon fontSize="small" sx={{ mr: 1 }} />
+                    Enviar a {labelAutomatico}
+                  </MenuItem>
                 )}
                 {estaEnDofa && (
                   <MenuItem disabled sx={{ opacity: 1 }}>
