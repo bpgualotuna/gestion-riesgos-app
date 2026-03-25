@@ -873,33 +873,33 @@ export default function FichaPage() {
                 No hay usuarios asignados a este proceso. Los asistentes deben ser Dueños de Procesos o Supervisores de Riesgos asignados al proceso.
               </Alert>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {usuariosDisponibles.map(usuario => (
                   <Card 
                     key={usuario.id} 
                     sx={{ 
-                      cursor: esSupervisorRiesgos ? 'pointer' : 'default',
+                      cursor: 'pointer',
                       border: asistentesSeleccionados.includes(usuario.id) ? '2px solid #1976d2' : '1px solid #e0e0e0',
                       bgcolor: asistentesSeleccionados.includes(usuario.id) ? 'rgba(25, 118, 210, 0.04)' : 'white',
                       transition: 'all 0.2s',
-                      '&:hover': esSupervisorRiesgos ? { boxShadow: 2 } : {}
+                      '&:hover': { boxShadow: 2 },
+                      maxWidth: 300,
+                      flex: '0 1 auto'
                     }}
-                    onClick={() => esSupervisorRiesgos && handleToggleAsistente(usuario.id)}
+                    onClick={() => handleToggleAsistente(usuario.id)}
                   >
-                    <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          {asistentesSeleccionados.includes(usuario.id) && (
-                            <CheckCircleIcon color="primary" />
-                          )}
-                          <Box>
-                            <Typography variant="body1" fontWeight={600}>
-                              {usuario.nombre}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {usuario.email} • {usuario.rol === 'dueño_procesos' ? 'Dueño de Procesos' : 'Supervisor de Riesgos'}
-                            </Typography>
-                          </Box>
+                    <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        {asistentesSeleccionados.includes(usuario.id) && (
+                          <CheckCircleIcon color="primary" fontSize="small" />
+                        )}
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={600} noWrap>
+                            {usuario.nombre}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {usuario.rol === 'dueño_procesos' ? 'Dueño' : 'Supervisor'}
+                          </Typography>
                         </Box>
                       </Box>
                     </CardContent>
@@ -916,18 +916,16 @@ export default function FichaPage() {
                 <EventIcon color="primary" />
                 Reuniones Programadas
               </Typography>
-              {esSupervisorRiesgos && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => handleAbrirDialogReunion()}
-                  disabled={asistentesSeleccionados.length === 0}
-                  sx={{ borderRadius: 2 }}
-                >
-                  Nueva Reunión
-                </Button>
-              )}
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => handleAbrirDialogReunion()}
+                disabled={asistentesSeleccionados.length === 0}
+                sx={{ borderRadius: 2 }}
+              >
+                Nueva Reunión
+              </Button>
             </Box>
 
             {asistentesSeleccionados.length === 0 ? (
@@ -936,7 +934,7 @@ export default function FichaPage() {
               </Alert>
             ) : reuniones.length === 0 ? (
               <Alert severity="info" sx={{ borderRadius: 2 }}>
-                No hay reuniones programadas. {esSupervisorRiesgos && 'Haga clic en "Nueva Reunión" para crear una.'}
+                No hay reuniones programadas. Haga clic en "Nueva Reunión" para crear una.
               </Alert>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -983,27 +981,23 @@ export default function FichaPage() {
                               variant="outlined"
                               onClick={() => handleAbrirDialogAsistencia(reunion)}
                             >
-                              {esSupervisorRiesgos ? 'Registrar Asistencia' : 'Ver Asistencia'}
+                              Registrar Asistencia
                             </Button>
-                            {esSupervisorRiesgos && (
-                              <>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => handleAbrirDialogReunion(reunion)}
-                                >
-                                  Editar
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color="error"
-                                  onClick={() => handleEliminarReunion(reunion.id)}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </Button>
-                              </>
-                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleAbrirDialogReunion(reunion)}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleEliminarReunion(reunion.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </Button>
                           </Box>
                         </Box>
                       </CardContent>
@@ -1172,11 +1166,11 @@ export default function FichaPage() {
                     <Card 
                       key={asistencia.id}
                       sx={{ 
-                        cursor: esSupervisorRiesgos ? 'pointer' : 'default',
+                        cursor: 'pointer',
                         border: asistencia.asistio ? '2px solid #4caf50' : '1px solid #e0e0e0',
                         bgcolor: asistencia.asistio ? 'rgba(76, 175, 80, 0.04)' : 'white'
                       }}
-                      onClick={() => esSupervisorRiesgos && handleToggleAsistencia(asistencia.id)}
+                      onClick={() => handleToggleAsistencia(asistencia.id)}
                     >
                       <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1207,26 +1201,22 @@ export default function FichaPage() {
                 })()}
               </Box>
 
-              {esSupervisorRiesgos && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  Haga clic en cada asistente para marcar/desmarcar su asistencia.
-                </Alert>
-              )}
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Haga clic en cada asistente para marcar/desmarcar su asistencia.
+              </Alert>
             </>
           )}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
             <Button onClick={() => setDialogAsistenciaOpen(false)}>
-              {esSupervisorRiesgos ? 'Cancelar' : 'Cerrar'}
+              Cancelar
             </Button>
-            {esSupervisorRiesgos && (
-              <Button 
-                variant="contained" 
-                onClick={handleGuardarAsistencia}
-              >
-                Guardar Asistencia
-              </Button>
-            )}
+            <Button 
+              variant="contained" 
+              onClick={handleGuardarAsistencia}
+            >
+              Guardar Asistencia
+            </Button>
           </Box>
         </Box>
       </Dialog>
