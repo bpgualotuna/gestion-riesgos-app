@@ -167,7 +167,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   const { user, esDueñoProcesos } = useAuth();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showLoading, hideLoading } = useNotification();
   const { confirmDelete } = useConfirm();
   const campoEditable = useCampoEditable();
   const puedeEditarCierrePlan = campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION);
@@ -1074,6 +1074,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     // Subir archivo si hay uno seleccionado
     let archivoUrl = formPlan.archivoSeguimiento;
     if (selectedArchivoSeguimiento && tipoClasificacion === 'plan') {
+      showLoading('Enviando archivo al servidor…');
       try {
         const formData = new FormData();
         formData.append('archivo', selectedArchivoSeguimiento);
@@ -1088,7 +1089,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         await assertUploadArchivoOk(response);
         const data = await response.json();
         archivoUrl = data.url;
-        showSuccess('Archivo subido correctamente');
+        hideLoading();
       } catch (error) {
         showError(messageForNetworkUploadFailure(error));
         return;
@@ -1332,13 +1333,22 @@ export default function ControlesYPlanesAccionPageNueva() {
     const riesgo = riesgosDelProceso.find((r: any) => r.id === riesgoIdEvaluacion);
     if (!riesgo || !causaIdEvaluacion) return;
 
+    let uploadProgressActivo = false;
+    const startUploadProgress = () => {
+      if (!uploadProgressActivo) {
+        uploadProgressActivo = true;
+        showLoading('Enviando archivos al servidor…');
+      }
+    };
+
     // Subir archivo si hay uno seleccionado
     let archivoUrl = formPlan.archivoSeguimiento;
     if (selectedArchivoSeguimiento && (tipoClasificacion === 'PLAN' || tipoClasificacion === 'plan' || tipoClasificacion === 'AMBOS')) {
+      startUploadProgress();
       try {
         const formData = new FormData();
         formData.append('archivo', selectedArchivoSeguimiento);
-        
+
         const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
         const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
           method: 'POST',
@@ -1351,7 +1361,6 @@ export default function ControlesYPlanesAccionPageNueva() {
         archivoUrl = data.url;
         // Actualizar formPlan con la URL del archivo
         setFormPlan({ ...formPlan, archivoSeguimiento: archivoUrl, archivoSeguimientoNombre: selectedArchivoSeguimiento.name });
-        showSuccess('Archivo subido correctamente');
       } catch (error) {
         showError(messageForNetworkUploadFailure(error));
         return;
@@ -1372,6 +1381,9 @@ export default function ControlesYPlanesAccionPageNueva() {
       }
       if (ff) {
         try {
+          if (selectedSeguimientoFiles[0] || selectedSeguimientoFiles[1]) {
+            startUploadProgress();
+          }
           if (selectedSeguimientoFiles[0]) {
             seguimientoUrl1 = await uploadPlanArchivoBlob(selectedSeguimientoFiles[0]);
           }
@@ -1386,6 +1398,10 @@ export default function ControlesYPlanesAccionPageNueva() {
         seguimientoUrl1 = '';
         seguimientoUrl2 = '';
       }
+    }
+
+    if (uploadProgressActivo) {
+      hideLoading();
     }
 
     const ffTrimPlan = String(formPlan.fechaFinalizacion || '').trim();

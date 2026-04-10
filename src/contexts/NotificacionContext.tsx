@@ -8,15 +8,19 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import type { ReactNode } from 'react';
 import { useTheme } from '@mui/material/styles';
 
-import { Box, Paper, Typography, Button, LinearProgress } from '@mui/material';
+import { Box, Paper, Typography, Button, LinearProgress, CircularProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const SUCCESS_AUTO_CLOSE_MS = 1600;
 
 interface NotificacionContextType {
   showSuccess: (message: string) => void;
   showError: (message: string) => void;
+  /** Modal bloqueante mientras suben archivos (cerrar con hideLoading o al mostrar éxito/error). */
+  showLoading: (message: string) => void;
+  hideLoading: () => void;
 }
 
 export const NotificacionContext = createContext<NotificacionContextType | undefined>(undefined);
@@ -26,24 +30,42 @@ export function NotificacionProvider({ children }: { children: ReactNode }) {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+  const [loadingOpen, setLoadingOpen] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [successProgress, setSuccessProgress] = useState(0);
 
+  const hideLoading = useCallback(() => {
+    setLoadingOpen(false);
+    setLoadingMessage('');
+  }, []);
+
+  const showLoading = useCallback((message: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setSnackbarOpen(false);
+    setSuccessProgress(0);
+    setLoadingMessage(message);
+    setLoadingOpen(true);
+  }, []);
+
   const showSuccess = useCallback((message: string) => {
+    hideLoading();
     if (timerRef.current) clearTimeout(timerRef.current);
     setSnackbarMessage(message);
     setSnackbarSeverity('success');
     setSuccessProgress(0);
     setSnackbarOpen(true);
-  }, []);
+  }, [hideLoading]);
 
   const showError = useCallback((message: string) => {
+    hideLoading();
     if (timerRef.current) clearTimeout(timerRef.current);
     setSnackbarMessage(message);
     setSnackbarSeverity('error');
     setSnackbarOpen(true);
-  }, []);
+  }, [hideLoading]);
 
   const handleSnackbarClose = useCallback(() => {
     if (timerRef.current) {
@@ -76,8 +98,70 @@ export function NotificacionProvider({ children }: { children: ReactNode }) {
   }, [snackbarOpen, snackbarSeverity]);
 
   return (
-    <NotificacionContext.Provider value={{ showSuccess, showError }}>
+    <NotificacionContext.Provider value={{ showSuccess, showError, showLoading, hideLoading }}>
       {children}
+      {loadingOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            zIndex: 10001,
+            '@keyframes backdropIn': { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+            animation: 'backdropIn 0.2s ease-out',
+          }}
+        />
+      )}
+      {loadingOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 10002,
+            minWidth: { xs: 280, sm: 380 },
+            maxWidth: '90vw',
+            '@keyframes modalEnter': {
+              '0%': { opacity: 0, transform: 'translate(-50%, -50%) scale(0.92)' },
+              '100%': { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
+            },
+            animation: 'modalEnter 0.25s ease-out',
+          }}
+        >
+          <Paper
+            elevation={8}
+            sx={{
+              backgroundColor: theme.palette.background.paper,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: theme.palette.primary.main,
+              overflow: 'hidden',
+            }}
+          >
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <CloudUploadIcon sx={{ fontSize: 32, color: theme.palette.primary.main, flexShrink: 0 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+                    Subiendo archivos
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {loadingMessage}
+                  </Typography>
+                </Box>
+                <CircularProgress size={28} sx={{ flexShrink: 0 }} />
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                Espere un momento; no cierre esta ventana.
+              </Typography>
+            </Box>
+          </Paper>
+        </Box>
+      )}
       {snackbarOpen && (
         <Box
           sx={{
