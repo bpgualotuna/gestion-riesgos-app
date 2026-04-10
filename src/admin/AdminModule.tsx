@@ -17,13 +17,15 @@ import {
   People as PeopleIcon,
   Settings as SettingsIcon,
   Inventory as CatalogsIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  ToggleOn as ToggleOnIcon,
 } from '@mui/icons-material';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
 import CatalogosPage from './pages/CatalogosPage';
 import DashboardPage from './pages/DashboardPage';
 import HistorialPage from './pages/HistorialPage';
+import HabilitacionCamposPage from './pages/HabilitacionCamposPage';
 
 interface AdminProps {
   user: any;
@@ -116,6 +118,7 @@ export default function AdminModule({ user, onLogout }: AdminProps) {
             <Tab label="Usuarios" icon={<PeopleIcon />} iconPosition="start" />
             <Tab label="Catálogos" icon={<CatalogsIcon />} iconPosition="start" />
             <Tab label="Historial" icon={<HistoryIcon />} iconPosition="start" />
+            <Tab label="Habilitación de campos" icon={<ToggleOnIcon />} iconPosition="start" />
             <Tab label="Configuración" icon={<SettingsIcon />} iconPosition="start" />
           </Tabs>
 
@@ -136,6 +139,10 @@ export default function AdminModule({ user, onLogout }: AdminProps) {
           </TabPanel>
 
           <TabPanel value={tabValue} index={4}>
+            <HabilitacionCamposPage />
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={5}>
             <ConfiguracionPage user={user} />
           </TabPanel>
         </Paper>

@@ -19,3 +19,4 @@ export { useUnsavedChanges, useFormChanges, useArrayChanges } from './useUnsaved
 export { useSafeProcesoById } from './useSafeProcesoById';
 export { useDebounce } from './useDebounce';
 export { useThrottle } from './useThrottle';
+export { useCampoEditable } from './useCampoEditable';

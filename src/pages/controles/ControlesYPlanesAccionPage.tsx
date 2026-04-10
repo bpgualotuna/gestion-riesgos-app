@@ -63,6 +63,11 @@ import {
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useCampoEditable } from '../../hooks/useCampoEditable';
+import {
+  UI_CAMPO_PLAN_ACCION_FECHA_ESTIMADA_FINALIZACION,
+  UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION,
+} from '../../constants/uiCamposHabilitacion';
 import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -91,6 +96,7 @@ import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
 import MaxFilesUploadPanel from '../../components/common/MaxFilesUploadPanel';
+import { assertUploadArchivoOk, messageForNetworkUploadFailure } from '../../utils/uploadFetch';
 
 // Helpers que usan la configuración residual del admin (API), sin datos quemados
 function getEvaluacionPreliminarFromRangos(rangos: any[] | undefined, puntajeTotal: number): string {
@@ -163,6 +169,8 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { user, esDueñoProcesos } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { confirmDelete } = useConfirm();
+  const campoEditable = useCampoEditable();
+  const puedeEditarCierrePlan = campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION);
 
   const toDateInputValue = (value: unknown): string => {
     if (!value) return '';
@@ -306,28 +314,32 @@ export default function ControlesYPlanesAccionPageNueva() {
   // Manejo de archivos de seguimiento
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (debe coincidir con multer en upload.routes)
   const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
   const uploadPlanArchivoBlob = async (file: File): Promise<string> => {
-    if (file.size > MAX_FILE_SIZE) throw new Error('El archivo es demasiado grande. Máximo 5MB.');
+    if (file.size > MAX_FILE_SIZE) throw new Error('El archivo es demasiado grande. Máximo 25MB.');
     if (!acceptedMimeTypes.includes(file.type)) throw new Error('Formato no permitido. Use PDF, PNG, JPG o DOCX.');
     const formData = new FormData();
     formData.append('archivo', file);
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-    const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!response.ok) throw new Error('Error al subir el archivo');
-    const data = await response.json();
-    return data.url as string;
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      await assertUploadArchivoOk(response);
+      const data = await response.json();
+      return data.url as string;
+    } catch (e) {
+      throw new Error(messageForNetworkUploadFailure(e));
+    }
   };
 
   const validateEvidenciaFile = (file: File): string | null => {
-    if (file.size > MAX_FILE_SIZE) return 'El archivo es demasiado grande. Máximo 5MB.';
+    if (file.size > MAX_FILE_SIZE) return 'El archivo es demasiado grande. Máximo 25MB.';
     if (!acceptedMimeTypes.includes(file.type)) return 'Formato no permitido. Use PDF, PNG, JPG o DOCX.';
     return null;
   };
@@ -365,7 +377,7 @@ export default function ControlesYPlanesAccionPageNueva() {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > MAX_FILE_SIZE) {
-        showError('El archivo es demasiado grande. Máximo 5MB.');
+        showError('El archivo es demasiado grande. Máximo 25MB.');
         return;
       }
       if (!acceptedMimeTypes.includes(file.type)) {
@@ -1065,7 +1077,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       try {
         const formData = new FormData();
         formData.append('archivo', selectedArchivoSeguimiento);
-        
+
         const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
         const response = await fetch(`${API_BASE_URL}/upload/archivo`, {
           method: 'POST',
@@ -1073,16 +1085,12 @@ export default function ControlesYPlanesAccionPageNueva() {
           credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        
-        if (!response.ok) {
-          throw new Error('Error al subir el archivo');
-        }
-        
+        await assertUploadArchivoOk(response);
         const data = await response.json();
         archivoUrl = data.url;
         showSuccess('Archivo subido correctamente');
       } catch (error) {
-        showError('Error al subir el archivo');
+        showError(messageForNetworkUploadFailure(error));
         return;
       }
     }
@@ -1267,8 +1275,19 @@ export default function ControlesYPlanesAccionPageNueva() {
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Error al actualizar plan');
+          let msg = 'Error al actualizar plan';
+          try {
+            const errBody = await response.json();
+            msg = errBody.error || msg;
+            if (response.status === 403 && errBody.code === 'FIELD_LOCKED') {
+              msg =
+                errBody.error ||
+                'No puede guardar: el administrador deshabilitó la edición de esos datos.';
+            }
+          } catch {
+            /* ignore */
+          }
+          throw new Error(msg);
         }
 
         return await response.json();
@@ -1282,8 +1301,19 @@ export default function ControlesYPlanesAccionPageNueva() {
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Error al crear plan');
+          let msg = 'Error al crear plan';
+          try {
+            const errBody = await response.json();
+            msg = errBody.error || msg;
+            if (response.status === 403 && errBody.code === 'FIELD_LOCKED') {
+              msg =
+                errBody.error ||
+                'No puede crear el plan con esos datos: están bloqueados por configuración.';
+            }
+          } catch {
+            /* ignore */
+          }
+          throw new Error(msg);
         }
 
         return await response.json();
@@ -1316,18 +1346,14 @@ export default function ControlesYPlanesAccionPageNueva() {
           credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        
-        if (!response.ok) {
-          throw new Error('Error al subir el archivo');
-        }
-        
+        await assertUploadArchivoOk(response);
         const data = await response.json();
         archivoUrl = data.url;
         // Actualizar formPlan con la URL del archivo
         setFormPlan({ ...formPlan, archivoSeguimiento: archivoUrl, archivoSeguimientoNombre: selectedArchivoSeguimiento.name });
         showSuccess('Archivo subido correctamente');
       } catch (error) {
-        showError('Error al subir el archivo');
+        showError(messageForNetworkUploadFailure(error));
         return;
       }
     }
@@ -3141,9 +3167,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                           value={formPlan.fechaEstimada}
                                                           onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
                                                           InputLabelProps={{ shrink: true }}
+                                                          disabled={!campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_ESTIMADA_FINALIZACION)}
                                                           fullWidth
                                                           sx={{ flex: '1 1 200px' }}
-                                                          helperText="Puede modificarla cuando lo necesite."
+                                                          helperText={
+                                                            !campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_ESTIMADA_FINALIZACION)
+                                                              ? 'Campo bloqueado por configuración del administrador.'
+                                                              : 'Puede modificarla cuando lo necesite.'
+                                                          }
                                                         />
                                                         <TextField
                                                           label="Estado del Plan"
@@ -3160,8 +3191,13 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         value={formPlan.fechaFinalizacion}
                                                         onChange={(e) => setFormPlan({ ...formPlan, fechaFinalizacion: e.target.value })}
                                                         InputLabelProps={{ shrink: true }}
+                                                        disabled={!campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION)}
                                                         fullWidth
-                                                        helperText="Puede ajustarla en cualquier momento (antes o después de la fecha estimada)."
+                                                        helperText={
+                                                          !campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION)
+                                                            ? 'Campo bloqueado por configuración del administrador.'
+                                                            : 'Puede ajustarla en cualquier momento (antes o después de la fecha estimada).'
+                                                        }
                                                       />
                                                       {(() => {
                                                          if (formPlan.fechaEstimada && formPlan.estado !== 'completado' && formPlan.estado !== 'cancelado') {
@@ -3187,6 +3223,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                           borderColor: 'divider',
                                                         }}
                                                       >
+                                                        {!puedeEditarCierrePlan && (
+                                                          <Alert severity="info" sx={{ mb: 2 }}>
+                                                            La evidencia de cierre y la fecha de finalización están en solo lectura por
+                                                            configuración del administrador.
+                                                          </Alert>
+                                                        )}
                                                         <TextField
                                                           label="Descripción de la evidencia"
                                                           multiline
@@ -3195,6 +3237,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                           value={formPlan.seguimientoDetalle || ''}
                                                           onChange={(e) => setFormPlan({ ...formPlan, seguimientoDetalle: e.target.value })}
                                                           fullWidth
+                                                          disabled={!puedeEditarCierrePlan}
                                                           sx={{ mb: 2, '& textarea': { overflow: 'auto' } }}
                                                         />
                                                       <MaxFilesUploadPanel
@@ -3212,6 +3255,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         onError={showError}
                                                         onAddFiles={addSeguimientoFiles}
                                                         onRemoveAt={(idx) => clearSeguimientoEvidenciaSlot(idx as 0 | 1)}
+                                                        disabled={!puedeEditarCierrePlan}
                                                       />
                                                       </Box>
                                                     </Collapse>
@@ -4528,9 +4572,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     value={formPlan.fechaEstimada}
                                                     onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
                                                     InputLabelProps={{ shrink: true }}
+                                                    disabled={!campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_ESTIMADA_FINALIZACION)}
                                                     fullWidth
                                                     sx={{ flex: '1 1 200px' }}
-                                                    helperText="Puede modificarla cuando lo necesite."
+                                                    helperText={
+                                                      !campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_ESTIMADA_FINALIZACION)
+                                                        ? 'Campo bloqueado por configuración del administrador.'
+                                                        : 'Puede modificarla cuando lo necesite.'
+                                                    }
                                                   />
                                                   <TextField
                                                     label="Estado del Plan"
@@ -4547,8 +4596,13 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                   value={formPlan.fechaFinalizacion}
                                                   onChange={(e) => setFormPlan({ ...formPlan, fechaFinalizacion: e.target.value })}
                                                   InputLabelProps={{ shrink: true }}
+                                                  disabled={!campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION)}
                                                   fullWidth
-                                                  helperText="Puede ajustarla en cualquier momento (antes o después de la fecha estimada)."
+                                                  helperText={
+                                                    !campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION)
+                                                      ? 'Campo bloqueado por configuración del administrador.'
+                                                      : 'Puede ajustarla en cualquier momento (antes o después de la fecha estimada).'
+                                                  }
                                                 />
                                               </Box>
                                               <Box sx={{ gridColumn: '1 / -1' }}>
@@ -4561,6 +4615,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                       borderColor: 'divider',
                                                     }}
                                                   >
+                                                    {!puedeEditarCierrePlan && (
+                                                      <Alert severity="info" sx={{ mb: 2 }}>
+                                                        La evidencia de cierre y la fecha de finalización están en solo lectura por
+                                                        configuración del administrador.
+                                                      </Alert>
+                                                    )}
                                                     <TextField
                                                       label="Descripción de la evidencia"
                                                       multiline
@@ -4569,6 +4629,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                       value={formPlan.seguimientoDetalle || ''}
                                                       onChange={(e) => setFormPlan({ ...formPlan, seguimientoDetalle: e.target.value })}
                                                       fullWidth
+                                                      disabled={!puedeEditarCierrePlan}
                                                       sx={{ mb: 2, '& textarea': { overflow: 'auto' } }}
                                                     />
                                                     <MaxFilesUploadPanel
@@ -4586,6 +4647,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                       onError={showError}
                                                       onAddFiles={addSeguimientoFiles}
                                                       onRemoveAt={(idx) => clearSeguimientoEvidenciaSlot(idx as 0 | 1)}
+                                                      disabled={!puedeEditarCierrePlan}
                                                     />
                                                   </Box>
                                                 </Collapse>

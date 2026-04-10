@@ -44,6 +44,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUpdateProcesoMutation } from '../../api/services/riesgosApi';
 import { useSafeProcesoById } from '../../hooks/useSafeProcesoById';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
+import { assertUploadArchivoOk, messageForNetworkUploadFailure } from '../../utils/uploadFetch';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
@@ -125,11 +126,11 @@ export default function AnalisisProcesoPage() {
   const [deleteModalLoading, setDeleteModalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (mismo límite que /api/upload/archivo)
   const acceptedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
   const validateProcesoFile = (file: File): string | null => {
-    if (file.size > MAX_FILE_SIZE) return 'El archivo es demasiado grande. Máximo 5MB.';
+    if (file.size > MAX_FILE_SIZE) return 'El archivo es demasiado grande. Máximo 25MB.';
     if (!acceptedMimeTypes.includes(file.type)) return 'Formato no permitido. Use PDF, PNG, JPG o DOCX.';
     return null;
   };
@@ -207,18 +208,19 @@ export default function AnalisisProcesoPage() {
       const uploadOne = async (file: File): Promise<{ url: string; nombre: string }> => {
         const formData = new FormData();
         formData.append('archivo', file);
-        const res = await fetch(`${API_BASE_URL}/upload/archivo`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err?.error || 'Error al subir el archivo');
+        try {
+          const res = await fetch(`${API_BASE_URL}/upload/archivo`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          await assertUploadArchivoOk(res);
+          const data = await res.json();
+          return { url: data.url, nombre: data.nombre ?? file.name };
+        } catch (e) {
+          throw new Error(messageForNetworkUploadFailure(e));
         }
-        const data = await res.json();
-        return { url: data.url, nombre: data.nombre ?? file.name };
       };
 
       if (selectedCaracterizacion) {

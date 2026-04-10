@@ -819,6 +819,27 @@ export const riesgosApi = createApi({
       providesTags: ['Configuracion'],
     }),
 
+    /** Flags UI: true = campo editable; false = bloqueado (panel admin). */
+    getCamposHabilitacionUi: builder.query<Record<string, boolean>, void>({
+      query: () => 'catalogos/campos-habilitacion-ui',
+      providesTags: ['Configuracion'],
+      keepUnusedDataFor: 120,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }),
+
+    updateCamposHabilitacionUi: builder.mutation<
+      Record<string, boolean>,
+      Record<string, boolean>
+    >({
+      query: (body) => ({
+        url: 'catalogos/campos-habilitacion-ui',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
     createConfiguracion: builder.mutation<any, { clave: string; valor: string; tipo: string; descripcion?: string }>({
       query: (body) => ({
         url: 'catalogos/configuraciones',
@@ -1451,6 +1472,8 @@ export const {
   useDeleteFormulaMutation,
   // Configuraciones
   useGetConfiguracionesQuery,
+  useGetCamposHabilitacionUiQuery,
+  useUpdateCamposHabilitacionUiMutation,
   useCreateConfiguracionMutation,
   useUpdateConfiguracionMutation,
   // Configuración de Identificación y Calificación

@@ -37,6 +37,8 @@ export type MaxFilesUploadPanelProps = {
   /** Vista previa personalizada (p. ej. modal en Análisis de Proceso). Si no se pasa, abre en nueva pestaña. */
   onPreviewUrl?: (url: string) => void;
   onPreviewFile?: (file: File) => void;
+  /** Tamaño máximo por archivo mostrado en la ayuda (debe coincidir con validación del padre y multer). */
+  maxFileSizeMb?: number;
 };
 
 export default function MaxFilesUploadPanel({
@@ -55,6 +57,7 @@ export default function MaxFilesUploadPanel({
   leadingIcon,
   onPreviewUrl,
   onPreviewFile,
+  maxFileSizeMb = 25,
 }: MaxFilesUploadPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -148,7 +151,8 @@ export default function MaxFilesUploadPanel({
           {leadingIcon ?? <UploadIcon sx={{ color: '#FFA500', mt: 0.5 }} />}
           <Box sx={{ flex: 1 }}>
             <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 1 }}>
-              Arrastra y suelta archivos aquí o haz clic en el área punteada. PDF, PNG, JPG, DOCX. Máx. 5MB. Máximo{' '}
+              Arrastra y suelta archivos aquí o haz clic en el área punteada. PDF, PNG, JPG, DOCX. Máx. {maxFileSizeMb}
+              MB. Máximo{' '}
               {maxFiles} archivo{maxFiles > 1 ? 's' : ''}.
             </Typography>
 
