@@ -224,7 +224,6 @@ export default function ControlesYPlanesAccionPageNueva() {
   const [selectedSeguimientoFiles, setSelectedSeguimientoFiles] = useState<[File | null, File | null]>([null, null]);
   const archivoSeguimientoInputRef = useRef<HTMLInputElement>(null);
 
-  const fechaEstimadaBloqueada = Boolean(String(initialFormPlan.fechaEstimada || '').trim());
   const evidenciaCierreVisible = Boolean(String(formPlan.fechaFinalizacion || '').trim());
   const [impactosResiduales, setImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
   const [initialImpactosResiduales, setInitialImpactosResiduales] = useState({ personas: 1, legal: 1, ambiental: 1, procesos: 1, reputacion: 1, economico: 1 });
@@ -3142,10 +3141,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                           value={formPlan.fechaEstimada}
                                                           onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
                                                           InputLabelProps={{ shrink: true }}
-                                                          disabled={fechaEstimadaBloqueada}
                                                           fullWidth
                                                           sx={{ flex: '1 1 200px' }}
-                                                          helperText={fechaEstimadaBloqueada ? 'Ya registrada; no se puede modificar.' : undefined}
+                                                          helperText="Puede modificarla cuando lo necesite."
                                                         />
                                                         <TextField
                                                           label="Estado del Plan"
@@ -4530,10 +4528,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                     value={formPlan.fechaEstimada}
                                                     onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })}
                                                     InputLabelProps={{ shrink: true }}
-                                                    disabled={fechaEstimadaBloqueada}
                                                     fullWidth
                                                     sx={{ flex: '1 1 200px' }}
-                                                    helperText={fechaEstimadaBloqueada ? 'Ya registrada; no se puede modificar.' : undefined}
+                                                    helperText="Puede modificarla cuando lo necesite."
                                                   />
                                                   <TextField
                                                     label="Estado del Plan"
