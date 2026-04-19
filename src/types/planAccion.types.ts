@@ -3,7 +3,10 @@
 export type EstadoPlan =
   | 'pendiente'
   | 'en_revision'
-  | 'revisado';
+  | 'revisado'
+  | 'en_ejecucion'
+  | 'completado'
+  | 'convertido_a_control';
 
 export interface PlanAccion {
   id: number;

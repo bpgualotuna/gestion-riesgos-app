@@ -120,7 +120,7 @@ export default function EvaluacionPage() {
     procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100, includeCausas: true }
       : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const [createEvaluacion, { isLoading: isSaving }] = useCreateEvaluacionMutation();
   const { showSuccess, showError } = useNotification();
@@ -294,7 +294,7 @@ export default function EvaluacionPage() {
 
     const causa: CausaRiesgo = {
       id: `causa-${Date.now()}`,
-      riesgoId: selectedRiesgo!.id,
+      riesgoId: String(selectedRiesgo!.id),
       descripcion: nuevaCausa.descripcion,
       fuenteCausa: nuevaCausa.fuenteCausa || undefined,
       fuenteCausaHSEQ: nuevaCausa.fuenteCausaHSEQ || undefined,
@@ -441,7 +441,7 @@ export default function EvaluacionPage() {
 
     try {
       await createEvaluacion({
-        riesgoId: selectedRiesgo.id,
+        riesgoId: String(selectedRiesgo.id),
         impactoPersonas: impactosNegativos.personas,
         impactoLegal: impactosNegativos.legal,
         impactoAmbiental: impactosNegativos.ambiental,

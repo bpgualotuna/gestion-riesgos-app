@@ -35,7 +35,7 @@ export default function RiesgosPorProcesoPage() {
 
   // Obtener todos los procesos
   const { data: procesosData } = useGetProcesosQuery();
-  const procesos = procesosData?.data || [];
+  const procesos = procesosData ?? [];
 
   // Consulta filtrada en backend por proceso cuando aplica
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
@@ -44,7 +44,7 @@ export default function RiesgosPorProcesoPage() {
       : procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
       : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
 
   const riesgos = riesgosData?.data || [];
@@ -62,10 +62,10 @@ export default function RiesgosPorProcesoPage() {
 
   // Agrupar riesgos por proceso
   const riesgosPorProceso = useMemo(() => {
-    const agrupados: Record<string, any[]> = {};
-    
+    const agrupados: Record<string, { proceso: any; riesgos: any[] }> = {};
+
     procesosFiltrados.forEach((proceso: any) => {
-      const riesgosDelProceso = riesgos.filter((r: any) => r.procesoId === proceso.id);
+      const riesgosDelProceso = riesgos.filter((r: any) => String(r.procesoId) === String(proceso.id));
       
       // Filtrar por búsqueda si existe
       const riesgosFiltrados = busqueda.trim()

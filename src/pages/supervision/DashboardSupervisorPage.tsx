@@ -101,12 +101,12 @@ export default function DashboardSupervisorPage() {
       pageSize: filtroProceso !== 'all' ? 200 : 200,
       includeCausas: true,
     },
-    { refetchOnMountOrArgChange: false, refetchOnFocus: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery(
     filtroProceso !== 'all' ? { procesoId: filtroProceso } : {},
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const { data: planesResponse } = useGetPlanesQuery({ page: 1, pageSize: 50 });
   const planesApi = planesResponse?.data ?? [];

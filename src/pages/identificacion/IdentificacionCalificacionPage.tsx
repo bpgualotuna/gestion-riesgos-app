@@ -149,6 +149,7 @@ import type { Riesgo, FiltrosRiesgo, CausaRiesgo, RiesgoFormData } from '../../t
 import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente, determinarNivelRiesgo, generarIdConContador, setSiglasConfig } from '../../utils/calculations';
 import { determinarNivelRiesgoSync, calcularCalificacionInherentePorCausaSync, agregarCalificacionInherenteGlobalSync } from '../../services/calificacionInherenteService';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { swalConfirmEliminarCausa } from '../../lib/swal';
 import {
   obtenerPorcentajeMitigacion,
   calcularFrecuenciaResidual,
@@ -364,9 +365,6 @@ export default function IdentificacionPage() {
     {
       skip: skipRiesgosQuery,
       refetchOnMountOrArgChange: false, // Usar caché al entrar; refetch solo cuando cambian procesoId o page
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
-      keepUnusedDataFor: 600
     }
   );
   
@@ -415,7 +413,7 @@ export default function IdentificacionPage() {
         module: 'riesgos',
         screen: 'identificacion',
         action: isReadOnly ? 'view' : 'edit',
-        processId: procesoSeleccionado.id,
+        processId: Number(procesoSeleccionado.id),
         route: window.location.pathname,
         formData: {
           totalRiesgos,
@@ -442,10 +440,7 @@ export default function IdentificacionPage() {
   // OPTIMIZADO: Caché muy agresivo para catálogos que no cambian frecuentemente
   const catalogQueryOptions = { 
     skip: shouldSkipQueries,
-    keepUnusedDataFor: 1800, // 30 minutos de caché para catálogos (cambian muy poco)
     refetchOnMountOrArgChange: false, // No refetch si ya están en caché
-    refetchOnFocus: false, // No refetch al enfocar ventana
-    refetchOnReconnect: false // No refetch al reconectar
   };
   
   const { data: tiposRiesgosApi, isLoading: isLoadingTipos } = useGetTiposRiesgosQuery(undefined, catalogQueryOptions);
@@ -963,8 +958,8 @@ export default function IdentificacionPage() {
           if (typeof causa.frecuencia === 'number') {
             pesoFrecuencia = frecuenciasMap.get(causa.frecuencia) || causa.frecuencia;
           } else if (typeof causa.frecuencia === 'string') {
-            pesoFrecuencia = frecuenciasMap.get(causa.frecuencia.toLowerCase()) || 
-                           (parseInt(causa.frecuencia) || 3);
+            const fStr = (causa.frecuencia as string).toLowerCase();
+            pesoFrecuencia = frecuenciasMap.get(fStr) || (parseInt(causa.frecuencia as string, 10) || 3);
           }
         }
         
@@ -1323,7 +1318,7 @@ export default function IdentificacionPage() {
       const impactoMaximo = 1; 
       const probabilidad = 1; 
       const riesgoInherente = calcularRiesgoInherente(impactoMaximo, probabilidad);
-      const nivelRiesgo = determinarNivelRiesgo(riesgoInherente, 'Negativa');
+      const nivelRiesgo = determinarNivelRiesgo(riesgoInherente, CLASIFICACION_RIESGO.NEGATIVA);
       
       // Obtener la sigla del proceso para el numeroIdentificacion
       const procesoSigla = (procesoSeleccionado as any).sigla || 
@@ -1348,7 +1343,9 @@ export default function IdentificacionPage() {
         gerencia: gerenciaNombre,
         tipoRiesgoId: (nuevoRiesgo as any).tipoRiesgoId ?? null,
         subtipoRiesgoId: (nuevoRiesgo as any).subtipoRiesgoId ?? null,
-        objetivoId: procesoSeleccionado?.objetivos?.[0] ? Number(procesoSeleccionado.objetivos[0]) : null,
+        objetivoId: (procesoSeleccionado as any)?.objetivos?.[0]
+          ? Number((procesoSeleccionado as any).objetivos[0])
+          : null,
         evaluacion: {
           impactoPersonas: 1,
           impactoLegal: 1,
@@ -1601,9 +1598,6 @@ export default function IdentificacionPage() {
   const [causaDetalleOpen, setCausaDetalleOpen] = useState(false);
   const [causaSeleccionadaDetalle, setCausaSeleccionadaDetalle] = useState<CausaRiesgo | null>(null);
   const [causaEliminando, setCausaEliminando] = useState<string | null>(null); // ID de la causa que se está eliminando
-  // Estado para confirmación de eliminación (modal bonito)
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [causaPendienteEliminar, setCausaPendienteEliminar] = useState<{ riesgoId: string; causaId: string } | null>(null);
   const [guardandoRiesgoId, setGuardandoRiesgoId] = useState<string | null>(null);
 
   // Si el catálogo de fuentes cambia, elegir un valor por defecto válido
@@ -1661,7 +1655,13 @@ export default function IdentificacionPage() {
   // Ahora solo reutilizan handleSave y limpian cambios, sin bloquear navegación.
   const handleSaveAllFromDialog = async () => {
     if (isSaving) return;
-    await handleSave();
+    const ids = new Set([
+      ...Object.keys(cambiosPendientes),
+      ...Object.keys(causasPendientes),
+    ]);
+    for (const id of ids) {
+      await handleSave(id);
+    }
   };
 
   const handleDiscardChanges = () => {
@@ -2121,13 +2121,29 @@ export default function IdentificacionPage() {
                           setNuevaCausaFrecuencia(frecuenciaNum);
                           setDialogCausaOpen(true);
                         }}
-                        onEliminarCausa={(riesgoId, causaId) => {
-                          // Abrir modal de confirmación en lugar de eliminar directamente
-                          setCausaPendienteEliminar({
-                            riesgoId: String(riesgoId),
-                            causaId: String(causaId),
+                        onEliminarCausa={async (riesgoId, causaId) => {
+                          if (!(await swalConfirmEliminarCausa())) return;
+                          const pid = String(riesgoId);
+                          const cid = String(causaId);
+                          setCausasPendientes((prev) => {
+                            const next = { ...prev };
+                            next[pid] = {
+                              toAdd: next[pid]?.toAdd ?? [],
+                              toUpdate: next[pid]?.toUpdate ?? {},
+                              toDelete: next[pid]?.toDelete ?? {},
+                            };
+                            if (cid.startsWith('temp-')) {
+                              const idx = parseInt(cid.split('-').pop() || '0', 10);
+                              next[pid].toAdd = next[pid].toAdd.filter((_, i) => i !== idx);
+                            } else {
+                              next[pid].toDelete[cid] = true;
+                            }
+                            return next;
                           });
-                          setConfirmDeleteOpen(true);
+                          setCausaEliminando(null);
+                          showSuccess(
+                            'Causa quitada en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.'
+                          );
                         }}
                         causaEliminando={causaEliminando}
                         onVerDetalleCausa={(causa) => {
@@ -3008,70 +3024,6 @@ export default function IdentificacionPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de confirmación para eliminar causa */}
-      <Dialog
-        open={confirmDeleteOpen}
-        onClose={() => {
-          if (causaEliminando) return; // mientras está eliminando, no cerrar manual
-          setConfirmDeleteOpen(false);
-          setCausaPendienteEliminar(null);
-        }}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Eliminar causa</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            ¿Seguro que desea eliminar esta causa? Esta acción no se puede deshacer.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => {
-              if (causaEliminando) return;
-              setConfirmDeleteOpen(false);
-              setCausaPendienteEliminar(null);
-            }}
-            disabled={!!causaEliminando}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => {
-              if (!causaPendienteEliminar || causaEliminando) return;
-              const { riesgoId, causaId } = causaPendienteEliminar;
-              const pid = String(riesgoId);
-              setCausasPendientes(prev => {
-                const next = { ...prev };
-                next[pid] = {
-                  toAdd: next[pid]?.toAdd ?? [],
-                  toUpdate: next[pid]?.toUpdate ?? {},
-                  toDelete: next[pid]?.toDelete ?? {},
-                };
-                if (causaId.startsWith('temp-')) {
-                  const idx = parseInt(causaId.split('-').pop() || '0', 10);
-                  next[pid].toAdd = next[pid].toAdd.filter((_, i) => i !== idx);
-                } else {
-                  next[pid].toDelete[causaId] = true;
-                }
-                return next;
-              });
-              setCausaEliminando(null);
-              setConfirmDeleteOpen(false);
-              setCausaPendienteEliminar(null);
-              showSuccess('Causa quitada en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.');
-            }}
-          >
-            {causaEliminando ? (
-              <Skeleton variant="rectangular" width={18} height={18} sx={{ borderRadius: 0.5 }} />
-            ) : (
-              'Eliminar'
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </AppPageLayout>
     </>
   );

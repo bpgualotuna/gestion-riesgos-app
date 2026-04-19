@@ -136,7 +136,7 @@ export default function MapaPage() {
   const { data: areas = [] } = useGetAreasQuery(); // Obtener todas las áreas del sistema
   const { data: niveles = [] } = useGetNivelesRiesgoQuery();
   const { data: ejes } = useGetEjesMapaQuery();
-  const [clasificacion, setClasificacion] = useState<string>('all');
+  const [clasificacion, setClasificacion] = useState<string>(CLASIFICACION_RIESGO.NEGATIVA);
   const [filtroArea, setFiltroArea] = useState<string>('all');
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
   const [celdaSeleccionada, setCeldaSeleccionada] = useState<{ probabilidad: number; impacto: number } | null>(null);
@@ -261,7 +261,7 @@ export default function MapaPage() {
   // Cuando los filtros están en "all", NO enviar filtros al backend para obtener TODOS los riesgos
   const filtros: FiltrosRiesgo = {
     procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
-    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as ClasificacionRiesgo),
+    clasificacion: clasificacion as ClasificacionRiesgo,
   };
 
   const dispatch = useAppDispatch();
@@ -275,7 +275,7 @@ export default function MapaPage() {
   // Riesgos filtrados en backend por proceso/clasificación; pageSize acotado para no colgar la app
   const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery({
     procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
-    clasificacion: clasificacion === 'all' ? undefined : (clasificacion as ClasificacionRiesgo),
+    clasificacion: clasificacion as ClasificacionRiesgo,
     includeCausas: true,
     pageSize: 200,
   }, {
@@ -357,15 +357,16 @@ export default function MapaPage() {
         return false;
       }
       
-      // Aplicar filtro de clasificación si está seleccionado
-      if (clasificacion !== 'all') {
-        const clasificacionRiesgo = riesgo.clasificacion || 'Negativa';
-        if (clasificacionRiesgo !== clasificacion) {
-          return false; // No coincide con la clasificación filtrada
+      // Negativos/heredados: todo lo que no es oportunidad explícita (null, Excel, negativa). Positivos: solo consecuencia positiva.
+      if (clasificacion === CLASIFICACION_RIESGO.NEGATIVA) {
+        if (riesgo.clasificacion === CLASIFICACION_RIESGO.POSITIVA) {
+          return false;
         }
+      } else if (riesgo.clasificacion !== CLASIFICACION_RIESGO.POSITIVA) {
+        return false;
       }
-      
-      return true; // Pasar todos los filtros
+
+      return true;
     });
     
     return filtrados;
@@ -637,7 +638,10 @@ export default function MapaPage() {
         formData: {
           tipoMapa: tipoMapaSeleccionado,
           filtros: {
-            clasificacion: clasificacion === 'all' ? 'Todas' : clasificacion,
+            clasificacion:
+              clasificacion === CLASIFICACION_RIESGO.POSITIVA
+                ? 'Oportunidades (positivos)'
+                : 'Riesgos negativos',
             area: filtroArea === 'all' ? 'Todas' : areas.find(a => String(a.id) === filtroArea)?.nombre || 'N/A',
             proceso: filtroProceso === 'all' ? 'Todos' : procesos.find(p => String(p.id) === filtroProceso)?.nombre || 'N/A',
           },
@@ -710,13 +714,14 @@ export default function MapaPage() {
 
   /* Hook moved to top */
   const getCellColor = (probabilidad: number, impacto: number): string => {
-    // Asegurar que sean números válidos
     const prob = Number(probabilidad) || 1;
     const imp = Number(impacto) || 1;
     const cellKey = `${prob}-${imp}`;
+    const esOportunidades =
+      clasificacion === CLASIFICACION_RIESGO.POSITIVA;
 
-    // Use backend configuration if available
-    if (mapaConfig && mapaConfig.inherente) {
+    // Mapa negativo: configuración admin + escala cálida (rojo/naranja/amarillo/verde)
+    if (!esOportunidades && mapaConfig && mapaConfig.inherente) {
       const nivelId = mapaConfig.inherente[cellKey];
       if (nivelId) {
         const nivel = niveles?.find(n => n.id === nivelId);
@@ -726,35 +731,55 @@ export default function MapaPage() {
       }
     }
 
-    // Fallback to theme colors según documento Proceso_Calificacion_Inherente_Global.md
-    // Zonas: 15-25 Rojo, 10-14 Naranja, 4-9 Amarillo, 1-3 Verde
-    // Excepción: 2x2 = 3.99 (cae en zona verde)
     let riesgo = prob * imp;
     if (prob === 2 && imp === 2) {
-      riesgo = 3.99; // Excepción documentada
+      riesgo = 3.99;
     }
-    
-    if (riesgo >= 15 && riesgo <= 25) return colors.risk.critical.main; // Rojo - Zona Extrema/Crítica
-    if (riesgo >= 10 && riesgo <= 14) return colors.risk.high.main; // Naranja - Zona Alta
-    if (riesgo >= 4 && riesgo <= 9) return colors.risk.medium.main; // Amarillo - Zona Moderada
-    return colors.risk.low.main; // Verde - Zona Baja (1-3, incluye 3.99)
+
+    // Mapa positivo (oportunidades): escala fría distinta — no usa la config del mapa de amenazas
+    if (esOportunidades) {
+      if (riesgo >= 15 && riesgo <= 25) return '#1565c0';
+      if (riesgo >= 10 && riesgo <= 14) return '#42a5f5';
+      if (riesgo >= 4 && riesgo <= 9) return '#757575';
+      return '#bdbdbd';
+    }
+
+    if (riesgo >= 15 && riesgo <= 25) return colors.risk.critical.main;
+    if (riesgo >= 10 && riesgo <= 14) return colors.risk.high.main;
+    if (riesgo >= 4 && riesgo <= 9) return colors.risk.medium.main;
+    return colors.risk.low.main;
   };
 
   // Función para obtener el color basado en el nivel de riesgo (string)
   const getColorByNivelRiesgo = (nivelRiesgo: string | null | undefined): string => {
+    const nivelUpper = (nivelRiesgo || '').toUpperCase();
+    const esOportunidades =
+      clasificacion === CLASIFICACION_RIESGO.POSITIVA;
+
+    if (esOportunidades) {
+      if (
+        nivelUpper.includes('CRÍTICO') ||
+        nivelUpper.includes('CRITICO') ||
+        nivelUpper.includes('EXTREMO')
+      ) {
+        return '#1565c0';
+      }
+      if (nivelUpper.includes('ALTO')) return '#42a5f5';
+      if (nivelUpper.includes('MEDIO')) return '#757575';
+      return '#bdbdbd';
+    }
+
     if (!nivelRiesgo) return colors.risk.low.main;
-    
-    const nivelUpper = nivelRiesgo.toUpperCase();
     if (nivelUpper.includes('CRÍTICO') || nivelUpper.includes('CRITICO')) {
-      return colors.risk.critical.main; // Rojo
+      return colors.risk.critical.main;
     }
     if (nivelUpper.includes('ALTO')) {
-      return colors.risk.high.main; // Naranja
+      return colors.risk.high.main;
     }
     if (nivelUpper.includes('MEDIO')) {
-      return colors.risk.medium.main; // Amarillo
+      return colors.risk.medium.main;
     }
-    return colors.risk.low.main; // Verde (BAJO o cualquier otro)
+    return colors.risk.low.main;
   };
   
   // Función auxiliar para convertir color hex a rgba con opacidad
@@ -771,13 +796,18 @@ export default function MapaPage() {
   };
 
   const getCellLabel = (probabilidad: number, impacto: number): string => {
-    // Calcular riesgo con excepción 2x2 = 3.99
     let riesgo = probabilidad * impacto;
     if (probabilidad === 2 && impacto === 2) {
       riesgo = 3.99;
     }
-    
-    // Etiquetas según documento
+    const esOportunidades =
+      clasificacion === CLASIFICACION_RIESGO.POSITIVA;
+    if (esOportunidades) {
+      if (riesgo >= 15 && riesgo <= 25) return 'EXTREMO';
+      if (riesgo >= 10 && riesgo <= 14) return 'ALTO';
+      if (riesgo >= 4 && riesgo <= 9) return 'MEDIO';
+      return 'BAJO';
+    }
     if (riesgo >= 15 && riesgo <= 25) return 'CRÍTICO';
     if (riesgo >= 10 && riesgo <= 14) return 'ALTO';
     if (riesgo >= 4 && riesgo <= 9) return 'MEDIO';
@@ -840,6 +870,10 @@ export default function MapaPage() {
 
   // Matriz: X = Frecuencia/Probabilidad (columnas), Y = Impacto (filas). Clave celda = `${prob}-${imp}`.
   const renderMatrix = (matriz: { [key: string]: PuntoMapa[] }, tipo: 'inherente' | 'residual') => {
+    const esMapaOportunidades =
+      clasificacion === CLASIFICACION_RIESGO.POSITIVA;
+    const colorZonaAlta = esMapaOportunidades ? '#0d47a1' : '#d32f2f';
+
     const probabilidades = ejes?.probabilidad.map(p => p.valor) || [1, 2, 3, 4, 5];
     const impactos = ejes?.impacto.map(i => i.valor).sort((a, b) => b - a) || [5, 4, 3, 2, 1];
 
@@ -922,17 +956,17 @@ export default function MapaPage() {
                             minHeight: 60, // Reduced from 70
 
                             // Borders logic
-                            borderTop: fuerApetito ? '3px solid #d32f2f' : (bordesLimite.top ? '3px dashed #d32f2f' : '1px solid #000'),
-                            borderRight: fuerApetito ? '3px solid #d32f2f' : (bordesLimite.right ? '3px dashed #d32f2f' : '1px solid #000'),
-                            borderBottom: fuerApetito ? '3px solid #d32f2f' : (bordesLimite.bottom ? '3px dashed #d32f2f' : '1px solid #000'),
-                            borderLeft: fuerApetito ? '3px solid #d32f2f' : (bordesLimite.left ? '3px dashed #d32f2f' : '1px solid #000'),
+                            borderTop: fuerApetito ? `3px solid ${colorZonaAlta}` : (bordesLimite.top ? `3px dashed ${colorZonaAlta}` : '1px solid #000'),
+                            borderRight: fuerApetito ? `3px solid ${colorZonaAlta}` : (bordesLimite.right ? `3px dashed ${colorZonaAlta}` : '1px solid #000'),
+                            borderBottom: fuerApetito ? `3px solid ${colorZonaAlta}` : (bordesLimite.bottom ? `3px dashed ${colorZonaAlta}` : '1px solid #000'),
+                            borderLeft: fuerApetito ? `3px solid ${colorZonaAlta}` : (bordesLimite.left ? `3px dashed ${colorZonaAlta}` : '1px solid #000'),
 
-                            ...(fuerApetito && { border: '3px solid #d32f2f' }),
+                            ...(fuerApetito && { border: `3px solid ${colorZonaAlta}` }),
 
                             backgroundColor: hexToRgba(cellColor, 0.3), // 30% de opacidad para mejor visibilidad
                             // Thicker left border indicator
                             borderLeftWidth: fuerApetito ? 3 : (bordesLimite.left ? 3 : 4),
-                            borderLeftColor: fuerApetito ? '#d32f2f' : (bordesLimite.left ? '#d32f2f' : cellColor),
+                            borderLeftColor: fuerApetito ? colorZonaAlta : (bordesLimite.left ? colorZonaAlta : cellColor),
 
                             display: 'flex',
                             flexDirection: 'column',
@@ -1155,6 +1189,7 @@ export default function MapaPage() {
           <Grid2 xs={12}>
             <MapaFiltersPanel
               clasificacion={clasificacion}
+              setClasificacion={setClasificacion}
               filtroArea={filtroArea}
               filtroProceso={filtroProceso}
               setFiltroArea={(v) => setFiltroArea(v)}

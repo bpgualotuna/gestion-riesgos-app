@@ -1,84 +1,22 @@
 /**
- * Diálogo de confirmación para cambios no guardados
- * Se muestra cuando el usuario intenta navegar con cambios pendientes
+ * Cambios sin guardar al navegar: delega en `swalUnsavedChangesNavigate`.
  */
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Box,
-  Alert,
-} from '@mui/material';
-import {
-  Warning as WarningIcon,
-  Save as SaveIcon,
-  Close as CloseIcon,
-  DeleteOutline as DiscardIcon,
-} from '@mui/icons-material';
+import { useEffect, useRef } from 'react';
+import { swalClose, swalUnsavedChangesNavigate, swalWhileSaving } from '../../lib/swal';
 
 export interface UnsavedChangesDialogProps {
-  /**
-   * Controla si el diálogo está abierto
-   */
   open: boolean;
-  
-  /**
-   * Título del diálogo
-   */
   title?: string;
-  
-  /**
-   * Mensaje principal
-   */
   message?: string;
-  
-  /**
-   * Mensaje adicional o descripción
-   */
   description?: string;
-  
-  /**
-   * Callback cuando el usuario decide guardar
-   */
   onSave?: () => void | Promise<void>;
-  
-  /**
-   * Callback cuando el usuario decide descartar cambios
-   */
   onDiscard: () => void;
-  
-  /**
-   * Callback cuando el usuario cancela (se queda en la página)
-   */
   onCancel: () => void;
-  
-  /**
-   * Texto del botón de guardar
-   */
   saveButtonText?: string;
-  
-  /**
-   * Texto del botón de descartar
-   */
   discardButtonText?: string;
-  
-  /**
-   * Texto del botón de cancelar
-   */
   cancelButtonText?: string;
-  
-  /**
-   * Si es true, muestra un loading en el botón de guardar
-   */
   isSaving?: boolean;
-  
-  /**
-   * Si es true, oculta el botón de guardar (solo permite descartar o cancelar)
-   */
   hideSaveButton?: boolean;
 }
 
@@ -93,116 +31,72 @@ export default function UnsavedChangesDialog({
   saveButtonText = 'Guardar cambios',
   discardButtonText = 'Descartar cambios',
   cancelButtonText = 'Cancelar',
-  isSaving = false,
   hideSaveButton = false,
 }: UnsavedChangesDialogProps) {
-  const handleSave = async () => {
-    if (onSave) {
-      await onSave();
-    }
+  const propsRef = useRef({
+    title,
+    message,
+    description,
+    onSave,
+    onDiscard,
+    onCancel,
+    saveButtonText,
+    discardButtonText,
+    cancelButtonText,
+    hideSaveButton,
+  });
+  propsRef.current = {
+    title,
+    message,
+    description,
+    onSave,
+    onDiscard,
+    onCancel,
+    saveButtonText,
+    discardButtonText,
+    cancelButtonText,
+    hideSaveButton,
   };
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      maxWidth="xs"
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-          minWidth: 450,
-          maxWidth: 540,
-        },
-      }}
-    >
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          pb: 2,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            bgcolor: 'warning.light',
-            color: 'warning.dark',
-          }}
-        >
-          <WarningIcon />
-        </Box>
-        <Typography variant="h6" fontWeight={700}>
-          {title}
-        </Typography>
-      </DialogTitle>
+  useEffect(() => {
+    if (!open) return;
 
-      <DialogContent sx={{ pt: 3, pb: 2 }}>
-        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
-          {message}
-        </Alert>
+    let cancelled = false;
 
-        <Typography variant="body1" color="text.secondary">
-          {description}
-        </Typography>
-      </DialogContent>
+    const run = async () => {
+      const p = propsRef.current;
+      const result = await swalUnsavedChangesNavigate({
+        title: p.title,
+        message: p.message,
+        description: p.description,
+        hideSaveButton: p.hideSaveButton,
+        saveButtonText: p.saveButtonText,
+        discardButtonText: p.discardButtonText,
+        cancelButtonText: p.cancelButtonText,
+      });
+      if (cancelled) return;
 
-      <DialogActions
-        sx={{
-          px: 3,
-          pb: 2.5,
-          pt: 1,
-          gap: 1,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Button
-          onClick={onCancel}
-          variant="outlined"
-          startIcon={<CloseIcon />}
-          sx={{ borderRadius: 2 }}
-        >
-          {cancelButtonText}
-        </Button>
+      if (result === 'save' && p.onSave) {
+        swalWhileSaving();
+        try {
+          await p.onSave();
+        } finally {
+          swalClose();
+        }
+      } else if (result === 'discard') {
+        p.onDiscard();
+      } else {
+        p.onCancel();
+      }
+    };
 
-        <Box sx={{ flex: 1 }} />
+    void run();
 
-        <Button
-          onClick={onDiscard}
-          variant="outlined"
-          color="error"
-          startIcon={<DiscardIcon />}
-          sx={{ borderRadius: 2 }}
-          disabled={isSaving}
-        >
-          {discardButtonText}
-        </Button>
+    return () => {
+      cancelled = true;
+      swalClose();
+    };
+  }, [open]);
 
-        {!hideSaveButton && onSave && (
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            disabled={isSaving}
-            sx={{
-              borderRadius: 2,
-              minWidth: 140,
-            }}
-          >
-            {isSaving ? 'Guardando...' : saveButtonText}
-          </Button>
-        )}
-      </DialogActions>
-    </Dialog>
-  );
+  return null;
 }

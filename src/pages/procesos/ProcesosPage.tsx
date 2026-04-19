@@ -23,7 +23,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  CircularProgress,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -57,6 +56,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import { swalPromptRechazoProceso, swalRunWithLoading } from '../../lib/swal';
 
 export default function ProcesosPage() {
   const { data: procesos = [], isLoading, refetch } = useGetProcesosQuery();
@@ -114,11 +114,7 @@ export default function ProcesosPage() {
     );
   }
 
-  // Estados para diálogos
-  const [observacionDialogOpen, setObservacionDialogOpen] = useState(false);
-  const [rechazoModalLoading, setRechazoModalLoading] = useState(false);
   const [historialDialogOpen, setHistorialDialogOpen] = useState(false);
-  const [observacionTexto, setObservacionTexto] = useState('');
   const [procesoParaAccion, setProcesoParaAccion] = useState<Proceso | null>(null);
 
   // Obtener gerente (manager) - en producción vendría de la API
@@ -140,15 +136,15 @@ export default function ProcesosPage() {
   const [showForm, setShowForm] = useState(false);
 
   // Obtener observaciones de un proceso usando el hook
-  const getObservacionesProceso = (procesoId: string): any[] => {
+  const getObservacionesProceso = (procesoId: string | number): any[] => {
     if (typeof obtenerObservaciones !== 'function') {
       return [];
     }
-    return obtenerObservaciones(procesoId);
+    return obtenerObservaciones(String(procesoId));
   };
-  
+
   // Contar observaciones pendientes
-  const contarObservacionesPendientes = (procesoId: string) => {
+  const contarObservacionesPendientes = (procesoId: string | number) => {
     return getObservacionesProceso(procesoId).filter((obs) => !obs.resuelta).length;
   };
 
@@ -204,30 +200,21 @@ export default function ProcesosPage() {
     refetch();
   };
 
-  const handleRechazar = (proceso: Proceso) => {
-    setProcesoParaAccion(proceso);
-    setObservacionDialogOpen(true);
-  };
-
-  const handleConfirmarRechazo = async () => {
-    if (!procesoParaAccion || !observacionTexto.trim()) {
-      showError('Por favor ingrese una observación');
-      return;
-    }
-    setRechazoModalLoading(true);
+  const handleRechazar = async (proceso: Proceso) => {
+    const texto = await swalPromptRechazoProceso();
+    if (texto == null) return;
     try {
-      await rechazarConObservaciones(
-        String(procesoParaAccion.id),
-        observacionTexto,
-        user?.id ?? '',
-        user?.nombre ?? ''
-      );
-      setObservacionDialogOpen(false);
-      setObservacionTexto('');
-      setProcesoParaAccion(null);
+      await swalRunWithLoading('Enviando…', async () => {
+        await rechazarConObservaciones(
+          String(proceso.id),
+          texto,
+          String(user?.id ?? ''),
+          user?.fullName ?? ''
+        );
+      });
       refetch();
-    } finally {
-      setRechazoModalLoading(false);
+    } catch {
+      showError('No se pudo rechazar el proceso');
     }
   };
 
@@ -267,14 +254,14 @@ export default function ProcesosPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     if (await confirmDelete('este proceso')) {
       try {
-        await deleteProceso(id).unwrap();
+        await deleteProceso(String(id)).unwrap();
         showSuccess('Proceso eliminado exitosamente');
         // Si el proceso eliminado era el seleccionado, seleccionar otro
-        if (procesoSeleccionado?.id === id) {
-          const otrosProcesos = procesosVisibles.filter((p) => p.id !== id);
+        if (String(procesoSeleccionado?.id) === String(id)) {
+          const otrosProcesos = procesosVisibles.filter((p) => String(p.id) !== String(id));
           if (otrosProcesos.length > 0) {
             setProcesoSeleccionado(otrosProcesos[0]);
           } else {
@@ -287,8 +274,8 @@ export default function ProcesosPage() {
     }
   };
 
-  const handleSelect = (procesoId: string) => {
-    const proceso = procesosVisibles.find((p) => p.id === procesoId);
+  const handleSelect = (procesoId: string | number) => {
+    const proceso = procesosVisibles.find((p) => String(p.id) === String(procesoId));
     if (proceso) {
       setProcesoSeleccionado(proceso);
       showSuccess(`Proceso "${proceso.nombre}" seleccionado`);
@@ -365,7 +352,7 @@ export default function ProcesosPage() {
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {procesoSeleccionado?.id !== proceso.id && (
+            {String(procesoSeleccionado?.id) !== String(proceso.id) && (
               <Button
                 size="small"
                 variant="outlined"
@@ -593,55 +580,6 @@ export default function ProcesosPage() {
         getRowId={(row) => row.id}
       />
 
-      {/* Dialogo para agregar observacion al rechazar */}
-      <Dialog
-        open={observacionDialogOpen}
-        onClose={() => !rechazoModalLoading && (setObservacionDialogOpen(false), setObservacionTexto(''), setProcesoParaAccion(null))}
-        maxWidth="sm"
-        fullWidth
-        disableEscapeKeyDown={rechazoModalLoading}
-      >
-        <DialogTitle>Rechazar Proceso con Observaciones</DialogTitle>
-        <DialogContent>
-          {rechazoModalLoading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, py: 3 }}>
-              <CircularProgress size={28} />
-              <Typography color="text.secondary">Enviando rechazo…</Typography>
-            </Box>
-          ) : (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Indique las observaciones o razones por las que se rechaza este proceso:
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Observaciones"
-                value={observacionTexto}
-                onChange={(e) => setObservacionTexto(e.target.value)}
-                placeholder="Ingrese las observaciones..."
-                sx={{ mt: 2 }}
-              />
-            </>
-          )}
-        </DialogContent>
-        {!rechazoModalLoading && (
-          <DialogActions>
-            <Button onClick={() => {
-              setObservacionDialogOpen(false);
-              setObservacionTexto('');
-              setProcesoParaAccion(null);
-            }}>
-              Cancelar
-            </Button>
-            <Button variant="contained" color="error" onClick={handleConfirmarRechazo}>
-              Rechazar con Observaciones
-            </Button>
-          </DialogActions>
-        )}
-      </Dialog>
-
       {/* Diálogo de historial */}
       <Dialog open={historialDialogOpen} onClose={() => setHistorialDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { maxWidth: 640 } }}>
         <DialogTitle>
@@ -651,7 +589,7 @@ export default function ProcesosPage() {
         <DialogContent>
           {procesoParaAccion ? (
             <List>
-              {obtenerHistorial(procesoParaAccion.id).map((historial) => (
+              {obtenerHistorial(String(procesoParaAccion.id)).map((historial) => (
                 <ListItem key={historial.id} sx={{ flexDirection: 'column', alignItems: 'flex-start', mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
                     <Typography variant="body2" fontWeight={600}>
@@ -676,7 +614,7 @@ export default function ProcesosPage() {
                   </Typography>
                 </ListItem>
               ))}
-              {obtenerHistorial(procesoParaAccion.id).length === 0 && (
+              {obtenerHistorial(String(procesoParaAccion.id)).length === 0 && (
                 <Alert severity="info">No hay historial de cambios para este proceso.</Alert>
               )}
             </List>

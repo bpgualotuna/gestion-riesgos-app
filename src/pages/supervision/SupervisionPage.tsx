@@ -71,7 +71,7 @@ export default function SupervisionPage() {
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
   const { data: riesgosData } = useGetRiesgosQuery(
     { pageSize: 200 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const todosRiesgos = riesgosData?.data || [];
 
@@ -90,18 +90,18 @@ export default function SupervisionPage() {
 
   // Filtrar procesos asignados al director
   const procesosAsignados = useMemo(() => {
-    return procesos.filter((p) => p.directorId === user?.id);
+    return procesos.filter((p) => Number(p.directorId) === Number(user?.id));
   }, [procesos, user]);
 
   // Agrupar procesos por área
   const procesosPorArea = useMemo(() => {
     const agrupados: { [key: string]: Proceso[] } = {};
     procesosAsignados.forEach((proceso) => {
-      const areaId = proceso.areaId || 'sin-area';
-      if (!agrupados[areaId]) {
-        agrupados[areaId] = [];
+      const areaKey = proceso.areaId != null && proceso.areaId !== '' ? String(proceso.areaId) : 'sin-area';
+      if (!agrupados[areaKey]) {
+        agrupados[areaKey] = [];
       }
-      agrupados[areaId].push(proceso);
+      agrupados[areaKey].push(proceso);
     });
     return agrupados;
   }, [procesosAsignados]);
@@ -111,7 +111,7 @@ export default function SupervisionPage() {
     let filtrados = procesosAsignados;
 
     if (filtroArea !== 'all') {
-      filtrados = filtrados.filter((p) => p.areaId === filtroArea);
+      filtrados = filtrados.filter((p) => String(p.areaId) === String(filtroArea));
     }
 
     if (filtroEstado !== 'all') {
@@ -131,7 +131,7 @@ export default function SupervisionPage() {
     const activos = procesosAsignados.filter((p) => p.activo).length;
     const inactivos = total - activos;
     const totalRiesgos = procesosAsignados.reduce((acc, p) => {
-      return acc + todosRiesgos.filter((r) => r.procesoId === p.id).length;
+      return acc + todosRiesgos.filter((r) => String(r.procesoId) === String(p.id)).length;
     }, 0);
     const areasUnicas = new Set(procesosAsignados.map((p) => p.areaId).filter(Boolean)).size;
 
@@ -145,22 +145,22 @@ export default function SupervisionPage() {
   }, [procesosAsignados, todosRiesgos]);
 
   // Obtener nombre del responsable
-  const getResponsableNombre = (responsableId?: string) => {
-    if (!responsableId) return 'Sin asignar';
-    const usuario = mockUsuarios.find((u) => u.id === responsableId);
+  const getResponsableNombre = (responsableId?: string | number) => {
+    if (responsableId == null || responsableId === '') return 'Sin asignar';
+    const usuario = mockUsuarios.find((u) => String(u.id) === String(responsableId));
     return usuario?.nombre || 'Usuario no encontrado';
   };
 
   // Obtener nombre del área
-  const getAreaNombre = (areaId?: string) => {
-    if (!areaId) return 'Sin área asignada';
-    const area = mockAreas.find((a) => a.id === areaId);
+  const getAreaNombre = (areaId?: string | number) => {
+    if (areaId == null || areaId === '') return 'Sin área asignada';
+    const area = mockAreas.find((a) => a.id === String(areaId));
     return area?.nombre || 'Área no encontrada';
   };
 
   // Obtener estadísticas de un proceso
-  const getEstadisticasProceso = (procesoId: string) => {
-    const riesgos = todosRiesgos.filter((r) => r.procesoId === procesoId);
+  const getEstadisticasProceso = (procesoId: string | number) => {
+    const riesgos = todosRiesgos.filter((r) => String(r.procesoId) === String(procesoId));
     return {
       total: riesgos.length,
       criticos: 0,
@@ -448,7 +448,7 @@ export default function SupervisionPage() {
               {Object.entries(procesosPorArea).map(([areaId, procesosArea]) => {
                 const areaNombre = getAreaNombre(areaId);
                 const totalRiesgos = procesosArea.reduce(
-                  (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+                  (acc, p) => acc + todosRiesgos.filter((r) => String(r.procesoId) === String(p.id)).length,
                   0
                 );
                 return (

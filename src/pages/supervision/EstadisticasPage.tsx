@@ -3,7 +3,8 @@
  * Muestra estadísticas de gestión de riesgos
  */
 
-import { Box, Typography, Card, CardContent, Grid2, Alert } from '@mui/material';
+import { Box, Typography, Card, CardContent, Alert } from '@mui/material';
+import Grid2 from '../../utils/Grid2';
 import { useProceso } from '../../contexts/ProcesoContext';
 
 export default function EstadisticasPage() {

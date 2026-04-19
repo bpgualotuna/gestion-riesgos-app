@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
+import type { AppDispatch } from '../../app/store';
 import {
   Box,
   Typography,
@@ -124,7 +125,7 @@ const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
   CATEGORIAS.reduce((acc, { key }) => ({ ...acc, [key]: [] }), {} as Record<CategoryKey, CaracteristicaItem[]>);
 
 export default function ContextoExternoPage() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { showSuccess, showError } = useNotification();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';

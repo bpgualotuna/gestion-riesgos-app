@@ -35,7 +35,7 @@ export default function RiesgosPorTipologiaPage() {
 
   // Obtener procesos
   const { data: procesosData } = useGetProcesosQuery();
-  const procesos = procesosData?.data || [];
+  const procesos = procesosData ?? [];
 
   // Consulta filtrada en backend por proceso cuando aplica
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
@@ -44,7 +44,7 @@ export default function RiesgosPorTipologiaPage() {
       : procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
       : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
 
   const riesgos = riesgosData?.data || [];

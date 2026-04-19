@@ -7,6 +7,8 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Tab,
+  Tabs,
   Typography,
 } from '@mui/material';
 import { CLASIFICACION_RIESGO } from '../../utils/constants';
@@ -26,6 +28,7 @@ interface AreaBasica {
 
 interface Props {
   clasificacion: string;
+  setClasificacion: (value: string) => void;
   filtroArea: string;
   filtroProceso: string;
   setFiltroArea: (value: string) => void;
@@ -40,6 +43,7 @@ interface Props {
 
 const MapaFiltersPanel: React.FC<Props> = ({
   clasificacion,
+  setClasificacion,
   filtroArea,
   filtroProceso,
   setFiltroArea,
@@ -69,24 +73,32 @@ const MapaFiltersPanel: React.FC<Props> = ({
       String(p.areaId) === String(filtroArea),
   );
 
+  const tabTipoMapa =
+    clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 1 : 0;
+
+  const esPositivo = clasificacion === CLASIFICACION_RIESGO.POSITIVA;
+
   return (
     <>
-      {/* Filtros de Área / Proceso */}
-      <Card sx={{ mb: 3 }}>
+      {/* 1. Filtros arriba */}
+      <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            {mostrarFiltrosProceso && (
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Filtros
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            {mostrarFiltrosProceso ? (
               <>
-                <FormControl sx={{ minWidth: 200 }}>
-                  <InputLabel>Filtrar por Área</InputLabel>
+                <FormControl sx={{ minWidth: 220 }}>
+                  <InputLabel>Área</InputLabel>
                   <Select
                     value={filtroArea || 'all'}
                     onChange={(e) => {
                       const value = String(e.target.value || 'all');
                       setFiltroArea(value);
-                      setFiltroProceso('all'); // Reset proceso cuando cambia área
+                      setFiltroProceso('all');
                     }}
-                    label="Filtrar por Área"
+                    label="Área"
                   >
                     <MenuItem value="all">Todas las áreas</MenuItem>
                     {areaIdsUnicos.map((areaId) => {
@@ -104,12 +116,12 @@ const MapaFiltersPanel: React.FC<Props> = ({
                     })}
                   </Select>
                 </FormControl>
-                <FormControl sx={{ minWidth: 200 }}>
-                  <InputLabel>Filtrar por Proceso</InputLabel>
+                <FormControl sx={{ minWidth: 220 }}>
+                  <InputLabel>Proceso</InputLabel>
                   <Select
                     value={filtroProceso || 'all'}
                     onChange={(e) => setFiltroProceso(String(e.target.value))}
-                    label="Filtrar por Proceso"
+                    label="Proceso"
                   >
                     <MenuItem value="all">Todos los procesos</MenuItem>
                     {procesosFiltradosPorArea.map((proceso) => (
@@ -123,19 +135,49 @@ const MapaFiltersPanel: React.FC<Props> = ({
                   </Select>
                 </FormControl>
               </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Sin filtro por área/proceso en este rol; se muestran los riesgos
+                según sus permisos.
+              </Typography>
             )}
           </Box>
         </CardContent>
       </Card>
 
-      {/* Leyenda */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom fontWeight={600}>
-            Leyenda
+      {/* 2. Pestañas: dos mapas distintos (colores distintos) */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ pt: 2, pb: 2 }}>
+          <Tabs
+            value={tabTipoMapa}
+            onChange={(_, v) => {
+              setClasificacion(
+                v === 1
+                  ? CLASIFICACION_RIESGO.POSITIVA
+                  : CLASIFICACION_RIESGO.NEGATIVA,
+              );
+            }}
+            sx={{
+              borderBottom: 1,
+              borderColor: 'divider',
+              mb: 2,
+              '& .MuiTab-root': { fontWeight: 600, textTransform: 'none' },
+            }}
+          >
+            <Tab label="Amenazas y riesgos heredados (Excel)" />
+            <Tab label="Oportunidades (nuevo — cálculo distinto)" />
+          </Tabs>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {esPositivo
+              ? 'Solo riesgos con consecuencia positiva. La evaluación inherente usa la lógica de oportunidades (no la misma que el Excel de amenazas).'
+              : 'Riesgos que ya traían del Excel, migración o marcados como negativos: todo excepto oportunidades explícitas. Misma lógica de mapa y causas que antes.'}
+          </Typography>
+
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Leyenda de niveles (esta pestaña)
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-            {clasificacion === CLASIFICACION_RIESGO.POSITIVA ? (
+            {esPositivo ? (
               <>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Box
@@ -238,4 +280,3 @@ const MapaFiltersPanel: React.FC<Props> = ({
 };
 
 export default MapaFiltersPanel;
-

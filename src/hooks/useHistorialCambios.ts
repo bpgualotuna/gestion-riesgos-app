@@ -39,7 +39,7 @@ export function useHistorialCambios(procesoId?: string) {
         valoresAnteriores: params.valoresAnteriores,
         valoresNuevos: params.valoresNuevos,
         razonCambio: params.razonCambio,
-        usuarioId: user?.id || 'system',
+        usuarioId: String(user?.id ?? 'system'),
         usuarioNombre: user?.fullName || 'Sistema',
         fecha: new Date().toISOString(),
         createdAt: new Date().toISOString(),

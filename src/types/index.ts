@@ -16,6 +16,10 @@ export interface Riesgo {
   id: number | string;
   procesoId: number | string;
   numero: number;
+  /** Alias UI / API */
+  numeroIdentificacion?: string;
+  nombre?: string;
+  descripcionRiesgo?: string;
   descripcion: string;
   clasificacion: string;
   proceso: string;
@@ -108,6 +112,9 @@ export interface Proceso {
   gerenteNombre?: string;
   objetivoProceso: string;
   tipoProceso: string;
+  /** Alias legacy usado en algunas pantallas */
+  tipo?: string;
+  objetivos?: unknown;
   activo: boolean;
   estado: string; // borrador, en_revision, aprobado
 
@@ -173,7 +180,15 @@ export interface Cargo {
 export interface Usuario {
   id: number | string;
   nombre: string;
-  role: 'admin' | 'dueño_procesos' | 'supervisor' | 'gerente_general' | 'manager' | 'analyst' | 'director_procesos';
+  role:
+    | 'admin'
+    | 'dueño_procesos'
+    | 'gerente'
+    | 'supervisor'
+    | 'gerente_general'
+    | 'manager'
+    | 'analyst'
+    | 'director_procesos';
   email?: string;
   password?: string;
   activo: boolean;
@@ -300,20 +315,27 @@ export interface RiesgoMapa {
   impacto: number;
 }
 
+/** POST /riesgos: el backend acepta un superset de campos según el flujo de identificación. */
 export interface CreateRiesgoDto {
   procesoId: number | string;
-  descripcion: string;
-  clasificacion: string;
-  zona: string;
-  tipologiaNivelI: string;
-  tipologiaNivelII: string;
-  causaRiesgo: string;
-  fuenteCausa: string;
-  origen: string;
-  vicepresidenciaGerenciaAlta: string;
-  siglaVicepresidencia: string;
-  gerencia: string;
-  siglaGerencia: string;
+  descripcion?: string;
+  clasificacion?: string;
+  zona?: string;
+  tipologiaNivelI?: string;
+  tipologiaNivelII?: string;
+  causaRiesgo?: string;
+  fuenteCausa?: string;
+  origen?: string;
+  vicepresidenciaGerenciaAlta?: string;
+  siglaVicepresidencia?: string;
+  gerencia?: string;
+  siglaGerencia?: string;
+  numero?: number;
+  numeroIdentificacion?: string;
+  tipoRiesgoId?: number | string;
+  subtipoRiesgoId?: number | string;
+  objetivoId?: number;
+  evaluacion?: Record<string, unknown>;
 }
 
 export interface UpdateRiesgoDto extends Partial<CreateRiesgoDto> { }
@@ -379,6 +401,7 @@ export interface SubtipoRiesgo {
   nombre: string;
   descripcion?: string | null;
   tipoRiesgoId?: number;
+  codigo?: string;
 }
 
 export interface TipoRiesgo {
@@ -386,6 +409,7 @@ export interface TipoRiesgo {
   nombre: string;
   descripcion?: string | null;
   subtipos: SubtipoRiesgo[];
+  codigo?: string;
 }
 
 export interface Objetivo {
@@ -429,6 +453,8 @@ export interface ImpactoDescripcion {
 
 export interface RiesgoFormData {
   id: string;
+  /** Número corto del riesgo (algunas rutas usan `numero` en lugar de numeroIdentificacion). */
+  numero?: number | string;
   descripcionRiesgo: string;
   numeroIdentificacion: string;
   origenRiesgo: string;

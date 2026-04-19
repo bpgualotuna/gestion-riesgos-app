@@ -36,9 +36,9 @@ export default function DashboardGerenteGeneralPage() {
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
     { pageSize: 200, includeCausas: true },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
-  const { data: puntosMapa } = useGetPuntosMapaQuery({}, { keepUnusedDataFor: 300 });
+  const { data: puntosMapa } = useGetPuntosMapaQuery({});
 
 
   const riesgos = riesgosData?.data || [];

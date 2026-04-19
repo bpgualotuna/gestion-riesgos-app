@@ -14,6 +14,17 @@ export type GerenteGeneralMode = 'director' | 'proceso'; // director = superviso
 // Ambito del rol: SISTEMA = admin/configuración; OPERATIVO = riesgos, controles, planes
 export type AmbitoRol = 'SISTEMA' | 'OPERATIVO';
 
+/** Resultado extendido de `login` (2FA, setup, etc.). */
+export interface LoginResult {
+  success: boolean;
+  error?: string;
+  user?: User;
+  requiresSetup2FA?: boolean;
+  requires2FA?: boolean;
+  email?: string;
+  obligatorio?: boolean;
+}
+
 // User interface
 export interface User {
   id: number | string;
@@ -40,7 +51,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  login: (username: string, password: string) => Promise<LoginResult>;
   logout: () => void;
   isLoading: boolean;
   gerenteMode: GerenteModo | null;
@@ -148,7 +159,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => window.removeEventListener('auth:session-expired', handler);
   }, []);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User; requires2FA?: boolean; requiresSetup2FA?: boolean; email?: string; obligatorio?: boolean }> => {
+  const login = async (username: string, password: string): Promise<LoginResult> => {
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/auth/login`, {

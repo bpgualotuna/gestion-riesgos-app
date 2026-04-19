@@ -47,6 +47,7 @@ import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { assertUploadArchivoOk, messageForNetworkUploadFailure } from '../../utils/uploadFetch';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { swalConfirmEliminarArchivo, swalRunWithLoading } from '../../lib/swal';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import MaxFilesUploadPanel from '../../components/common/MaxFilesUploadPanel';
 
@@ -104,7 +105,10 @@ export default function AnalisisProcesoPage() {
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | null>(null);
 
   // Detectar cambios en descripción
-  const hasDescripcionChanges = useFormChanges(initialDescripcion, descripcion);
+  const hasDescripcionChanges = useFormChanges(
+    { descripcion: initialDescripcion },
+    { descripcion }
+  );
   
   const hasFileChanges =
     selectedCaracterizacion !== null ||
@@ -121,9 +125,6 @@ export default function AnalisisProcesoPage() {
     disabled: isReadOnly,
   });
 
-  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState<'caracterizacion' | 'flujoGrama' | null>(null);
-  const [deleteModalLoading, setDeleteModalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (mismo límite que /api/upload/archivo)
@@ -135,60 +136,48 @@ export default function AnalisisProcesoPage() {
     return null;
   };
 
-  const handleRequestDelete = (type: 'caracterizacion' | 'flujoGrama') => {
-    setFileToDelete(type);
-    setDeleteConfirmationOpen(true);
-  };
+  const handleRequestDelete = async (type: 'caracterizacion' | 'flujoGrama') => {
+    if (!(await swalConfirmEliminarArchivo()) || !procesoSeleccionado?.id) return;
 
-  const handleConfirmDelete = async () => {
-    if (!fileToDelete || !procesoSeleccionado?.id) {
-      setDeleteConfirmationOpen(false);
-      setFileToDelete(null);
-      setDeleteModalLoading(false);
-      return;
-    }
-    setDeleteModalLoading(true);
     try {
-      const isCaracterizacion = fileToDelete === 'caracterizacion';
-      const saved = isCaracterizacion ? savedCaracterizacion : savedFlujoGrama;
-      const selected = isCaracterizacion ? selectedCaracterizacion : selectedFlujoGrama;
-      if (selected) {
-        if (isCaracterizacion) setSelectedCaracterizacion(null);
-        else setSelectedFlujoGrama(null);
-      } else if (saved) {
-        const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(saved.url)}`;
-        const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-        const res = await fetch(deleteUrl, {
-          method: 'DELETE',
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.ok || res.status === 404) {
-          const payload: any = { id: String(procesoSeleccionado.id), analisis: descripcion };
-          if (isCaracterizacion) {
-            payload.documentoCaracterizacionUrl = null;
-            payload.documentoCaracterizacionNombre = null;
-            setSavedCaracterizacion(null);
-            setInitialSavedCaracterizacion(null);
+      await swalRunWithLoading('Eliminando…', async () => {
+        const isCaracterizacion = type === 'caracterizacion';
+        const saved = isCaracterizacion ? savedCaracterizacion : savedFlujoGrama;
+        const selected = isCaracterizacion ? selectedCaracterizacion : selectedFlujoGrama;
+        if (selected) {
+          if (isCaracterizacion) setSelectedCaracterizacion(null);
+          else setSelectedFlujoGrama(null);
+        } else if (saved) {
+          const deleteUrl = `${API_BASE_URL}/upload/archivo/by-url?url=${encodeURIComponent(saved.url)}`;
+          const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+          const res = await fetch(deleteUrl, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.ok || res.status === 404) {
+            const payload: any = { id: String(procesoSeleccionado.id), analisis: descripcion };
+            if (isCaracterizacion) {
+              payload.documentoCaracterizacionUrl = null;
+              payload.documentoCaracterizacionNombre = null;
+              setSavedCaracterizacion(null);
+              setInitialSavedCaracterizacion(null);
+            } else {
+              payload.documentoFlujoGramaUrl = null;
+              payload.documentoFlujoGramaNombre = null;
+              setSavedFlujoGrama(null);
+              setInitialSavedFlujoGrama(null);
+            }
+            await updateProceso(payload).unwrap();
+            showSuccess('Archivo eliminado');
           } else {
-            payload.documentoFlujoGramaUrl = null;
-            payload.documentoFlujoGramaNombre = null;
-            setSavedFlujoGrama(null);
-            setInitialSavedFlujoGrama(null);
+            const data = await res.json().catch(() => ({}));
+            showError(data?.error || 'Error al eliminar el archivo');
           }
-          await updateProceso(payload).unwrap();
-          showSuccess('Archivo eliminado');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          showError(data?.error || 'Error al eliminar el archivo');
         }
-      }
-      setDeleteConfirmationOpen(false);
-      setFileToDelete(null);
-    } catch (e) {
+      });
+    } catch {
       showError('Error al eliminar el archivo');
-    } finally {
-      setDeleteModalLoading(false);
     }
   };
 
@@ -714,36 +703,6 @@ export default function AnalisisProcesoPage() {
       </Dialog>
       </AppPageLayout>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteConfirmationOpen}
-        onClose={() => !deleteModalLoading && setDeleteConfirmationOpen(false)}
-        disableEscapeKeyDown={deleteModalLoading}
-      >
-        <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent>
-          {deleteModalLoading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, py: 3 }}>
-              <CircularProgress size={28} />
-              <Typography color="text.secondary">Eliminando…</Typography>
-            </Box>
-          ) : (
-            <Typography>
-              ¿Está seguro de que desea eliminar este archivo? Esta acción no se puede deshacer.
-            </Typography>
-          )}
-        </DialogContent>
-        {!deleteModalLoading && (
-          <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setDeleteConfirmationOpen(false)} color="inherit">
-              Cancelar
-            </Button>
-            <Button onClick={handleConfirmDelete} color="error" variant="contained">
-              Eliminar
-            </Button>
-          </Box>
-        )}
-      </Dialog>
     </>
   );
 }

@@ -178,7 +178,7 @@ export default function PlanAccionPage() {
     procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100, includeCausas: true }
       : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   
   // Auto-refetch cuando el contexto detecte cambios

@@ -87,7 +87,7 @@ export default function DashboardSupervisorPage() {
       pageSize: 200,
       includeCausas: true,
     },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const { data: incidenciasApi = [] } = useGetIncidenciasQuery({
     procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
@@ -98,7 +98,7 @@ export default function DashboardSupervisorPage() {
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery(
     filtroProceso !== 'all' ? { procesoId: filtroProceso } : {},
-    { keepUnusedDataFor: 300 }
+    {}
   );
 
   const riesgos = riesgosData?.data || [];
@@ -486,19 +486,20 @@ export default function DashboardSupervisorPage() {
           },
           estadisticas: {
             totalRiesgos: estadisticas.total,
-            criticos: estadisticas.criticos,
-            altos: estadisticas.altos,
-            medios: estadisticas.medios,
-            bajos: estadisticas.bajos,
+            criticos: estadisticas.porNivelRiesgo.critico,
+            altos: estadisticas.porNivelRiesgo.alto,
+            medios: estadisticas.porNivelRiesgo.medio,
+            bajos: estadisticas.porNivelRiesgo.bajo,
             fueraApetito: estadisticas.fueraApetito,
           },
           metricas: {
             totalIncidencias: metricsData.totalIncidencias,
             incidenciasAbiertas: metricsData.incidenciasAbiertas,
-            totalCausas: metricsData.totalCausas,
+            totalCausas: (causasApi || []).length,
             totalPlanes: metricsData.totalPlanes,
-            planesEnProgreso: metricsData.planesEnProgreso,
-            planesCompletados: metricsData.planesCompletados,
+            planesEnProgreso:
+              metricsData.planesPorEstado.pendiente + metricsData.planesPorEstado.en_progreso,
+            planesCompletados: metricsData.planesPorEstado.completado,
           },
           topRiesgos: filasTablaResumen.slice(0, 5).map((r: any) => ({
             codigo: r.codigo,
@@ -518,6 +519,7 @@ export default function DashboardSupervisorPage() {
     metricsData,
     filasTablaResumen,
     procesosData,
+    causasApi,
     setScreenContext
   ]);
 

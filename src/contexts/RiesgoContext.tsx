@@ -4,7 +4,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { Riesgo } from '../features/gestion-riesgos/types';
+import type { Riesgo } from '../types';
 
 export type ModoRiesgo = 'nuevo' | 'ver' | 'editar' | null;
 

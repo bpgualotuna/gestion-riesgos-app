@@ -9,8 +9,6 @@ export const useSafeProcesoById = (procesoId?: string | number) => {
 
   const query = useGetProcesoByIdQuery(String(procesoId || ''), {
     skip: !shouldFetch,
-    refetchOnMountOrArgChange: 60,
-    keepUnusedDataFor: 60,
   });
 
   return query;

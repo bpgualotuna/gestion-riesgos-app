@@ -119,7 +119,13 @@ export interface PlanAccionAPI {
   fechaInicio: string | null;
   fechaFin: string | null;
   fechaProgramada: string | null;
-  estado: 'pendiente' | 'en_revision' | 'revisado';
+  estado:
+    | 'pendiente'
+    | 'en_revision'
+    | 'revisado'
+    | 'en_ejecucion'
+    | 'completado'
+    | 'convertido_a_control';
   observaciones: string;
   controlDerivadoId: number | null;
   fechaConversion: string | null;

@@ -151,7 +151,7 @@ export default function EvaluacionControlPage() {
 
   const { data: riesgosApiData, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: String(procesoSeleccionado.id), pageSize: 100, includeCausas: true } : { pageSize: 0 },
-    { skip: !procesoSeleccionado, refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { skip: !procesoSeleccionado, refetchOnMountOrArgChange: false }
   );
 
   const [updateCausa] = useUpdateCausaMutation();

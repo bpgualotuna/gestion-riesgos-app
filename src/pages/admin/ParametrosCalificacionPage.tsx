@@ -67,6 +67,7 @@ import {
     useGetPesosImpactoQuery,
     useUpdatePesosImpactoMutation,
 } from '../../api/services/riesgosApi';
+import type { GridColDef } from '@mui/x-data-grid';
 import { TipoRiesgo, SubtipoRiesgo } from '../../types';
 import { DIMENSIONES_IMPACTO } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
@@ -92,6 +93,7 @@ function SubtiposCatalog({
     onDeleteSubtipo: (id: number) => Promise<void>;
 }) {
     const { showError, showSuccess } = useNotification();
+    const { confirmDelete } = useConfirm();
     const [tipoSeleccionado, setTipoSeleccionado] = useState<number | null>(tiposRiesgo[0]?.id ?? null);
 
     const subtipos = useMemo(() => {
@@ -444,7 +446,7 @@ export default function ParametrosCalificacionPage() {
         { field: 'nombre', headerName: 'Nombre', flex: 1 }
     ], []);
 
-    const frecuenciasColumns = useMemo(() => [
+    const frecuenciasColumns = useMemo((): GridColDef[] => [
         { field: 'id', headerName: 'ID', width: 80, editable: false },
         { field: 'label', headerName: 'Frecuencia', width: 160 },
         { field: 'descripcion', headerName: 'Descripción', flex: 1 },
@@ -880,16 +882,19 @@ export default function ParametrosCalificacionPage() {
                             defaultItem={{ nombre: '', descripcion: '', formula: '', categoria: 'riesgo', activa: true }}
                             onSave={(item) => {
                                 if (item.id) {
-                                    const updated = mockService.updateMockFormula(item.id, item);
-                                    setFormulas((prev) => prev.map((f) => (f.id === item.id ? updated : f)));
+                                    setFormulas((prev) =>
+                                        prev.map((f) => (f.id === item.id ? { ...f, ...item } : f))
+                                    );
                                 } else {
-                                    const created = mockService.createMockFormula(item);
-                                    setFormulas((prev) => [...prev, created]);
+                                    setFormulas((prev) => {
+                                        const nextId =
+                                            prev.reduce((m, f) => Math.max(m, Number(f.id) || 0), 0) + 1;
+                                        return [...prev, { ...item, id: nextId }];
+                                    });
                                 }
                             }}
                             onDelete={async (id) => {
                                 if (!(await confirmDelete('esta fórmula'))) return;
-                                mockService.deleteMockFormula(id);
                                 setFormulas((prev) => prev.filter((f) => f.id !== id));
                             }}
                         />

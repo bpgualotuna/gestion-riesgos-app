@@ -9,12 +9,12 @@ import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
 interface ResumenEstadisticasProps {
   matrizInherente: { [key: string]: unknown[] };
   matrizResidual: { [key: string]: unknown[] };
-  procesos: { id: string | number; nombre?: string; areaId?: string; areaNombre?: string }[];
+  procesos: { id: string | number; nombre?: string; areaId?: string | number; areaNombre?: string }[];
   filtroArea?: string;
   filtroProceso?: string;
   puntosFiltrados: {
     riesgoId: string | number;
-    procesoId: string | number;
+    procesoId?: string | number;
     procesoNombre?: string;
     numero?: number;
     siglaGerencia?: string;

@@ -71,7 +71,7 @@ export default function AlertasNotificationsMenuWithTabs({
   
   // Filtrar planes por proceso seleccionado (igual que en PlanesAccionPage)
   const { data: planesData } = useObtenerPlanesAccionQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id } : undefined
+    procesoSeleccionado ? { procesoId: Number(procesoSeleccionado.id) } : undefined
   );
 
   const planesPendientes = planesData?.planes?.filter(p => p.estado === 'pendiente').length || 0;

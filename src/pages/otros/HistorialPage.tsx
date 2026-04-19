@@ -10,7 +10,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -33,6 +32,7 @@ import {
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
+import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import { axiosClient } from '../../app/axiosClient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -427,8 +427,8 @@ export default function HistorialPage() {
       )}
 
       {/* Estadísticas rápidas */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid2 container spacing={2} sx={{ mb: 2 }}>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -439,8 +439,8 @@ export default function HistorialPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Grid2>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -451,8 +451,8 @@ export default function HistorialPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Grid2>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -463,8 +463,8 @@ export default function HistorialPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Grid2>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -475,8 +475,8 @@ export default function HistorialPage() {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Grid2>
+      </Grid2>
 
       {/* Mensaje informativo para usuarios no admin ni gerente general */}
       {!puedeVerTodos && (
@@ -497,8 +497,8 @@ export default function HistorialPage() {
             <Typography fontWeight={500}>Filtros de Búsqueda</Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
+            <Grid2 container spacing={2}>
+              <Grid2 item xs={12}>
                 <TextField
                   select
                   fullWidth
@@ -519,8 +519,8 @@ export default function HistorialPage() {
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12}>
+              </Grid2>
+              <Grid2 item xs={12}>
                 <Stack direction="row" spacing={2}>
                   <Button
                     variant="contained"
@@ -538,8 +538,8 @@ export default function HistorialPage() {
                     Limpiar
                   </Button>
                 </Stack>
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </AccordionDetails>
         </Accordion>
       )}
@@ -686,16 +686,16 @@ export default function HistorialPage() {
                   INFORMACIÓN GENERAL
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Grid2 container spacing={2}>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Fecha y Hora
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {formatearFechaDetallada(selectedLog.createdAt)}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Acción
                     </Typography>
@@ -718,8 +718,8 @@ export default function HistorialPage() {
                         }
                       />
                     </Box>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Usuario
                     </Typography>
@@ -729,8 +729,8 @@ export default function HistorialPage() {
                     <Typography variant="caption" color="textSecondary">
                       {selectedLog.usuarioEmail}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Rol
                     </Typography>
@@ -741,32 +741,32 @@ export default function HistorialPage() {
                         variant="outlined"
                       />
                     </Box>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Página/Módulo
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {TABLA_A_PAGINA[selectedLog.tabla] || selectedLog.tabla}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       ID del Registro
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {selectedLog.registroId || 'N/A'}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
+                  </Grid2>
+                  <Grid2 item xs={12}>
                     <Typography variant="caption" color="textSecondary">
                       Descripción del Registro
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {selectedLog.registroDesc || 'N/A'}
                     </Typography>
-                  </Grid>
-                </Grid>
+                  </Grid2>
+                </Grid2>
               </Box>
 
               {/* Cambios Realizados */}
@@ -809,24 +809,24 @@ export default function HistorialPage() {
                               ))}
                             </Box>
                           ) : (
-                            <Grid container spacing={2}>
-                              <Grid item xs={6}>
+                            <Grid2 container spacing={2}>
+                              <Grid2 item xs={6}>
                                 <Typography variant="caption" color="textSecondary">Valor Anterior</Typography>
                                 <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'error.lighter', borderColor: 'error.light' }}>
                                   <Typography variant="body2" fontFamily="monospace">
                                     {formatearValorParaDetalle(valores.anterior)}
                                   </Typography>
                                 </Paper>
-                              </Grid>
-                              <Grid item xs={6}>
+                              </Grid2>
+                              <Grid2 item xs={6}>
                                 <Typography variant="caption" color="textSecondary">Valor Nuevo</Typography>
                                 <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'success.lighter', borderColor: 'success.light' }}>
                                   <Typography variant="body2" fontFamily="monospace">
                                     {formatearValorParaDetalle(valores.nuevo)}
                                   </Typography>
                                 </Paper>
-                              </Grid>
-                            </Grid>
+                              </Grid2>
+                            </Grid2>
                           )}
                         </Paper>
                       );

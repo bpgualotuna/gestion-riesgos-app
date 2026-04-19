@@ -4,7 +4,6 @@ import {
   Paper,
   Typography,
   Button,
-  Grid,
   Alert,
   IconButton,
   Tooltip
@@ -15,6 +14,7 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
+import Grid2 from '../../utils/Grid2';
 import { useNotification } from '../../hooks/useNotification';
 
 interface RecoveryCodesDisplayProps {
@@ -122,9 +122,9 @@ export const RecoveryCodesDisplay: React.FC<RecoveryCodesDisplayProps> = ({
         </Box>
 
         {isVisible ? (
-          <Grid container spacing={1.5}>
+          <Grid2 container spacing={1.5}>
             {codes.map((code, index) => (
-              <Grid item xs={12} sm={6} key={index}>
+              <Grid2 item xs={12} sm={6} key={index}>
                 <Paper
                   variant="outlined"
                   sx={{
@@ -155,9 +155,9 @@ export const RecoveryCodesDisplay: React.FC<RecoveryCodesDisplayProps> = ({
                     <CopyIcon fontSize="small" />
                   </IconButton>
                 </Paper>
-              </Grid>
+              </Grid2>
             ))}
-          </Grid>
+          </Grid2>
         ) : (
           <Box
             sx={{

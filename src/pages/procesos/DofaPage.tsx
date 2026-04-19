@@ -55,6 +55,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { swalConfirmEliminarItemDofa } from '../../lib/swal';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
 import {
@@ -164,10 +165,6 @@ export default function DofaPage() {
     message: 'Tiene cambios sin guardar en la matriz DOFA.',
     disabled: isReadOnly,
   });
-
-  // Estado para confirmar eliminación
-  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ tipo: string; id: string } | null>(null);
 
   const contextoItems = useMemo(() => {
     const raw = (procesoData as { contextoItems?: unknown } | undefined)?.contextoItems;
@@ -387,18 +384,10 @@ export default function DofaPage() {
 
   // Validación removida - permite cargar sin proceso seleccionado
 
-  const confirmDelete = () => {
-    if (itemToDelete) {
-      handleDelete(itemToDelete.tipo as any, itemToDelete.id);
-      setDeleteConfirmationOpen(false);
-      setItemToDelete(null);
-      showSuccess('Elemento eliminado correctamente');
-    }
-  };
-
-  const requestDelete = (tipo: string, id: string) => {
-    setItemToDelete({ tipo, id });
-    setDeleteConfirmationOpen(true);
+  const requestDelete = async (tipo: string, id: string) => {
+    if (!(await swalConfirmEliminarItemDofa())) return;
+    handleDelete(tipo as any, id);
+    showSuccess('Elemento eliminado correctamente');
   };
 
   const renderDofaSection = (
@@ -1411,25 +1400,6 @@ export default function DofaPage() {
             }}
           >
             Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={deleteConfirmationOpen}
-        onClose={() => setDeleteConfirmationOpen(false)}
-      >
-        <DialogTitle>Confirmar Eliminación</DialogTitle>
-        <DialogContent>
-          <Typography>
-            ¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirmationOpen(false)} color="inherit">
-            Cancelar
-          </Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">
-            Eliminar
           </Button>
         </DialogActions>
       </Dialog>

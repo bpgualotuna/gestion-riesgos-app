@@ -204,9 +204,6 @@ export default function MaterializarRiesgosPage() {
       // 2) Hay pasado al menos un render (deferLoad)
       skip: !deferLoad || !procesoIdConsulta,
       refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
-      keepUnusedDataFor: 300 // 5 minutos de caché
     }
   );
   const [createIncidencia] = useCreateIncidenciaMutation();
@@ -235,10 +232,7 @@ export default function MaterializarRiesgosPage() {
   
   // OPTIMIZADO: Caché agresivo para impactos (cambian muy poco)
   const { data: impactosApi = [] } = useGetImpactosQuery(undefined, {
-    keepUnusedDataFor: 1800, // 30 minutos
     refetchOnMountOrArgChange: false,
-    refetchOnFocus: false,
-    refetchOnReconnect: false
   });
   const descripcionesImpacto = useMemo(() => {
     const base: Record<string, Record<number, string>> = {
@@ -276,9 +270,6 @@ export default function MaterializarRiesgosPage() {
       // Igual que incidencias: solo cargar cuando ya estemos dentro de la página
       skip: !deferLoad || !procesoIdConsulta,
       refetchOnMountOrArgChange: false, // No refetch si ya está en caché
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
-      keepUnusedDataFor: 600 // 10 minutos de caché
     }
   );
   const riesgosData = riesgosResponse?.data || [];
@@ -611,7 +602,9 @@ export default function MaterializarRiesgosPage() {
         (esAdmin || esSupervisorRiesgos) ? (
           <FiltroProcesoSupervisor
             soloSupervisores={false}
-            onProcesoSeleccionado={(proceso) => setProcesoFiltroId(String(proceso.id))}
+            onProcesoSeleccionado={(proceso) =>
+              setProcesoFiltroId(String((proceso as { id: string | number }).id))
+            }
           />
         ) : null
       }

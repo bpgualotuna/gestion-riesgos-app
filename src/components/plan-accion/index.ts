@@ -4,5 +4,5 @@ export { PlanAccionCard } from './PlanAccionCard';
 export { ConversionDialog } from './ConversionDialog';
 export { AlertasVencimientoPanel } from './AlertasVencimientoPanel';
 export { TrazabilidadTimeline } from './TrazabilidadTimeline';
-export { DeleteControlDialog } from './DeleteControlDialog';
+export { DeleteControlDialog, confirmDeleteControl } from './DeleteControlDialog';
 export { PlanDetalleDialog } from './PlanDetalleDialog';

@@ -8,7 +8,6 @@ import {
   Typography,
   Chip,
   Divider,
-  Grid,
   Alert,
 } from '@mui/material';
 import {
@@ -17,6 +16,7 @@ import {
   CheckCircle as CheckIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
+import Grid2 from '../../utils/Grid2';
 import { PlanAccionAPI } from '../../api/services/planTrazabilidadApi';
 
 interface PlanDetalleDialogProps {
@@ -193,40 +193,40 @@ export const PlanDetalleDialog: React.FC<PlanDetalleDialogProps> = ({
           <Typography variant="subtitle2" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
             Información General
           </Typography>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={6}>
+          <Grid2 container spacing={2} sx={{ mt: 1 }}>
+            <Grid2 item xs={6}>
               <Typography variant="body2" color="text.secondary">
                 Responsable
               </Typography>
               <Typography variant="body1">
                 {plan.responsable || 'No asignado'}
               </Typography>
-            </Grid>
-            <Grid item xs={6}>
+            </Grid2>
+            <Grid2 item xs={6}>
               <Typography variant="body2" color="text.secondary">
                 Fecha Programada
               </Typography>
               <Typography variant="body1">
                 {formatFecha(plan.fechaProgramada)}
               </Typography>
-            </Grid>
-            <Grid item xs={6}>
+            </Grid2>
+            <Grid2 item xs={6}>
               <Typography variant="body2" color="text.secondary">
                 Fecha de Inicio
               </Typography>
               <Typography variant="body1">
                 {formatFecha(plan.fechaInicio)}
               </Typography>
-            </Grid>
-            <Grid item xs={6}>
+            </Grid2>
+            <Grid2 item xs={6}>
               <Typography variant="body2" color="text.secondary">
                 Fecha de Fin
               </Typography>
               <Typography variant="body1">
                 {formatFecha(plan.fechaFin)}
               </Typography>
-            </Grid>
-          </Grid>
+            </Grid2>
+          </Grid2>
         </Box>
 
         {/* Control Derivado */}
@@ -243,24 +243,24 @@ export const PlanDetalleDialog: React.FC<PlanDetalleDialogProps> = ({
 
         {/* Metadatos */}
         <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
+          <Grid2 container spacing={2}>
+            <Grid2 item xs={6}>
               <Typography variant="caption" color="text.secondary">
                 Creado el
               </Typography>
               <Typography variant="body2">
                 {formatFecha(plan.createdAt)}
               </Typography>
-            </Grid>
-            <Grid item xs={6}>
+            </Grid2>
+            <Grid2 item xs={6}>
               <Typography variant="caption" color="text.secondary">
                 Última actualización
               </Typography>
               <Typography variant="body2">
                 {formatFecha(plan.updatedAt)}
               </Typography>
-            </Grid>
-          </Grid>
+            </Grid2>
+          </Grid2>
         </Box>
       </DialogContent>
 

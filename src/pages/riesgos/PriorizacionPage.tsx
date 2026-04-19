@@ -167,9 +167,10 @@ export default function PriorizaciónPage() {
     }
 
     try {
-      const responsableNombre = usuarios.find(u => u.id === responsableId)?.nombre || '';
+      const responsableNombre =
+        usuarios.find((u) => String(u.id) === String(responsableId))?.nombre || '';
       await createPriorizacion({
-        riesgoId: selectedPriorizacion.riesgoId,
+        riesgoId: String(selectedPriorizacion.riesgoId),
         respuesta,
         calificacionFinal: selectedPriorizacion.calificacionFinal || 0,
         responsable: responsableId || undefined,

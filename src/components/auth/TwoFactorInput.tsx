@@ -83,7 +83,7 @@ export const TwoFactorInput: React.FC<TwoFactorInputProps> = ({
     }
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     // Backspace: borrar y volver al campo anterior
     if (e.key === 'Backspace' && !values[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();

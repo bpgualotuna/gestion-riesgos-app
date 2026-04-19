@@ -5,7 +5,6 @@ import {
   Paper,
   TextField,
   Button,
-  Grid,
   Card,
   CardContent,
   Chip,
@@ -39,6 +38,7 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
+import Grid2 from '../../utils/Grid2';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useNotification } from '../../hooks/useNotification';
@@ -211,8 +211,8 @@ export default function ConfiguracionResidualPage() {
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                 Parámetros generales
               </Typography>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm={6} md={4}>
+              <Grid2 container spacing={2} alignItems="center">
+                <Grid2 item xs={12} sm={6} md={4}>
                   <TextField
                     fullWidth
                     label="Reducción dimensión cruzada (0-1)"
@@ -226,8 +226,8 @@ export default function ConfiguracionResidualPage() {
                     inputProps={{ step: 0.01, min: 0, max: 1 }}
                     size="small"
                   />
-                </Grid>
-              </Grid>
+                </Grid2>
+              </Grid2>
             </Card>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Pesos de Criterios de Evaluación

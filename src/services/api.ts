@@ -142,8 +142,8 @@ export const api = {
             const res = await fetch(`${API_BASE_URL}/procesos`, { headers: getHeaders() })
             return handleResponse(res)
         },
-        getById: async (id: number) => {
-            if (id === undefined || id === null || id === '') {
+        getById: async (id: number | string) => {
+            if (id == null || id === '') {
                 throw new Error('Invalid proceso id')
             }
             const res = await fetch(`${API_BASE_URL}/procesos/${id}`, { headers: getHeaders() })

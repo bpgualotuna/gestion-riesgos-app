@@ -278,7 +278,7 @@ export default function ProcesosDefinicionPage() {
     const handleDelete = async (id: string | number) => {
         if (!(await confirmDelete('este proceso'))) return;
         try {
-            await deleteProceso(id).unwrap();
+            await deleteProceso(String(id)).unwrap();
             showSuccess('Proceso eliminado correctamente');
         } catch (error) {
             showError((error as any)?.data?.error || 'Error al eliminar el proceso');

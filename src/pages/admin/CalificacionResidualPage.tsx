@@ -4,7 +4,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Alert,
   Card,
   CardContent,
@@ -24,6 +23,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
+import Grid2 from '../../utils/Grid2';
 import { Save as SaveIcon } from '@mui/icons-material';
 
 export type VariableControlItem = {
@@ -49,8 +49,8 @@ export type EvaluacionPriorizacionItem = {
   limiteInfMR?: number;
 };
 import {
-  useGetCalificacionResidualActivaQuery,
-  useUpdateCalificacionResidualMutation,
+  useGetConfiguracionResidualQuery,
+  useUpdateConfiguracionResidualMutation,
   useGetNivelesRiesgoQuery,
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
@@ -64,9 +64,9 @@ export default function CalificacionResidualPage() {
   const { puedeEditar } = useAuth();
   const canEdit = puedeEditar !== false;
   const { showSuccess, showError } = useNotification();
-  const { data: config, isLoading, refetch } = useGetCalificacionResidualActivaQuery();
+  const { data: config, isLoading, refetch } = useGetConfiguracionResidualQuery();
   const { data: niveles } = useGetNivelesRiesgoQuery();
-  const [updateConfig, { isLoading: isUpdating }] = useUpdateCalificacionResidualMutation();
+  const [updateConfig, { isLoading: isUpdating }] = useUpdateConfiguracionResidualMutation();
 
   const getColorNivel = (nivelNombre: string): string => {
     if (!niveles?.length) {
@@ -259,16 +259,16 @@ export default function CalificacionResidualPage() {
                 color={formData.activa ? 'success' : 'default'}
               />
             </Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+            <Grid2 container spacing={2}>
+              <Grid2 item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Nombre"
                   value={formData.nombre}
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Grid2>
+              <Grid2 item xs={12} md={6}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -278,8 +278,8 @@ export default function CalificacionResidualPage() {
                   }
                   label="Configuración activa"
                 />
-              </Grid>
-              <Grid item xs={12}>
+              </Grid2>
+              <Grid2 item xs={12}>
                 <TextField
                   fullWidth
                   multiline
@@ -288,8 +288,8 @@ export default function CalificacionResidualPage() {
                   value={formData.descripcion}
                   onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                 />
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </CardContent>
         </Card>
         )}
@@ -300,8 +300,8 @@ export default function CalificacionResidualPage() {
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Parámetros numéricos
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
+            <Grid2 container spacing={2}>
+              <Grid2 item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
                   type="number"
@@ -312,8 +312,8 @@ export default function CalificacionResidualPage() {
                     setFormData({ ...formData, decimalesEfectividad: parseInt(e.target.value) || 0 })
                   }
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              </Grid2>
+              <Grid2 item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
                   type="number"
@@ -324,8 +324,8 @@ export default function CalificacionResidualPage() {
                     setFormData({ ...formData, decimalesResidual: parseInt(e.target.value) || 0 })
                   }
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              </Grid2>
+              <Grid2 item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
                   type="number"
@@ -337,8 +337,8 @@ export default function CalificacionResidualPage() {
                   }
                   helperText="Ej: 15 = diseño+ejecución+solidez (5+5+5)"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              </Grid2>
+              <Grid2 item xs={12} sm={6} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Fórmula residual</InputLabel>
                   <Select
@@ -349,8 +349,8 @@ export default function CalificacionResidualPage() {
                     <MenuItem value="reduccion_por_efectividad">Reducción por efectividad</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </CardContent>
         </Card>
         )}

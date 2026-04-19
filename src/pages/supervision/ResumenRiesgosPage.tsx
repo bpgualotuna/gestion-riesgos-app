@@ -18,7 +18,7 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProceso } from '../../contexts/ProcesoContext';
-import AppDataGrid from '../../../../shared/components/ui/AppDataGrid';
+import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { colors } from '../../app/theme/colors';
 import { NIVELES_RIESGO } from '../../utils/constants';
@@ -39,12 +39,12 @@ export default function ResumenRiesgosPage() {
       : procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
       : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
 
   // Obtener procesos para mostrar nombres
   const { data: procesosData } = useGetProcesosQuery();
-  const procesos = procesosData?.data || [];
+  const procesos = procesosData ?? [];
 
   const riesgos = riesgosData?.data || [];
 

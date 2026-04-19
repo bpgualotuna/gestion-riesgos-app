@@ -170,7 +170,7 @@ export default function IncidenciasPage() {
   }, [impactosApi]);
   const { data: riesgosResponse, isLoading: isLoadingRiesgos } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 100 } : { pageSize: 100 },
-    { skip: !procesoSeleccionado?.id, refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { skip: !procesoSeleccionado?.id, refetchOnMountOrArgChange: false }
   );
   const isLoadingData = !!procesoSeleccionado?.id && (isLoadingRiesgos || isLoadingIncidencias);
   const riesgosDelProceso = useMemo(() => {
@@ -207,7 +207,6 @@ export default function IncidenciasPage() {
 
   const [initialFormData, setInitialFormData] = useState<Partial<Incidencia>>(formData);
   const [isSaving, setIsSaving] = useState(false);
-  const [formularioExpandido, setFormularioExpandido] = useState<string | null>(null);
 
   // Detectar cambios en el formulario
   const hasFormChanges = useFormChanges(initialFormData, formData, {
@@ -474,9 +473,9 @@ export default function IncidenciasPage() {
 
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                       <Chip
-                        label={`${incidencias.filter(inc => inc.riesgoId === riesgo.id).length} MATERIALIZADOS`}
+                        label={`${incidenciasFiltradas.filter(inc => inc.riesgoId === riesgo.id).length} MATERIALIZADOS`}
                         size="small"
-                        color={incidencias.some(inc => inc.riesgoId === riesgo.id) ? 'error' : 'success'}
+                        color={incidenciasFiltradas.some(inc => inc.riesgoId === riesgo.id) ? 'error' : 'success'}
                         variant="outlined"
                         sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
                       />
@@ -488,7 +487,7 @@ export default function IncidenciasPage() {
                     <Box sx={{ p: 2, bgcolor: '#fafafa' }}>
                       <Typography variant="subtitle2" gutterBottom>Causas Asociadas:</Typography>
                       {(riesgo.causas || []).map((causa: any) => {
-                        const incidenteExistente = incidencias.find((i) => i.riesgoId === riesgo.id && i.causaId === causa.id);
+                        const incidenteExistente = incidenciasFiltradas.find((i) => i.riesgoId === riesgo.id && i.causaId === causa.id);
                         const isExpanded = formularioExpandido?.causaId === causa.id;
 
                         return (

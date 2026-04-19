@@ -191,7 +191,7 @@ export default function PlanAccionPage() {
   // Riesgos filtrados en backend por proceso
   const { data: riesgosData } = useGetRiesgosQuery(
     procesoSeleccionado ? { procesoId: procesoSeleccionado.id, pageSize: 100 } : { pageSize: 200 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const riesgos = riesgosData?.data || [];
   
@@ -207,8 +207,8 @@ export default function PlanAccionPage() {
   const [tareaSeleccionada, setTareaSeleccionada] = useState<TareaPlanAccion | null>(null);
 
   const [formPlan, setFormPlan] = useState<CreatePlanAccionDto>({
-    riesgoId: riesgoSeleccionado?.id || '',
-    procesoId: procesoSeleccionado?.id || '',
+    riesgoId: String(riesgoSeleccionado?.id ?? ''),
+    procesoId: String(procesoSeleccionado?.id ?? ''),
     nombre: '',
     descripcion: '',
     objetivo: '',
@@ -298,8 +298,8 @@ export default function PlanAccionPage() {
     }
     // Validación removida - permite crear plan sin proceso explícitamente seleccionado
     setFormPlan({
-      riesgoId: riesgoSeleccionado.id,
-      procesoId: procesoSeleccionado.id,
+      riesgoId: String(riesgoSeleccionado.id),
+      procesoId: String(procesoSeleccionado?.id ?? ''),
       nombre: '',
       descripcion: '',
       objetivo: '',
@@ -316,8 +316,8 @@ export default function PlanAccionPage() {
 
   const handleEditarPlan = (plan: PlanAccion) => {
     setFormPlan({
-      riesgoId: plan.riesgoId,
-      procesoId: plan.procesoId,
+      riesgoId: String(plan.riesgoId ?? ''),
+      procesoId: String(plan.procesoId ?? ''),
       nombre: plan.nombre,
       descripcion: plan.descripcion || '',
       objetivo: plan.objetivo,
@@ -344,7 +344,7 @@ export default function PlanAccionPage() {
         ...formPlan,
         fechaCreacion: new Date().toISOString(),
         estado: 'borrador',
-        creadorId: user?.id || '',
+        creadorId: String(user?.id ?? ''),
         creadorNombre: user?.fullName || 'Usuario',
         responsableNombre: formPlan.responsableId ? 'Responsable' : (user?.fullName || 'Usuario'), // En producción vendría de la API
         tareas: [],

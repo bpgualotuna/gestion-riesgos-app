@@ -10,7 +10,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,6 +27,7 @@ import {
   Info as InfoIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import Grid2 from '../../utils/Grid2';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import axios from 'axios';
@@ -423,8 +423,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
       )}
 
       {/* Estadísticas rápidas */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid2 container spacing={2} sx={{ mb: 2 }}>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -435,8 +435,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Grid2>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -447,8 +447,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Grid2>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -459,8 +459,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Grid2>
+        <Grid2 item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="caption" color="textSecondary">
@@ -471,8 +471,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Grid2>
+      </Grid2>
 
       {/* Filtros */}
       <Accordion 
@@ -485,8 +485,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
           <Typography fontWeight={500}>Filtros de Búsqueda</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
+          <Grid2 container spacing={2}>
+            <Grid2 item xs={12} sm={6} md={3}>
               <TextField
                 select
                 fullWidth
@@ -508,8 +508,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                 <MenuItem value="Area">Áreas y Asignaciones</MenuItem>
                 <MenuItem value="Role">Roles y Permisos</MenuItem>
               </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            </Grid2>
+            <Grid2 item xs={12} sm={6} md={3}>
               <TextField
                 select
                 fullWidth
@@ -526,8 +526,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                 <MenuItem value="UPDATE">Actualizar</MenuItem>
                 <MenuItem value="DELETE">Eliminar</MenuItem>
               </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            </Grid2>
+            <Grid2 item xs={12} sm={6} md={3}>
               <TextField
                 type="date"
                 fullWidth
@@ -539,8 +539,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                 }
                 size="small"
               />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            </Grid2>
+            <Grid2 item xs={12} sm={6} md={3}>
               <TextField
                 type="date"
                 fullWidth
@@ -552,8 +552,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                 }
                 size="small"
               />
-            </Grid>
-            <Grid item xs={12}>
+            </Grid2>
+            <Grid2 item xs={12}>
               <Stack direction="row" spacing={2}>
                 <Button
                   variant="contained"
@@ -571,8 +571,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                   Limpiar
                 </Button>
               </Stack>
-            </Grid>
-          </Grid>
+            </Grid2>
+          </Grid2>
         </AccordionDetails>
       </Accordion>
 
@@ -621,16 +621,16 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                   INFORMACIÓN GENERAL
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Grid2 container spacing={2}>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Fecha y Hora
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {formatearFechaDetallada(selectedLog.createdAt)}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Acción
                     </Typography>
@@ -653,8 +653,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                         }
                       />
                     </Box>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Usuario
                     </Typography>
@@ -664,8 +664,8 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                     <Typography variant="caption" color="textSecondary">
                       {selectedLog.usuarioEmail}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Rol
                     </Typography>
@@ -676,32 +676,32 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                         variant="outlined"
                       />
                     </Box>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       Página/Módulo
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {TABLA_A_PAGINA[selectedLog.tabla] || selectedLog.tabla}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Grid2>
+                  <Grid2 item xs={6}>
                     <Typography variant="caption" color="textSecondary">
                       ID del Registro
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {selectedLog.registroId || 'N/A'}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
+                  </Grid2>
+                  <Grid2 item xs={12}>
                     <Typography variant="caption" color="textSecondary">
                       Descripción del Registro
                     </Typography>
                     <Typography variant="body2" fontWeight={500}>
                       {selectedLog.registroDesc || 'N/A'}
                     </Typography>
-                  </Grid>
-                </Grid>
+                  </Grid2>
+                </Grid2>
               </Box>
 
               {/* Cambios Realizados */}
@@ -744,24 +744,24 @@ export default function HistorialPage({ user }: HistorialPageProps) {
                               ))}
                             </Box>
                           ) : (
-                            <Grid container spacing={2}>
-                              <Grid item xs={6}>
+                            <Grid2 container spacing={2}>
+                              <Grid2 item xs={6}>
                                 <Typography variant="caption" color="textSecondary">Valor Anterior</Typography>
                                 <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'error.lighter', borderColor: 'error.light' }}>
                                   <Typography variant="body2" fontFamily="monospace">
                                     {formatearValorParaDetalle(valores.anterior)}
                                   </Typography>
                                 </Paper>
-                              </Grid>
-                              <Grid item xs={6}>
+                              </Grid2>
+                              <Grid2 item xs={6}>
                                 <Typography variant="caption" color="textSecondary">Valor Nuevo</Typography>
                                 <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'success.lighter', borderColor: 'success.light' }}>
                                   <Typography variant="body2" fontFamily="monospace">
                                     {formatearValorParaDetalle(valores.nuevo)}
                                   </Typography>
                                 </Paper>
-                              </Grid>
-                            </Grid>
+                              </Grid2>
+                            </Grid2>
                           )}
                         </Paper>
                       );

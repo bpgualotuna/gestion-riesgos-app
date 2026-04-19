@@ -2,7 +2,8 @@ import React from 'react';
 import { Box, Typography, Paper, Container } from '@mui/material';
 
 interface AppPageLayoutProps {
-    title: string;
+    /** Si se omite, no se muestra el título (útil en pantallas con encabezado propio). */
+    title?: string;
     description?: string;
     action?: React.ReactNode;
     alert?: React.ReactNode;
@@ -45,6 +46,7 @@ const AppPageLayout: React.FC<AppPageLayoutProps> = ({
                 flexWrap: 'wrap',
             }}>
                 <Box sx={{ minWidth: 0 }}>
+                    {title ? (
                     <Typography
                         variant="h4"
                         fontWeight={800}
@@ -58,6 +60,7 @@ const AppPageLayout: React.FC<AppPageLayoutProps> = ({
                     >
                         {title}
                     </Typography>
+                    ) : null}
                     {description && (
                         <Typography variant="body1" color="text.secondary" sx={{ opacity: 0.85, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                             {description}

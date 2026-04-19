@@ -39,12 +39,12 @@ export default function ResumenRiesgosPage() {
       : procesoSeleccionado
       ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
       : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
 
   // Obtener procesos para mostrar nombres
   const { data: procesosData } = useGetProcesosQuery();
-  const procesos = procesosData?.data || [];
+  const procesos = procesosData ?? [];
 
   const riesgos = riesgosData?.data || [];
 

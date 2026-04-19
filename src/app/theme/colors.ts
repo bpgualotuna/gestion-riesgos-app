@@ -79,6 +79,8 @@ export const colors = {
     card: "#FFFFFF",
     sidebar: "#FFFFFF",
     container: "#FFFFFF",
+    /** AppBar y superficies elevadas (tema COMWARE) */
+    elevated: "#FFFFFF",
   },
 
   // Colores Branding (adicionales)

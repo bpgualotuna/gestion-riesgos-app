@@ -71,7 +71,6 @@ const TablaResumenRiesgos: React.FC<TablaResumenRiesgosProps> = ({ filas }) => {
                     <AppDataGrid
                         rows={filas}
                         columns={columns}
-                        pageSize={5}
                     />
                 </div>
             </CardContent>

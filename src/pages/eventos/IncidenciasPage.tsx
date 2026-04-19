@@ -97,9 +97,6 @@ export default function IncidenciasPage() {
     {
       skip: !puedeElegirSinProceso && !procesoSeleccionado?.id, // Skip si no hay proceso y no puede elegir sin proceso
       refetchOnMountOrArgChange: false, // No refetch si ya está en caché
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
-      keepUnusedDataFor: 600 // 10 minutos de caché
     }
   );
   
@@ -110,9 +107,6 @@ export default function IncidenciasPage() {
     {
       skip: !procesoSeleccionado?.id && !esSupervisorRiesgos,
       refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
-      keepUnusedDataFor: 300 // 5 minutos de caché
     }
   );
   

@@ -4,7 +4,7 @@
  */
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
+import { API_BASE_URL, AUTH_TOKEN_KEY, CLASIFICACION_RIESGO } from '../../utils/constants';
 import type {
   Riesgo,
   CreateRiesgoDto,
@@ -21,8 +21,6 @@ import type {
   Proceso,
   CreateProcesoDto,
   UpdateProcesoDto,
-  CreateNotificacionDto,
-  UpdateNotificacionDto,
   Causa,
   ImpactoDescripcion,
   ImpactoTipo,
@@ -51,7 +49,7 @@ const baseQuery = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa'],
   // Caché: menos refetch y respuestas más ágiles; backend devuelve solo campos necesarios
   keepUnusedDataFor: 120,
   refetchOnMountOrArgChange: 120,
@@ -286,10 +284,21 @@ export const riesgosApi = createApi({
     // MAPA DE RIESGOS
     // ============================================
     getPuntosMapa: builder.query<PuntoMapa[], FiltrosRiesgo>({
-      query: (params) => ({
-        url: 'riesgos/mapa',
-        params: params ?? {},
-      }),
+      query: (params) => {
+        const p = params ?? {};
+        const clasificacion =
+          p.clasificacion && p.clasificacion !== 'all'
+            ? p.clasificacion
+            : CLASIFICACION_RIESGO.NEGATIVA;
+        const raw: Record<string, unknown> = {
+          procesoId: p.procesoId,
+          clasificacion,
+        };
+        const paramsClean = Object.fromEntries(
+          Object.entries(raw).filter(([, v]) => v !== undefined && v !== null)
+        );
+        return { url: 'riesgos/mapa', params: paramsClean };
+      },
       providesTags: ['Riesgo', 'Evaluacion', 'PuntosMapa'],
       keepUnusedDataFor: 180,
     }),
@@ -824,8 +833,6 @@ export const riesgosApi = createApi({
       query: () => 'catalogos/campos-habilitacion-ui',
       providesTags: ['Configuracion'],
       keepUnusedDataFor: 120,
-      refetchOnFocus: true,
-      refetchOnReconnect: true,
     }),
 
     updateCamposHabilitacionUi: builder.mutation<

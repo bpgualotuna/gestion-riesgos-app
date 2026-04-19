@@ -7,6 +7,9 @@ const VALID_TRANSITIONS: Record<EstadoPlan, EstadoPlan[]> = {
   pendiente: ['en_revision'],
   en_revision: ['revisado', 'pendiente'],
   revisado: ['en_revision'],
+  en_ejecucion: [],
+  completado: [],
+  convertido_a_control: [],
 };
 
 // Descripciones de cada estado
@@ -14,6 +17,9 @@ const ESTADO_DESCRIPTIONS: Record<EstadoPlan, string> = {
   pendiente: 'El plan está pendiente de revisión',
   en_revision: 'El plan ha sido revisado',
   revisado: 'El plan ha sido aprobado',
+  en_ejecucion: 'Plan en ejecución',
+  completado: 'Plan completado',
+  convertido_a_control: 'Convertido a control',
 };
 
 // Etiquetas amigables para cada estado
@@ -21,6 +27,9 @@ const ESTADO_LABELS: Record<EstadoPlan, string> = {
   pendiente: 'Pendiente',
   en_revision: 'Revisado',
   revisado: 'Aprobado',
+  en_ejecucion: 'En ejecución',
+  completado: 'Completado',
+  convertido_a_control: 'Convertido a control',
 };
 
 export const EstadoPlanSelector: React.FC<EstadoPlanSelectorProps> = ({
@@ -36,6 +45,9 @@ export const EstadoPlanSelector: React.FC<EstadoPlanSelectorProps> = ({
     'pendiente',
     'en_revision',
     'revisado',
+    'en_ejecucion',
+    'completado',
+    'convertido_a_control',
   ];
 
   const handleChange = (event: SelectChangeEvent<EstadoPlan>) => {

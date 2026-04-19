@@ -24,10 +24,13 @@ import { EstadoPlanSelector } from './EstadoPlanSelector';
 import { useState, useEffect } from 'react';
 
 // Colores para cada estado
-const ESTADO_COLORS: Record<EstadoPlan, 'default' | 'primary' | 'warning' | 'success' | 'secondary'> = {
+const ESTADO_COLORS: Record<EstadoPlan, 'default' | 'primary' | 'warning' | 'success' | 'secondary' | 'info'> = {
   pendiente: 'warning',
   en_revision: 'primary',
   revisado: 'success',
+  en_ejecucion: 'info',
+  completado: 'success',
+  convertido_a_control: 'secondary',
 };
 
 export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
@@ -102,6 +105,9 @@ export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
       pendiente: 'PENDIENTE',
       en_revision: 'REVISADO',
       revisado: 'APROBADO',
+      en_ejecucion: 'EN EJECUCIÓN',
+      completado: 'COMPLETADO',
+      convertido_a_control: 'CONVERTIDO A CONTROL',
     };
     
     return estadoLabels[estado] || estado.replace(/_/g, ' ').toUpperCase();

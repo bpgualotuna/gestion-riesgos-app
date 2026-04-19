@@ -43,6 +43,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
     const [open, setOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<TipoRiesgo | null>(null);
     const [formData, setFormData] = useState<TipoRiesgo>({
+        id: 0,
         codigo: '',
         nombre: '',
         descripcion: '',
@@ -60,6 +61,7 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         } else {
             setEditingItem(null);
             setFormData({
+                id: 0,
                 codigo: '',
                 nombre: '',
                 descripcion: '',
@@ -106,7 +108,15 @@ export default function RiesgosCatalog({ data, onSave }: RiesgosCatalogProps) {
         if (newSubtipo.codigo && newSubtipo.descripcion) {
             setFormData({
                 ...formData,
-                subtipos: [...formData.subtipos, newSubtipo]
+                subtipos: [
+                    ...formData.subtipos,
+                    {
+                        id: Date.now(),
+                        nombre: newSubtipo.descripcion,
+                        codigo: newSubtipo.codigo,
+                        descripcion: newSubtipo.descripcion,
+                    },
+                ],
             });
             setNewSubtipo({ codigo: '', descripcion: '' });
         }

@@ -65,7 +65,7 @@ export const PlanesAccionPage = () => {
 
   // Obtener planes desde el backend, filtrados por proceso si hay uno seleccionado
   const { data, isLoading, error, refetch } = useObtenerPlanesAccionQuery(
-    procesoSeleccionado ? { procesoId: procesoSeleccionado.id } : undefined
+    procesoSeleccionado ? { procesoId: Number(procesoSeleccionado.id) } : undefined
   );
   const [cambiarEstado, { isLoading: cambiandoEstado }] = useCambiarEstadoPlanMutation();
   const [convertirAControl, { isLoading: convirtiendoAControl }] = useConvertirPlanAControlMutation();
@@ -106,9 +106,12 @@ export const PlanesAccionPage = () => {
       
       // Mapear estado del frontend al backend
       const estadoMap: Record<EstadoPlan, string> = {
-        'pendiente': 'pendiente',
-        'en_revision': 'en_revision',
-        'revisado': 'revisado'
+        pendiente: 'pendiente',
+        en_revision: 'en_revision',
+        revisado: 'revisado',
+        en_ejecucion: 'en_ejecucion',
+        completado: 'completado',
+        convertido_a_control: 'convertido_a_control',
       };
 
       const estadoBackend = estadoMap[nuevoEstado] || 'en_revision';

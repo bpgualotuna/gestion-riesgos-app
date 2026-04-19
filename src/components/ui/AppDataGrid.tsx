@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
-import type { DataGridProps } from '@mui/x-data-grid';
+import type { DataGridProps, GridPaginationModel } from '@mui/x-data-grid';
 import { Box, Paper, useTheme, useMediaQuery, Typography, IconButton } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { PAGINATION } from '../../utils/constants';
@@ -28,7 +28,7 @@ export default function AppDataGrid({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [paginationModel, setPaginationModel] = useState(() => ({
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>(() => ({
     page: 0,
     pageSize: PAGINATION.DEFAULT_PAGE_SIZE,
   }));

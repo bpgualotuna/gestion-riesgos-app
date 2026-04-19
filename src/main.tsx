@@ -23,8 +23,12 @@ if (typeof console !== 'undefined') {
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import 'sweetalert2/dist/sweetalert2.min.css';
 import './app/theme/variables.css';
 import './index.css';
+import { initSwalTheme } from './lib/swal';
+
+initSwalTheme();
 
 const rootElement = document.getElementById('root');
 

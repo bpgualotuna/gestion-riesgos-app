@@ -11,7 +11,7 @@ export interface CalificacionInherenteConfig {
   activa: boolean;
   formulaBase?: {
     tipoOperacion: string;
-    campos: Array<{ tabla: string; campo: string; tipo: string }>;
+    campos: Array<{ tabla: string; campo: string; tipo: string; descripcion?: string }>;
   };
   excepciones: Array<{
     condiciones: Record<string, number>;
@@ -26,6 +26,7 @@ export interface CalificacionInherenteConfig {
     incluirMinimo: boolean;
     incluirMaximo: boolean;
     orden: number;
+    activo?: boolean;
   }>;
   reglaAgregacion?: {
     tipoAgregacion: string;
@@ -278,7 +279,7 @@ export async function determinarNivelRiesgo(valor: number): Promise<string> {
   
   // Ordenar rangos por orden (de mayor a menor)
   const rangosOrdenados = [...config.rangos]
-    .filter(r => r.activo)
+    .filter((r) => r.activo !== false)
     .sort((a, b) => a.orden - b.orden);
 
   for (const rango of rangosOrdenados) {

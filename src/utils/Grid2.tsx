@@ -5,6 +5,8 @@ import Grid, { GridProps as MuiGridProps } from '@mui/material/Grid';
 import React from 'react';
 
 export interface Grid2Props extends Omit<MuiGridProps, 'xs' | 'sm' | 'md' | 'lg' | 'xl'> {
+  /** Compatibilidad con Grid v2: en MUI 7 no existe; se ignora al pasar al Grid subyacente. */
+  item?: boolean;
   xs?: number | 'auto' | boolean;
   sm?: number | 'auto' | boolean;
   md?: number | 'auto' | boolean;
@@ -13,7 +15,7 @@ export interface Grid2Props extends Omit<MuiGridProps, 'xs' | 'sm' | 'md' | 'lg'
 }
 
 const Grid2 = React.forwardRef<HTMLDivElement, Grid2Props>((props, ref) => {
-  const { xs, sm, md, lg, xl, ...rest } = props;
+  const { xs, sm, md, lg, xl, item: _item, ...rest } = props;
   
   // Convertir props de breakpoint a size
   const size: MuiGridProps['size'] = {};

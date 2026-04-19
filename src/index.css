@@ -35,6 +35,11 @@ body {
   color: #000;
 }
 
+/* SweetAlert2 por encima de modales MUI (z-index ~1300) y notificaciones */
+.swal2-container {
+  z-index: 20000 !important;
+}
+
 #root {
   min-height: 100vh;
   background-color: #E8E8E8;

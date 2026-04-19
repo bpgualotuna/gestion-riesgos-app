@@ -8,7 +8,7 @@ import { calcularResidualDesdeCausas } from './residualDesdeCausas';
  * 3) inherentes del punto
  */
 export function resolverCoordsResidualMapa(
-  punto: Pick<PuntoMapa, 'probabilidad' | 'impacto' | 'probabilidadResidual' | 'impactoResidual'>,
+  punto: Partial<Pick<PuntoMapa, 'probabilidad' | 'impacto' | 'probabilidadResidual' | 'impactoResidual'>>,
   riesgo?: Riesgo | null
 ): { probabilidadResidual: number; impactoResidual: number } {
   let probabilidadResidual: number | undefined | null = undefined;

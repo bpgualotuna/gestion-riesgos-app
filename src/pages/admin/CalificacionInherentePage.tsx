@@ -5,7 +5,6 @@ import {
   Paper,
   TextField,
   Button,
-  Grid,
   Alert,
   Card,
   CardContent,
@@ -36,6 +35,7 @@ import {
   Edit as EditIcon,
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
+import Grid2 from '../../utils/Grid2';
 import {
   useGetCalificacionInherenteActivaQuery,
   useUpdateCalificacionInherenteMutation,
@@ -317,8 +317,8 @@ export default function CalificacionInherentePage() {
                 color={formData.activa ? 'success' : 'default'}
               />
             </Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+            <Grid2 container spacing={2}>
+              <Grid2 item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Nombre"
@@ -326,8 +326,8 @@ export default function CalificacionInherentePage() {
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   disabled
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Grid2>
+              <Grid2 item xs={12} md={6}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -337,8 +337,8 @@ export default function CalificacionInherentePage() {
                   }
                   label="Configuración Activa"
                 />
-              </Grid>
-              <Grid item xs={12}>
+              </Grid2>
+              <Grid2 item xs={12}>
                 <TextField
                   fullWidth
                   multiline
@@ -347,8 +347,8 @@ export default function CalificacionInherentePage() {
                   value={formData.descripcion}
                   onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                 />
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </CardContent>
         </Card>
 
@@ -358,8 +358,8 @@ export default function CalificacionInherentePage() {
             <Typography variant="h6" fontWeight={600} gutterBottom>
               1. Fórmula Base
             </Typography>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={4}>
+            <Grid2 container spacing={2} sx={{ mt: 1 }}>
+              <Grid2 item xs={12} md={4}>
                 <FormControl fullWidth>
                   <InputLabel>Tipo de Operación</InputLabel>
                   <Select
@@ -377,8 +377,8 @@ export default function CalificacionInherentePage() {
                     <MenuItem value="promedio">Promedio</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
-              <Grid item xs={12} md={8}>
+              </Grid2>
+              <Grid2 item xs={12} md={8}>
                 <Alert severity="info" sx={{ mt: 1 }}>
                   <Typography variant="body2">
                     <strong>Campos actuales:</strong> Frecuencia × Calificación Global Impacto
@@ -387,8 +387,8 @@ export default function CalificacionInherentePage() {
                     Los campos se seleccionan de la tabla CausaRiesgo
                   </Typography>
                 </Alert>
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </CardContent>
         </Card>
 
@@ -593,8 +593,8 @@ export default function CalificacionInherentePage() {
             <Typography variant="h6" fontWeight={600} gutterBottom>
               4. Regla de Agregación (Calificación Inherente Global)
             </Typography>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={4}>
+            <Grid2 container spacing={2} sx={{ mt: 1 }}>
+              <Grid2 item xs={12} md={4}>
                 <FormControl fullWidth>
                   <InputLabel>Tipo de Agregación</InputLabel>
                   <Select
@@ -613,8 +613,8 @@ export default function CalificacionInherentePage() {
                     <MenuItem value="minimo">Mínimo</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
-              <Grid item xs={12} md={8}>
+              </Grid2>
+              <Grid2 item xs={12} md={8}>
                 <Alert severity="info">
                   <Typography variant="body2">
                     La calificación inherente global del riesgo es el{' '}
@@ -622,8 +622,8 @@ export default function CalificacionInherentePage() {
                     inherentes de sus causas.
                   </Typography>
                 </Alert>
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </CardContent>
         </Card>
 
@@ -648,8 +648,8 @@ export default function CalificacionInherentePage() {
             {excepcionEditando !== null ? 'Editar Excepción' : 'Agregar Excepción'}
           </DialogTitle>
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={6}>
+            <Grid2 container spacing={2} sx={{ mt: 1 }}>
+              <Grid2 item xs={6}>
                 <TextField
                   fullWidth
                   type="number"
@@ -659,8 +659,8 @@ export default function CalificacionInherentePage() {
                     setExcepcionTemp({ ...excepcionTemp, frecuencia: parseInt(e.target.value) })
                   }
                 />
-              </Grid>
-              <Grid item xs={6}>
+              </Grid2>
+              <Grid2 item xs={6}>
                 <TextField
                   fullWidth
                   type="number"
@@ -673,8 +673,8 @@ export default function CalificacionInherentePage() {
                     })
                   }
                 />
-              </Grid>
-              <Grid item xs={6}>
+              </Grid2>
+              <Grid2 item xs={6}>
                 <TextField
                   fullWidth
                   type="number"
@@ -684,8 +684,8 @@ export default function CalificacionInherentePage() {
                     setExcepcionTemp({ ...excepcionTemp, resultado: parseFloat(e.target.value) })
                   }
                 />
-              </Grid>
-              <Grid item xs={6}>
+              </Grid2>
+              <Grid2 item xs={6}>
                 <TextField
                   fullWidth
                   type="number"
@@ -695,8 +695,8 @@ export default function CalificacionInherentePage() {
                     setExcepcionTemp({ ...excepcionTemp, prioridad: parseInt(e.target.value) })
                   }
                 />
-              </Grid>
-              <Grid item xs={12}>
+              </Grid2>
+              <Grid2 item xs={12}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -706,8 +706,8 @@ export default function CalificacionInherentePage() {
                   }
                   label="Activa"
                 />
-              </Grid>
-            </Grid>
+              </Grid2>
+            </Grid2>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setExcepcionDialog(false)}>Cancelar</Button>

@@ -303,7 +303,7 @@ export default function AreasPage() {
     // Lista completa de responsables de un proceso en formato { usuarioId, modo } (para enviar al backend)
     const getResponsablesProcesoRaw = (procesoId: string | number): Array<{ usuarioId: number; modo: string }> => {
         const list = getResponsablesProceso(procesoId);
-        return list.map((r: any) => ({ usuarioId: r.id, modo: (r.modo || 'proceso') as string }));
+        return list.map((r: any) => ({ usuarioId: Number(r.id), modo: String(r.modo || 'proceso') }));
     };
 
     const handleProcessToggle = (procesoId: string | number, isChecked: boolean) => {
@@ -316,7 +316,7 @@ export default function AreasPage() {
             : 'proceso';
         
         const procesoIdStr = String(procesoId);
-        const usuarioId = selectedUserForAssignment.id;
+        const usuarioId = Number(selectedUserForAssignment.id);
         
         // Usar estado local si existe; si no, cargar lista completa desde API (directores + dueños) para no borrar al guardar
         const responsablesActuales = responsablesSeleccionados[procesoIdStr] ?? getResponsablesProcesoRaw(procesoId);
@@ -360,7 +360,7 @@ export default function AreasPage() {
         
         // Agregar/remover como responsable de todos los procesos del área
         const procesosDelArea = procesos.filter(p => String(p.areaId) === String(areaId));
-        const usuarioId = selectedUserForAssignment.id;
+        const usuarioId = Number(selectedUserForAssignment.id);
         
         const nuevosResponsables = { ...responsablesSeleccionados };
         
@@ -394,9 +394,14 @@ export default function AreasPage() {
     const saveAssignments = async () => {
         try {
             const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsables]) => {
-                const responsablesConModo = responsables.map(r => ({
-                    usuarioId: r.usuarioId,
-                    modo: r.modo
+                const responsablesConModo = responsables.map((r) => ({
+                    usuarioId: Number(r.usuarioId),
+                    modo:
+                        r.modo === 'director'
+                            ? ('supervisor' as const)
+                            : r.modo === 'proceso'
+                              ? ('dueño' as const)
+                              : (r.modo as 'supervisor' | 'dueño'),
                 }));
                 await updateResponsables({
                     procesoId,
@@ -443,7 +448,7 @@ export default function AreasPage() {
     };
     
     // Verificar si un proceso tiene a un usuario como responsable en el modo actual
-    const isProcesoResponsable = (procesoId: string | number, usuarioId: number): boolean => {
+    const isProcesoResponsable = (procesoId: string | number, usuarioId: number | string): boolean => {
         // Determinar el modo según el rol del usuario seleccionado
         // Si NO es gerente, siempre usar modo "proceso"
         // Si es gerente, usar el tab seleccionado
@@ -457,7 +462,9 @@ export default function AreasPage() {
         
         // Si hay cambios locales (incluso si es array vacío), usar esos
         if (responsablesLocal !== undefined) {
-            return responsablesLocal.some(r => r.usuarioId === usuarioId && r.modo === modoActual);
+            return responsablesLocal.some(
+                (r) => r.usuarioId === Number(usuarioId) && r.modo === modoActual
+            );
         }
         
         // 2. Si no hay cambios locales, buscar en los datos originales de la API
@@ -465,15 +472,19 @@ export default function AreasPage() {
         
         if (proceso && (proceso as any).responsablesList) {
             const responsablesApi = (proceso as any).responsablesList || [];
-            return responsablesApi.some((r: any) => r.id === usuarioId && r.modo === modoActual);
+            return responsablesApi.some(
+                (r: any) => Number(r.id) === Number(usuarioId) && r.modo === modoActual
+            );
         }
         return false;
     };
     
-    const getModoProceso = (procesoId: string | number, usuarioId: number): string | null => {
+    const getModoProceso = (procesoId: string | number, usuarioId: number | string): string | null => {
         const responsables = responsablesSeleccionados[String(procesoId)] || [];
         const modoActual = assignmentSubTab === 0 ? 'director' : 'proceso';
-        const responsable = responsables.find(r => r.usuarioId === usuarioId && r.modo === modoActual);
+        const responsable = responsables.find(
+            (r) => r.usuarioId === Number(usuarioId) && r.modo === modoActual
+        );
         return responsable?.modo || null;
     };
     

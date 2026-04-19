@@ -64,11 +64,13 @@ export default function RiesgosProcesosPage() {
       : procesoSeleccionado
         ? { procesoId: procesoSeleccionado.id, pageSize: 100 }
         : { pageSize: 100 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
 
   // Estadísticas filtradas por proceso
-  const { data: estadisticas } = useGetEstadisticasQuery(procesoSeleccionado?.id);
+  const { data: estadisticas } = useGetEstadisticasQuery(
+    procesoSeleccionado?.id != null ? String(procesoSeleccionado.id) : undefined
+  );
 
   const riesgos = riesgosData?.data || [];
 

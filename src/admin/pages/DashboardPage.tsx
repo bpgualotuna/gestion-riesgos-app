@@ -1,4 +1,5 @@
-import { Box, Typography, Grid, Paper, Card, CardContent, CardHeader } from '@mui/material';
+import { Box, Typography, Paper, Card, CardContent, CardHeader } from '@mui/material';
+import Grid2 from '../../utils/Grid2';
 import { People as PeopleIcon, Business as BusinessIcon, Settings as SettingsIcon, Warning as WarningIcon } from '@mui/icons-material';
 
 interface DashboardPageProps {
@@ -19,9 +20,9 @@ export default function DashboardPage({ user }: DashboardPageProps) {
         Dashboard
       </Typography>
 
-      <Grid container spacing={2}>
+      <Grid2 container spacing={2}>
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
+          <Grid2 item xs={12} sm={6} md={3} key={index}>
             <Card>
               <CardHeader
                 avatar={
@@ -44,9 +45,9 @@ export default function DashboardPage({ user }: DashboardPageProps) {
                 subheader={stat.value}
               />
             </Card>
-          </Grid>
+          </Grid2>
         ))}
-      </Grid>
+      </Grid2>
 
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>

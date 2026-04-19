@@ -89,7 +89,7 @@ export default function ResumenDirectorPage() {
   const { data: procesos = [], isLoading: loadingProcesos } = useGetProcesosQuery();
   const { data: riesgosData } = useGetRiesgosQuery(
     { pageSize: 200 },
-    { refetchOnMountOrArgChange: false, keepUnusedDataFor: 300 }
+    { refetchOnMountOrArgChange: false }
   );
   const todosRiesgos = riesgosData?.data || [];
 
@@ -113,42 +113,43 @@ export default function ResumenDirectorPage() {
 
   // Filtrar procesos asignados al director
   const procesosAsignados = useMemo(() => {
-    return procesos.filter((p) => p.directorId === user?.id);
+    return procesos.filter((p) => Number(p.directorId) === Number(user?.id));
   }, [procesos, user]);
 
   // Agrupar procesos por área
   const procesosPorArea = useMemo(() => {
     const agrupados: { [key: string]: { area: typeof mockAreas[0]; procesos: Proceso[] } } = {};
     procesosAsignados.forEach((proceso) => {
-      const areaId = proceso.areaId || 'sin-area';
-      if (!agrupados[areaId]) {
-        const area = mockAreas.find((a) => a.id === areaId) || { id: areaId, nombre: 'Sin área asignada' };
-        agrupados[areaId] = { area, procesos: [] };
+      const areaKey = proceso.areaId != null && proceso.areaId !== '' ? String(proceso.areaId) : 'sin-area';
+      if (!agrupados[areaKey]) {
+        const area =
+          mockAreas.find((a) => a.id === areaKey) || { id: areaKey, nombre: 'Sin área asignada' };
+        agrupados[areaKey] = { area, procesos: [] };
       }
-      agrupados[areaId].procesos.push(proceso);
+      agrupados[areaKey].procesos.push(proceso);
     });
     return agrupados;
   }, [procesosAsignados]);
 
   // Obtener observaciones de un proceso
-  const getObservacionesProceso = (procesoId: string) => {
-    return observaciones.filter((obs) => obs.procesoId === procesoId);
+  const getObservacionesProceso = (procesoId: string | number) => {
+    return observaciones.filter((obs) => String(obs.procesoId) === String(procesoId));
   };
 
   // Contar observaciones pendientes
-  const contarObservacionesPendientes = (procesoId: string) => {
+  const contarObservacionesPendientes = (procesoId: string | number) => {
     return getObservacionesProceso(procesoId).filter((obs) => obs.estado === 'pendiente').length;
   };
 
   // Obtener nombre del responsable
-  const getResponsableNombre = (responsableId?: string) => {
+  const getResponsableNombre = (responsableId?: string | number) => {
     if (!responsableId) return 'Sin asignar';
     return 'Responsable del Proceso'; // En producción vendría de la API
   };
 
   // Obtener estadísticas de un proceso
-  const getEstadisticasProceso = (procesoId: string) => {
-    const riesgos = todosRiesgos.filter((r) => r.procesoId === procesoId);
+  const getEstadisticasProceso = (procesoId: string | number) => {
+    const riesgos = todosRiesgos.filter((r) => String(r.procesoId) === String(procesoId));
     return {
       total: riesgos.length,
       criticos: 0,
@@ -161,7 +162,7 @@ export default function ResumenDirectorPage() {
   const handleAgregarObservacion = (proceso: Proceso) => {
     setProcesoSeleccionadoParaObs(proceso);
     setNuevaObservacion({
-      procesoId: proceso.id,
+      procesoId: String(proceso.id),
       texto: '',
       tipo: 'proceso',
     });
@@ -181,8 +182,8 @@ export default function ResumenDirectorPage() {
 
     const nuevaObs: Observacion = {
       id: `obs-${Date.now()}`,
-      procesoId: procesoSeleccionadoParaObs.id,
-      autorId: user?.id || '',
+      procesoId: String(procesoSeleccionadoParaObs.id),
+      autorId: String(user?.id ?? ''),
       autorNombre: user?.fullName || 'Director',
       texto: nuevaObservacion.texto,
       tipo: 'proceso',
@@ -208,7 +209,7 @@ export default function ResumenDirectorPage() {
   useEffect(() => {
     if (setScreenContext) {
       const totalRiesgos = procesosAsignados.reduce(
-        (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+        (acc, p) => acc + todosRiesgos.filter((r) => String(r.procesoId) === String(p.id)).length,
         0
       );
       const obsPendientes = observaciones.filter((obs) => obs.estado === 'pendiente').length;
@@ -227,7 +228,7 @@ export default function ResumenDirectorPage() {
             area: area.nombre,
             totalProcesos: procesosArea.length,
             totalRiesgos: procesosArea.reduce(
-              (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+              (acc, p) => acc + todosRiesgos.filter((r) => String(r.procesoId) === String(p.id)).length,
               0
             ),
           })),
@@ -299,7 +300,7 @@ export default function ResumenDirectorPage() {
                   </Typography>
                   <Typography variant="h4" fontWeight={700} color="warning.main">
                     {procesosAsignados.reduce(
-                      (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+                      (acc, p) => acc + todosRiesgos.filter((r) => String(r.procesoId) === String(p.id)).length,
                       0
                     )}
                   </Typography>
@@ -341,7 +342,7 @@ export default function ResumenDirectorPage() {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {Object.entries(procesosPorArea).map(([areaId, { area, procesos: procesosArea }]) => {
             const totalRiesgos = procesosArea.reduce(
-              (acc, p) => acc + todosRiesgos.filter((r) => r.procesoId === p.id).length,
+              (acc, p) => acc + todosRiesgos.filter((r) => String(r.procesoId) === String(p.id)).length,
               0
             );
             const observacionesArea = procesosArea.reduce(
