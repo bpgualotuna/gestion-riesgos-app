@@ -164,8 +164,8 @@ const MapaFiltersPanel: React.FC<Props> = ({
               '& .MuiTab-root': { fontWeight: 600, textTransform: 'none' },
             }}
           >
-            <Tab label="Amenazas y riesgos heredados (Excel)" />
-            <Tab label="Oportunidades (nuevo — cálculo distinto)" />
+            <Tab label="Consecuencias Negativas" />
+            <Tab label="Consecuencias Positivas" />
           </Tabs>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {esPositivo
