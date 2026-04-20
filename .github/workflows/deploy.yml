@@ -1,30 +1,36 @@
-# Cada push a master despliega producción. Para evitar roturas:
-# integrar en develop con PR + CI verde; luego PR develop → master.
+# Producción: push a master (rama principal de este repo).
+# develop debe estar alineada con master antes de desplegar; ver .github/BRANCHING.md
 name: Deploy Frontend
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ master ]
+    branches:
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. Entrar a la carpeta
+            set -e
             mkdir -p ~/app-frontend
             cd ~/app-frontend
-            
-            # 2. Actualizar código (Lógica simple que te funcionaba)
+
+            git config --global --add safe.directory /home/${{ secrets.SSH_USER }}/app-frontend
+
             if [ ! -d ".git" ]; then
               git clone https://github.com/${{ github.repository }}.git .
             else
@@ -32,14 +38,12 @@ jobs:
               git reset --hard origin/master
             fi
 
-            # 3. Inyectar variables
-            echo "${{ secrets.DOTENV_FILE }}" > .env
+            cat > .env <<'END_ENV_CONTENT'
+            ${{ secrets.DOTENV_FILE }}
+            END_ENV_CONTENT
+            sed -i '1s/^\xEF\xBB\xBF//' .env 2>/dev/null || true
+            tr -d '\r' < .env > .env.tmp && mv .env.tmp .env
 
-            # 4. LIMPIEZA PREVENTIVA (Para que no falle por falta de espacio)
-            sudo docker system prune -f
-
-            # 5. Levantar con Build (Añadimos --force-recreate para asegurar cambios)
+            sudo docker system prune -f 2>/dev/null || true
             sudo docker compose up -d --build --force-recreate
-
-            # 6. Limpieza final de imágenes viejas
-            sudo docker image prune -f
+            sudo docker image prune -f 2>/dev/null || true

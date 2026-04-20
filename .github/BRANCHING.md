@@ -26,6 +26,11 @@ En **Settings → Branches → Add rule**:
 
 Así no se puede fusionar código que no pase build/lint.
 
+## CI / Deploy
+
+- **CI** (`ci.yml`): `npm ci` + `npm run build:check` en PR y push a `master`, `main` y `develop`. Ejecución manual: **Actions → CI → Run workflow**.
+- **Deploy** (`deploy.yml`): push a **`master`** (o **Run workflow**). Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DOTENV_FILE`.
+
 ## Rama local `main` antigua
 
 Si tenés una rama local `main` desactualizada respecto de `origin/master`, no la uses; trabajá con `master` y `develop`.

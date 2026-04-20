@@ -1,8 +1,9 @@
-# Comprueba build y lint antes de fusionar. Configurá en GitHub:
-# Settings → Branches → Branch protection rules → Require status checks → "CI / build"
+# Build de producción en cada PR y push a ramas activas.
+# Branch protection: Settings → Branches → Require status checks → job "build".
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -14,8 +15,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,6 +35,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ESLint tiene deuda técnica; cuando npm run lint quede en verde, añadir un paso aquí.
       - name: Typecheck and production build
         run: npm run build:check
