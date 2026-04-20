@@ -7,7 +7,6 @@ Este proyecto usa un único archivo `.env` para todas las configuraciones, tanto
 ### Archivos:
 
 - **`.env`** - Archivo principal con las variables de entorno (NO se sube a Git)
-- **`.env.example`** - Plantilla de ejemplo (SÍ se sube a Git)
 - **`.env.production`** - (OBSOLETO) Ya no se usa, ignorado por Git
 - **`.env.development`** - (OBSOLETO) Ya no se usa, ignorado por Git
 
@@ -58,10 +57,7 @@ VITE_ENV=production
 ### Para nuevos desarrolladores:
 
 1. Clona el repositorio
-2. Copia el archivo de ejemplo:
-   ```bash
-   cp .env.example .env
-   ```
+2. Crea el archivo `.env` en la raíz del proyecto (no hay plantilla en el repo; usa la sección "En Desarrollo Local" más abajo)
 3. Edita `.env` con tus valores locales
 4. Ejecuta el proyecto:
    ```bash
@@ -87,6 +83,7 @@ Los siguientes archivos NO se suben al repositorio (están en `.gitignore`):
 - `.env.local`
 - `.env.production`
 - `.env.development`
+- `.env.example`
 - `.env.*.local`
 - `*.local`
 
@@ -109,9 +106,8 @@ Entorno de ejecución.
 
 1. **Vite requiere el prefijo `VITE_`** para exponer variables al frontend
 2. **Nunca subas archivos `.env` al repositorio** - contienen información sensible
-3. **Usa `.env.example`** como plantilla para documentar las variables necesarias
-4. **Reinicia el servidor de desarrollo** después de cambiar variables de entorno
-5. **En producción**, asegúrate de que el archivo `.env` esté en el servidor antes del build
+3. **Reinicia el servidor de desarrollo** después de cambiar variables de entorno
+4. **En producción**, asegúrate de que el archivo `.env` esté en el servidor antes del build
 
 ## Troubleshooting
 
