@@ -49,7 +49,7 @@ const baseQuery = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa', 'MedidaAdministracion'],
   // Caché: menos refetch y respuestas más ágiles; backend devuelve solo campos necesarios
   keepUnusedDataFor: 120,
   refetchOnMountOrArgChange: 120,
@@ -1368,6 +1368,43 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Proceso'],
     }),
 
+    // ============================================
+    // MEDIDAS DE ADMINISTRACIÓN
+    // ============================================
+    getMedidasAdministracion: builder.query<any[], { causaRiesgoId: string | number }>({
+      query: ({ causaRiesgoId }) => ({
+        url: 'medidas-administracion',
+        params: { causaRiesgoId },
+      }),
+      providesTags: ['MedidaAdministracion'],
+    }),
+
+    createMedidaAdministracion: builder.mutation<any, any>({
+      query: (body) => ({
+        url: 'medidas-administracion',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['MedidaAdministracion', 'Riesgo', 'PuntosMapa'],
+    }),
+
+    updateMedidaAdministracion: builder.mutation<any, { id: number | string } & any>({
+      query: ({ id, ...body }) => ({
+        url: `medidas-administracion/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['MedidaAdministracion', 'Riesgo', 'PuntosMapa'],
+    }),
+
+    deleteMedidaAdministracion: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `medidas-administracion/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['MedidaAdministracion', 'Riesgo', 'PuntosMapa'],
+    }),
+
   }),
 });
 
@@ -1558,6 +1595,11 @@ export const {
   useEliminarReunionMutation,
   useGetAsistenciasQuery,
   useActualizarAsistenciasMutation,
+  // Medidas de Administración
+  useGetMedidasAdministracionQuery,
+  useCreateMedidaAdministracionMutation,
+  useUpdateMedidaAdministracionMutation,
+  useDeleteMedidaAdministracionMutation,
 } = riesgosApi;
 
 // Alias para compatibilidad con código existente

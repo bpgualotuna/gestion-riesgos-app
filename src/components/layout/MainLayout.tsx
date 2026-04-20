@@ -83,11 +83,13 @@ import {
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
+import { useGestion } from '../../contexts/GestionContext';
 import PerfilDialog from '../profile/PerfilDialog';
 import { useRiesgo } from "../../contexts/RiesgoContext";
 import { useProceso } from "../../contexts/ProcesoContext";
 import { useNotification } from "../../hooks/useNotification";
 import { useAreasProcesosAsignados, useProcesosVisibles } from "../../hooks/useAsignaciones";
+import { useSyncProcesoToGestion } from "../../hooks/useSyncProcesoToGestion";
 const VirtualAssistantDemo = lazy(() => import("../common/VirtualAssistantDemo"));
 import NotificationsMenu from "../common/NotificationsMenu";
 import AlertasNotificationsMenuWithTabs from "../common/AlertasNotificationsMenuWithTabs";
@@ -107,6 +109,10 @@ import {
 export default function MainLayout() {
   // Inicializar cache de configuración de calificación inherente
   useCalificacionInherenteConfig();
+  
+  // Sincronizar proceso seleccionado con gestión
+  useSyncProcesoToGestion();
+  
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -172,6 +178,7 @@ export default function MainLayout() {
     refreshUser,
     isLoading,
   } = useAuth();
+  const { debeOcultarControlesYPlanes, debeMostrarMedidasAdministracion } = useGestion();
   const [modoGerenteDialogOpen, setModoGerenteDialogOpen] = useState(false);
   const [modoManagerDialogOpen, setModoManagerDialogOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
@@ -289,7 +296,7 @@ export default function MainLayout() {
   const handleMenuClick = (path?: string) => {
     if (path) {
       // CRÍTICO: Si estamos en la página de MAPA, usar window.location para forzar navegación
-      if (location.pathname === ROUTES.MAPA) {
+      if (location.pathname === ROUTES.MAPA || location.pathname === ROUTES.MAPA_POSITIVO) {
         window.location.href = path;
         return;
       }
@@ -766,25 +773,42 @@ export default function MainLayout() {
           ) : (
             menuItems
               .filter((item) => {
-                // Filtrar items según el rol
+                // Filtrar items según el rol PRIMERO
                 if (esSupervisorRiesgos) {
-                  // Supervisor puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Gestión de Planes, Materializar Riesgos, Historial
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Gestión de Planes', 'Materializar Riesgos', 'Historial'];
-                  return allowedMenus.includes(item.text);
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Medidas de Administración', 'Gestión de Planes', 'Materializar Riesgos', 'Historial'];
+                  if (!allowedMenus.includes(item.text)) {
+                    return false;
+                  }
                 }
                 if (esDueñoProcesos) {
-                  // Dueño de Proceso puede ver Dashboard, Procesos, Identificación y Calificación, Controles, Gestión de Planes, Materializar Riesgos, Historial
-                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Gestión de Planes', 'Materializar Riesgos', 'Historial'];
-                  return allowedMenus.includes(item.text);
+                  const allowedMenus = ['Dashboard', 'Procesos', 'Identificación y Calificación', 'Controles y Planes de Acción', 'Medidas de Administración', 'Gestión de Planes', 'Materializar Riesgos', 'Historial'];
+                  if (!allowedMenus.includes(item.text)) {
+                    return false;
+                  }
                 }
                 if (esGerenteGeneral && !gerenteGeneralMode) {
                   const allowedMenus = ['Dashboard', 'Procesos'];
-                  return allowedMenus.includes(item.text);
+                  if (!allowedMenus.includes(item.text)) {
+                    return false;
+                  }
                 }
                 if (esManager && !managerMode) {
                   const allowedMenus = ['Dashboard', 'Procesos'];
-                  return allowedMenus.includes(item.text);
+                  if (!allowedMenus.includes(item.text)) {
+                    return false;
+                  }
                 }
+
+                // Ocultar items según la gestión seleccionada DESPUÉS
+                if (debeOcultarControlesYPlanes && item.text === 'Controles y Planes de Acción') {
+                  return false;
+                }
+
+                // Mostrar "Medidas de Administración" solo en gestión estratégica
+                if (item.text === 'Medidas de Administración' && !debeMostrarMedidasAdministracion) {
+                  return false;
+                }
+
                 return true;
               })
               .map((item) => (
