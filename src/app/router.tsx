@@ -36,7 +36,6 @@ const FichaPage = lazy(() => import('../pages/ficha/FichaPage'));
 const IdentificacionCalificacionPage = lazy(() => import('../pages/identificacion/IdentificacionCalificacionPage'));
 const EvaluacionPage = lazy(() => import('../pages/evaluacion/EvaluacionPage'));
 const MapaPage = lazy(() => import('../pages/mapas/MapaPage'));
-const MapaPositivoPage = lazy(() => import('../pages/mapas/MapaPositivoPage'));
 const PriorizacionPage = lazy(() => import('../pages/riesgos/PriorizacionPage'));
 const NormatividadPage = lazy(() => import('../pages/procesos/NormatividadPage'));
 const ContextoExternoPage = lazy(() => import('../pages/procesos/ContextoExternoPage'));
@@ -50,7 +49,6 @@ const SupervisionPage = lazy(() => import('../pages/supervision/SupervisionPage'
 const ResumenDirectorPage = lazy(() => import('../pages/dashboard/ResumenDirectorPage'));
 const DashboardSupervisorPage = lazy(() => import('../pages/supervision/DashboardSupervisorPage'));
 const ControlesYPlanesAccionPage = lazy(() => import('../pages/controles/ControlesYPlanesAccionPage'));
-const MedidasAdministracionPage = lazy(() => import('../pages/medidas/MedidasAdministracionPage'));
 const EvaluacionControlPage = lazy(() => import('../pages/controles/EvaluacionControlPage'));
 const HistorialPage = lazy(() => import('../pages/otros/HistorialPage'));
 const ResumenRiesgosPage = lazy(() => import('../pages/dashboard/ResumenRiesgosPage'));
@@ -139,10 +137,6 @@ export const router = createBrowserRouter([
         element: <LazyRoute component={MapaPage} />,
       },
       {
-        path: ROUTES.MAPA_POSITIVO,
-        element: <LazyRoute component={MapaPositivoPage} />,
-      },
-      {
         path: '/admin/mapas',
         element: (
           <RoleGuard allowedRoles={['admin']}>
@@ -181,10 +175,6 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.PLAN_ACCION,
         element: <LazyRoute component={ControlesYPlanesAccionPage} />,
-      },
-      {
-        path: ROUTES.MEDIDAS_ADMINISTRACION,
-        element: <LazyRoute component={MedidasAdministracionPage} />,
       },
       {
         path: ROUTES.PLANES_ACCION_GESTION,

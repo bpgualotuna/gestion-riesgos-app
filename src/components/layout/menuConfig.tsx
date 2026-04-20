@@ -37,7 +37,6 @@ export const MAIN_MENU_KEYS: Record<string, string> = {
   'Procesos': 'procesos',
   'Identificación y Calificación': 'identificacion',
   'Controles y Planes de Acción': 'controles',
-  'Medidas de Administración': 'medidasAdministracion',
   'Gestión de Planes': 'gestionPlanes',
   'Materializar Riesgos': 'materializarRiesgos',
   'Historial': 'historial',
@@ -52,7 +51,6 @@ export const menuItems: MenuItemType[] = [
     children: [
       { text: 'Estadísticas', icon: <TrendingUpIcon />, path: ROUTES.DASHBOARD_SUPERVISOR },
       { text: 'Mapa de Riesgo', icon: <MapIcon />, path: ROUTES.MAPA },
-      { text: 'Mapa de Riesgo Positivo', icon: <MapIcon />, path: ROUTES.MAPA_POSITIVO },
     ],
   },
   {
@@ -69,7 +67,6 @@ export const menuItems: MenuItemType[] = [
   },
   { text: 'Identificación y Calificación', icon: <AssessmentIcon />, path: ROUTES.IDENTIFICACION },
   { text: 'Controles y Planes de Acción', icon: <SecurityIcon />, path: ROUTES.PLAN_ACCION },
-  { text: 'Medidas de Administración', icon: <SecurityIcon />, path: ROUTES.MEDIDAS_ADMINISTRACION },
   { text: 'Gestión de Planes', icon: <AssignmentIcon />, path: ROUTES.PLANES_ACCION_GESTION },
   { text: 'Materializar Riesgos', icon: <WarningIcon />, path: ROUTES.INCIDENCIAS },
   { text: 'Historial', icon: <HistoryIcon />, path: ROUTES.HISTORIAL },
