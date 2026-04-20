@@ -1,3 +1,5 @@
+# Cada push a master despliega producción. Para evitar roturas:
+# integrar en develop con PR + CI verde; luego PR develop → master.
 name: Deploy Frontend
 
 on:
