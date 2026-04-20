@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Card, CardContent, Typography, Box } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -15,8 +15,10 @@ const RiesgosPorProcesoCard: React.FC<RiesgosPorProcesoCardProps> = ({ datosReal
         }))
         .sort((a, b) => b.value - a.value); // Ordenar por mayor cantidad de riesgos
 
+    const chartHeight = Math.max(280, Math.min(560, 40 + data.length * 32));
+
     return (
-        <Card sx={{ height: '100%', minHeight: 350 }}>
+        <Card sx={{ height: '100%', minHeight: 360 }}>
             <CardContent sx={{ height: '100%' }}>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                     Riesgos por Proceso
@@ -26,19 +28,25 @@ const RiesgosPorProcesoCard: React.FC<RiesgosPorProcesoCardProps> = ({ datosReal
                         <Typography color="text.secondary">No hay datos disponibles</Typography>
                     </Box>
                 ) : (
-                <Box sx={{ width: '100%', height: 300 }}>
+                <Box sx={{ width: '100%', height: chartHeight }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             layout="vertical"
                             data={data}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                            margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis type="number" />
-                            <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12 }} />
+                            <XAxis type="number" allowDecimals={false} />
+                            <YAxis
+                                dataKey="name"
+                                type="category"
+                                width={Math.min(280, 140 + Math.max(0, ...data.map((d) => d.name.length)) * 5)}
+                                interval={0}
+                                tick={{ fontSize: 11 }}
+                            />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="value" name="Cantidad" fill="#82ca9d" />
+                            <Bar dataKey="value" name="Cantidad" fill="#82ca9d" barSize={18} radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </Box>

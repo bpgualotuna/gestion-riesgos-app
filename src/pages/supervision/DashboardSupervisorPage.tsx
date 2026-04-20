@@ -921,26 +921,45 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                  Tendencia Mensual (Ultimos 6 meses)
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }} noWrap title="Tendencia mensual (últimos 6 meses)">
+                  Tendencia mensual (últimos 6 meses)
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120, mt: 1 }}>
-                  {tendenciaMensual.map((item) => (
-                    <Box key={item.key} sx={{ flex: 1, textAlign: 'center' }}>
-                      <Box
-                        sx={{
-                          height: `${Math.max(6, item.value * 12)}px`,
-                          backgroundColor: item.value > 0 ? 'primary.main' : 'grey.300',
-                          borderRadius: 1,
-                          transition: 'height 0.2s ease',
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        {item.label}
-                      </Typography>
+                {(() => {
+                  const maxVal = Math.max(1, ...tendenciaMensual.map((m) => m.value));
+                  const barAreaPx = 96;
+                  return (
+                    <Box sx={{ mt: 1, height: 132, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, flex: 1, minHeight: 0, maxHeight: barAreaPx }}>
+                        {tendenciaMensual.map((item) => {
+                          const h = item.value <= 0 ? 4 : Math.max(8, Math.round((item.value / maxVal) * barAreaPx));
+                          return (
+                            <Box key={item.key} sx={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
+                              <Box
+                                sx={{
+                                  width: '100%',
+                                  maxWidth: 48,
+                                  height: h,
+                                  backgroundColor: item.value > 0 ? 'primary.main' : 'grey.300',
+                                  borderRadius: 1,
+                                  transition: 'height 0.2s ease',
+                                }}
+                              />
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1, pt: 0.5 }}>
+                        {tendenciaMensual.map((item) => (
+                          <Box key={`${item.key}-lbl`} sx={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                              {item.label}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
                     </Box>
-                  ))}
-                </Box>
+                  );
+                })()}
               </CardContent>
             </Card>
           </Grid2>

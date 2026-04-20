@@ -1,13 +1,10 @@
-# Build stage: Debian/glibc para que Rolldown instale @rolldown/binding-linux-x64-gnu (Alpine/musl falla con binding musl)
+# Build: Node 20 (glibc) + lockfile reproducible con npm ci
 FROM node:20-slim AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-# Instalación sin lockfile evita el bug de npm con optional deps (binding Rolldown no se instalaba)
-RUN rm -f package-lock.json pnpm-lock.yaml yarn.lock && npm cache clean --force && npm install --legacy-peer-deps --include=optional
-# Asegurar binding nativo Linux (npm a veces omite optional deps)
-RUN npm install @rolldown/binding-linux-x64-gnu --legacy-peer-deps --no-save || true
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 
