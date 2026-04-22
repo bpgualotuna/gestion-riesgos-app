@@ -2494,7 +2494,7 @@ export default function ControlesYPlanesAccionPageNueva() {
           ) : riesgosPendientes.length === 0 ? (
             <Card><CardContent><Typography align="center">No hay causas pendientes de clasificar. ¡Excelente trabajo!</Typography></CardContent></Card>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0, overflowX: 'auto' }}>
               {/* Summary Counter */}
               <Alert severity="info" sx={{ mb: 2 }}>
                 {(() => {
@@ -2509,7 +2509,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                 sx={{
                   display: { xs: 'none', md: 'grid' },
                   gridTemplateColumns:
-                    '48px minmax(72px, 100px) minmax(0, 2.2fr) minmax(120px, 200px) minmax(100px, 120px) minmax(100px, 120px) 48px',
+                    '48px minmax(72px, 100px) minmax(220px, 2.2fr) minmax(120px, 200px) minmax(100px, 120px) minmax(100px, 120px) 48px',
                   gap: 2,
                   px: 3,
                   py: 1.5,
@@ -2524,14 +2524,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                   width: '100%',
                   minWidth: 0,
                   boxSizing: 'border-box',
+                  '& > *': { minWidth: 0 },
                 }}
               >
-                <Box /> {/* Spacer for icon */}
+                <Box sx={{ minWidth: 0 }} /> {/* Spacer for icon */}
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPendientes('id')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ whiteSpace: 'normal', lineHeight: 1.2 }}>ID RIESGO</Typography>
                   {sortPendientes.field === 'id' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -2539,10 +2540,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPendientes('descripcion')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ whiteSpace: 'normal', lineHeight: 1.2 }}>DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortPendientes.field === 'descripcion' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -2550,10 +2551,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPendientes('tipologia')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ whiteSpace: 'normal', lineHeight: 1.2 }}>TIPOLOGÍA</Typography>
                   {sortPendientes.field === 'tipologia' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -2561,10 +2562,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPendientes('clasificacion')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">CLASIFICACIÓN</Typography>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" sx={{ whiteSpace: 'normal', lineHeight: 1.2 }}>CLASIFICACIÓN</Typography>
                   {sortPendientes.field === 'clasificacion' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
@@ -2572,17 +2573,17 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPendientes('estado')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">PENDIENTE</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" sx={{ whiteSpace: 'normal', lineHeight: 1.2 }}>PENDIENTE</Typography>
                   {sortPendientes.field === 'estado' ? (
                     sortPendientes.direction === 'asc' ? <ArrowUpwardIcon fontSize="inherit" /> : <ArrowDownwardIcon fontSize="inherit" />
                   ) : (
                     <UnfoldMoreIcon fontSize="inherit" />
                   )}
                 </Box>
-                <Box /> {/* Spacer for end icon */}
+                <Box sx={{ minWidth: 0 }} /> {/* Spacer for end icon */}
               </Box>
 
               {riesgosPendientesOrdenados.map((riesgo: any) => {
@@ -2594,7 +2595,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         display: 'grid',
                         gridTemplateColumns: {
                           xs: '1fr',
-                          md: '48px minmax(72px, 100px) minmax(0, 2.2fr) minmax(120px, 200px) minmax(100px, 120px) minmax(100px, 120px) 48px',
+                          md: '48px minmax(72px, 100px) minmax(220px, 2.2fr) minmax(120px, 200px) minmax(100px, 120px) minmax(100px, 120px) 48px',
                         },
                         gap: { xs: 1, md: 2 },
                         px: { xs: 2, md: 3 },
@@ -2609,6 +2610,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         width: '100%',
                         minWidth: 0,
                         boxSizing: 'border-box',
+                        '& > *': { minWidth: 0 },
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -2637,8 +2639,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                           WebkitLineClamp: 3,
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
+                          overflowWrap: 'break-word',
                           wordBreak: 'break-word',
                           minWidth: 0,
+                          maxWidth: '100%',
                           textAlign: 'left',
                         }}
                       >
@@ -2653,7 +2657,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Typography
                         variant="body2"
                         color="text.secondary"
-                        sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: { md: 'nowrap' } }}
+                        sx={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: { md: 'nowrap' } }}
                       >
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
@@ -3758,13 +3762,13 @@ export default function ControlesYPlanesAccionPageNueva() {
           ) : riesgosConControles.length === 0 ? (
             <Card><CardContent><Typography align="center">No hay controles registrados.</Typography></CardContent></Card>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0, overflowX: 'auto' }}>
               {/* Column Headers */}
               <Box
                 sx={{
                   display: { xs: 'none', md: 'grid' },
                   gridTemplateColumns:
-                    '45px minmax(64px, 90px) minmax(0, 2.2fr) minmax(96px, 150px) minmax(100px, 120px) minmax(100px, 120px) 50px',
+                    '45px minmax(64px, 90px) minmax(220px, 2.2fr) minmax(96px, 150px) minmax(100px, 120px) minmax(100px, 120px) 50px',
                   gap: 1,
                   px: 2,
                   py: 1.5,
@@ -3779,14 +3783,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                   width: '100%',
                   minWidth: 0,
                   boxSizing: 'border-box',
+                  '& > *': { minWidth: 0 },
                 }}
               >
-                <Box />
+                <Box sx={{ minWidth: 0 }} />
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortControlesLista('id')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>ID RIESGO</Typography>
                   {sortControles.field === 'id' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -3794,10 +3799,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortControlesLista('descripcion')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortControles.field === 'descripcion' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -3805,10 +3810,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortControlesLista('tipologia')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>TIPOLOGÍA</Typography>
                   {sortControles.field === 'tipologia' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -3816,10 +3821,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortControlesLista('clasificacion')}
                 >
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" fontSize="0.7rem">CLASIFICACIÓN</Typography>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>CLASIFICACIÓN</Typography>
                   {sortControles.field === 'clasificacion' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -3827,17 +3832,17 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortControlesLista('estado')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" fontSize="0.7rem">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>ESTADO</Typography>
                   {sortControles.field === 'estado' ? (
                     sortControles.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
                     <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
-                <Box />
+                <Box sx={{ minWidth: 0 }} />
               </Box>
 
               {riesgosConControlesOrdenados.map((riesgo: any) => {
@@ -3849,7 +3854,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         display: 'grid',
                         gridTemplateColumns: {
                           xs: '1fr',
-                          md: '45px minmax(64px, 90px) minmax(0, 2.2fr) minmax(96px, 150px) minmax(100px, 120px) minmax(100px, 120px) 50px',
+                          md: '45px minmax(64px, 90px) minmax(220px, 2.2fr) minmax(96px, 150px) minmax(100px, 120px) minmax(100px, 120px) 50px',
                         },
                         gap: { xs: 1, md: 1 },
                         p: { xs: 2, md: 1.5 },
@@ -3861,6 +3866,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         minHeight: 64,
                         position: 'relative',
                         boxSizing: 'border-box',
+                        '& > *': { minWidth: 0 },
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -3887,9 +3893,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                         lineHeight: 1.4,
                         fontSize: '0.8rem',
                         color: 'text.primary',
+                        overflowWrap: 'break-word',
                         wordBreak: 'break-word',
                         pr: 1,
                         minWidth: 0,
+                        maxWidth: '100%',
                         textAlign: 'left',
                       }}>
                         {repairSpanishDisplayArtifacts(
@@ -3901,6 +3909,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap',
                         minWidth: 0,
+                        maxWidth: '100%',
                       }}>
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
@@ -5078,13 +5087,13 @@ export default function ControlesYPlanesAccionPageNueva() {
           ) : riesgosConPlanes.length === 0 ? (
             <Card><CardContent><Typography align="center">No hay planes de acción registrados.</Typography></CardContent></Card>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0, overflowX: 'auto' }}>
               {/* Column Headers */}
               <Box
                 sx={{
                   display: { xs: 'none', md: 'grid' },
                   gridTemplateColumns:
-                    '45px minmax(64px, 90px) minmax(0, 2.4fr) minmax(96px, 150px) minmax(100px, 120px) 50px',
+                    '45px minmax(64px, 90px) minmax(220px, 2.4fr) minmax(96px, 150px) minmax(100px, 120px) 50px',
                   gap: 1,
                   px: 2,
                   py: 1.5,
@@ -5099,14 +5108,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                   width: '100%',
                   minWidth: 0,
                   boxSizing: 'border-box',
+                  '& > *': { minWidth: 0 },
                 }}
               >
-                <Box />
+                <Box sx={{ minWidth: 0 }} />
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPlanesLista('id')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">ID RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>ID RIESGO</Typography>
                   {sortPlanes.field === 'id' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -5114,10 +5124,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPlanesLista('descripcion')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">DESCRIPCIÓN DEL RIESGO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>DESCRIPCIÓN DEL RIESGO</Typography>
                   {sortPlanes.field === 'descripcion' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -5125,10 +5135,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPlanesLista('tipologia')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">TIPOLOGÍA</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>TIPOLOGÍA</Typography>
                   {sortPlanes.field === 'tipologia' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
@@ -5136,17 +5146,17 @@ export default function ControlesYPlanesAccionPageNueva() {
                   )}
                 </Box>
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer' }}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0, flexWrap: 'wrap' }}
                   onClick={() => handleSortPlanesLista('estado')}
                 >
-                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" fontSize="0.7rem">ESTADO</Typography>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" align="center" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', lineHeight: 1.2 }}>ESTADO</Typography>
                   {sortPlanes.field === 'estado' ? (
                     sortPlanes.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} /> : <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   ) : (
                     <UnfoldMoreIcon fontSize="small" sx={{ fontSize: '0.85rem' }} />
                   )}
                 </Box>
-                <Box />
+                <Box sx={{ minWidth: 0 }} />
               </Box>
 
               {riesgosConPlanesOrdenados.map((riesgo: any) => {
@@ -5158,7 +5168,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         display: 'grid',
                         gridTemplateColumns: {
                           xs: '1fr',
-                          md: '45px minmax(64px, 90px) minmax(0, 2.4fr) minmax(96px, 150px) minmax(100px, 120px) 50px',
+                          md: '45px minmax(64px, 90px) minmax(220px, 2.4fr) minmax(96px, 150px) minmax(100px, 120px) 50px',
                         },
                         gap: { xs: 1, md: 1 },
                         p: { xs: 2, md: 1.5 },
@@ -5170,6 +5180,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         minHeight: 64,
                         position: 'relative',
                         boxSizing: 'border-box',
+                        '& > *': { minWidth: 0 },
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
@@ -5196,9 +5207,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                         lineHeight: 1.4,
                         fontSize: '0.8rem',
                         color: 'text.primary',
+                        overflowWrap: 'break-word',
                         wordBreak: 'break-word',
                         pr: 1,
                         minWidth: 0,
+                        maxWidth: '100%',
                         textAlign: 'left',
                       }}>
                         {repairSpanishDisplayArtifacts(
@@ -5210,6 +5223,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap',
                         minWidth: 0,
+                        maxWidth: '100%',
                       }}>
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
