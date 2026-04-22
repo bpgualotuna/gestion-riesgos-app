@@ -68,6 +68,7 @@ import {
   getDatosEvaluacionControlDesdeCausa,
 } from '../../utils/residualDesdeCausas';
 import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 
 // Función para generar ID del riesgo (número + sigla)
 // Prioriza numeroIdentificacion del backend si existe, sino genera desde número
@@ -85,7 +86,7 @@ const generarIdRiesgo = (punto: PuntoMapa): string => {
 const MAX_DESCRIPCION_CONTROL_VISIBLE = 100;
 
 function DescripcionControlCorta({ texto }: { texto: string }) {
-  const full = String(texto ?? '').trim();
+  const full = repairSpanishDisplayArtifacts(String(texto ?? '').trim());
   if (!full) {
     return (
       <Typography variant="body2" component="span" color="text.secondary">
@@ -299,14 +300,24 @@ export default function MapaPage() {
     };
 
     window.addEventListener('riesgo-actualizado', handleRiesgoActualizado);
-    
+    window.addEventListener('calificacion-residual-updated', handleRiesgoActualizado);
+
     return () => {
       window.removeEventListener('riesgo-actualizado', handleRiesgoActualizado);
+      window.removeEventListener('calificacion-residual-updated', handleRiesgoActualizado);
     };
   }, [dispatch, refetchPuntos, refetchRiesgos]);
 
   // Obtener riesgos completos para el diálogo
   const riesgosCompletos = riesgosData?.data || [];
+
+  const residualModoPorProcesoId = useMemo(() => {
+    const m = new Map<string, 'ESTANDAR' | 'ESTRATEGICO'>();
+    for (const p of procesos) {
+      m.set(String(p.id), p.residualModo === 'ESTRATEGICO' ? 'ESTRATEGICO' : 'ESTANDAR');
+    }
+    return m;
+  }, [procesos]);
 
   // Filtrar puntos y riesgos aplicando filtros de área, proceso y clasificación
   // IMPORTANTE: Siempre respetar las asignaciones del usuario (procesosPropios)
@@ -417,7 +428,7 @@ export default function MapaPage() {
 
   // Crear matriz 5x5 para riesgo residual. Ejes: X = Frecuencia (probabilidad), Y = Impacto.
   // Sin control: calificación y ubicación = misma que inherente (misma celda).
-  // Con control: se usa SIEMPRE la causa con mayor calificación residual (misma lógica que Controles y resumen).
+  // Estándar: causa dominante; estratégico: coordenadas desde evaluación persistida.
   const matrizResidual = useMemo(() => {
     const matriz: { [key: string]: PuntoMapa[] } = {};
     const riesgosAgregados = new Set<number>(); // Track de riesgos ya agregados para evitar duplicados
@@ -430,7 +441,10 @@ export default function MapaPage() {
       }
       
       const riesgo = riesgosCompletos.find((r) => r.id === punto.riesgoId);
-      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(punto, riesgo ?? undefined);
+      const procesoIdStr =
+        punto.procesoId != null ? String(punto.procesoId) : riesgo?.procesoId != null ? String(riesgo.procesoId) : '';
+      const modo = procesoIdStr ? (residualModoPorProcesoId.get(procesoIdStr) ?? 'ESTANDAR') : 'ESTANDAR';
+      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(punto, riesgo ?? undefined, modo);
 
       const clave = `${probabilidadResidual}-${impactoResidual}`;
       if (!matriz[clave]) {
@@ -451,7 +465,7 @@ export default function MapaPage() {
     });
     
     return matriz;
-  }, [puntosFiltrados, riesgosCompletos]);
+  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId]);
 
   // Calcular nivel de riesgo basado en probabilidad e impacto (Usando Configuración o Fallback)
   const calcularNivelRiesgo = (probabilidad: number, impacto: number): string => {
@@ -536,9 +550,10 @@ export default function MapaPage() {
 
       const nivelInherente = calcularNivelRiesgo(punto.probabilidad, punto.impacto);
 
-      // Calcular residual (aproximación: reducir 20%)
-      const probabilidadResidual = punto.probabilidadResidual ?? Math.max(1, Math.round(punto.probabilidad * 0.8));
-      const impactoResidual = punto.impactoResidual ?? Math.max(1, Math.round(punto.impacto * 0.8));
+      const procesoIdStr =
+        punto.procesoId != null ? String(punto.procesoId) : riesgo.procesoId != null ? String(riesgo.procesoId) : '';
+      const modo = procesoIdStr ? (residualModoPorProcesoId.get(procesoIdStr) ?? 'ESTANDAR') : 'ESTANDAR';
+      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(punto, riesgo, modo);
       const nivelResidual = calcularNivelRiesgo(probabilidadResidual, impactoResidual);
 
       // Contar por nivel residual
@@ -559,7 +574,7 @@ export default function MapaPage() {
       residual,
       cambios,
     };
-  }, [puntosFiltrados, riesgosCompletos]);
+  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaConfig, niveles]);
 
   // Análisis de Mitigación (Insights)
   const riskInsights = useMemo(() => {
@@ -571,10 +586,15 @@ export default function MapaPage() {
       if (!riesgo) return null;
 
       const scoreInherente = punto.probabilidad * punto.impacto;
-      // Aproximación residual (usando la misma lógica global)
-      const probRes = punto.probabilidadResidual ?? Math.max(1, Math.round(punto.probabilidad * 0.8));
-      const impRes = punto.impactoResidual ?? Math.max(1, Math.round(punto.impacto * 0.8));
-      const scoreResidual = probRes * impRes;
+      const procesoIdStr =
+        punto.procesoId != null ? String(punto.procesoId) : riesgo.procesoId != null ? String(riesgo.procesoId) : '';
+      const modo = procesoIdStr ? (residualModoPorProcesoId.get(procesoIdStr) ?? 'ESTANDAR') : 'ESTANDAR';
+      const { probabilidadResidual: probRes, impactoResidual: impRes } = resolverCoordsResidualMapa(
+        punto,
+        riesgo,
+        modo
+      );
+      const scoreResidual = probRes === 2 && impRes === 2 ? 3.99 : probRes * impRes;
 
       const reduccion = scoreInherente - scoreResidual;
 
@@ -602,7 +622,7 @@ export default function MapaPage() {
       criticosPersistentes,
       eficacia
     };
-  }, [puntosFiltrados, riesgosCompletos]);
+  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaConfig, niveles]);
 
   // Obtener riesgos de la celda seleccionada usando puntos filtrados
   const matrizActual = tipoMapaSeleccionado === 'inherente' ? matrizInherente : matrizResidual;
@@ -1360,7 +1380,8 @@ export default function MapaPage() {
                       <AccordionDetails>
                         <Box>
                           <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 2 }}>
-                            <strong>Descripción:</strong> {descripcion}
+                            <strong>Descripción:</strong>{' '}
+                            {repairSpanishDisplayArtifacts(String(descripcion))}
                           </Typography>
 
                           {/* Información del Proceso */}
@@ -1446,8 +1467,10 @@ export default function MapaPage() {
                                   {riesgo.causas.slice(0, 5).map((causa: any, idx: number) => (
                                     <ListItem key={causa.id || idx} sx={{ py: 0.5 }}>
                                       <ListItemText
-                                        primary={causa.descripcion || 'Sin descripción'}
-                                        secondary={`Frecuencia: ${causa.frecuencia || 'N/A'}${causa.fuenteCausa ? ` | Fuente: ${causa.fuenteCausa}` : ''}`}
+                                        primary={repairSpanishDisplayArtifacts(
+                                          String(causa.descripcion || 'Sin descripción')
+                                        )}
+                                        secondary={`Frecuencia: ${causa.frecuencia || 'N/A'}${causa.fuenteCausa ? ` | Fuente: ${repairSpanishDisplayArtifacts(String(causa.fuenteCausa))}` : ''}`}
                                         primaryTypographyProps={{ variant: 'body2' }}
                                         secondaryTypographyProps={{ variant: 'caption' }}
                                       />
@@ -1507,22 +1530,36 @@ export default function MapaPage() {
                   const riesgoInherente = evaluacion?.riesgoInherente;
                   const nivelRiesgoInherente = evaluacion?.nivelRiesgo;
 
-                  // Valores residuales: priorizar SIEMPRE la causa con mayor calificación residual
-                  const residualDesdeCausas = calcularResidualDesdeCausas(riesgo);
+                  const procesoIdRes =
+                    punto.procesoId != null ? String(punto.procesoId) : riesgo?.procesoId != null ? String(riesgo.procesoId) : '';
+                  const modoResidualUi = procesoIdRes
+                    ? (residualModoPorProcesoId.get(procesoIdRes) ?? 'ESTANDAR')
+                    : 'ESTANDAR';
 
-                  const probabilidadResidual = residualDesdeCausas?.probabilidadResidual
-                    ?? punto.probabilidadResidual
-                    ?? evaluacion?.probabilidadResidual
-                    ?? null;
+                  // Estándar: causa dominante; estratégico: usar evaluación persistida, no recálculo por causas en cliente.
+                  const residualDesdeCausas =
+                    modoResidualUi === 'ESTRATEGICO' ? null : calcularResidualDesdeCausas(riesgo);
 
-                  const impactoResidual = residualDesdeCausas?.impactoResidual
-                    ?? punto.impactoResidual
-                    ?? evaluacion?.impactoResidual
-                    ?? null;
+                  const probabilidadResidual =
+                    modoResidualUi === 'ESTRATEGICO'
+                      ? (evaluacion?.probabilidadResidual ?? punto.probabilidadResidual ?? null)
+                      : (residualDesdeCausas?.probabilidadResidual ??
+                        punto.probabilidadResidual ??
+                        evaluacion?.probabilidadResidual ??
+                        null);
 
-                  const riesgoResidual = residualDesdeCausas?.riesgoResidual
-                    ?? evaluacion?.riesgoResidual
-                    ?? null;
+                  const impactoResidual =
+                    modoResidualUi === 'ESTRATEGICO'
+                      ? (evaluacion?.impactoResidual ?? punto.impactoResidual ?? null)
+                      : (residualDesdeCausas?.impactoResidual ??
+                        punto.impactoResidual ??
+                        evaluacion?.impactoResidual ??
+                        null);
+
+                  const riesgoResidual =
+                    modoResidualUi === 'ESTRATEGICO'
+                      ? (evaluacion?.riesgoResidual ?? null)
+                      : (residualDesdeCausas?.riesgoResidual ?? evaluacion?.riesgoResidual ?? null);
 
                   // Calcular nivelRiesgoResidual siguiendo mismas bandas que Controles/Resumen
                   let nivelRiesgoResidual: string | null = residualDesdeCausas?.nivelRiesgoResidual ?? null;
@@ -1651,17 +1688,18 @@ export default function MapaPage() {
                                 Información del Riesgo
                               </Typography>
                               <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 2 }}>
-                                <strong>Descripción:</strong> {descripcion}
+                                <strong>Descripción:</strong>{' '}
+                                {repairSpanishDisplayArtifacts(String(descripcion))}
                               </Typography>
                               <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                                 {zona && (
                               <Typography variant="body2">
-                                    <strong>Zona:</strong> {zona}
+                                    <strong>Zona:</strong> {repairSpanishDisplayArtifacts(String(zona))}
                               </Typography>
                                 )}
                                 {tipologia && (
                                 <Typography variant="body2">
-                                    <strong>Tipología:</strong> {tipologia}
+                                    <strong>Tipología:</strong> {repairSpanishDisplayArtifacts(String(tipologia))}
                                 </Typography>
                               )}
                               </Box>
@@ -1768,14 +1806,23 @@ export default function MapaPage() {
                                 <List dense disablePadding>
                                   {planesAccion.map((causa: any, idx: number) => {
                                     const g = causa.gestion && typeof causa.gestion === 'object' ? causa.gestion : {};
-                                    const desc = g.planDescripcion || causa.planDescripcion || causa.descripcion || 'Sin descripción';
+                                    const desc = repairSpanishDisplayArtifacts(
+                                      String(
+                                        g.planDescripcion ||
+                                          causa.planDescripcion ||
+                                          causa.descripcion ||
+                                          'Sin descripción'
+                                      )
+                                    );
                                     const resp = g.planResponsable || causa.planResponsable || '—';
                                     const fecha = g.planFechaEstimada || causa.planFechaEstimada || '—';
                                     return (
                                       <ListItem key={causa.id || idx} sx={{ flexDirection: 'column', alignItems: 'stretch', py: 1 }}>
                                         <ListItemText primary={desc} primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }} />
                                         <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }} component="span">
-                                          <Typography variant="caption" color="text.secondary">Responsable: {resp}</Typography>
+                                          <Typography variant="caption" color="text.secondary">
+                                            Responsable: {repairSpanishDisplayArtifacts(String(resp))}
+                                          </Typography>
                                           <Typography variant="caption" color="text.secondary">Fecha est.: {typeof fecha === 'string' && fecha !== '—' ? new Date(fecha).toLocaleDateString('es-ES') : fecha}</Typography>
                                         </Box>
                                       </ListItem>
@@ -2007,7 +2054,8 @@ export default function MapaPage() {
                       />
                     </Box>
                     <Typography variant="body2" color="text.secondary" paragraph>
-                      <strong>Descripción:</strong> {riesgoSeleccionadoDetalle.descripcion}
+                      <strong>Descripción:</strong>{' '}
+                      {repairSpanishDisplayArtifacts(String(riesgoSeleccionadoDetalle.descripcion ?? ''))}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 3, mt: 2, flexWrap: 'wrap' }}>
                       {(() => {
@@ -2015,13 +2063,20 @@ export default function MapaPage() {
                         const zona = zonaRaw && zonaRaw.trim() && !zonaRaw.toLowerCase().includes('rural') ? zonaRaw : null;
                         return zona ? (
                       <Typography variant="body2">
-                            <strong>Zona:</strong> {zona}
+                            <strong>Zona:</strong> {repairSpanishDisplayArtifacts(String(zona))}
                       </Typography>
                         ) : null;
                       })()}
                       {(puntoSeleccionadoDetalle?.tipologiaNivelI || riesgoSeleccionadoDetalle.tipologiaNivelI) && (
                       <Typography variant="body2">
-                          <strong>Tipología:</strong> {puntoSeleccionadoDetalle?.tipologiaNivelI || riesgoSeleccionadoDetalle.tipologiaNivelI}
+                          <strong>Tipología:</strong>{' '}
+                          {repairSpanishDisplayArtifacts(
+                            String(
+                              puntoSeleccionadoDetalle?.tipologiaNivelI ||
+                                riesgoSeleccionadoDetalle.tipologiaNivelI ||
+                                ''
+                            )
+                          )}
                         </Typography>
                       )}
                     </Box>
@@ -2186,8 +2241,12 @@ export default function MapaPage() {
                           <TableBody>
                             {((riesgoSeleccionadoDetalle.causas as any) || []).map((causa: any, idx: number) => (
                               <TableRow key={causa.id || idx}>
-                                <TableCell>{causa.descripcion || 'Sin descripción'}</TableCell>
-                                <TableCell>{causa.fuenteCausa || 'N/A'}</TableCell>
+                                <TableCell>
+                                  {repairSpanishDisplayArtifacts(String(causa.descripcion || 'Sin descripción'))}
+                                </TableCell>
+                                <TableCell>
+                                  {repairSpanishDisplayArtifacts(String(causa.fuenteCausa || 'N/A'))}
+                                </TableCell>
                                 <TableCell align="center">{causa.frecuencia || 'N/A'}</TableCell>
                                 <TableCell align="center">
                                   {causa.calificacionInherentePorCausa !== undefined && causa.calificacionInherentePorCausa !== null
@@ -2316,7 +2375,9 @@ export default function MapaPage() {
 
                                 return (
                                   <TableRow key={causa.id || idx}>
-                                    <TableCell sx={{ maxWidth: 200 }}>{causa.descripcion || 'Sin descripción'}</TableCell>
+                                    <TableCell sx={{ maxWidth: 200 }}>
+                                      {repairSpanishDisplayArtifacts(String(causa.descripcion || 'Sin descripción'))}
+                                    </TableCell>
                                     <TableCell sx={{ maxWidth: 220 }}>
                                       <DescripcionControlCorta texto={datosCtrl.descripcionControl} />
                                     </TableCell>

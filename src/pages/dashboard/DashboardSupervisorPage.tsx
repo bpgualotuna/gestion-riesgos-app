@@ -51,6 +51,12 @@ import type { GridColDef } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../utils/constants';
 import {
+  NIVEL_ALTO_BG,
+  NIVEL_BAJO_BG,
+  NIVEL_CRITICO_BG,
+  NIVEL_MEDIO_BG,
+} from '../../utils/paletaSemafotoCWR';
+import {
   BarChart,
   Bar,
   PieChart,
@@ -67,6 +73,7 @@ import { BugReport as BugReportIcon } from '@mui/icons-material';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
 import { useEffect } from 'react';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 
 export default function DashboardSupervisorPage() {
   const { esSupervisorRiesgos } = useAuth();
@@ -881,7 +888,9 @@ export default function DashboardSupervisorPage() {
                     <Grid2 container spacing={1.5}>
                       {sortedEntries.map(([tipologia, count]) => {
                         const porcentaje = totalTipos > 0 ? Math.round((count / totalTipos) * 100) : 0;
-                        const color = colores[tipologia] || '#1976d2';
+                        const tipologiaLabel = repairSpanishDisplayArtifacts(String(tipologia));
+                        const color =
+                          colores[tipologia] || colores[tipologiaLabel] || '#1976d2';
                         return (
                           <Grid2 key={tipologia} xs={12} sm={6}>
                             <Tooltip title={`${count} riesgos (${porcentaje}%)`} arrow>
@@ -892,7 +901,7 @@ export default function DashboardSupervisorPage() {
                                 boxShadow: `0 3px 10px ${color}40`, position: 'relative', overflow: 'hidden',
                                 transition: 'all 0.25s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 18px ${color}60` }
                               }}>
-                                <Typography variant="caption" fontWeight={700} sx={{ mb: 0.5, textAlign: 'center', fontSize: '0.7rem' }}>{tipologia}</Typography>
+                                <Typography variant="caption" fontWeight={700} sx={{ mb: 0.5, textAlign: 'center', fontSize: '0.7rem' }}>{tipologiaLabel}</Typography>
                                 <Typography variant="h4" fontWeight={900} sx={{ fontSize: '1.8rem' }}>{count}</Typography>
                                 <Typography variant="caption" sx={{ mt: 0.25, opacity: 0.95, fontSize: '0.7rem' }}>{porcentaje}% del total</Typography>
                               </Box>

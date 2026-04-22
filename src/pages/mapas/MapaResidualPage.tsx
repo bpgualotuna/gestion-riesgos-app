@@ -26,8 +26,15 @@ import { useNotification } from '../../hooks/useNotification';
 import type { RiesgoFormData } from '../../types';
 import { useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
+import {
+  CWR_AMARILLO_EXCEL,
+  CWR_VERDE_EXCEL,
+  NIVEL_ALTO_BG,
+  NIVEL_CRITICO_BG,
+} from '../../utils/paletaSemafotoCWR';
 
 interface RiesgoResidual {
   numeroIdentificacion: string;
@@ -80,19 +87,19 @@ const determinarZonaRiesgo = (frecuencia: number, impacto: number): string => {
   return 'Mínimo';
 };
 
-// Colores por zona de riesgo
+// Colores por zona de riesgo (misma familia Anexo 6 / semáforo residual)
 const getColorZona = (zona: string): string => {
   switch (zona) {
     case 'Crítico':
-      return '#d32f2f'; // Rojo oscuro
+      return NIVEL_CRITICO_BG;
     case 'Alto':
-      return '#f57c00'; // Naranja
+      return NIVEL_ALTO_BG;
     case 'Medio':
-      return '#ed6c02'; // Naranja más claro
+      return CWR_AMARILLO_EXCEL;
     case 'Bajo':
-      return '#fbc02d'; // Amarillo
+      return CWR_VERDE_EXCEL;
     case 'Mínimo':
-      return '#4caf50'; // Verde
+      return CWR_VERDE_EXCEL;
     default:
       return '#999';
   }
@@ -429,7 +436,9 @@ export default function MapaResidualPage() {
                       {idx + 1}
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{riesgo.numeroIdentificacion}</TableCell>
-                    <TableCell sx={{ maxWidth: 300 }}>{riesgo.descripcion}</TableCell>
+                    <TableCell sx={{ maxWidth: 300 }}>
+                      {repairSpanishDisplayArtifacts(String(riesgo.descripcion ?? ''))}
+                    </TableCell>
                     <TableCell align="center">{riesgo.nivelFrequencia}</TableCell>
                     <TableCell align="center">{riesgo.nivelImpacto}</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 600, color: getColorZona(riesgo.zonaRiesgo) }}>

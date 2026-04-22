@@ -12,7 +12,7 @@ type Props = {
 export default function GuardarContextoButton({ onClick, disabled, isSaving }: Props) {
   return (
     <Tooltip
-      title="Guarda el contexto en el proceso (sin cambiar la matriz DOFA). Para la matriz usa «Enviar a DOFA»."
+      title='Guarda el contexto en el proceso (sin cambiar la matriz DOFA). Para la matriz usa "Enviar a DOFA".'
       placement="bottom"
       arrow
       enterDelay={300}

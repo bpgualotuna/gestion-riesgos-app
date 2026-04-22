@@ -19,6 +19,7 @@ import {
   Inventory as CatalogsIcon,
   History as HistoryIcon,
   ToggleOn as ToggleOnIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
@@ -119,6 +120,7 @@ export default function AdminModule({ user, onLogout }: AdminProps) {
             <Tab label="Catálogos" icon={<CatalogsIcon />} iconPosition="start" />
             <Tab label="Historial" icon={<HistoryIcon />} iconPosition="start" />
             <Tab label="Habilitación de campos" icon={<ToggleOnIcon />} iconPosition="start" />
+            <Tab label="Residual estratégico" icon={<TuneIcon />} iconPosition="start" />
             <Tab label="Configuración" icon={<SettingsIcon />} iconPosition="start" />
           </Tabs>
 
@@ -143,6 +145,10 @@ export default function AdminModule({ user, onLogout }: AdminProps) {
           </TabPanel>
 
           <TabPanel value={tabValue} index={5}>
+            <ResidualEstrategicoCwrPage />
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={6}>
             <ConfiguracionPage user={user} />
           </TabPanel>
         </Paper>

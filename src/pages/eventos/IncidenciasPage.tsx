@@ -49,6 +49,7 @@ import AppDataGrid from '../../components/ui/AppDataGrid';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useUpdateIncidenciaMutation, useDeleteIncidenciaMutation, useCreatePlanAccionMutation } from '../../api/services/riesgosApi';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 
 // Tipo de incidencia
 interface Incidencia {
@@ -549,15 +550,15 @@ export default function IncidenciasPage() {
                   </Typography>
 
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {riesgo.descripcionRiesgo || riesgo.nombre}
+                    {repairSpanishDisplayArtifacts(String(riesgo.descripcionRiesgo || riesgo.nombre || ''))}
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary">
-                    {riesgo.tipologiaNivelI || '02 Operacional'}
+                    {repairSpanishDisplayArtifacts(String(riesgo.tipologiaNivelI || '02 Operacional'))}
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                    {riesgo.causaRiesgo || 'No especificada'}
+                    {repairSpanishDisplayArtifacts(String(riesgo.causaRiesgo || 'No especificada'))}
                   </Typography>
 
                   <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -590,8 +591,12 @@ export default function IncidenciasPage() {
                           {eventos.map((inc) => (
                             <TableRow key={inc.id}>
                               <TableCell>
-                                <Typography variant="body2" fontWeight={600}>{inc.titulo}</Typography>
-                                <Typography variant="caption" color="text.secondary">{inc.descripcion.substring(0, 100)}...</Typography>
+                                <Typography variant="body2" fontWeight={600}>
+                                  {repairSpanishDisplayArtifacts(String(inc.titulo ?? ''))}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {repairSpanishDisplayArtifacts(String(inc.descripcion ?? '')).substring(0, 100)}...
+                                </Typography>
                               </TableCell>
                               <TableCell>
                                 <Chip label={inc.tipo.replace('_', ' ')} size="small" variant="outlined" />
@@ -633,13 +638,17 @@ export default function IncidenciasPage() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
             <Autocomplete
               options={riesgosDisponibles}
-              getOptionLabel={(option: any) => option.nombre || option.descripcionRiesgo || ''}
+              getOptionLabel={(option: any) =>
+                repairSpanishDisplayArtifacts(String(option.nombre || option.descripcionRiesgo || ''))
+              }
               value={riesgosDisponibles.find((r: any) => r.id === formData.riesgoId) || null}
               onChange={(e, value) =>
                 setFormData({
                   ...formData,
                   riesgoId: value?.id,
-                  riesgoNombre: value?.nombre || value?.descripcionRiesgo,
+                  riesgoNombre: repairSpanishDisplayArtifacts(
+                    String(value?.nombre || value?.descripcionRiesgo || '')
+                  ),
                   causaId: undefined,
                   causaNombre: undefined,
                 })
@@ -657,13 +666,15 @@ export default function IncidenciasPage() {
 
             <Autocomplete
               options={causasDelRiesgo}
-              getOptionLabel={(option: any) => option.descripcion || ''}
+              getOptionLabel={(option: any) => repairSpanishDisplayArtifacts(String(option.descripcion || ''))}
               value={causasDelRiesgo.find((c: any) => c.id === formData.causaId) || null}
               onChange={(e, value) =>
                 setFormData({
                   ...formData,
                   causaId: value?.id,
-                  causaNombre: value?.descripcion,
+                  causaNombre: value?.descripcion
+                    ? repairSpanishDisplayArtifacts(String(value.descripcion))
+                    : undefined,
                 })
               }
               disabled={!formData.riesgoId}

@@ -20,6 +20,7 @@ import {
 import { Search as SearchIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { useGetRiesgosQuery, useGetProcesosQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 import { useProceso } from '../../contexts/ProcesoContext';
 import AppDataGrid from '../../components/ui/AppDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -130,7 +131,7 @@ export default function RiesgosPorTipologiaPage() {
       width: 200,
       renderCell: (params) => {
         const proceso = procesos.find((p: any) => p.id === params.row.procesoId);
-        return proceso?.nombre || 'Sin proceso';
+        return repairSpanishDisplayArtifacts(String(proceso?.nombre || 'Sin proceso'));
       },
     }] : []),
     {
@@ -138,6 +139,7 @@ export default function RiesgosPorTipologiaPage() {
       headerName: 'Descripción',
       flex: 1,
       minWidth: 300,
+      valueGetter: (_v, row) => repairSpanishDisplayArtifacts(String(row?.descripcion ?? '')),
     },
     {
       field: 'clasificacion',
@@ -239,7 +241,7 @@ export default function RiesgosPorTipologiaPage() {
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
                       <Typography variant="h6" fontWeight={600}>
-                        {tipologiaKey}
+                        {repairSpanishDisplayArtifacts(String(tipologiaKey))}
                       </Typography>
                       <Chip
                         label={`${riesgosTipologia.length} riesgo${riesgosTipologia.length !== 1 ? 's' : ''}`}

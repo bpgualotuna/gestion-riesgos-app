@@ -72,7 +72,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
-import { useGetRiesgosQuery, useUpdateCausaMutation, useUpdateRiesgoMutation, useGetConfiguracionResidualQuery, useGetFrecuenciasQuery, riesgosApi } from '../../api/services/riesgosApi';
+import {
+  useGetRiesgosQuery,
+  useUpdateCausaMutation,
+  useUpdateRiesgoMutation,
+  useGetConfiguracionResidualQuery,
+  useGetFrecuenciasQuery,
+  useGetNivelesRiesgoQuery,
+  riesgosApi,
+} from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { formatDateISO } from '../../utils/formatters';
@@ -88,6 +96,7 @@ import {
   calcularImpactoResidualAvanzado,
   determinarNivelRiesgo,
   resolverFrecuenciaCausaA1_5,
+  obtenerPorcentajeMitigacionAvanzado,
   type FrecuenciaCatalogItem,
 } from '../../utils/calculations';
 import { RiesgoFormData } from '../../types';
@@ -97,6 +106,22 @@ import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
 import MaxFilesUploadPanel from '../../components/common/MaxFilesUploadPanel';
 import { assertUploadArchivoOk, messageForNetworkUploadFailure } from '../../utils/uploadFetch';
+import {
+  MA_PREGUNTA_ACTITUD_STAKEHOLDERS,
+  MA_PREGUNTA_AFECTA_FREC_IMPACTO,
+  MA_PREGUNTA_CAPACITACION_FUNCIONARIOS,
+  MA_PREGUNTA_DOCUMENTACION_SOPORTE,
+  MA_PREGUNTA_MONITOREO_DESEMPEÑO,
+  MA_PREGUNTA_PRESUPUESTO_RECURSOS,
+} from '../../utils/maEstrategicoLabels';
+import { colorCeldaMapaResidualNegativo, coordsResidualEnRangoMapa } from '../../utils/mapaResidualExcelColors';
+import {
+  estiloSemafotoResidualCWRConFallback,
+  normalizarCalificacionResidualNumero,
+} from '../../utils/cwrCalificacionResidualColors';
+import { etiquetaTipologiaRiesgoTabla } from '../../utils/tipologiaEstrategia';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import { estiloNivelResidualDesdeNombre, fondoNivelResidualDesdeNombre } from '../../utils/residualNivelColor';
 
 // Helpers que usan la configuración residual del admin (API), sin datos quemados
 function getEvaluacionPreliminarFromRangos(rangos: any[] | undefined, puntajeTotal: number): string {
@@ -121,6 +146,166 @@ function getNivelResidualFromRangos(rangos: any[] | undefined, calificacion: num
     if (okMin && okMax) return r.nivelNombre;
   }
   return 'Sin Calificar';
+}
+
+/** Texto para chips/etiquetas: no todo en mayúsculas; primera letra de cada palabra en mayúscula. */
+function etiquetaNivelMostrar(raw: string | null | undefined): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  return s
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(' ');
+}
+
+/** Opciones del select «Plan de acción vinculado» (planes de la causa, del riesgo y legacy en gestión). */
+function planesAccionVinculadosMenuItems(
+  riesgosApiData: unknown,
+  riesgoIdEvaluacion: string | number | null | undefined,
+  causaIdEvaluacion: string | number | null | undefined,
+) {
+  const datosOriginales = ((riesgosApiData as any)?.data || []) as any[];
+  const riesgoActual = datosOriginales?.find((r: any) => r.id === riesgoIdEvaluacion);
+  const causaActual = riesgoActual?.causas?.find((c: any) => c.id === causaIdEvaluacion);
+  const planesDeCausa = causaActual?.planesAccion || [];
+  const planesDeRiesgo = riesgoActual?.planesAccion || [];
+  const planesLegacy: any[] = [];
+  riesgoActual?.causas?.forEach((causa: any) => {
+    const gestion = causa.gestion || {};
+    if (gestion.planDescripcion || gestion.planDetalle) {
+      planesLegacy.push({
+        id: `legacy-${causa.id}`,
+        nombre: gestion.planDescripcion || gestion.planDetalle || 'Plan sin nombre',
+        descripcion: gestion.planDescripcion || gestion.planDetalle,
+        estado: gestion.planEstado || 'pendiente',
+        causaId: causa.id,
+        isLegacy: true,
+      });
+    }
+  });
+  const todosLosPlanes = [...planesDeCausa, ...planesDeRiesgo, ...planesLegacy];
+  const planesUnicos = todosLosPlanes.filter(
+    (plan, index, self) => index === self.findIndex((p) => p.id === plan.id),
+  );
+  if (planesUnicos.length === 0) {
+    return (
+      <MenuItem disabled value="">
+        <em>No hay planes de acción disponibles</em>
+      </MenuItem>
+    );
+  }
+  return planesUnicos.map((plan: any) => (
+    <MenuItem key={String(plan.id)} value={plan.id}>
+      {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
+      {plan.estado && ` (${plan.estado})`}
+      {plan.isLegacy && ' [Legacy]'}
+    </MenuItem>
+  ));
+}
+
+/** Tipo de gestión para chips/diálogo cuando el API no envía tipoGestion pero sí filas normalizadas. */
+function inferTipoGestionDetalle(causa: any): string {
+  const raw = String(causa?.tipoGestion ?? '').trim();
+  if (raw) return raw.toUpperCase();
+  if (causa?.controles?.length) return 'CONTROL';
+  if (causa?.planesAccion?.length) return 'PLAN';
+  if (causa?.puntajeTotal !== undefined && causa?.puntajeTotal !== null) return 'CONTROL';
+  return 'PLAN';
+}
+
+/**
+ * Selects MA (residual estratégico): preguntas largas en etiqueta outlined.
+ * Con valor elegido la etiqueta queda «shrink» y puede ocupar 2 líneas a escala 0,75;
+ * hace falta mucho padding superior en el valor para que no la tape (p. ej. «soporten?» sobre «Sí»).
+ */
+const SX_MA_FORM_CONTROL_LONG_LABEL = {
+  width: '100%',
+  '& .MuiInputLabel-root': {
+    whiteSpace: 'normal' as const,
+    lineHeight: 1.28,
+    fontWeight: 600,
+    maxWidth: 'calc(100% - 8px)',
+    width: 'calc(100% - 8px)',
+    transformOrigin: 'top left',
+    pr: 3,
+    boxSizing: 'border-box' as const,
+  },
+  '& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)': {
+    transform: 'translate(14px, 8px)',
+  },
+  /** Encogida: más arriba que MUI por defecto; 2 líneas no deben bajar sobre el texto del Select. */
+  '& .MuiInputLabel-outlined.MuiInputLabel-shrink': {
+    transform: 'translate(14px, -15px) scale(0.75)',
+    maxWidth: 'calc(133% - 24px)',
+    lineHeight: 1.2,
+  },
+  '& .MuiOutlinedInput-root': {
+    alignItems: 'flex-start',
+  },
+  /**
+   * ~40px: ~2 líneas de etiqueta shrink (~12px efectivos × 1,2 × 2) + margen hasta el valor.
+   * alignItems flex-end coloca el valor cerca del borde inferior del campo.
+   */
+  '& .MuiSelect-select': {
+    paddingTop: '40px',
+    paddingBottom: '12px',
+    minHeight: '3.25rem',
+    display: 'flex',
+    alignItems: 'flex-end',
+    whiteSpace: 'normal' as const,
+  },
+} as const;
+
+/** Misma prioridad que el resumen inferior: semáforo Anexo 6 §5.7 por número; si no aplica, mapa f×i o banda por nombre. */
+function estiloCajaPorCalificacionCWR(
+  calNum: unknown,
+  nivelStr: string,
+  fCoord: unknown,
+  iCoord: unknown,
+  nivelesRiesgoCatalog: Parameters<typeof estiloNivelResidualDesdeNombre>[1]
+): { color: string; bg: string } {
+  const getColorNivelObj = (n: string) => estiloNivelResidualDesdeNombre(n, nivelesRiesgoCatalog);
+  const coloresPorNivelOMapa = (
+    nivelStr2: string,
+    fCoord2?: unknown,
+    iCoord2?: unknown
+  ): { color: string; bg: string } => {
+    const porNivel = getColorNivelObj(nivelStr2);
+    if (coordsResidualEnRangoMapa(fCoord2, iCoord2)) {
+      const c = colorCeldaMapaResidualNegativo(Number(fCoord2), Number(iCoord2));
+      return { color: c.color, bg: c.bg };
+    }
+    return porNivel;
+  };
+  const calNorm = normalizarCalificacionResidualNumero(calNum);
+  if (calNorm !== null && calNorm > 0) {
+    const prodFi =
+      fCoord != null &&
+      iCoord != null &&
+      Number.isFinite(Number(fCoord)) &&
+      Number.isFinite(Number(iCoord))
+        ? Number(fCoord) === 2 && Number(iCoord) === 2
+          ? 3.99
+          : Number(fCoord) * Number(iCoord)
+        : null;
+    const cwr = estiloSemafotoResidualCWRConFallback(calNorm, Math.round(calNorm), prodFi);
+    if (cwr) return { color: cwr.color, bg: cwr.bg };
+  }
+  return coloresPorNivelOMapa(nivelStr, fCoord, iCoord);
+}
+
+type TipoMitigacionResidual = 'FRECUENCIA' | 'IMPACTO' | 'AMBAS';
+
+/** Modo CWR/estratégico: la fórmula residual usa «AFECTA FREC/IMPACTO/AMBAS» del anexo, no el campo del control estándar. */
+function tipoMitigacionResidualDesdeFormulario(
+  procesoResidualEstrategico: boolean,
+  ev: { tipoMitigacion: TipoMitigacionResidual; tipoMitigacionAnexo?: TipoMitigacionResidual }
+): TipoMitigacionResidual {
+  if (procesoResidualEstrategico && ev.tipoMitigacionAnexo) {
+    return ev.tipoMitigacionAnexo;
+  }
+  return ev.tipoMitigacion;
 }
 
 interface ClasificacionCausa {
@@ -166,6 +351,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   console.log('🔴 [DEBUG] Window location:', window.location.pathname);
   
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
+  const procesoResidualEstrategico = procesoSeleccionado?.residualModo === 'ESTRATEGICO';
   const { user, esDueñoProcesos } = useAuth();
   const { showSuccess, showError, showLoading, hideLoading } = useNotification();
   const { confirmDelete } = useConfirm();
@@ -275,6 +461,12 @@ export default function ControlesYPlanesAccionPageNueva() {
     naturaleza: '', puntajeNaturaleza: 0,
     desviaciones: 'A',
     tipoMitigacion: 'AMBAS' as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
+    tipoMitigacionAnexo: 'AMBAS' as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
+    maPresupuesto: '',
+    maActitud: '',
+    maCapacitacion: '',
+    maDocumentacion: '',
+    maMonitoreo: '',
     recomendacion: '',
     descripcionControl: '',
     responsable: '',
@@ -310,6 +502,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   // Configuración residual desde admin (todo el cálculo usa esta config, sin datos quemados)
   const { data: configResidual } = useGetConfiguracionResidualQuery();
   const { data: frecuenciasCatalog = [] } = useGetFrecuenciasQuery();
+  const { data: nivelesRiesgoCatalog = [] } = useGetNivelesRiesgoQuery();
 
   // Manejo de archivos de seguimiento
   const API_BASE_URL =
@@ -607,9 +800,17 @@ export default function ControlesYPlanesAccionPageNueva() {
       case 'descripcion':
         return riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || '';
       case 'tipologia':
-        return riesgo.tipologiaNivelI || riesgo.tipologia || '';
+        return etiquetaTipologiaRiesgoTabla(riesgo);
       case 'clasificacion':
-        // Usar nivel de riesgo residual si existe, o nivel inherente
+        if (procesoResidualEstrategico) {
+          return (
+            riesgo.evaluacion?.nivelRiesgoResidual ||
+            riesgo.nivelRiesgoResidual ||
+            riesgo.evaluacion?.riesgoResidual ||
+            riesgo.riesgoResidual ||
+            ''
+          );
+        }
         return (
           riesgo.evaluacion?.nivelRiesgoResidual ||
           riesgo.nivelRiesgoResidual ||
@@ -948,6 +1149,14 @@ export default function ControlesYPlanesAccionPageNueva() {
         // En versiones nuevas se guarda como controlDesviaciones, en otras como desviaciones
         desviaciones: control.desviaciones || fuenteControl.desviaciones || fuenteControl.controlDesviaciones || 'A',
         tipoMitigacion: control.tipoMitigacion || control.disminuyeFrecuenciaImpactoAmbas || fuenteControl.tipoMitigacion || 'AMBAS',
+        tipoMitigacionAnexo: (control.tipoMitigacionAnexo ||
+          fuenteControl.tipoMitigacionAnexo ||
+          'AMBAS') as 'FRECUENCIA' | 'IMPACTO' | 'AMBAS',
+        maPresupuesto: control.maPresupuesto || fuenteControl.maPresupuesto || '',
+        maActitud: control.maActitud || fuenteControl.maActitud || '',
+        maCapacitacion: control.maCapacitacion || fuenteControl.maCapacitacion || '',
+        maDocumentacion: control.maDocumentacion || fuenteControl.maDocumentacion || '',
+        maMonitoreo: control.maMonitoreo || fuenteControl.maMonitoreo || '',
         recomendacion: control.recomendacion || fuenteControl.recomendacion || '',
         descripcionControl: control.descripcionControl || control.descripcion || fuenteControl.controlDescripcion || '',
         responsable:
@@ -976,6 +1185,12 @@ export default function ControlesYPlanesAccionPageNueva() {
         puntajeNaturaleza: 0,
         desviaciones: 'A',
         tipoMitigacion: 'AMBAS',
+        tipoMitigacionAnexo: 'AMBAS',
+        maPresupuesto: '',
+        maActitud: '',
+        maCapacitacion: '',
+        maDocumentacion: '',
+        maMonitoreo: '',
         recomendacion: '',
         descripcionControl: '',
         responsable: (user as any)?.fullName || '',
@@ -1167,7 +1382,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       controlData.desviaciones === 'C' ? 50 :
       controlData.desviaciones === 'D' ? 25 : 100;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       descripcion: controlData.descripcionControl || '',
       tipoControl: 'PREVENTIVO',
       responsable: controlData.responsable,
@@ -1188,6 +1403,14 @@ export default function ControlesYPlanesAccionPageNueva() {
       estadoAmbos: controlData.estadoAmbos,
       planAccionVinculadoId: controlData.planAccionVinculadoId || null
     };
+    if (procesoResidualEstrategico) {
+      payload.tipoMitigacionAnexo = controlData.tipoMitigacionAnexo || null;
+      payload.maPresupuesto = controlData.maPresupuesto || null;
+      payload.maActitud = controlData.maActitud || null;
+      payload.maCapacitacion = controlData.maCapacitacion || null;
+      payload.maDocumentacion = controlData.maDocumentacion || null;
+      payload.maMonitoreo = controlData.maMonitoreo || null;
+    }
 
     try {
       if (controlExistente) {
@@ -1462,11 +1685,15 @@ export default function ControlesYPlanesAccionPageNueva() {
               mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
             }
 
+            const tipoMGuardar = tipoMitigacionResidualDesdeFormulario(
+              procesoResidualEstrategico,
+              criteriosEvaluacion,
+            );
             const fRes = calcularFrecuenciaResidualAvanzada(
               inherentProb,
               inherentImp,
               mit,
-              criteriosEvaluacion.tipoMitigacion,
+              tipoMGuardar,
               def,
               (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                 configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
@@ -1478,7 +1705,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               inherentImp,
               inherentProb,
               mit,
-              criteriosEvaluacion.tipoMitigacion,
+              tipoMGuardar,
               def,
               (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                 configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
@@ -1541,11 +1768,15 @@ export default function ControlesYPlanesAccionPageNueva() {
               mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
             }
 
+            const tipoMGuardarCtrl = tipoMitigacionResidualDesdeFormulario(
+              procesoResidualEstrategico,
+              criteriosEvaluacion,
+            );
             const fRes = calcularFrecuenciaResidualAvanzada(
               inherentProb,
               inherentImp,
               mit,
-              criteriosEvaluacion.tipoMitigacion,
+              tipoMGuardarCtrl,
               def,
               (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                 configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
@@ -1557,7 +1788,7 @@ export default function ControlesYPlanesAccionPageNueva() {
               inherentImp,
               inherentProb,
               mit,
-              criteriosEvaluacion.tipoMitigacion,
+              tipoMGuardarCtrl,
               def,
               (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                 configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
@@ -1662,8 +1893,12 @@ export default function ControlesYPlanesAccionPageNueva() {
             mit = 0;
           }
 
-          const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
-          const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, criteriosEvaluacion.tipoMitigacion, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
+          const tipoMNorm = tipoMitigacionResidualDesdeFormulario(
+            procesoResidualEstrategico,
+            criteriosEvaluacion,
+          );
+          const fRes = calcularFrecuenciaResidualAvanzada(inherentProb, inherentImp, mit, tipoMNorm, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
+          const iRes = calcularImpactoResidualAvanzado(inherentImp, inherentProb, mit, tipoMNorm, def, (configResidual?.porcentajeReduccionDimensionCruzada != null && configResidual.porcentajeReduccionDimensionCruzada >= 0 && configResidual.porcentajeReduccionDimensionCruzada <= 1) ? configResidual.porcentajeReduccionDimensionCruzada : 0.34);
           const calRes = (fRes === 2 && iRes === 2) ? 3.99 : calcularCalificacionResidual(fRes, iRes);
           const nivelResidualCausa = getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes);
 
@@ -1829,6 +2064,12 @@ export default function ControlesYPlanesAccionPageNueva() {
               evaluacionDefinitiva: causaActualizada.evaluacionDefinitiva,
               porcentajeMitigacion: causaActualizada.porcentajeMitigacion,
               tipoMitigacion: criteriosEvaluacion.tipoMitigacion,
+              tipoMitigacionAnexo: criteriosEvaluacion.tipoMitigacionAnexo,
+              maPresupuesto: criteriosEvaluacion.maPresupuesto,
+              maActitud: criteriosEvaluacion.maActitud,
+              maCapacitacion: criteriosEvaluacion.maCapacitacion,
+              maDocumentacion: criteriosEvaluacion.maDocumentacion,
+              maMonitoreo: criteriosEvaluacion.maMonitoreo,
               recomendacion: criteriosEvaluacion.recomendacion,
               estadoAmbos: tipoClasificacion === 'AMBOS' ? 'ACTIVO' : null,
               planAccionVinculadoId: criteriosEvaluacion.planAccionVinculadoId
@@ -1869,12 +2110,16 @@ export default function ControlesYPlanesAccionPageNueva() {
 
         await actualizarRiesgoApi(riesgoIdEvaluacion, {
           causas: causasUpd,
-          evaluacion: {
-            riesgoResidual: maxRiesgoResidual,
-            probabilidadResidual: mejorProbRes,
-            impactoResidual: mejorImpRes,
-            nivelRiesgoResidual: nivelRiesgoResidual
-          }
+          ...(procesoResidualEstrategico
+            ? {}
+            : {
+                evaluacion: {
+                  riesgoResidual: maxRiesgoResidual,
+                  probabilidadResidual: mejorProbRes,
+                  impactoResidual: mejorImpRes,
+                  nivelRiesgoResidual: nivelRiesgoResidual
+                }
+              })
         } as any);
 
         dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion']));
@@ -2138,6 +2383,22 @@ export default function ControlesYPlanesAccionPageNueva() {
     );
   }
 
+  const ctrlDetalleDialog = causaDetalleView?.causa?.controles?.[0];
+  const muestraBloqueControlEnDetalle =
+    !!itemDetalle &&
+    (() => {
+      const tipoU = String((itemDetalle as any).tipo || '').toUpperCase();
+      return (
+        tipoU === 'CONTROL' ||
+        tipoU === 'AMBOS' ||
+        !!(itemDetalle as any).controlDescripcion ||
+        !!(itemDetalle as any).gestion?.controlDescripcion ||
+        !!ctrlDetalleDialog?.descripcionControl ||
+        !!ctrlDetalleDialog?.descripcion ||
+        !!(causaDetalleView?.causa?.controles?.length)
+      );
+    })();
+
   return (
     <>
       {/* Diálogo de cambios no guardados */}
@@ -2360,14 +2621,16 @@ export default function ControlesYPlanesAccionPageNueva() {
                           wordBreak: 'break-word',
                         }}
                       >
-                        {riesgo.descripcionRiesgo ||
-                          riesgo.descripcion ||
-                          riesgo.nombre ||
-                          'Sin descripción'}
+                        {repairSpanishDisplayArtifacts(
+                          riesgo.descripcionRiesgo ||
+                            riesgo.descripcion ||
+                            riesgo.nombre ||
+                            'Sin descripción'
+                        )}
                       </Typography>
 
                       <Typography variant="body2" color="text.secondary">
-                        {riesgo.tipologiaNivelI || '02 Operacional'}
+                        {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
 
                       {/* Columna de Clasificación/Nivel de Riesgo */}
@@ -2401,31 +2664,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                           
                           if (!nivelRiesgo) nivelRiesgo = 'Sin Calificar';
                           
-                          const nivelNormalizado = nivelRiesgo.toLowerCase();
-                          let color = '#666';
-                          let bgColor = '#f5f5f5';
-                          
-                          if (nivelNormalizado.includes('crítico') || nivelNormalizado.includes('critico')) {
-                            color = '#fff';
-                            bgColor = '#d32f2f';
-                          } else if (nivelNormalizado.includes('alto')) {
-                            color = '#fff';
-                            bgColor = '#f57c00';
-                          } else if (nivelNormalizado.includes('medio')) {
-                            color = '#fff';
-                            bgColor = '#fbc02d';
-                          } else if (nivelNormalizado.includes('bajo')) {
-                            color = '#fff';
-                            bgColor = '#388e3c';
-                          }
-                          
+                          const stChip = estiloNivelResidualDesdeNombre(nivelRiesgo, nivelesRiesgoCatalog);
                           return (
                             <Chip
-                              label={nivelRiesgo.toUpperCase()}
+                              label={etiquetaNivelMostrar(nivelRiesgo)}
                               size="small"
                               sx={{
-                                backgroundColor: bgColor,
-                                color: color,
+                                backgroundColor: stChip.bg,
+                                color: stChip.color,
                                 fontWeight: 700,
                                 fontSize: '0.65rem',
                                 height: 24,
@@ -2717,6 +2963,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         1,
                                                         Math.min(5, Math.round(impactoEval as number) || 1),
                                                       );
+                                                      const ctrlRow = causa.controles?.[0];
                                                       let pt = 0;
                                                       let def = 'Inefectivo';
                                                       let mit = 0;
@@ -2728,12 +2975,29 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
                                                       }
 
+                                                      let defCalc = def;
+                                                      let mitCalc = mit;
+                                                      if (procesoResidualEstrategico && criteriosEvaluacion.tieneControl) {
+                                                        const maLab = ctrlRow?.maEvaluacionAz?.trim?.();
+                                                        if (maLab) {
+                                                          defCalc = maLab;
+                                                          mitCalc = obtenerPorcentajeMitigacionAvanzado(maLab);
+                                                        }
+                                                        if (ctrlRow?.maPorcentajeBa != null && String(ctrlRow.maPorcentajeBa) !== '') {
+                                                          mitCalc = Number(ctrlRow.maPorcentajeBa);
+                                                        }
+                                                      }
+                                                      const tipoM = tipoMitigacionResidualDesdeFormulario(
+                                                        procesoResidualEstrategico,
+                                                        criteriosEvaluacion,
+                                                      );
+
                                                       const fRes = calcularFrecuenciaResidualAvanzada(
                                                         inherentProb,
                                                         inherentImp,
-                                                        mit,
-                                                        criteriosEvaluacion.tipoMitigacion,
-                                                        def,
+                                                        mitCalc,
+                                                        tipoM,
+                                                        defCalc,
                                                         (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                                                           configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
                                                           configResidual.porcentajeReduccionDimensionCruzada <= 1)
@@ -2743,9 +3007,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                       const iRes = calcularImpactoResidualAvanzado(
                                                         inherentImp,
                                                         inherentProb,
-                                                        mit,
-                                                        criteriosEvaluacion.tipoMitigacion,
-                                                        def,
+                                                        mitCalc,
+                                                        tipoM,
+                                                        defCalc,
                                                         (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                                                           configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
                                                           configResidual.porcentajeReduccionDimensionCruzada <= 1)
@@ -2758,71 +3022,171 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                         getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes) ||
                                                         determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
 
-                                                      // Valores a mostrar: priorizar lo guardado en la causa/gestión (BD),
-                                                      // y usar el cálculo local solo como fallback previo al guardado.
-                                                      const displayDef =
-                                                        causa.gestion?.evaluacionDefinitiva ?? def;
+                                                      // Valores a mostrar: priorizar lo guardado en la causa; en CWR el cálculo
+                                                      // en vivo (fRes/iRes) antes que evaluacion global del mapa (suele desalinearse).
+                                                      const displayDef = procesoResidualEstrategico
+                                                        ? (ctrlRow?.maEvaluacionAz ??
+                                                            ctrlRow?.evaluacionDefinitiva ??
+                                                            causa.gestion?.evaluacionDefinitiva ??
+                                                            def)
+                                                        : (causa.gestion?.evaluacionDefinitiva ?? def);
                                                       const displayMit =
                                                         causa.gestion?.porcentajeMitigacion ?? mit;
-                                                      
-                                                      // Normalizar displayMit: si es > 1, ya está en formato 0-100, sino está en formato 0-1
-                                                      const displayMitNormalizado = displayMit > 1 ? displayMit : displayMit * 100;
 
-                                                      const displayFrecuenciaResidual =
-                                                        causa.frecuenciaResidual ??
-                                                        causa.gestion?.frecuenciaResidual ??
-                                                        fRes;
-                                                      const displayImpactoResidual =
-                                                        causa.impactoResidual ??
-                                                        causa.gestion?.impactoResidual ??
-                                                        iRes;
-                                                      const displayCalificacionResidual =
-                                                        causa.calificacionResidual ??
-                                                        causa.gestion?.calificacionResidual ??
-                                                        calRes;
-                                                      const displayNivelResidual =
-                                                        causa.nivelRiesgoResidual ??
-                                                        causa.gestion?.nivelRiesgoResidual ??
-                                                        nivelRes;
+                                                      const displayMitNormalizado =
+                                                        procesoResidualEstrategico &&
+                                                        ctrlRow?.maPorcentajeBa != null
+                                                          ? Number(ctrlRow.maPorcentajeBa) * 100
+                                                          : displayMit > 1
+                                                            ? displayMit
+                                                            : displayMit * 100;
 
-                                                      const getColorNivel = (n: string) => {
-                                                        const nivel = (n || '').toUpperCase();
-                                                        if (nivel.includes('CRÍTICO') || nivel.includes('CRITICO')) return '#d32f2f';
-                                                        if (nivel.includes('ALTO')) return '#f57c00';
-                                                        if (nivel.includes('MEDIO')) return '#fdd835';
-                                                        if (nivel.includes('BAJO')) return '#388e3c';
-                                                        return '#e0e0e0';
-                                                      };
+                                                      const displayFrecuenciaResidual = procesoResidualEstrategico
+                                                        ? (causa.frecuenciaResidual ??
+                                                            causa.gestion?.frecuenciaResidual ??
+                                                            fRes ??
+                                                            riesgo.evaluacion?.probabilidadResidual)
+                                                        : (causa.frecuenciaResidual ??
+                                                            causa.gestion?.frecuenciaResidual ??
+                                                            fRes);
+                                                      const displayImpactoResidual = procesoResidualEstrategico
+                                                        ? (causa.impactoResidual ??
+                                                            causa.gestion?.impactoResidual ??
+                                                            iRes ??
+                                                            riesgo.evaluacion?.impactoResidual)
+                                                        : (causa.impactoResidual ??
+                                                            causa.gestion?.impactoResidual ??
+                                                            iRes);
+                                                      const displayCalificacionResidual = procesoResidualEstrategico
+                                                        ? (causa.calificacionResidual ??
+                                                            causa.gestion?.calificacionResidual ??
+                                                            calRes ??
+                                                            riesgo.evaluacion?.riesgoResidual)
+                                                        : (causa.calificacionResidual ??
+                                                            causa.gestion?.calificacionResidual ??
+                                                            calRes);
+                                                      const displayNivelResidual = procesoResidualEstrategico
+                                                        ? (causa.nivelRiesgoResidual ??
+                                                            causa.gestion?.nivelRiesgoResidual ??
+                                                            nivelRes ??
+                                                            riesgo.evaluacion?.nivelRiesgoResidual)
+                                                        : (causa.nivelRiesgoResidual ??
+                                                            causa.gestion?.nivelRiesgoResidual ??
+                                                            nivelRes);
+
+                                                      const getColorNivel = (n: string) =>
+                                                        fondoNivelResidualDesdeNombre(n, nivelesRiesgoCatalog);
+                                                      const celdaMapaResidual =
+                                                        procesoResidualEstrategico &&
+                                                        coordsResidualEnRangoMapa(displayFrecuenciaResidual, displayImpactoResidual)
+                                                          ? colorCeldaMapaResidualNegativo(
+                                                              Number(displayFrecuenciaResidual),
+                                                              Number(displayImpactoResidual)
+                                                            )
+                                                          : null;
+                                                      const mapaFiFallback =
+                                                        coordsResidualEnRangoMapa(displayFrecuenciaResidual, displayImpactoResidual)
+                                                          ? colorCeldaMapaResidualNegativo(
+                                                              Number(displayFrecuenciaResidual),
+                                                              Number(displayImpactoResidual)
+                                                            )
+                                                          : null;
+
+                                                      /** Anexo 6 §5.7: semáforo por calificación; luego cálculo vivo y f×i mostrados (sin mapa si no es CWR estratégico, se caía a verde «Bajo»). */
+                                                      const productoResidualUi =
+                                                        displayFrecuenciaResidual != null &&
+                                                        displayImpactoResidual != null &&
+                                                        Number.isFinite(Number(displayFrecuenciaResidual)) &&
+                                                        Number.isFinite(Number(displayImpactoResidual))
+                                                          ? Number(displayFrecuenciaResidual) === 2 &&
+                                                            Number(displayImpactoResidual) === 2
+                                                            ? 3.99
+                                                            : Number(displayFrecuenciaResidual) *
+                                                              Number(displayImpactoResidual)
+                                                          : null;
+                                                      const estiloCwrPorCalificacion = estiloSemafotoResidualCWRConFallback(
+                                                        displayCalificacionResidual,
+                                                        calRes,
+                                                        productoResidualUi,
+                                                      );
+                                                      const bgcolorCajaResidual =
+                                                        estiloCwrPorCalificacion?.bg ??
+                                                        celdaMapaResidual?.bg ??
+                                                        mapaFiFallback?.bg ??
+                                                        getColorNivel(displayNivelResidual);
+                                                      const colorTextoCajaResidual =
+                                                        estiloCwrPorCalificacion?.color ??
+                                                        celdaMapaResidual?.color ??
+                                                        mapaFiFallback?.color ??
+                                                        (['ALTO', 'CRÍTICO', 'CRITICO'].includes(
+                                                          String(displayNivelResidual ?? '').toUpperCase()
+                                                        )
+                                                          ? 'white'
+                                                          : 'black');
 
                                                       return (
                                                         <>
                                                           <Box sx={{ mb: 2 }}>
                                                             <FormControlLabel
                                                               control={<Switch checked={criteriosEvaluacion.tieneControl} onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tieneControl: e.target.checked }))} />}
-                                                              label={<Typography fontWeight="bold">¿Tiene Control Implementado?</Typography>}
+                                                              label={<Typography variant="body2" sx={{ fontWeight: 600 }}>¿Tiene Control Implementado?</Typography>}
                                                             />
                                                           </Box>
 
                                                           {criteriosEvaluacion.tieneControl && (
                                                             <Collapse in={true}>
                                                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                                                {/* Sección 1: Datos Generales del Control */}
-                                                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3 }}>
+                                                                <Box
+                                                                  sx={{
+                                                                    display: 'grid',
+                                                                    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                                                                    gap: 3,
+                                                                    alignItems: 'start',
+                                                                  }}
+                                                                >
                                                                   <TextField
                                                                     label="Descripción del Control"
                                                                     multiline
-                                                                    rows={2}
+                                                                    minRows={4}
                                                                     value={criteriosEvaluacion.descripcionControl || ''}
                                                                     onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, descripcionControl: e.target.value }))}
                                                                     fullWidth
                                                                     placeholder="Describa el control..."
+                                                                    sx={{
+                                                                      gridColumn: { xs: '1', md: '1 / -1' },
+                                                                      '& .MuiInputBase-root': { alignItems: 'flex-start', py: 0.5 },
+                                                                    }}
                                                                   />
-                                                                  <FormControl fullWidth size="small">
-                                                                    <InputLabel>¿Disminuye Frecuencia o Impacto?</InputLabel>
+                                                                  <FormControl
+                                                                    fullWidth
+                                                                    size={procesoResidualEstrategico ? 'medium' : 'small'}
+                                                                    sx={procesoResidualEstrategico ? SX_MA_FORM_CONTROL_LONG_LABEL : undefined}
+                                                                  >
+                                                                    <InputLabel id={`ma-afecta-lbl-${causa.id ?? 'x'}`}>
+                                                                      {procesoResidualEstrategico
+                                                                        ? MA_PREGUNTA_AFECTA_FREC_IMPACTO
+                                                                        : '¿Disminuye Frecuencia o Impacto?'}
+                                                                    </InputLabel>
                                                                     <Select
-                                                                      value={criteriosEvaluacion.tipoMitigacion}
-                                                                      label="¿Disminuye Frecuencia o Impacto?"
-                                                                      onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tipoMitigacion: e.target.value as any }))}
+                                                                      labelId={`ma-afecta-lbl-${causa.id ?? 'x'}`}
+                                                                      id={procesoResidualEstrategico ? `ma-afecta-${causa.id ?? 'x'}` : undefined}
+                                                                      label={
+                                                                        procesoResidualEstrategico
+                                                                          ? MA_PREGUNTA_AFECTA_FREC_IMPACTO
+                                                                          : '¿Disminuye Frecuencia o Impacto?'
+                                                                      }
+                                                                      value={
+                                                                        procesoResidualEstrategico
+                                                                          ? criteriosEvaluacion.tipoMitigacionAnexo
+                                                                          : criteriosEvaluacion.tipoMitigacion
+                                                                      }
+                                                                      onChange={(e) =>
+                                                                        setCriteriosEvaluacion((pr) =>
+                                                                          procesoResidualEstrategico
+                                                                            ? { ...pr, tipoMitigacionAnexo: e.target.value as any }
+                                                                            : { ...pr, tipoMitigacion: e.target.value as any }
+                                                                        )
+                                                                      }
                                                                     >
                                                                       <MenuItem value="FRECUENCIA">Disminuye Frecuencia</MenuItem>
                                                                       <MenuItem value="IMPACTO">Disminuye Impacto</MenuItem>
@@ -2834,14 +3198,135 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                     value={criteriosEvaluacion.responsable || ''}
                                                                     onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, responsable: e.target.value }))}
                                                                     fullWidth
+                                                                    size={procesoResidualEstrategico ? 'medium' : 'small'}
                                                                   />
                                                                 </Box>
 
+                                                                {procesoResidualEstrategico && (
+                                                                  <>
+                                                                    <Box
+                                                                      sx={{
+                                                                        display: 'grid',
+                                                                        gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                                                                        gap: 3,
+                                                                        alignItems: 'start',
+                                                                      }}
+                                                                    >
+                                                                      <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                        <InputLabel id={`ma-pres-lbl-${causa.id}`}>
+                                                                          {MA_PREGUNTA_PRESUPUESTO_RECURSOS}
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                          labelId={`ma-pres-lbl-${causa.id}`}
+                                                                          id={`ma-pres-${causa.id}`}
+                                                                          label={MA_PREGUNTA_PRESUPUESTO_RECURSOS}
+                                                                          value={criteriosEvaluacion.maPresupuesto || ''}
+                                                                          onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maPresupuesto: e.target.value }))}
+                                                                        >
+                                                                          <MenuItem value="SI">Sí</MenuItem>
+                                                                          <MenuItem value="NO">No</MenuItem>
+                                                                          <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                        </Select>
+                                                                      </FormControl>
+                                                                      <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                        <InputLabel id={`ma-act-lbl-${causa.id}`}>
+                                                                          {MA_PREGUNTA_ACTITUD_STAKEHOLDERS}
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                          labelId={`ma-act-lbl-${causa.id}`}
+                                                                          id={`ma-act-${causa.id}`}
+                                                                          label={MA_PREGUNTA_ACTITUD_STAKEHOLDERS}
+                                                                          value={criteriosEvaluacion.maActitud || ''}
+                                                                          onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maActitud: e.target.value }))}
+                                                                        >
+                                                                          <MenuItem value="POSITIVA">Positiva</MenuItem>
+                                                                          <MenuItem value="NEUTRAL">Neutral</MenuItem>
+                                                                          <MenuItem value="RENUENTE">Renuente</MenuItem>
+                                                                        </Select>
+                                                                      </FormControl>
+                                                                      <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                        <InputLabel id={`ma-cap-lbl-${causa.id}`}>
+                                                                          {MA_PREGUNTA_CAPACITACION_FUNCIONARIOS}
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                          labelId={`ma-cap-lbl-${causa.id}`}
+                                                                          id={`ma-cap-${causa.id}`}
+                                                                          label={MA_PREGUNTA_CAPACITACION_FUNCIONARIOS}
+                                                                          value={criteriosEvaluacion.maCapacitacion || ''}
+                                                                          onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maCapacitacion: e.target.value }))}
+                                                                        >
+                                                                          <MenuItem value="SI">Sí</MenuItem>
+                                                                          <MenuItem value="NO">No</MenuItem>
+                                                                          <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                        </Select>
+                                                                      </FormControl>
+                                                                      <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                        <InputLabel id={`ma-doc-lbl-${causa.id}`}>
+                                                                          {MA_PREGUNTA_DOCUMENTACION_SOPORTE}
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                          labelId={`ma-doc-lbl-${causa.id}`}
+                                                                          id={`ma-doc-${causa.id}`}
+                                                                          label={MA_PREGUNTA_DOCUMENTACION_SOPORTE}
+                                                                          value={criteriosEvaluacion.maDocumentacion || ''}
+                                                                          onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maDocumentacion: e.target.value }))}
+                                                                        >
+                                                                          <MenuItem value="SI">Sí</MenuItem>
+                                                                          <MenuItem value="NO">No</MenuItem>
+                                                                          <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                        </Select>
+                                                                      </FormControl>
+                                                                      <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                        <InputLabel id={`ma-mon-lbl-${causa.id}`}>
+                                                                          {MA_PREGUNTA_MONITOREO_DESEMPEÑO}
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                          labelId={`ma-mon-lbl-${causa.id}`}
+                                                                          id={`ma-mon-${causa.id}`}
+                                                                          label={MA_PREGUNTA_MONITOREO_DESEMPEÑO}
+                                                                          value={criteriosEvaluacion.maMonitoreo || ''}
+                                                                          onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maMonitoreo: e.target.value }))}
+                                                                        >
+                                                                          <MenuItem value="SI">Sí</MenuItem>
+                                                                          <MenuItem value="NO">No</MenuItem>
+                                                                          <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                        </Select>
+                                                                      </FormControl>
+                                                                      <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                        <InputLabel id={`plan-vinc-lbl-${causa.id}`}>
+                                                                          Plan de acción vinculado
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                          labelId={`plan-vinc-lbl-${causa.id}`}
+                                                                          id={`plan-vinc-estr-${causa.id}`}
+                                                                          label="Plan de acción vinculado"
+                                                                          value={criteriosEvaluacion.planAccionVinculadoId || ''}
+                                                                          onChange={(e) =>
+                                                                            setCriteriosEvaluacion((pr) => ({
+                                                                              ...pr,
+                                                                              planAccionVinculadoId: e.target.value ? Number(e.target.value) : null,
+                                                                            }))
+                                                                          }
+                                                                        >
+                                                                          <MenuItem value="">
+                                                                            <em>Ninguno</em>
+                                                                          </MenuItem>
+                                                                          {planesAccionVinculadosMenuItems(
+                                                                            riesgosApiData,
+                                                                            riesgoIdEvaluacion,
+                                                                            causaIdEvaluacion,
+                                                                          )}
+                                                                        </Select>
+                                                                      </FormControl>
+                                                                    </Box>
+                                                                  </>
+                                                                )}
+
+                                                                {!procesoResidualEstrategico && (
+                                                                  <>
                                                                 <Divider>Evaluación de Criterios (Puntaje Variable)</Divider>
 
-                                                                {/* Sección 2: Criterios de Evaluación */}
                                                                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
-                                                                  {/* Columna Izquierda */}
                                                                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                                     <FormControl fullWidth size="small">
                                                                       <InputLabel>Aplicabilidad</InputLabel>
@@ -2895,7 +3380,6 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                     </FormControl>
                                                                   </Box>
 
-                                                                  {/* Columna Derecha */}
                                                                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                                     <FormControl fullWidth size="small">
                                                                       <InputLabel>Segregación</InputLabel>
@@ -2967,88 +3451,27 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                       <Select
                                                                         value={criteriosEvaluacion.planAccionVinculadoId || ''}
                                                                         label="Plan de Acción Vinculado"
-                                                                        onOpen={() => {
-                                                                          console.log('[DEBUG OPEN] Select abierto');
-                                                                          console.log('[DEBUG OPEN] riesgoIdEvaluacion:', riesgoIdEvaluacion);
-                                                                          console.log('[DEBUG OPEN] causaIdEvaluacion:', causaIdEvaluacion);
-                                                                          console.log('[DEBUG OPEN] riesgosApiData:', riesgosApiData);
-                                                                        }}
                                                                         onChange={(e) => {
-                                                                          setCriteriosEvaluacion(pr => ({ 
-                                                                            ...pr, 
-                                                                            planAccionVinculadoId: e.target.value ? Number(e.target.value) : null 
+                                                                          setCriteriosEvaluacion(pr => ({
+                                                                            ...pr,
+                                                                            planAccionVinculadoId: e.target.value ? Number(e.target.value) : null,
                                                                           }));
                                                                         }}
                                                                       >
                                                                         <MenuItem value="">
                                                                           <em>Ninguno</em>
                                                                         </MenuItem>
-                                                                        {(() => {
-                                                                          // Obtener planes de acción de la causa actual usando los IDs guardados
-                                                                          // Buscar en los datos originales de la API, no en los filtrados
-                                                                          console.log('[DEBUG RENDER] Renderizando opciones del Select');
-                                                                          const datosOriginales = ((riesgosApiData as any)?.data || []) as any[];
-                                                                          console.log('[DEBUG RENDER] datosOriginales length:', datosOriginales.length);
-                                                                          const riesgoActual = datosOriginales?.find((r: any) => r.id === riesgoIdEvaluacion);
-                                                                          console.log('[DEBUG RENDER] riesgoActual:', riesgoActual);
-                                                                          const causaActual = riesgoActual?.causas?.find((c: any) => c.id === causaIdEvaluacion);
-                                                                          console.log('[DEBUG RENDER] causaActual:', causaActual);
-                                                                          
-                                                                          // Obtener planes de la causa Y del riesgo completo
-                                                                          const planesDeCausa = causaActual?.planesAccion || [];
-                                                                          const planesDeRiesgo = riesgoActual?.planesAccion || [];
-                                                                          console.log('[DEBUG RENDER] planesDeCausa:', planesDeCausa);
-                                                                          console.log('[DEBUG RENDER] planesDeRiesgo:', planesDeRiesgo);
-                                                                          
-                                                                          // NUEVO: También buscar planes en el campo gestion (legacy JSONB)
-                                                                          const planesLegacy: any[] = [];
-                                                                          
-                                                                          // Buscar en todas las causas del riesgo que tengan planes en gestion
-                                                                          riesgoActual?.causas?.forEach((causa: any) => {
-                                                                            const gestion = causa.gestion || {};
-                                                                            
-                                                                            // Si tiene datos de plan en gestion, crear un objeto plan virtual
-                                                                            if (gestion.planDescripcion || gestion.planDetalle) {
-                                                                              planesLegacy.push({
-                                                                                id: `legacy-${causa.id}`, // ID virtual para planes legacy
-                                                                                nombre: gestion.planDescripcion || gestion.planDetalle || 'Plan sin nombre',
-                                                                                descripcion: gestion.planDescripcion || gestion.planDetalle,
-                                                                                estado: gestion.planEstado || 'pendiente',
-                                                                                causaId: causa.id,
-                                                                                isLegacy: true // Marcar como legacy
-                                                                              });
-                                                                            }
-                                                                          });
-                                                                          
-                                                                          console.log('[DEBUG RENDER] planesLegacy:', planesLegacy);
-                                                                          
-                                                                          // Combinar todos los arrays y eliminar duplicados por ID
-                                                                          const todosLosPlanes = [...planesDeCausa, ...planesDeRiesgo, ...planesLegacy];
-                                                                          const planesUnicos = todosLosPlanes.filter((plan, index, self) => 
-                                                                            index === self.findIndex((p) => p.id === plan.id)
-                                                                          );
-                                                                          console.log('[DEBUG RENDER] planesUnicos:', planesUnicos);
-                                                                          
-                                                                          if (planesUnicos.length === 0) {
-                                                                            return (
-                                                                              <MenuItem disabled value="">
-                                                                                <em>No hay planes de acción disponibles</em>
-                                                                              </MenuItem>
-                                                                            );
-                                                                          }
-                                                                          
-                                                                          return planesUnicos.map((plan: any) => (
-                                                                            <MenuItem key={plan.id} value={plan.id}>
-                                                                              {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
-                                                                              {plan.estado && ` (${plan.estado})`}
-                                                                              {plan.isLegacy && ' [Legacy]'}
-                                                                            </MenuItem>
-                                                                          ));
-                                                                        })()}
+                                                                        {planesAccionVinculadosMenuItems(
+                                                                          riesgosApiData,
+                                                                          riesgoIdEvaluacion,
+                                                                          causaIdEvaluacion,
+                                                                        )}
                                                                       </Select>
                                                                     </FormControl>
                                                                   </Box>
                                                                 </Box>
+                                                                  </>
+                                                                )}
                                                               </Box>
                                                             </Collapse>
                                                           )}
@@ -3069,7 +3492,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                 <Typography variant="body2" fontWeight="bold">
                                                                   {criteriosEvaluacion.tieneControl ? displayDef : 'Inefectivo (Sin Control)'}
                                                                 </Typography>
-                                                                {criteriosEvaluacion.tieneControl && (
+                                                                {criteriosEvaluacion.tieneControl && !procesoResidualEstrategico && (
                                                                   <Typography variant="caption">({pt.toFixed(0)} pts)</Typography>
                                                                 )}
                                                               </Box>
@@ -3086,7 +3509,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                   Calificación residual de la frecuencia
                                                                 </Typography>
                                                                 <Typography variant="h6">
-                                                                  {fRes}
+                                                                  {displayFrecuenciaResidual}
                                                                 </Typography>
                                                               </Box>
                                                               <Box>
@@ -3094,7 +3517,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                   Calificación residual del impacto
                                                                 </Typography>
                                                                 <Typography variant="h6">
-                                                                  {iRes}
+                                                                  {displayImpactoResidual}
                                                                 </Typography>
                                                               </Box>
                                                               <Box>
@@ -3102,12 +3525,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                   elevation={0}
                                                                   sx={{
                                                                     p: 1,
-                                                                    bgcolor: getColorNivel(nivelRes),
-                                                                    color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(
-                                                                      nivelRes.toUpperCase()
-                                                                    )
-                                                                      ? 'white'
-                                                                      : 'black',
+                                                                    bgcolor: bgcolorCajaResidual,
+                                                                    color: colorTextoCajaResidual,
                                                                     borderRadius: 1,
                                                                   }}
                                                                 >
@@ -3115,10 +3534,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                     Calificación de la causa residual
                                                                   </Typography>
                                                                   <Typography variant="h5" fontWeight="bold">
-                                                                    {calRes}
+                                                                    {displayCalificacionResidual}
                                                                   </Typography>
                                                                   <Typography variant="caption">
-                                                                    {nivelRes}
+                                                                    {displayNivelResidual}
                                                                   </Typography>
                                                                 </Paper>
                                                               </Box>
@@ -3431,22 +3850,39 @@ export default function ControlesYPlanesAccionPageNueva() {
                         wordBreak: 'break-word',
                         pr: 1
                       }}>
-                        {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
+                        {repairSpanishDisplayArtifacts(
+                          riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'
+                        )}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap' 
                       }}>
-                        {riesgo.tipologiaNivelI || riesgo.tipologia || '02 Operacional'}
+                        {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
                       
                       {/* Columna de Clasificación/Nivel de Riesgo RESIDUAL (en CONTROLES) — misma lógica que Resumen y mapa */}
                       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         {(() => {
-                          // Calcular SIEMPRE desde las causas, igual que el resumen y el valor que va al mapa
                           let nivelRiesgo: string | undefined | null = null;
-                          if (riesgo.causas && riesgo.causas.length > 0) {
+                          const ev = riesgo.evaluacion || {};
+
+                          /** Modo CWR/estratégico: priorizar evaluación global persistida (no mezclar con f×i inherente). */
+                          if (procesoResidualEstrategico) {
+                            const nvG = ev.nivelRiesgoResidual;
+                            if (nvG && String(nvG).trim() && String(nvG).trim() !== 'Sin Calificar') {
+                              nivelRiesgo = String(nvG).trim();
+                            } else if (ev.riesgoResidual != null && ev.riesgoResidual !== '') {
+                              const calG = normalizarCalificacionResidualNumero(ev.riesgoResidual);
+                              if (calG != null && calG > 0 && configResidual?.rangosNivelRiesgo?.length) {
+                                const nv = getNivelResidualFromRangos(configResidual.rangosNivelRiesgo, calG);
+                                if (nv && nv !== 'Sin Calificar') nivelRiesgo = nv;
+                              }
+                            }
+                          }
+
+                          if (!nivelRiesgo && riesgo.causas && riesgo.causas.length > 0) {
                             const causasConControles = riesgo.causas.filter((c: any) => {
                               const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
                               return tipo === 'CONTROL' || tipo === 'AMBOS';
@@ -3454,16 +3890,23 @@ export default function ControlesYPlanesAccionPageNueva() {
                             if (causasConControles.length > 0) {
                               const calificacionesResiduales = causasConControles
                                 .map((c: any) => {
-                                  if (c.calificacionResidual !== undefined && c.calificacionResidual !== null) return Number(c.calificacionResidual);
-                                  if (c.riesgoResidual !== undefined && c.riesgoResidual !== null) return Number(c.riesgoResidual);
-                                  const fr = Number(c.frecuenciaResidual || c.gestion?.frecuenciaResidual || c.frecuencia || 3);
-                                  const ir = Number(c.impactoResidual || c.gestion?.impactoResidual || c.calificacionGlobalImpacto || 1);
+                                  if (c.calificacionResidual !== undefined && c.calificacionResidual !== null) {
+                                    return Number(c.calificacionResidual);
+                                  }
+                                  if (c.riesgoResidual !== undefined && c.riesgoResidual !== null) {
+                                    return Number(c.riesgoResidual);
+                                  }
+                                  const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual;
+                                  const irRaw = c.impactoResidual ?? c.gestion?.impactoResidual;
+                                  if (frRaw == null || irRaw == null) return NaN;
+                                  const fr = Number(frRaw);
+                                  const ir = Number(irRaw);
+                                  if (!Number.isFinite(fr) || !Number.isFinite(ir)) return NaN;
                                   return fr === 2 && ir === 2 ? 3.99 : fr * ir;
                                 })
                                 .filter((cal: number) => !isNaN(cal) && cal > 0);
                               if (calificacionesResiduales.length > 0) {
                                 const calificacionMaxResidual = Math.max(...calificacionesResiduales);
-                                // Mismas bandas que "CALIFICACIÓN RESIDUAL FINAL DEL RIESGO" (incluye 3.99 = Bajo)
                                 if (calificacionMaxResidual >= 15 && calificacionMaxResidual <= 25) nivelRiesgo = 'Crítico';
                                 else if (calificacionMaxResidual >= 10 && calificacionMaxResidual < 15) nivelRiesgo = 'Alto';
                                 else if (calificacionMaxResidual >= 4 && calificacionMaxResidual < 10) nivelRiesgo = 'Medio';
@@ -3472,33 +3915,97 @@ export default function ControlesYPlanesAccionPageNueva() {
                               }
                             }
                           }
+
+                          /** Proceso estándar: si aún no hay residual por causa, usar evaluación global como respaldo. */
+                          if (
+                            !procesoResidualEstrategico &&
+                            (!nivelRiesgo || nivelRiesgo === 'Sin Calificar') &&
+                            ev.nivelRiesgoResidual &&
+                            String(ev.nivelRiesgoResidual).trim() &&
+                            ev.nivelRiesgoResidual !== 'Sin Calificar'
+                          ) {
+                            nivelRiesgo = String(ev.nivelRiesgoResidual).trim();
+                          }
+
                           if (!nivelRiesgo) nivelRiesgo = 'Sin Calificar';
                           const nivelParaLabel = String(nivelRiesgo).replace(/nivel\s*/gi, '').trim() || nivelRiesgo;
-                          const nivelNormalizado = nivelParaLabel.toLowerCase();
-                          let color = '#666';
-                          let bgColor = '#f5f5f5';
-                          
-                          if (nivelNormalizado.includes('crítico') || nivelNormalizado.includes('critico')) {
-                            color = '#fff';
-                            bgColor = '#d32f2f';
-                          } else if (nivelNormalizado.includes('alto')) {
-                            color = '#fff';
-                            bgColor = '#f57c00';
-                          } else if (nivelNormalizado.includes('medio')) {
-                            color = '#fff';
-                            bgColor = '#fbc02d';
-                          } else if (nivelNormalizado.includes('bajo')) {
-                            color = '#fff';
-                            bgColor = '#388e3c';
+
+                          const prGlob = ev.probabilidadResidual;
+                          const irGlob = ev.impactoResidual;
+                          const rrGlob = ev.riesgoResidual;
+                          let calParaSemafoto: number | null = null;
+                          let fSem: unknown = prGlob;
+                          let iSem: unknown = irGlob;
+                          const calDesdeGlobal =
+                            normalizarCalificacionResidualNumero(rrGlob) ??
+                            (typeof rrGlob === 'number' ? rrGlob : Number(rrGlob));
+                          if (
+                            rrGlob != null &&
+                            rrGlob !== '' &&
+                            Number.isFinite(calDesdeGlobal) &&
+                            calDesdeGlobal >= 0
+                          ) {
+                            calParaSemafoto = calDesdeGlobal;
+                          } else if (procesoResidualEstrategico && riesgo.causas?.length) {
+                            const causasConResidual = (riesgo.causas || [])
+                              .map((c: any) => {
+                                const frRaw =
+                                  c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual ?? prGlob;
+                                const irRaw =
+                                  c.impactoResidual ?? c.gestion?.impactoResidual ?? irGlob;
+                                if (frRaw == null || irRaw == null) return null;
+                                const fr = Number(frRaw);
+                                const ir = Number(irRaw);
+                                const calRaw =
+                                  c.calificacionResidual ??
+                                  c.gestion?.calificacionResidual ??
+                                  rrGlob ??
+                                  (fr === 2 && ir === 2 ? 3.99 : fr * ir);
+                                const calNum = Number(calRaw);
+                                return {
+                                  frecuenciaResidual: fr,
+                                  impactoResidual: ir,
+                                  calificacionResidualNum: calNum,
+                                };
+                              })
+                              .filter(Boolean);
+                            const cals = (causasConResidual as any[])
+                              .map((c: any) => c.calificacionResidualNum)
+                              .filter((cal: number) => !isNaN(cal) && cal > 0);
+                            const calMax = cals.length > 0 ? Math.max(...cals) : 0;
+                            if (calMax > 0) {
+                              calParaSemafoto = calMax;
+                              const ganadora = (causasConResidual as any[]).find((c) => {
+                                const a = normalizarCalificacionResidualNumero(c.calificacionResidualNum);
+                                const b = normalizarCalificacionResidualNumero(calMax);
+                                return a != null && b != null && Math.abs(a - b) < 0.051;
+                              });
+                              if (ganadora) {
+                                fSem = ganadora.frecuenciaResidual;
+                                iSem = ganadora.impactoResidual;
+                              }
+                            }
                           }
-                          
+
+                          const stChip2 =
+                            procesoResidualEstrategico &&
+                            calParaSemafoto != null &&
+                            calParaSemafoto > 0
+                              ? estiloCajaPorCalificacionCWR(
+                                  calParaSemafoto,
+                                  nivelParaLabel,
+                                  fSem,
+                                  iSem,
+                                  nivelesRiesgoCatalog,
+                                )
+                              : estiloNivelResidualDesdeNombre(nivelParaLabel, nivelesRiesgoCatalog);
                           return (
                             <Chip
-                              label={nivelParaLabel.toUpperCase()}
+                              label={etiquetaNivelMostrar(nivelParaLabel)}
                               size="small"
                               sx={{
-                                backgroundColor: bgColor,
-                                color: color,
+                                backgroundColor: stChip2.bg,
+                                color: stChip2.color,
                                 fontWeight: 700,
                                 fontSize: '0.65rem',
                                 height: 24,
@@ -3546,12 +4053,22 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   fuenteCausa: causa.fuenteCausa,
                                   frecuencia: causa.frecuencia,
                                   calificacionGlobalImpacto: causa.calificacionGlobalImpacto,
-                                  // Priorizar datos de la tabla ControlRiesgo
+                                  // Priorizar datos de la tabla ControlRiesgo (residual estratégico: MA en misma fila)
                                   controlDescripcion: control.descripcionControl || control.descripcion || causa.controlDescripcion || causa.gestion?.controlDescripcion,
                                   controlTipo: control.tipoControl || causa.controlTipo || causa.gestion?.controlTipo,
-                                  evaluacionDefinitiva: control.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva,
+                                  evaluacionDefinitiva:
+                                    control.evaluacionDefinitiva ||
+                                    (control.maEvaluacionAz && String(control.maEvaluacionAz).trim()) ||
+                                    causa.gestion?.evaluacionDefinitiva ||
+                                    causa.evaluacionDefinitiva,
                                   puntajeTotal: control.puntajeControl || causa.puntajeTotal || causa.gestion?.puntajeTotal,
-                                  porcentajeMitigacion: control.estandarizacionPorcentajeMitigacion || causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
+                                  porcentajeMitigacion:
+                                    control.estandarizacionPorcentajeMitigacion != null &&
+                                    control.estandarizacionPorcentajeMitigacion !== ''
+                                      ? Number(control.estandarizacionPorcentajeMitigacion)
+                                      : control.maPorcentajeBa != null && String(control.maPorcentajeBa) !== ''
+                                        ? Number(control.maPorcentajeBa)
+                                        : causa.porcentajeMitigacion ?? causa.gestion?.porcentajeMitigacion,
                                   frecuenciaResidual: causa.frecuenciaResidual || causa.gestion?.frecuenciaResidual,
                                   impactoResidual: causa.impactoResidual || causa.gestion?.impactoResidual,
                                   riesgoResidual: causa.riesgoResidual || causa.calificacionResidual || causa.gestion?.riesgoResidual || causa.gestion?.calificacionResidual,
@@ -3565,7 +4082,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   planFechaEstimada: plan.fechaFin || plan.fechaProgramada || causa.planFechaEstimada || causa.gestion?.planFechaEstimada,
                                   planEstado: plan.estado || causa.planEstado || causa.gestion?.planEstado,
                                   planEvidencia: plan.evidencia || causa.planEvidencia || causa.gestion?.planEvidencia,
-                                  tipo: causa.tipoGestion || (causa.puntajeTotal !== undefined ? 'CONTROL' : 'PLAN')
+                                  tipo: inferTipoGestionDetalle(causa),
                                 };
                                 
                                 return (
@@ -3580,7 +4097,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   }}
                                 >
                                   <TableCell sx={{ maxWidth: 250 }}>{causa.descripcion}</TableCell>
-                                  <TableCell>{control.descripcionControl || control.descripcion || causa.controlDescripcion || causa.gestion?.controlDescripcion || 'Sin descripción'}</TableCell>
+                                  <TableCell>
+                                    {repairSpanishDisplayArtifacts(
+                                      control.descripcionControl ||
+                                        control.descripcion ||
+                                        causa.controlDescripcion ||
+                                        causa.gestion?.controlDescripcion ||
+                                        'Sin descripción'
+                                    )}
+                                  </TableCell>
                                   <TableCell align="center">
                                     {control.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva || 'Sin evaluar'}
                                   </TableCell>
@@ -3653,6 +4178,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                 1,
                                                 Math.min(5, Math.round(impactoEval as number) || 1),
                                               );
+                                              const ctrlRow2 = causa.controles?.[0];
                                               let pt = 0;
                                               let def = 'Inefectivo';
                                               let mit = 0;
@@ -3664,12 +4190,29 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                 mit = getPorcentajeFromTabla(configResidual?.tablaMitigacion, def);
                                               }
 
+                                              let defCalcDlg = def;
+                                              let mitCalcDlg = mit;
+                                              if (procesoResidualEstrategico && criteriosEvaluacion.tieneControl) {
+                                                const maLabDlg = ctrlRow2?.maEvaluacionAz?.trim?.();
+                                                if (maLabDlg) {
+                                                  defCalcDlg = maLabDlg;
+                                                  mitCalcDlg = obtenerPorcentajeMitigacionAvanzado(maLabDlg);
+                                                }
+                                                if (ctrlRow2?.maPorcentajeBa != null && String(ctrlRow2.maPorcentajeBa) !== '') {
+                                                  mitCalcDlg = Number(ctrlRow2.maPorcentajeBa);
+                                                }
+                                              }
+                                              const tipoMDlg = tipoMitigacionResidualDesdeFormulario(
+                                                procesoResidualEstrategico,
+                                                criteriosEvaluacion,
+                                              );
+
                                               const fRes = calcularFrecuenciaResidualAvanzada(
                                                 inherentProb,
                                                 inherentImp,
-                                                mit,
-                                                criteriosEvaluacion.tipoMitigacion,
-                                                def,
+                                                mitCalcDlg,
+                                                tipoMDlg,
+                                                defCalcDlg,
                                                 (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                                                   configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
                                                   configResidual.porcentajeReduccionDimensionCruzada <= 1)
@@ -3679,9 +4222,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                                               const iRes = calcularImpactoResidualAvanzado(
                                                 inherentImp,
                                                 inherentProb,
-                                                mit,
-                                                criteriosEvaluacion.tipoMitigacion,
-                                                def,
+                                                mitCalcDlg,
+                                                tipoMDlg,
+                                                defCalcDlg,
                                                 (configResidual?.porcentajeReduccionDimensionCruzada != null &&
                                                   configResidual.porcentajeReduccionDimensionCruzada >= 0 &&
                                                   configResidual.porcentajeReduccionDimensionCruzada <= 1)
@@ -3693,61 +4236,167 @@ export default function ControlesYPlanesAccionPageNueva() {
                                               const nivelRes =
                                                 getNivelResidualFromRangos(configResidual?.rangosNivelRiesgo, calRes) ||
                                                 determinarNivelRiesgo(calRes, riesgo.clasificacion as any);
+                                              const displayDef =
+                                                procesoResidualEstrategico
+                                                  ? (ctrlRow2?.maEvaluacionAz ??
+                                                      ctrlRow2?.evaluacionDefinitiva ??
+                                                      causa.gestion?.evaluacionDefinitiva ??
+                                                      def)
+                                                  : (causa.gestion?.evaluacionDefinitiva ?? def);
+                                              const displayMit = causa.gestion?.porcentajeMitigacion ?? mit;
+                                              const displayMitNormalizado =
+                                                procesoResidualEstrategico &&
+                                                ctrlRow2?.maPorcentajeBa != null
+                                                  ? Number(ctrlRow2.maPorcentajeBa) * 100
+                                                  : displayMit > 1
+                                                    ? displayMit
+                                                    : displayMit * 100;
 
-                                              const displayFrecuenciaResidual =
-                                                causa.frecuenciaResidual ??
-                                                causa.gestion?.frecuenciaResidual ??
-                                                fRes;
-                                              const displayImpactoResidual =
-                                                causa.impactoResidual ??
-                                                causa.gestion?.impactoResidual ??
-                                                iRes;
-                                              const displayCalificacionResidual =
-                                                causa.calificacionResidual ??
-                                                causa.gestion?.calificacionResidual ??
-                                                calRes;
-                                              const displayNivelResidual =
-                                                causa.nivelRiesgoResidual ??
-                                                causa.gestion?.nivelRiesgoResidual ??
-                                                nivelRes;
+                                              const displayFrecuenciaResidual = procesoResidualEstrategico
+                                                ? (causa.frecuenciaResidual ??
+                                                    causa.gestion?.frecuenciaResidual ??
+                                                    fRes ??
+                                                    riesgo.evaluacion?.probabilidadResidual)
+                                                : (causa.frecuenciaResidual ??
+                                                    causa.gestion?.frecuenciaResidual ??
+                                                    fRes);
+                                              const displayImpactoResidual = procesoResidualEstrategico
+                                                ? (causa.impactoResidual ??
+                                                    causa.gestion?.impactoResidual ??
+                                                    iRes ??
+                                                    riesgo.evaluacion?.impactoResidual)
+                                                : (causa.impactoResidual ??
+                                                    causa.gestion?.impactoResidual ??
+                                                    iRes);
+                                              const displayCalificacionResidual = procesoResidualEstrategico
+                                                ? (causa.calificacionResidual ??
+                                                    causa.gestion?.calificacionResidual ??
+                                                    calRes ??
+                                                    riesgo.evaluacion?.riesgoResidual)
+                                                : (causa.calificacionResidual ??
+                                                    causa.gestion?.calificacionResidual ??
+                                                    calRes);
+                                              const displayNivelResidual = procesoResidualEstrategico
+                                                ? (causa.nivelRiesgoResidual ??
+                                                    causa.gestion?.nivelRiesgoResidual ??
+                                                    nivelRes ??
+                                                    riesgo.evaluacion?.nivelRiesgoResidual)
+                                                : (causa.nivelRiesgoResidual ??
+                                                    causa.gestion?.nivelRiesgoResidual ??
+                                                    nivelRes);
 
-                                              const getColorNivel = (n: string) => {
-                                                const nivel = (n || '').toUpperCase();
-                                                if (nivel.includes('CRÍTICO') || nivel.includes('CRITICO')) return '#d32f2f';
-                                                if (nivel.includes('ALTO')) return '#f57c00';
-                                                if (nivel.includes('MEDIO')) return '#fdd835';
-                                                if (nivel.includes('BAJO')) return '#388e3c';
-                                                return '#e0e0e0';
-                                              };
+                                              const getColorNivel = (n: string) =>
+                                                fondoNivelResidualDesdeNombre(n, nivelesRiesgoCatalog);
+                                              const celdaMapaResidualDlg =
+                                                procesoResidualEstrategico &&
+                                                coordsResidualEnRangoMapa(displayFrecuenciaResidual, displayImpactoResidual)
+                                                  ? colorCeldaMapaResidualNegativo(
+                                                      Number(displayFrecuenciaResidual),
+                                                      Number(displayImpactoResidual)
+                                                    )
+                                                  : null;
+                                              const mapaFiFallbackDlg =
+                                                coordsResidualEnRangoMapa(displayFrecuenciaResidual, displayImpactoResidual)
+                                                  ? colorCeldaMapaResidualNegativo(
+                                                      Number(displayFrecuenciaResidual),
+                                                      Number(displayImpactoResidual)
+                                                    )
+                                                  : null;
+
+                                              const productoResidualUiDlg =
+                                                displayFrecuenciaResidual != null &&
+                                                displayImpactoResidual != null &&
+                                                Number.isFinite(Number(displayFrecuenciaResidual)) &&
+                                                Number.isFinite(Number(displayImpactoResidual))
+                                                  ? Number(displayFrecuenciaResidual) === 2 &&
+                                                    Number(displayImpactoResidual) === 2
+                                                    ? 3.99
+                                                    : Number(displayFrecuenciaResidual) *
+                                                      Number(displayImpactoResidual)
+                                                  : null;
+                                              const estiloCwrPorCalificacionDlg = estiloSemafotoResidualCWRConFallback(
+                                                displayCalificacionResidual,
+                                                calRes,
+                                                productoResidualUiDlg,
+                                              );
+                                              const bgcolorCajaResidualDlg =
+                                                estiloCwrPorCalificacionDlg?.bg ??
+                                                celdaMapaResidualDlg?.bg ??
+                                                mapaFiFallbackDlg?.bg ??
+                                                getColorNivel(displayNivelResidual);
+                                              const colorTextoCajaResidualDlg =
+                                                estiloCwrPorCalificacionDlg?.color ??
+                                                celdaMapaResidualDlg?.color ??
+                                                mapaFiFallbackDlg?.color ??
+                                                (['ALTO', 'CRÍTICO', 'CRITICO'].includes(
+                                                  String(displayNivelResidual ?? '').toUpperCase()
+                                                )
+                                                  ? 'white'
+                                                  : 'black');
 
                                               return (
                                                 <>
                                                   <Box sx={{ mb: 2 }}>
                                                     <FormControlLabel
                                                       control={<Switch checked={criteriosEvaluacion.tieneControl} onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tieneControl: e.target.checked }))} />}
-                                                      label={<Typography fontWeight="bold">¿Tiene Control Implementado?</Typography>}
+                                                      label={<Typography variant="body2" sx={{ fontWeight: 600 }}>¿Tiene Control Implementado?</Typography>}
                                                     />
                                                   </Box>
 
                                                   {criteriosEvaluacion.tieneControl && (
                                                     <Collapse in={true}>
                                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3 }}>
+                                                        <Box
+                                                          sx={{
+                                                            display: 'grid',
+                                                            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                                                            gap: 3,
+                                                            alignItems: 'start',
+                                                          }}
+                                                        >
                                                           <TextField
                                                             label="Descripción del Control"
                                                             multiline
-                                                            rows={2}
+                                                            minRows={4}
                                                             value={criteriosEvaluacion.descripcionControl || ''}
                                                             onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, descripcionControl: e.target.value }))}
                                                             fullWidth
                                                             placeholder="Describa el control..."
+                                                            sx={{
+                                                              gridColumn: { xs: '1', md: '1 / -1' },
+                                                              '& .MuiInputBase-root': { alignItems: 'flex-start', py: 0.5 },
+                                                            }}
                                                           />
-                                                          <FormControl fullWidth size="small">
-                                                            <InputLabel>¿Disminuye Frecuencia o Impacto?</InputLabel>
+                                                          <FormControl
+                                                            fullWidth
+                                                            size={procesoResidualEstrategico ? 'medium' : 'small'}
+                                                            sx={procesoResidualEstrategico ? SX_MA_FORM_CONTROL_LONG_LABEL : undefined}
+                                                          >
+                                                            <InputLabel id={`ma-afecta-dlg-lbl-${causa.id}`}>
+                                                              {procesoResidualEstrategico
+                                                                ? MA_PREGUNTA_AFECTA_FREC_IMPACTO
+                                                                : '¿Disminuye Frecuencia o Impacto?'}
+                                                            </InputLabel>
                                                             <Select
-                                                              value={criteriosEvaluacion.tipoMitigacion}
-                                                              label="¿Disminuye Frecuencia o Impacto?"
-                                                              onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, tipoMitigacion: e.target.value as any }))}
+                                                              labelId={`ma-afecta-dlg-lbl-${causa.id}`}
+                                                              id={procesoResidualEstrategico ? `ma-afecta-dlg-${causa.id}` : undefined}
+                                                              label={
+                                                                procesoResidualEstrategico
+                                                                  ? MA_PREGUNTA_AFECTA_FREC_IMPACTO
+                                                                  : '¿Disminuye Frecuencia o Impacto?'
+                                                              }
+                                                              value={
+                                                                procesoResidualEstrategico
+                                                                  ? criteriosEvaluacion.tipoMitigacionAnexo
+                                                                  : criteriosEvaluacion.tipoMitigacion
+                                                              }
+                                                              onChange={(e) =>
+                                                                setCriteriosEvaluacion((pr) =>
+                                                                  procesoResidualEstrategico
+                                                                    ? { ...pr, tipoMitigacionAnexo: e.target.value as any }
+                                                                    : { ...pr, tipoMitigacion: e.target.value as any }
+                                                                )
+                                                              }
                                                             >
                                                               <MenuItem value="FRECUENCIA">Disminuye Frecuencia</MenuItem>
                                                               <MenuItem value="IMPACTO">Disminuye Impacto</MenuItem>
@@ -3759,9 +4408,132 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                             value={criteriosEvaluacion.responsable || ''}
                                                             onChange={(e) => setCriteriosEvaluacion(pr => ({ ...pr, responsable: e.target.value }))}
                                                             fullWidth
+                                                            size={procesoResidualEstrategico ? 'medium' : 'small'}
                                                           />
                                                         </Box>
 
+                                                        {procesoResidualEstrategico && (
+                                                          <>
+                                                            <Box
+                                                              sx={{
+                                                                display: 'grid',
+                                                                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                                                                gap: 3,
+                                                                alignItems: 'start',
+                                                              }}
+                                                            >
+                                                              <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                <InputLabel id={`ma-pres-dlg-lbl-${causa.id}`}>
+                                                                  {MA_PREGUNTA_PRESUPUESTO_RECURSOS}
+                                                                </InputLabel>
+                                                                <Select
+                                                                  labelId={`ma-pres-dlg-lbl-${causa.id}`}
+                                                                  id={`ma-pres-dlg-${causa.id}`}
+                                                                  label={MA_PREGUNTA_PRESUPUESTO_RECURSOS}
+                                                                  value={criteriosEvaluacion.maPresupuesto || ''}
+                                                                  onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maPresupuesto: e.target.value }))}
+                                                                >
+                                                                  <MenuItem value="SI">Sí</MenuItem>
+                                                                  <MenuItem value="NO">No</MenuItem>
+                                                                  <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                </Select>
+                                                              </FormControl>
+                                                              <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                <InputLabel id={`ma-act-dlg-lbl-${causa.id}`}>
+                                                                  {MA_PREGUNTA_ACTITUD_STAKEHOLDERS}
+                                                                </InputLabel>
+                                                                <Select
+                                                                  labelId={`ma-act-dlg-lbl-${causa.id}`}
+                                                                  id={`ma-act-dlg-${causa.id}`}
+                                                                  label={MA_PREGUNTA_ACTITUD_STAKEHOLDERS}
+                                                                  value={criteriosEvaluacion.maActitud || ''}
+                                                                  onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maActitud: e.target.value }))}
+                                                                >
+                                                                  <MenuItem value="POSITIVA">Positiva</MenuItem>
+                                                                  <MenuItem value="NEUTRAL">Neutral</MenuItem>
+                                                                  <MenuItem value="RENUENTE">Renuente</MenuItem>
+                                                                </Select>
+                                                              </FormControl>
+                                                              <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                <InputLabel id={`ma-cap-dlg-lbl-${causa.id}`}>
+                                                                  {MA_PREGUNTA_CAPACITACION_FUNCIONARIOS}
+                                                                </InputLabel>
+                                                                <Select
+                                                                  labelId={`ma-cap-dlg-lbl-${causa.id}`}
+                                                                  id={`ma-cap-dlg-${causa.id}`}
+                                                                  label={MA_PREGUNTA_CAPACITACION_FUNCIONARIOS}
+                                                                  value={criteriosEvaluacion.maCapacitacion || ''}
+                                                                  onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maCapacitacion: e.target.value }))}
+                                                                >
+                                                                  <MenuItem value="SI">Sí</MenuItem>
+                                                                  <MenuItem value="NO">No</MenuItem>
+                                                                  <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                </Select>
+                                                              </FormControl>
+                                                              <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                <InputLabel id={`ma-doc-dlg-lbl-${causa.id}`}>
+                                                                  {MA_PREGUNTA_DOCUMENTACION_SOPORTE}
+                                                                </InputLabel>
+                                                                <Select
+                                                                  labelId={`ma-doc-dlg-lbl-${causa.id}`}
+                                                                  id={`ma-doc-dlg-${causa.id}`}
+                                                                  label={MA_PREGUNTA_DOCUMENTACION_SOPORTE}
+                                                                  value={criteriosEvaluacion.maDocumentacion || ''}
+                                                                  onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maDocumentacion: e.target.value }))}
+                                                                >
+                                                                  <MenuItem value="SI">Sí</MenuItem>
+                                                                  <MenuItem value="NO">No</MenuItem>
+                                                                  <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                </Select>
+                                                              </FormControl>
+                                                              <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                <InputLabel id={`ma-mon-dlg-lbl-${causa.id}`}>
+                                                                  {MA_PREGUNTA_MONITOREO_DESEMPEÑO}
+                                                                </InputLabel>
+                                                                <Select
+                                                                  labelId={`ma-mon-dlg-lbl-${causa.id}`}
+                                                                  id={`ma-mon-dlg-${causa.id}`}
+                                                                  label={MA_PREGUNTA_MONITOREO_DESEMPEÑO}
+                                                                  value={criteriosEvaluacion.maMonitoreo || ''}
+                                                                  onChange={(e) => setCriteriosEvaluacion((pr) => ({ ...pr, maMonitoreo: e.target.value }))}
+                                                                >
+                                                                  <MenuItem value="SI">Sí</MenuItem>
+                                                                  <MenuItem value="NO">No</MenuItem>
+                                                                  <MenuItem value="PARCIAL">Parcial</MenuItem>
+                                                                </Select>
+                                                              </FormControl>
+                                                              <FormControl fullWidth size="medium" sx={SX_MA_FORM_CONTROL_LONG_LABEL}>
+                                                                <InputLabel id={`plan-vinc-dlg-lbl-${causa.id}`}>
+                                                                  Plan de acción vinculado
+                                                                </InputLabel>
+                                                                <Select
+                                                                  labelId={`plan-vinc-dlg-lbl-${causa.id}`}
+                                                                  id={`plan-vinc-dlg-${causa.id}`}
+                                                                  label="Plan de acción vinculado"
+                                                                  value={criteriosEvaluacion.planAccionVinculadoId || ''}
+                                                                  onChange={(e) =>
+                                                                    setCriteriosEvaluacion((pr) => ({
+                                                                      ...pr,
+                                                                      planAccionVinculadoId: e.target.value ? Number(e.target.value) : null,
+                                                                    }))
+                                                                  }
+                                                                >
+                                                                  <MenuItem value="">
+                                                                    <em>Ninguno</em>
+                                                                  </MenuItem>
+                                                                  {planesAccionVinculadosMenuItems(
+                                                                    riesgosApiData,
+                                                                    riesgoIdEvaluacion,
+                                                                    causaIdEvaluacion,
+                                                                  )}
+                                                                </Select>
+                                                              </FormControl>
+                                                            </Box>
+                                                          </>
+                                                        )}
+
+                                                        {!procesoResidualEstrategico && (
+                                                          <>
                                                         <Divider>Evaluación de Criterios (Puntaje Variable)</Divider>
 
                                                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
@@ -3875,72 +4647,26 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                                 value={criteriosEvaluacion.planAccionVinculadoId || ''}
                                                                 label="Plan de Acción Vinculado"
                                                                 onChange={(e) => {
-                                                                  setCriteriosEvaluacion(pr => ({ 
-                                                                    ...pr, 
-                                                                    planAccionVinculadoId: e.target.value ? Number(e.target.value) : null 
+                                                                  setCriteriosEvaluacion(pr => ({
+                                                                    ...pr,
+                                                                    planAccionVinculadoId: e.target.value ? Number(e.target.value) : null,
                                                                   }));
                                                                 }}
                                                               >
                                                                 <MenuItem value="">
                                                                   <em>Ninguno</em>
                                                                 </MenuItem>
-                                                                {(() => {
-                                                                  // Obtener planes de acción de la causa actual usando los IDs guardados
-                                                                  // Buscar en los datos originales de la API, no en los filtrados
-                                                                  const datosOriginales = ((riesgosApiData as any)?.data || []) as any[];
-                                                                  const riesgoActual = datosOriginales?.find((r: any) => r.id === riesgoIdEvaluacion);
-                                                                  const causaActual = riesgoActual?.causas?.find((c: any) => c.id === causaIdEvaluacion);
-                                                                  
-                                                                  // Obtener planes de la causa Y del riesgo completo
-                                                                  const planesDeCausa = causaActual?.planesAccion || [];
-                                                                  const planesDeRiesgo = riesgoActual?.planesAccion || [];
-                                                                  
-                                                                  // NUEVO: También buscar planes en el campo gestion (legacy JSONB)
-                                                                  const planesLegacy: any[] = [];
-                                                                  
-                                                                  // Buscar en todas las causas del riesgo que tengan planes en gestion
-                                                                  riesgoActual?.causas?.forEach((causa: any) => {
-                                                                    const gestion = causa.gestion || {};
-                                                                    
-                                                                    // Si tiene datos de plan en gestion, crear un objeto plan virtual
-                                                                    if (gestion.planDescripcion || gestion.planDetalle) {
-                                                                      planesLegacy.push({
-                                                                        id: `legacy-${causa.id}`, // ID virtual para planes legacy
-                                                                        nombre: gestion.planDescripcion || gestion.planDetalle || 'Plan sin nombre',
-                                                                        descripcion: gestion.planDescripcion || gestion.planDetalle,
-                                                                        estado: gestion.planEstado || 'pendiente',
-                                                                        causaId: causa.id,
-                                                                        isLegacy: true // Marcar como legacy
-                                                                      });
-                                                                    }
-                                                                  });
-                                                                  
-                                                                  // Combinar todos los arrays y eliminar duplicados por ID
-                                                                  const todosLosPlanes = [...planesDeCausa, ...planesDeRiesgo, ...planesLegacy];
-                                                                  const planesUnicos = todosLosPlanes.filter((plan, index, self) => 
-                                                                    index === self.findIndex((p) => p.id === plan.id)
-                                                                  );
-                                                                  
-                                                                  if (planesUnicos.length === 0) {
-                                                                    return (
-                                                                      <MenuItem disabled value="">
-                                                                        <em>No hay planes de acción disponibles</em>
-                                                                      </MenuItem>
-                                                                    );
-                                                                  }
-                                                                  
-                                                                  return planesUnicos.map((plan: any) => (
-                                                                    <MenuItem key={plan.id} value={plan.id}>
-                                                                      {plan.nombre || plan.descripcion || `Plan #${plan.id}`}
-                                                                      {plan.estado && ` (${plan.estado})`}
-                                                                      {plan.isLegacy && ' [Legacy]'}
-                                                                    </MenuItem>
-                                                                  ));
-                                                                })()}
+                                                                {planesAccionVinculadosMenuItems(
+                                                                  riesgosApiData,
+                                                                  riesgoIdEvaluacion,
+                                                                  causaIdEvaluacion,
+                                                                )}
                                                               </Select>
                                                             </FormControl>
                                                           </Box>
                                                         </Box>
+                                                        </>
+                                                        )}
 
                                                         <Box
                                                           id={`panel-residual-${riesgo.id}-${causa.id}`}
@@ -3953,43 +4679,43 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                             <Box>
                                                               <Typography variant="caption" display="block" color="text.secondary">Eficacia Control</Typography>
                                                               <Typography variant="body2" fontWeight="bold">
-                                                                {criteriosEvaluacion.tieneControl ? def : 'Inefectivo (Sin Control)'}
+                                                                {criteriosEvaluacion.tieneControl ? displayDef : 'Inefectivo (Sin Control)'}
                                                               </Typography>
-                                                              {criteriosEvaluacion.tieneControl && (
+                                                              {criteriosEvaluacion.tieneControl && !procesoResidualEstrategico && (
                                                                 <Typography variant="caption">({pt.toFixed(0)} pts)</Typography>
                                                               )}
                                                             </Box>
                                                             <Box>
                                                               <Typography variant="caption" display="block" color="text.secondary">% Mitigación</Typography>
                                                               <Typography variant="h6" color="primary">
-                                                                {(mit * 100).toFixed(0)}%
+                                                                {displayMitNormalizado.toFixed(0)}%
                                                               </Typography>
                                                             </Box>
                                                             <Box>
                                                               <Typography variant="caption" display="block" color="text.secondary">Frec. Residual</Typography>
                                                               <Typography variant="h6">
-                                                                {fRes}
+                                                                {displayFrecuenciaResidual}
                                                               </Typography>
                                                             </Box>
                                                             <Box>
                                                               <Typography variant="caption" display="block" color="text.secondary">Imp. Residual</Typography>
                                                               <Typography variant="h6">
-                                                                {iRes}
+                                                                {displayImpactoResidual}
                                                               </Typography>
                                                             </Box>
                                                             <Box>
                                                               <Paper elevation={0} sx={{
                                                                 p: 1,
-                                                                bgcolor: getColorNivel(displayNivelResidual),
-                                                                color: ['ALTO', 'CRÍTICO', 'CRITICO'].includes(displayNivelResidual.toUpperCase()) ? 'white' : 'black',
+                                                                bgcolor: bgcolorCajaResidualDlg,
+                                                                color: colorTextoCajaResidualDlg,
                                                                 borderRadius: 1
                                                               }}>
                                                                 <Typography variant="caption" display="block" fontWeight="bold">Riesgo Residual</Typography>
                                                                 <Typography variant="h5" fontWeight="bold">
-                                                                  {calRes}
+                                                                  {displayCalificacionResidual}
                                                                 </Typography>
                                                                 <Typography variant="caption">
-                                                                  {nivelRes}
+                                                                  {displayNivelResidual}
                                                                 </Typography>
                                                               </Paper>
                                                             </Box>
@@ -4026,18 +4752,18 @@ export default function ControlesYPlanesAccionPageNueva() {
                           const impactoResidualGlobal = evaluacion.impactoResidual;
                           const riesgoResidualGlobal = evaluacion.riesgoResidual;
                           const nivelRiesgoResidualGlobal = evaluacion.nivelRiesgoResidual;
-                          
-                          console.log('[DEBUG RESUMEN] Evaluación completa:', evaluacion);
-                          console.log('[DEBUG RESUMEN] Datos residuales globales:', {
-                            probabilidadResidualGlobal,
-                            impactoResidualGlobal,
-                            riesgoResidualGlobal,
-                            nivelRiesgoResidualGlobal
-                          });
-                          
+
                           // Si el riesgo tiene datos residuales globales, mostrarlos
-                          if (riesgoResidualGlobal != null && riesgoResidualGlobal >= 0) {
-                            const calificacionResidualFinal = Number(riesgoResidualGlobal);
+                          const calificacionResidualFinalDesdeGlobal =
+                            normalizarCalificacionResidualNumero(riesgoResidualGlobal) ??
+                            (typeof riesgoResidualGlobal === 'number' ? riesgoResidualGlobal : Number(riesgoResidualGlobal));
+                          if (
+                            riesgoResidualGlobal != null &&
+                            riesgoResidualGlobal !== '' &&
+                            Number.isFinite(calificacionResidualFinalDesdeGlobal) &&
+                            calificacionResidualFinalDesdeGlobal >= 0
+                          ) {
+                            const calificacionResidualFinal = calificacionResidualFinalDesdeGlobal;
                             let nivelFinal = nivelRiesgoResidualGlobal || 'Sin Calificar';
                             
                             if (!nivelFinal || nivelFinal === 'Sin Calificar') {
@@ -4046,17 +4772,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                               else if (calificacionResidualFinal >= 4 && calificacionResidualFinal < 10) nivelFinal = 'Medio';
                               else if (calificacionResidualFinal >= 1 && calificacionResidualFinal < 4) nivelFinal = 'Bajo';
                             }
-                            
-                            const getColorNivel = (n: string) => {
-                              const nn = String(n).toLowerCase();
-                              if (nn.includes('crítico') || nn.includes('critico')) return { color: '#fff', bg: '#d32f2f' };
-                              if (nn.includes('alto')) return { color: '#fff', bg: '#f57c00' };
-                              if (nn.includes('medio')) return { color: '#000', bg: '#fbc02d' };
-                              if (nn.includes('bajo')) return { color: '#fff', bg: '#388e3c' };
-                              return { color: '#666', bg: '#f5f5f5' };
-                            };
-                            
-                            const { color: colorFinal, bg: bgFinal } = getColorNivel(nivelFinal);
+
+                            const { color: colorFinal, bg: bgFinal } = estiloCajaPorCalificacionCWR(
+                              calificacionResidualFinal,
+                              nivelFinal,
+                              probabilidadResidualGlobal,
+                              impactoResidualGlobal,
+                              nivelesRiesgoCatalog
+                            );
                             
                             return (
                               <Paper elevation={0} sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 2 }}>
@@ -4089,7 +4812,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     </Typography>
                                   </Box>
                                   <Chip
-                                    label={nivelFinal.toUpperCase()}
+                                    label={etiquetaNivelMostrar(nivelFinal)}
                                     sx={{
                                       backgroundColor: 'rgba(255,255,255,0.25)',
                                       color: colorFinal,
@@ -4107,19 +4830,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                           // frecuencia/impacto residual, usar los datos globales del riesgo
                           const causasConResidual = (riesgo.causas || [])
                             .map((c: any) => {
-                              console.log('[DEBUG CAUSA]', c.id, {
-                                frecuenciaResidual: c.frecuenciaResidual,
-                                impactoResidual: c.impactoResidual,
-                                calificacionResidual: c.calificacionResidual,
-                                gestion: c.gestion
-                              });
-                              
                               // Buscar datos residuales en la causa o usar los globales del riesgo
                               const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual ?? probabilidadResidualGlobal;
                               const irRaw = c.impactoResidual ?? c.gestion?.impactoResidual ?? impactoResidualGlobal;
                               
                               if (frRaw == null || irRaw == null) {
-                                console.log('[DEBUG] Causa sin datos residuales:', c.id);
                                 return null;
                               }
                               const fr = Number(frRaw);
@@ -4159,14 +4874,6 @@ export default function ControlesYPlanesAccionPageNueva() {
                             else if (calificacionResidualFinal >= 4 && calificacionResidualFinal < 10) nivelFinal = 'Medio';
                             else if (calificacionResidualFinal >= 1 && calificacionResidualFinal < 4) nivelFinal = 'Bajo'; // incluye 3.99 (excepción 2×2)
                           }
-                          const getColorNivel = (n: string) => {
-                            const nn = String(n).toLowerCase();
-                            if (nn.includes('crítico') || nn.includes('critico')) return { color: '#fff', bg: '#d32f2f' };
-                            if (nn.includes('alto')) return { color: '#fff', bg: '#f57c00' };
-                            if (nn.includes('medio')) return { color: '#000', bg: '#fbc02d' };
-                            if (nn.includes('bajo')) return { color: '#fff', bg: '#388e3c' };
-                            return { color: '#666', bg: '#f5f5f5' };
-                          };
                           return (
                             <Paper elevation={0} sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 2 }}>
                               <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
@@ -4187,7 +4894,13 @@ export default function ControlesYPlanesAccionPageNueva() {
                                     </TableHead>
                                     <TableBody>
                                       {causasConResidual.map((causa: any, idx: number) => {
-                                        const { color, bg } = getColorNivel(causa.nivelRiesgoResidual);
+                                        const { color, bg } = estiloCajaPorCalificacionCWR(
+                                          causa.calificacionResidualNum,
+                                          causa.nivelRiesgoResidual,
+                                          causa.frecuenciaResidual,
+                                          causa.impactoResidual,
+                                          nivelesRiesgoCatalog
+                                        );
                                         return (
                                           <TableRow
                                             key={causa.id}
@@ -4230,7 +4943,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                             </TableCell>
                                             <TableCell align="center">
                                               <Chip
-                                                label={String(causa.nivelRiesgoResidual).toUpperCase()}
+                                                label={etiquetaNivelMostrar(String(causa.nivelRiesgoResidual))}
                                                 size="small"
                                                 sx={{ fontWeight: 600, fontSize: '0.7rem', backgroundColor: bg, color }}
                                               />
@@ -4244,7 +4957,26 @@ export default function ControlesYPlanesAccionPageNueva() {
                               ) : null}
 
                               {(() => {
-                                const { color: colorFinal, bg: bgFinal } = getColorNivel(nivelFinal);
+                                const lista = causasConResidual as any[];
+                                const ganadora =
+                                  calificacionResidualFinal > 0
+                                    ? lista.find((c) => {
+                                        const a = normalizarCalificacionResidualNumero(c.calificacionResidualNum);
+                                        const b = normalizarCalificacionResidualNumero(calificacionResidualFinal);
+                                        return (
+                                          a != null &&
+                                          b != null &&
+                                          Math.abs(a - b) < 0.051
+                                        );
+                                      })
+                                    : undefined;
+                                const { color: colorFinal, bg: bgFinal } = estiloCajaPorCalificacionCWR(
+                                  calificacionResidualFinal,
+                                  nivelFinal,
+                                  ganadora?.frecuenciaResidual,
+                                  ganadora?.impactoResidual,
+                                  nivelesRiesgoCatalog
+                                );
                                 return (
                                   <Box
                                     sx={{
@@ -4271,7 +5003,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       </Typography>
                                     </Box>
                                     <Chip
-                                      label={nivelFinal.toUpperCase()}
+                                      label={etiquetaNivelMostrar(nivelFinal)}
                                       sx={{
                                         backgroundColor: 'rgba(255,255,255,0.25)',
                                         color: colorFinal,
@@ -4409,14 +5141,16 @@ export default function ControlesYPlanesAccionPageNueva() {
                         wordBreak: 'break-word',
                         pr: 1
                       }}>
-                        {riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'}
+                        {repairSpanishDisplayArtifacts(
+                          riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'
+                        )}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap' 
                       }}>
-                        {riesgo.tipologiaNivelI || riesgo.tipologia || '02 Operacional'}
+                        {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
                       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Chip label="Plan Activo" size="small" color="info" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
@@ -4460,15 +5194,25 @@ export default function ControlesYPlanesAccionPageNueva() {
                                   // Agregar datos del control desde la tabla ControlRiesgo
                                   controlDescripcion: control.descripcionControl || control.descripcion || causa.controlDescripcion || causa.gestion?.controlDescripcion,
                                   controlTipo: control.tipoControl || causa.controlTipo || causa.gestion?.controlTipo,
-                                  evaluacionDefinitiva: control.evaluacionDefinitiva || causa.gestion?.evaluacionDefinitiva || causa.evaluacionDefinitiva,
+                                  evaluacionDefinitiva:
+                                    control.evaluacionDefinitiva ||
+                                    (control.maEvaluacionAz && String(control.maEvaluacionAz).trim()) ||
+                                    causa.gestion?.evaluacionDefinitiva ||
+                                    causa.evaluacionDefinitiva,
                                   puntajeTotal: control.puntajeControl || causa.puntajeTotal || causa.gestion?.puntajeTotal,
-                                  porcentajeMitigacion: control.estandarizacionPorcentajeMitigacion || causa.porcentajeMitigacion || causa.gestion?.porcentajeMitigacion,
+                                  porcentajeMitigacion:
+                                    control.estandarizacionPorcentajeMitigacion != null &&
+                                    control.estandarizacionPorcentajeMitigacion !== ''
+                                      ? Number(control.estandarizacionPorcentajeMitigacion)
+                                      : control.maPorcentajeBa != null && String(control.maPorcentajeBa) !== ''
+                                        ? Number(control.maPorcentajeBa)
+                                        : causa.porcentajeMitigacion ?? causa.gestion?.porcentajeMitigacion,
                                   frecuenciaResidual: causa.frecuenciaResidual || causa.gestion?.frecuenciaResidual,
                                   impactoResidual: causa.impactoResidual || causa.gestion?.impactoResidual,
                                   riesgoResidual: causa.riesgoResidual || causa.calificacionResidual || causa.gestion?.riesgoResidual || causa.gestion?.calificacionResidual,
                                   nivelRiesgoResidual: causa.nivelRiesgoResidual || causa.gestion?.nivelRiesgoResidual,
                                   impactosResiduales: causa.impactosResiduales || causa.gestion?.impactosResiduales,
-                                  tipo: causa.tipoGestion || 'PLAN'
+                                  tipo: inferTipoGestionDetalle(causa),
                                 };
                                 
                                 return (
@@ -4712,34 +5456,31 @@ export default function ControlesYPlanesAccionPageNueva() {
             <Box>
               <Typography variant="h6" fontWeight={600}>
                 {itemDetalle &&
-                (((itemDetalle as any).tipo === 'control') ||
-                  ((itemDetalle as any).tipo === 'CONTROL') ||
-                  ((itemDetalle as any).tipo === 'AMBOS'))
+                (() => {
+                  const tu = String((itemDetalle as any).tipo || '').toUpperCase();
+                  return tu === 'CONTROL' || tu === 'AMBOS';
+                })()
                   ? 'Detalle del Control'
                   : 'Detalle del Plan de Acción'}
               </Typography>
               {itemDetalle && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
                   <Chip
-                    label={
-                      ((itemDetalle as any).tipo === 'control') ||
-                      ((itemDetalle as any).tipo === 'CONTROL')
-                        ? 'Control'
-                        : (itemDetalle as any).tipo === 'AMBOS'
-                        ? 'Control y Plan de Acción'
-                        : 'Plan de Acción'
-                    }
-                    color={
-                      ((itemDetalle as any).tipo === 'control') ||
-                      ((itemDetalle as any).tipo === 'CONTROL')
-                        ? 'primary'
-                        : (itemDetalle as any).tipo === 'AMBOS'
-                        ? 'secondary'
-                        : 'info'
-                    }
+                    label={(() => {
+                      const tu = String((itemDetalle as any).tipo || '').toUpperCase();
+                      if (tu === 'CONTROL') return 'Control';
+                      if (tu === 'AMBOS') return 'Control y Plan de Acción';
+                      return 'Plan de Acción';
+                    })()}
+                    color={(() => {
+                      const tu = String((itemDetalle as any).tipo || '').toUpperCase();
+                      if (tu === 'CONTROL') return 'primary';
+                      if (tu === 'AMBOS') return 'secondary';
+                      return 'info';
+                    })()}
                     size="small"
                   />
-                  {(itemDetalle as any).tipo === 'AMBOS' && (
+                  {String((itemDetalle as any).tipo || '').toUpperCase() === 'AMBOS' && (
                     <Typography variant="caption" color="text.secondary">
                       Existe control · Existe plan de acción
                     </Typography>
@@ -4815,12 +5556,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                 </Box>
               </Box>
 
-              {/* Información del Control */}
-              {(((itemDetalle as any).tipo === 'control') || ((itemDetalle as any).tipo === 'CONTROL') || ((itemDetalle as any).tipo === 'AMBOS') || (itemDetalle as any).controlDescripcion) && (
+              {/* Información del Control (incl. residual estratégico: fila ControlRiesgo / MA) */}
+              {muestraBloqueControlEnDetalle && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Control
-                    {(itemDetalle as any).tipo === 'AMBOS' && (
+                    {String((itemDetalle as any).tipo || '').toUpperCase() === 'AMBOS' && (
                       <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1, fontWeight: 500 }}>
                         (Control existente)
                       </Typography>
@@ -4830,19 +5571,33 @@ export default function ControlesYPlanesAccionPageNueva() {
               <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Descripción del Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                        {(itemDetalle as any).controlDescripcion || (itemDetalle as any).gestion?.controlDescripcion || causaDetalleView?.causa?.controlDescripcion || 'Sin descripción'}
+                        {repairSpanishDisplayArtifacts(
+                          (itemDetalle as any).controlDescripcion ||
+                            (itemDetalle as any).gestion?.controlDescripcion ||
+                            ctrlDetalleDialog?.descripcionControl ||
+                            ctrlDetalleDialog?.descripcion ||
+                            causaDetalleView?.causa?.controlDescripcion ||
+                            'Sin descripción',
+                        )}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Tipo de Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {(itemDetalle as any).controlTipo || (itemDetalle as any).gestion?.controlTipo || causaDetalleView?.causa?.controlTipo || 'N/A'}
+                        {(itemDetalle as any).controlTipo ||
+                          (itemDetalle as any).gestion?.controlTipo ||
+                          ctrlDetalleDialog?.tipoControl ||
+                          causaDetalleView?.causa?.controlTipo ||
+                          'N/A'}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">Origen del Control</Typography>
                       <Typography variant="body2" sx={{ mb: 2 }}>
-                        {(itemDetalle as any).origenPlanAccion || (itemDetalle as any).gestion?.origenPlanAccion || causaDetalleView?.causa?.origenPlanAccion || 'N/A'}
+                        {(itemDetalle as any).origenPlanAccion ||
+                          (itemDetalle as any).gestion?.origenPlanAccion ||
+                          causaDetalleView?.causa?.origenPlanAccion ||
+                          'N/A'}
                       </Typography>
                     </Box>
                   </Box>
@@ -4855,24 +5610,41 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Box>
                         <Typography variant="caption" color="text.secondary">Efectividad</Typography>
                         <Typography variant="body2" fontWeight={600}>
-                          {(itemDetalle as any).evaluacionDefinitiva || (itemDetalle as any).gestion?.evaluacionDefinitiva || causaDetalleView?.causa?.evaluacionDefinitiva || 'Sin evaluar'}
+                          {(itemDetalle as any).evaluacionDefinitiva ||
+                            (itemDetalle as any).gestion?.evaluacionDefinitiva ||
+                            (ctrlDetalleDialog?.maEvaluacionAz && String(ctrlDetalleDialog.maEvaluacionAz).trim()) ||
+                            ctrlDetalleDialog?.evaluacionDefinitiva ||
+                            causaDetalleView?.causa?.evaluacionDefinitiva ||
+                            'Sin evaluar'}
                         </Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">Puntaje Total</Typography>
                         <Typography variant="body2" fontWeight={600}>
-                          {(itemDetalle as any).puntajeTotal || (itemDetalle as any).gestion?.puntajeTotal || causaDetalleView?.causa?.puntajeTotal || 'N/A'}
+                          {(itemDetalle as any).puntajeTotal ||
+                            (itemDetalle as any).gestion?.puntajeTotal ||
+                            ctrlDetalleDialog?.puntajeControl ||
+                            causaDetalleView?.causa?.puntajeTotal ||
+                            'N/A'}
                         </Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">% Mitigación</Typography>
                         <Typography variant="body2" fontWeight={600} color="primary">
                           {(() => {
-                            const mitValue = (itemDetalle as any).porcentajeMitigacion ?? 
-                                           (itemDetalle as any).gestion?.porcentajeMitigacion ?? 
-                                           causaDetalleView?.causa?.porcentajeMitigacion;
-                            if (mitValue === undefined) return 'N/A';
-                            // Si el valor es > 1, ya está en formato 0-100, sino está en formato 0-1
+                            const mitRaw =
+                              (itemDetalle as any).porcentajeMitigacion ??
+                              (itemDetalle as any).gestion?.porcentajeMitigacion ??
+                              causaDetalleView?.causa?.porcentajeMitigacion ??
+                              (ctrlDetalleDialog?.estandarizacionPorcentajeMitigacion != null &&
+                              String(ctrlDetalleDialog.estandarizacionPorcentajeMitigacion) !== ''
+                                ? Number(ctrlDetalleDialog.estandarizacionPorcentajeMitigacion)
+                                : undefined) ??
+                              (ctrlDetalleDialog?.maPorcentajeBa != null && String(ctrlDetalleDialog.maPorcentajeBa) !== ''
+                                ? Number(ctrlDetalleDialog.maPorcentajeBa)
+                                : undefined);
+                            if (mitRaw === undefined || mitRaw === null || Number.isNaN(Number(mitRaw))) return 'N/A';
+                            const mitValue = Number(mitRaw);
                             const normalizado = mitValue > 1 ? mitValue : mitValue * 100;
                             return `${normalizado.toFixed(0)}%`;
                           })()}
@@ -4928,11 +5700,18 @@ export default function ControlesYPlanesAccionPageNueva() {
               )}
 
               {/* Información del Plan */}
-              {((itemDetalle as any).tipo === 'plan' || (itemDetalle as any).tipo === 'PLAN' || (itemDetalle as any).tipo === 'AMBOS' || (itemDetalle as any).planDescripcion) && (
+              {(() => {
+                const tu = String((itemDetalle as any).tipo || '').toUpperCase();
+                return (
+                  tu === 'PLAN' ||
+                  tu === 'AMBOS' ||
+                  !!(itemDetalle as any).planDescripcion
+                );
+              })() && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                     Información del Plan de Acción
-                    {(itemDetalle as any).tipo === 'AMBOS' && (
+                    {String((itemDetalle as any).tipo || '').toUpperCase() === 'AMBOS' && (
                       <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1, fontWeight: 500 }}>
                         (Plan de acción existente)
                       </Typography>

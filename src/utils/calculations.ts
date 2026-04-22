@@ -512,28 +512,32 @@ export function determinarEvaluacionDefinitiva(
 
 
 /**
- * TABLA DE BÚSQUEDA - % MITIGACIÓN según evaluación definitiva
- * Fórmula Excel: BUSCARV(BW11;Formulas!$B$9:$F$13;5;0)
- * 
- * Tabla de referencia:
- * | Evaluación | % Mitigación |
- * | Altamente Efectivo | 81% |
- * | Efectivo | 61% |
- * | Medianamente Efectivo | 33% |
- * | Baja Efectividad | 20% |
- * | Inefectivo | 0% |
+ * TABLA DE BÚSQUEDA — ESTANDARIZACIÓN % DE MITIGACIÓN (Anexo 6 CWR v1 §4.5 / hoja Formulas).
+ * Coincide con VLOOKUP de EVALUACIÓN DE LA MEDIDA → factor M (0–0,8).
  */
 export function obtenerPorcentajeMitigacionAvanzado(evaluacionDefinitiva: string): number {
   const tablaMitigacion: Record<string, number> = {
-    'Altamente Efectivo': 0.81,
+    'Altamente Efectivo': 0.8,
+    'Altamente Efectiva': 0.8,
     'Efectivo': 0.61,
+    'Efectiva': 0.61,
     'Medianamente Efectivo': 0.33,
-    'Baja Efectividad': 0.20,
+    'Medianamente Efectiva': 0.33,
+    'Baja Efectividad': 0.2,
     'Inefectivo': 0.0,
+    'Inefectiva': 0.0,
     'No Aplica': 0.0,
   };
 
   return tablaMitigacion[evaluacionDefinitiva] || 0;
+}
+
+/** Ramas §5.3 / §5.4 Anexo 6 (cruce 34 %): Excel usa etiquetas Efectivo/Altamente; en MA suele mostrarse en femenino. */
+function evaluacionEsEfectivoUAltamenteCWR(evaluacion?: string | null): boolean {
+  if (!evaluacion?.trim()) return false;
+  const s = evaluacion.trim();
+  if (/median|baja|inef|no aplica/i.test(s)) return false;
+  return /altamente\s+efectiv[oa]/i.test(s) || /^efectiv[oa]\b/i.test(s);
 }
 
 /**
@@ -556,7 +560,7 @@ export function calcularFrecuenciaResidualAvanzada(
       const residual = frecuenciaInherente - frecuenciaInherente * porcentajeMitigacion;
       return Math.max(1, Math.min(5, Math.ceil(residual)));
     }
-    if (tipoMitigacion === 'IMPACTO' && (evaluacionDefinitiva === 'Efectivo' || evaluacionDefinitiva === 'Altamente Efectivo')) {
+    if (tipoMitigacion === 'IMPACTO' && evaluacionEsEfectivoUAltamenteCWR(evaluacionDefinitiva)) {
       const residual = frecuenciaInherente - frecuenciaInherente * porcentajeDimensionCruzada;
       return Math.max(1, Math.min(5, Math.ceil(residual)));
     }
@@ -586,7 +590,7 @@ export function calcularImpactoResidualAvanzado(
       const residual = impactoInherente - impactoInherente * porcentajeMitigacion;
       return Math.max(1, Math.min(5, Math.ceil(residual)));
     }
-    if (tipoMitigacion === 'FRECUENCIA' && (evaluacionDefinitiva === 'Efectivo' || evaluacionDefinitiva === 'Altamente Efectivo')) {
+    if (tipoMitigacion === 'FRECUENCIA' && evaluacionEsEfectivoUAltamenteCWR(evaluacionDefinitiva)) {
       const residual = impactoInherente - impactoInherente * porcentajeDimensionCruzada;
       return Math.max(1, Math.min(5, Math.ceil(residual)));
     }

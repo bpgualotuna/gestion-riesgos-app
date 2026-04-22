@@ -67,6 +67,7 @@ import {
   calcularFrecuenciaResidualAvanzada,
   calcularImpactoResidualAvanzado,
 } from '../../utils/calculations';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 import { useUnsavedChanges, useFormChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 
@@ -399,7 +400,10 @@ export default function PlanAccionPage() {
                       >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           <IconButton size="small">{estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
-                          <Typography variant="subtitle1" fontWeight={600}>{riesgo.numeroIdentificacion} - {riesgo.descripcionRiesgo}</Typography>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {riesgo.numeroIdentificacion} -{' '}
+                            {repairSpanishDisplayArtifacts(String(riesgo.descripcionRiesgo ?? ''))}
+                          </Typography>
                         </Box>
                       </Box>
 
@@ -476,7 +480,10 @@ export default function PlanAccionPage() {
                       >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           <IconButton size="small">{estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
-                          <Typography variant="subtitle1" fontWeight={600}>{riesgo.numeroIdentificacion} - {riesgo.descripcionRiesgo}</Typography>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {riesgo.numeroIdentificacion} -{' '}
+                            {repairSpanishDisplayArtifacts(String(riesgo.descripcionRiesgo ?? ''))}
+                          </Typography>
                         </Box>
                       </Box>
 

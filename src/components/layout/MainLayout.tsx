@@ -80,6 +80,7 @@ import {
   Label as LabelIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
@@ -704,6 +705,11 @@ export default function MainLayout() {
                 { text: 'Parámetros de Calificación', icon: <SettingsIcon />, path: '/admin/parametros-calificacion' },
                 { text: 'Calificación Inherente', icon: <SettingsIcon />, path: '/admin/calificacion-inherente' },
                 { text: 'Calificación Residual', icon: <SettingsIcon />, path: ROUTES.ADMIN_CALIFICACION_RESIDUAL },
+                {
+                  text: 'Residual estratégico',
+                  icon: <TuneIcon />,
+                  path: ROUTES.ADMIN_RESIDUAL_ESTRATEGICO_CWR,
+                },
                 // { text: 'Autenticación 2FA', icon: <SecurityIcon />, path: ROUTES.ADMIN_2FA }, // Temporalmente oculto
                 { text: 'Historial', icon: <HistoryIcon />, path: ROUTES.HISTORIAL },
               ].map((item) => {
@@ -969,57 +975,59 @@ export default function MainLayout() {
                 }}
               >
                 {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
-                  <Autocomplete
-                    value={procesoSeleccionado || null}
-                    onChange={(_, newValue) => {
-                      if (newValue) {
-                        setProcesoSeleccionado(newValue);
-                        if (newValue.estado === 'aprobado') setModoProceso('visualizar');
-                        else setModoProceso('editar');
-                        showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
-                      } else {
-                        setProcesoSeleccionado(null);
-                        setModoProceso(null);
-                      }
-                    }}
-                    options={procesosDisponibles}
-                    getOptionDisabled={(option) => !option.activo}
-                    getOptionLabel={(option) => option.nombre}
-                    ListboxProps={{ style: { maxHeight: 'min(70vh, 400px)' }, sx: { py: 0 } }}
-                    slotProps={{
-                      paper: { sx: { maxHeight: 'min(70vh, 400px)', minWidth: 280, mt: 0.5 } },
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        size="small"
-                        placeholder="Proceso..."
-                        sx={{
-                          flex: 1,
-                          minWidth: 0,
-                          '& .MuiOutlinedInput-root': {
-                            height: 38,
-                            borderRadius: '19px',
-                            backgroundColor: '#fff',
-                            '& fieldset': { border: '1.5px solid #e0e0e0' },
-                          },
-                        }}
-                      />
-                    )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props} sx={{ py: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                          <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
-                            <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                  <>
+                    <Autocomplete
+                      value={procesoSeleccionado || null}
+                      onChange={(_, newValue) => {
+                        if (newValue) {
+                          setProcesoSeleccionado(newValue);
+                          if (newValue.estado === 'aprobado') setModoProceso('visualizar');
+                          else setModoProceso('editar');
+                          showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+                        } else {
+                          setProcesoSeleccionado(null);
+                          setModoProceso(null);
+                        }
+                      }}
+                      options={procesosDisponibles}
+                      getOptionDisabled={(option) => !option.activo}
+                      getOptionLabel={(option) => option.nombre}
+                      ListboxProps={{ style: { maxHeight: 'min(70vh, 400px)' }, sx: { py: 0 } }}
+                      slotProps={{
+                        paper: { sx: { maxHeight: 'min(70vh, 400px)', minWidth: 280, mt: 0.5 } },
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          placeholder="Proceso..."
+                          sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            '& .MuiOutlinedInput-root': {
+                              height: 38,
+                              borderRadius: '19px',
+                              backgroundColor: '#fff',
+                              '& fieldset': { border: '1.5px solid #e0e0e0' },
+                            },
+                          }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} sx={{ py: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                            <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
+                              <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                            </Box>
+                            <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
                           </Box>
-                          <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
                         </Box>
-                      </Box>
-                    )}
-                    noOptionsText="No hay procesos"
-                  />
+                      )}
+                      noOptionsText="No hay procesos"
+                    />
+                  </>
                 )}
                 <Box sx={{ flexGrow: 1, minWidth: 8 }} />
                 {/* Notificaciones - Solo para administradores */}
@@ -1110,7 +1118,7 @@ export default function MainLayout() {
 
               {/* Selector de Proceso y Modo - Desktop */}
               {!esAdmin && !esSupervisorRiesgos && (!esGerenteGeneral || gerenteGeneralMode === 'proceso') && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mr: 2, flex: '0 0 auto', minWidth: 0, maxWidth: 400 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mr: 2, flex: '0 0 auto', minWidth: 0, maxWidth: 480 }}>
                   <Autocomplete
                     value={procesoSeleccionado || null}
                     onChange={(_, newValue) => {

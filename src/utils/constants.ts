@@ -152,6 +152,8 @@ export const ROUTES = {
   ADMIN_CONFIGURACION: '/administracion/configuracion',
   ADMIN_MAPA_CONFIG: '/admin/configuracion-mapa',
   ADMIN_CALIFICACION_RESIDUAL: '/admin/calificacion-residual',
+  /** Administración: configuración de residual estratégico por proceso */
+  ADMIN_RESIDUAL_ESTRATEGICO_CWR: '/admin/residual-estrategico-cwr',
   ADMIN_2FA: '/admin/2fa',
 } as const;
 
