@@ -27,6 +27,7 @@ import CatalogosPage from './pages/CatalogosPage';
 import DashboardPage from './pages/DashboardPage';
 import HistorialPage from './pages/HistorialPage';
 import HabilitacionCamposPage from './pages/HabilitacionCamposPage';
+import ResidualEstrategicoCwrPage from './pages/ResidualEstrategicoCwrPage';
 
 interface AdminProps {
   user: any;
