@@ -340,7 +340,9 @@ function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
     <div role="tabpanel" hidden={value !== index} id={`tabpanel-${index}`} {...other}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+      {value === index && (
+        <Box sx={{ pt: 3, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>{children}</Box>
+      )}
     </div>
   );
 }
@@ -2506,7 +2508,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               <Box
                 sx={{
                   display: { xs: 'none', md: 'grid' },
-                  gridTemplateColumns: '48px 100px 1.5fr 200px 120px 120px 48px',
+                  gridTemplateColumns:
+                    '48px minmax(72px, 100px) minmax(0, 2.2fr) minmax(120px, 200px) minmax(100px, 120px) minmax(100px, 120px) 48px',
                   gap: 2,
                   px: 3,
                   py: 1.5,
@@ -2518,6 +2521,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                   position: 'sticky',
                   top: 0,
                   zIndex: 15,
+                  width: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
                 }}
               >
                 <Box /> {/* Spacer for icon */}
@@ -2582,11 +2588,14 @@ export default function ControlesYPlanesAccionPageNueva() {
               {riesgosPendientesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
-                  <Card key={riesgo.id} sx={{ mb: 1.5 }}>
+                  <Card key={riesgo.id} sx={{ mb: 1.5, width: '100%', maxWidth: '100%', minWidth: 0 }}>
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '48px 100px 1.5fr 200px 120px 120px 48px' },
+                        gridTemplateColumns: {
+                          xs: '1fr',
+                          md: '48px minmax(72px, 100px) minmax(0, 2.2fr) minmax(120px, 200px) minmax(100px, 120px) minmax(100px, 120px) 48px',
+                        },
                         gap: { xs: 1, md: 2 },
                         px: { xs: 2, md: 3 },
                         py: { xs: 2, md: 1.5 },
@@ -2597,14 +2606,24 @@ export default function ControlesYPlanesAccionPageNueva() {
                         alignItems: { xs: 'flex-start', md: 'center' },
                         minHeight: 64,
                         position: 'relative',
+                        width: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
-                      <IconButton size="small" color="primary">
-                        {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                      </IconButton>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+                        <IconButton size="small" color="primary">
+                          {estaExpandido ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Box>
 
-                      <Typography variant="subtitle2" fontWeight={700} color="primary">
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        color="primary"
+                        sx={{ minWidth: 0, textAlign: { md: 'center' } }}
+                      >
                         {riesgo.numeroIdentificacion || riesgo.id}
                       </Typography>
 
@@ -2619,6 +2638,8 @@ export default function ControlesYPlanesAccionPageNueva() {
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
                           wordBreak: 'break-word',
+                          minWidth: 0,
+                          textAlign: 'left',
                         }}
                       >
                         {repairSpanishDisplayArtifacts(
@@ -2629,12 +2650,16 @@ export default function ControlesYPlanesAccionPageNueva() {
                         )}
                       </Typography>
 
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: { md: 'nowrap' } }}
+                      >
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
 
                       {/* Columna de Clasificación/Nivel de Riesgo */}
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0, width: '100%' }}>
                         {(() => {
                           // Obtener nivel desde evaluación o calcular desde causas
                           let nivelRiesgo = riesgo.evaluacion?.nivelRiesgo || riesgo.nivelRiesgo;
@@ -2682,7 +2707,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         })()}
                       </Box>
 
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0, width: '100%' }}>
                         <Chip
                           label={`${riesgo.causas.length} pend.`}
                           size="small"
@@ -2691,7 +2716,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                           sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
                         />
                       </Box>
-                      <Box />
+                      <Box sx={{ minWidth: 0 }} />
                     </Box>
                     <Collapse in={estaExpandido}>
                       <Box sx={{ p: 2 }}>
@@ -3738,7 +3763,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               <Box
                 sx={{
                   display: { xs: 'none', md: 'grid' },
-                  gridTemplateColumns: '45px 90px 1fr 150px 120px 120px 50px',
+                  gridTemplateColumns:
+                    '45px minmax(64px, 90px) minmax(0, 2.2fr) minmax(96px, 150px) minmax(100px, 120px) minmax(100px, 120px) 50px',
                   gap: 1,
                   px: 2,
                   py: 1.5,
@@ -3750,6 +3776,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                   position: 'sticky',
                   top: 0,
                   zIndex: 15,
+                  width: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
                 }}
               >
                 <Box />
@@ -3814,28 +3843,39 @@ export default function ControlesYPlanesAccionPageNueva() {
               {riesgosConControlesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
-                  <Card key={riesgo.id} sx={{ mb: 1.5 }}>
+                  <Card key={riesgo.id} sx={{ mb: 1.5, width: '100%', maxWidth: '100%', minWidth: 0 }}>
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '45px 90px 1fr 150px 120px 120px 50px' },
+                        gridTemplateColumns: {
+                          xs: '1fr',
+                          md: '45px minmax(64px, 90px) minmax(0, 2.2fr) minmax(96px, 150px) minmax(100px, 120px) minmax(100px, 120px) 50px',
+                        },
                         gap: { xs: 1, md: 1 },
                         p: { xs: 2, md: 1.5 },
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
                         alignItems: { xs: 'flex-start', md: 'center' },
                         width: '100%',
+                        minWidth: 0,
                         minHeight: 64,
                         position: 'relative',
+                        boxSizing: 'border-box',
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
                         <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
                           {estaExpandido ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                         </IconButton>
                       </Box>
-                      <Typography variant="subtitle2" fontWeight={700} color="primary" fontSize="0.8rem">
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        color="primary"
+                        fontSize="0.8rem"
+                        sx={{ minWidth: 0, textAlign: { md: 'center' } }}
+                      >
                         {riesgo.numeroIdentificacion || riesgo.numero || 'Sin ID'}
                       </Typography>
                       <Typography variant="body2" sx={{ 
@@ -3848,7 +3888,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                         fontSize: '0.8rem',
                         color: 'text.primary',
                         wordBreak: 'break-word',
-                        pr: 1
+                        pr: 1,
+                        minWidth: 0,
+                        textAlign: 'left',
                       }}>
                         {repairSpanishDisplayArtifacts(
                           riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'
@@ -3857,13 +3899,14 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap' 
+                        whiteSpace: 'nowrap',
+                        minWidth: 0,
                       }}>
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
                       
                       {/* Columna de Clasificación/Nivel de Riesgo RESIDUAL (en CONTROLES) — misma lógica que Resumen y mapa */}
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0, width: '100%' }}>
                         {(() => {
                           let nivelRiesgo: string | undefined | null = null;
                           const ev = riesgo.evaluacion || {};
@@ -4016,7 +4059,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                         })()}
                       </Box>
                       
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0, width: '100%' }}>
                         <Chip
                           label="Control Activo"
                           size="small"
@@ -4025,7 +4068,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                           sx={{ fontWeight: 600, height: 20, fontSize: '0.65rem' }}
                         />
                       </Box>
-                      <Box />
+                      <Box sx={{ minWidth: 0 }} />
                     </Box>
                     <Collapse in={estaExpandido}>
                       <Box sx={{ p: 2 }}>
@@ -5040,7 +5083,8 @@ export default function ControlesYPlanesAccionPageNueva() {
               <Box
                 sx={{
                   display: { xs: 'none', md: 'grid' },
-                  gridTemplateColumns: '45px 90px 1fr 150px 120px 50px',
+                  gridTemplateColumns:
+                    '45px minmax(64px, 90px) minmax(0, 2.4fr) minmax(96px, 150px) minmax(100px, 120px) 50px',
                   gap: 1,
                   px: 2,
                   py: 1.5,
@@ -5052,6 +5096,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                   position: 'sticky',
                   top: 0,
                   zIndex: 15,
+                  width: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
                 }}
               >
                 <Box />
@@ -5105,28 +5152,39 @@ export default function ControlesYPlanesAccionPageNueva() {
               {riesgosConPlanesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
                 return (
-                  <Card key={riesgo.id} sx={{ mb: 1.5 }}>
+                  <Card key={riesgo.id} sx={{ mb: 1.5, width: '100%', maxWidth: '100%', minWidth: 0 }}>
                     <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '45px 90px 1fr 150px 120px 50px' },
+                        gridTemplateColumns: {
+                          xs: '1fr',
+                          md: '45px minmax(64px, 90px) minmax(0, 2.4fr) minmax(96px, 150px) minmax(100px, 120px) 50px',
+                        },
                         gap: { xs: 1, md: 1 },
                         p: { xs: 2, md: 1.5 },
                         cursor: 'pointer',
                         bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
                         alignItems: { xs: 'flex-start', md: 'center' },
                         width: '100%',
+                        minWidth: 0,
                         minHeight: 64,
                         position: 'relative',
+                        boxSizing: 'border-box',
                       }}
                       onClick={() => handleToggleExpandirResidual(riesgo.id)}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
                         <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
                           {estaExpandido ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                         </IconButton>
                       </Box>
-                      <Typography variant="subtitle2" fontWeight={700} color="primary" fontSize="0.8rem">
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        color="primary"
+                        fontSize="0.8rem"
+                        sx={{ minWidth: 0, textAlign: { md: 'center' } }}
+                      >
                         {riesgo.numeroIdentificacion || riesgo.id}
                       </Typography>
                       <Typography variant="body2" sx={{ 
@@ -5139,7 +5197,9 @@ export default function ControlesYPlanesAccionPageNueva() {
                         fontSize: '0.8rem',
                         color: 'text.primary',
                         wordBreak: 'break-word',
-                        pr: 1
+                        pr: 1,
+                        minWidth: 0,
+                        textAlign: 'left',
                       }}>
                         {repairSpanishDisplayArtifacts(
                           riesgo.descripcionRiesgo || riesgo.descripcion || riesgo.nombre || 'Sin descripción'
@@ -5148,14 +5208,15 @@ export default function ControlesYPlanesAccionPageNueva() {
                       <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap' 
+                        whiteSpace: 'nowrap',
+                        minWidth: 0,
                       }}>
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0, width: '100%' }}>
                         <Chip label="Plan Activo" size="small" color="info" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
                       </Box>
-                      <Box />
+                      <Box sx={{ minWidth: 0 }} />
                     </Box>
                     <Collapse in={estaExpandido}>
                       <Box sx={{ p: 2 }}>
