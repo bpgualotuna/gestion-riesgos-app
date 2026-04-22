@@ -1885,20 +1885,24 @@ export default function IdentificacionPage() {
             {/* Column Headers */}
             <Box sx={{
               display: 'grid',
-              gridTemplateColumns: '45px 90px 1fr 120px 120px 120px 100px 50px',
+              gridTemplateColumns: '28px minmax(56px, 72px) minmax(200px, 1fr) minmax(100px, 120px) minmax(100px, 120px) minmax(100px, 120px) minmax(88px, 100px) 44px',
               gap: 1,
-              px: 2,
+              pl: 1,
+              pr: 2,
               py: 1.5,
               mb: 1,
               bgcolor: '#f8f9fa',
               borderRadius: '8px',
               border: '1px solid #e0e0e0',
               alignItems: 'center',
-              width: '100%'
+              width: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box',
+              '& > *': { minWidth: 0 },
             }}>
-              <Box sx={{ display: 'flex', justifyContent: 'center' }} />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }} />
               <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 0.5, cursor: 'pointer', minWidth: 0, width: '100%' }}
                 onClick={() => handleSortRiesgos('id')}
               >
                 <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">
@@ -1915,7 +1919,7 @@ export default function IdentificacionPage() {
                 )}
               </Box>
               <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', minWidth: 0 }}
                 onClick={() => handleSortRiesgos('descripcion')}
               >
                 <Typography variant="caption" fontWeight={700} color="text.secondary" fontSize="0.7rem">
@@ -2022,9 +2026,10 @@ export default function IdentificacionPage() {
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '45px 90px 1fr 120px 120px 120px 100px 50px',
+                      gridTemplateColumns: '28px minmax(56px, 72px) minmax(200px, 1fr) minmax(100px, 120px) minmax(100px, 120px) minmax(100px, 120px) minmax(88px, 100px) 44px',
                       gap: 1,
-                      px: 2,
+                      pl: 1,
+                      pr: 2,
                       py: 1.5,
                       cursor: 'pointer',
                       bgcolor: estaExpandido ? 'rgba(25, 118, 210, 0.04)' : 'transparent',
@@ -2032,17 +2037,20 @@ export default function IdentificacionPage() {
                       '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)' },
                       alignItems: 'center',
                       width: '100%',
+                      minWidth: 0,
                       minHeight: 64,
+                      boxSizing: 'border-box',
+                      '& > *': { minWidth: 0 },
                     }}
                     onClick={() => handleToggleExpandir(riesgo)}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+                      <IconButton size="small" color="primary" sx={{ p: 0.25, ml: -0.5 }}>
                         {estaExpandido ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                       </IconButton>
                     </Box>
 
-                    <Typography variant="subtitle2" fontWeight={700} color="primary" fontSize="0.8rem">
+                    <Typography variant="subtitle2" fontWeight={700} color="primary" fontSize="0.8rem" sx={{ textAlign: 'left', justifySelf: 'start', width: '100%', minWidth: 0 }}>
                       {riesgo.numeroIdentificacion || 'Sin ID'}
                     </Typography>
 
@@ -2058,8 +2066,11 @@ export default function IdentificacionPage() {
                         fontSize: '0.8rem',
                         color: 'text.primary',
                         wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
                         pr: 1,
-                        textAlign: 'justify',
+                        textAlign: 'left',
+                        minWidth: 0,
+                        maxWidth: '100%',
                       }}
                     >
                       {repairSpanishDisplayArtifacts(
@@ -2067,13 +2078,13 @@ export default function IdentificacionPage() {
                       )}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, maxWidth: '100%' }}>
                       {repairSpanishDisplayArtifacts(
                         tipoRiesgoObj ? (tipoRiesgoObj.nombre || tipoRiesgoObj.codigo) : (riesgo.tipoRiesgo || 'Sin tipología I')
                       )}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, maxWidth: '100%' }}>
                       {repairSpanishDisplayArtifacts(
                         subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin tipología II')
                       )}
