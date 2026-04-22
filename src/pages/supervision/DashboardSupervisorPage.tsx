@@ -72,6 +72,7 @@ import RiesgosPorProcesoCard from '../../components/dashboard/RiesgosPorProcesoC
 import MetricCard from '../../components/dashboard/MetricCard';
 import DashboardFiltros from '../../components/dashboard/DashboardFiltros';
 import TablaResumenRiesgos from '../../components/dashboard/TablaResumenRiesgos';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 import TablaPlanesAccion from '../../components/dashboard/TablaPlanesAccion';
 import IncidenciasCard from '../../components/dashboard/IncidenciasCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -1272,9 +1273,9 @@ export default function DashboardSupervisorPage() {
                                     WebkitBoxOrient: 'vertical',
                                     overflow: 'hidden',
                                   }}
-                                  title={riesgo.descripcion}
+                                  title={repairSpanishDisplayArtifacts(String(riesgo.descripcion ?? ''))}
                                 >
-                                  {riesgo.descripcion}
+                                  {repairSpanishDisplayArtifacts(String(riesgo.descripcion ?? ''))}
                                 </Typography>
 
                                 {/* Fila 3: Niveles + reducción */}
@@ -1675,6 +1676,10 @@ export default function DashboardSupervisorPage() {
                     ) : (
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, overflow: 'visible' }}>
                         {riesgosPorProcesoPaginado.map((procesoData) => {
+                          const procesoMeta = procesos.find(
+                            (p: { nombre?: string }) => (p.nombre || 'Sin nombre') === procesoData.procesoNombre
+                          ) as { residualModo?: string } | undefined;
+                          const residualEstrategico = procesoMeta?.residualModo === 'ESTRATEGICO';
                           const isExpanded = expandidos[procesoData.procesoNombre] || false;
                           const maxVal = Math.max(
                             ...procesoData.riesgos.map((r: any) => {
@@ -1729,6 +1734,17 @@ export default function DashboardSupervisorPage() {
                                       </Typography>
                                     </Box>
                                   </Box>
+
+                                  {residualEstrategico && (
+                                    <MuiTooltip title="Proceso en modo residual estratégico. Mapa y cálculos siguen la metodología configurada para este modo.">
+                                      <Chip
+                                        label="Residual estratégico"
+                                        size="small"
+                                        color="secondary"
+                                        sx={{ fontWeight: 700, flexShrink: 0 }}
+                                      />
+                                    </MuiTooltip>
+                                  )}
 
                                   {/* Chips resumen compactos */}
                                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>

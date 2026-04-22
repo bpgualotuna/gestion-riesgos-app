@@ -49,7 +49,7 @@ export function encuentraEnDofaCuadrante(
 }
 
 /**
- * En BD `enviarADofa` puede ser null (datos viejos). Eso NO es “excluido”: solo `false` lo es.
+ * En BD `enviarADofa` puede ser null (datos viejos). Eso NO es "excluido": solo `false` lo es.
  * `undefined` en UI = sincronizar con DOFA por defecto al guardar.
  */
 export function enviarADofaDesdeApi(v: boolean | null | undefined): boolean | undefined {

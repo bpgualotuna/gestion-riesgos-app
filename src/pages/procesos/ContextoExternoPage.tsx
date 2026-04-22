@@ -672,7 +672,7 @@ export default function ContextoExternoPage() {
             <Tab
               label={
                 <Tooltip
-                  title="Oportunidades (O). Guarde con «Guardar»; envíe a la matriz con «Enviar a DOFA»."
+                  title='Oportunidades (O). Guarde con "Guardar"; envíe a la matriz con "Enviar a DOFA".'
                   placement="bottom"
                   arrow
                   enterDelay={400}
@@ -687,7 +687,7 @@ export default function ContextoExternoPage() {
             <Tab
               label={
                 <Tooltip
-                  title="Amenazas (A). Guarde con «Guardar»; envíe a la matriz con «Enviar a DOFA»."
+                  title='Amenazas (A). Guarde con "Guardar"; envíe a la matriz con "Enviar a DOFA".'
                   placement="bottom"
                   arrow
                   enterDelay={400}
@@ -732,7 +732,7 @@ export default function ContextoExternoPage() {
               <>
                 <MenuItem disabled sx={{ opacity: 1, whiteSpace: 'normal', maxWidth: 280 }}>
                   <Typography variant="caption" color="text.secondary">
-                    «Guardar» / «Enviar a DOFA» sincronizan con la matriz. Eliminar aquí quita la fila del contexto y del DOFA (un solo paso). Para quitar solo del DOFA sin borrar el contexto, usa la pantalla Matriz DOFA.
+                    "Guardar" y "Enviar a DOFA" sincronizan con la matriz. Eliminar aquí quita la fila del contexto y del DOFA (un solo paso). Para quitar solo del DOFA sin borrar el contexto, usa la pantalla Matriz DOFA.
                   </Typography>
                 </MenuItem>
                 <Divider />

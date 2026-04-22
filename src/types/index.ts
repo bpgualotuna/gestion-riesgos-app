@@ -117,6 +117,8 @@ export interface Proceso {
   objetivos?: unknown;
   activo: boolean;
   estado: string; // borrador, en_revision, aprobado
+  /** ESTANDAR o ESTRATEGICO: define cómo se calcula el residual en el proceso. */
+  residualModo?: 'ESTANDAR' | 'ESTRATEGICO';
 
   // Análisis y documentación
   analisis?: string;
@@ -234,12 +236,52 @@ export interface CreateProcesoDto {
   documentoCaracterizacionNombre?: string;
   documentoFlujoGramaUrl?: string;
   documentoFlujoGramaNombre?: string;
+  /** Por defecto en BD es ESTANDAR; solo admin o flujos explícitos suelen fijar ESTRATEGICO. */
+  residualModo?: 'ESTANDAR' | 'ESTRATEGICO';
 }
 
 export interface UpdateProcesoDto extends Partial<CreateProcesoDto> {
   dofaItems?: Array<{ tipo: string; descripcion: string }>;
   normatividades?: any[];
   contextos?: Array<{ tipo: string; descripcion: string }>;
+}
+
+/** Parametrización del motor de residual estratégico. */
+export interface StrategicRangoAzDto {
+  etiqueta: string;
+  min: number;
+  max: number;
+  incluirMin: boolean;
+  incluirMax: boolean;
+}
+
+export interface StrategicBaRowDto {
+  etiquetaAz: string;
+  ba: number;
+}
+
+export interface StrategicEngineConfigDto {
+  /** IDs de Tipología tipo I permitidos en identificación para procesos con residual estratégico (vacío = heurística por nombre). */
+  tipologiaTipo1IdsEstrategia: number[];
+  pesoPorCriterio: number;
+  presupuesto: Record<string, number>;
+  actitud: Record<string, number>;
+  capacitacionDocMon: Record<string, number>;
+  rangosAz: StrategicRangoAzDto[];
+  tablaBa: StrategicBaRowDto[];
+  factorMitigacionCruzada: number;
+  bdEspecialBb: number;
+  bdEspecialBc: number;
+  bdEspecialResultado: number;
+  etiquetasAzMitigacionCruzada: string[];
+}
+
+export interface ConfigResidualEstrategicaResponse {
+  config: StrategicEngineConfigDto;
+  defaults: StrategicEngineConfigDto;
+  success?: boolean;
+  message?: string;
+  recalc?: { procesados: number; errores?: string[] };
 }
 
 export const EstadoProceso = {

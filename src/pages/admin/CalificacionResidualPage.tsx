@@ -59,6 +59,12 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import {
+  NIVEL_ALTO_BG,
+  NIVEL_BAJO_BG,
+  NIVEL_CRITICO_BG,
+  NIVEL_MEDIO_BG,
+} from '../../utils/paletaSemafotoCWR';
 
 export default function CalificacionResidualPage() {
   const { puedeEditar } = useAuth();
@@ -71,14 +77,14 @@ export default function CalificacionResidualPage() {
   const getColorNivel = (nivelNombre: string): string => {
     if (!niveles?.length) {
       const def: Record<string, string> = {
-        Crítico: '#d32f2f',
-        CRÍTICO: '#d32f2f',
-        Alto: '#f57c00',
-        ALTO: '#f57c00',
-        Medio: '#fbc02d',
-        MEDIO: '#fbc02d',
-        Bajo: '#388e3c',
-        BAJO: '#388e3c',
+        Crítico: NIVEL_CRITICO_BG,
+        CRÍTICO: NIVEL_CRITICO_BG,
+        Alto: NIVEL_ALTO_BG,
+        ALTO: NIVEL_ALTO_BG,
+        Medio: NIVEL_MEDIO_BG,
+        MEDIO: NIVEL_MEDIO_BG,
+        Bajo: NIVEL_BAJO_BG,
+        BAJO: NIVEL_BAJO_BG,
       };
       return def[nivelNombre] ?? '#666';
     }

@@ -65,6 +65,7 @@ const ParametrosCalificacionPage = lazy(() => import('../pages/admin/ParametrosC
 const MapasConfigPage = lazy(() => import('../pages/admin/MapasConfigPage'));
 const CalificacionInherentePage = lazy(() => import('../pages/admin/CalificacionInherentePage'));
 const CalificacionResidualPage = lazy(() => import('../pages/admin/ConfiguracionResidualPage'));
+const ResidualEstrategicoCwrPage = lazy(() => import('../admin/pages/ResidualEstrategicoCwrPage'));
 const AdminPanelPage = lazy(() => import('../pages/admin/AdminPanelPage'));
 const ModoGerenteGeneralSelector = lazy(() => import('../components/auth/ModoGerenteGeneralSelector'));
 const PlanesAccionPage = lazy(() => import('../pages/planes/PlanesAccionPage'));
@@ -165,6 +166,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowedRoles={['admin']}>
             <LazyRoute component={CalificacionResidualPage} />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN_RESIDUAL_ESTRATEGICO_CWR,
+        element: (
+          <RoleGuard allowedRoles={['admin']}>
+            <LazyRoute component={ResidualEstrategicoCwrPage} />
           </RoleGuard>
         ),
       },

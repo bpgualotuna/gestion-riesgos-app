@@ -45,13 +45,13 @@ export const colors = {
       contrastText: "#FFFFFF",
     },
     medium: {
-      main: "#fbc02d", // Amarillo
+      main: "#fbc02d", // Ámbar unificado (mismo criterio que gestión estratégica y procesos estándar)
       light: "#fdd835",
       dark: "#f9a825",
       contrastText: "#000000",
     },
     low: {
-      main: "#388e3c", // Verde
+      main: "#388e3c",
       light: "#4caf50",
       dark: "#2e7d32",
       contrastText: "#FFFFFF",

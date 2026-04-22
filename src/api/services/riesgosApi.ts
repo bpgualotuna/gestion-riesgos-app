@@ -21,6 +21,8 @@ import type {
   Proceso,
   CreateProcesoDto,
   UpdateProcesoDto,
+  ConfigResidualEstrategicaResponse,
+  StrategicEngineConfigDto,
   Causa,
   ImpactoDescripcion,
   ImpactoTipo,
@@ -49,7 +51,7 @@ const baseQuery = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'ConfigResidualEstrategica', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa'],
   // Caché: menos refetch y respuestas más ágiles; backend devuelve solo campos necesarios
   keepUnusedDataFor: 120,
   refetchOnMountOrArgChange: 120,
@@ -112,6 +114,38 @@ export const riesgosApi = createApi({
         body: procesos
       }),
       invalidatesTags: ['Proceso'],
+    }),
+
+    getConfigResidualEstrategica: builder.query<ConfigResidualEstrategicaResponse, void>({
+      query: () => 'configuracion-residual-estrategica',
+      providesTags: ['ConfigResidualEstrategica'],
+    }),
+
+    updateConfigResidualEstrategica: builder.mutation<
+      ConfigResidualEstrategicaResponse,
+      StrategicEngineConfigDto
+    >({
+      query: (config) => ({
+        url: 'configuracion-residual-estrategica',
+        method: 'PUT',
+        body: { config },
+      }),
+      invalidatesTags: [
+        'ConfigResidualEstrategica',
+        'Proceso',
+        'Riesgo',
+        'Evaluacion',
+        'PuntosMapa',
+        'Estadisticas',
+      ],
+    }),
+
+    recalcularResidualEstrategico: builder.mutation<{ procesados: number; errores: string[] }, void>({
+      query: () => ({
+        url: 'configuracion-residual-estrategica/recalcular',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Riesgo', 'Evaluacion', 'Proceso', 'PuntosMapa'],
     }),
 
     // Responsables múltiples por proceso
@@ -1380,6 +1414,9 @@ export const {
   useDeleteProcesoMutation,
   useDuplicateProcesoMutation,
   useBulkUpdateProcesosMutation,
+  useGetConfigResidualEstrategicaQuery,
+  useUpdateConfigResidualEstrategicaMutation,
+  useRecalcularResidualEstrategicoMutation,
   useGetResponsablesByProcesoQuery,
   useAddResponsableToProcesoMutation,
   useRemoveResponsableFromProcesoMutation,

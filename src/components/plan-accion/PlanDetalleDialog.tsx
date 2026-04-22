@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
 import { PlanAccionAPI } from '../../api/services/planTrazabilidadApi';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 
 interface PlanDetalleDialogProps {
   open: boolean;
@@ -137,10 +138,10 @@ export const PlanDetalleDialog: React.FC<PlanDetalleDialogProps> = ({
               Código: <strong>{plan.riesgo.numeroIdentificacion}</strong>
             </Typography>
             <Typography variant="body1" gutterBottom>
-              {plan.riesgo.descripcion}
+              {repairSpanishDisplayArtifacts(String(plan.riesgo.descripcion ?? ''))}
             </Typography>
             <Chip
-              label={plan.riesgo.proceso.nombre}
+              label={repairSpanishDisplayArtifacts(String(plan.riesgo.proceso.nombre ?? ''))}
               size="small"
               variant="outlined"
               sx={{ mt: 1 }}
@@ -156,7 +157,7 @@ export const PlanDetalleDialog: React.FC<PlanDetalleDialogProps> = ({
             </Typography>
             <Box sx={{ bgcolor: 'info.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'info.200' }}>
               <Typography variant="body2">
-                {plan.causaDescripcion}
+                {repairSpanishDisplayArtifacts(String(plan.causaDescripcion ?? ''))}
               </Typography>
             </Box>
           </Box>

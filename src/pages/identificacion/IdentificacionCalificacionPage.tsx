@@ -64,7 +64,15 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
 import api from '../../services/api';
 
-import { useCreateEvaluacionMutation, useUpdateRiesgoMutation, useCreateRiesgoMutation, useLazyGetNextNumeroRiesgoQuery, riesgosApi, useGetRiesgosQuery } from '../../api/services/riesgosApi';
+import {
+  useCreateEvaluacionMutation,
+  useUpdateRiesgoMutation,
+  useCreateRiesgoMutation,
+  useLazyGetNextNumeroRiesgoQuery,
+  riesgosApi,
+  useGetRiesgosQuery,
+  useGetConfigResidualEstrategicaQuery,
+} from '../../api/services/riesgosApi';
   import { useAppDispatch } from '../../app/hooks';
   import { useCoraIAContext } from '../../contexts/CoraIAContext';
   import type { ScreenContext } from '../../types/ia.types';
@@ -131,7 +139,6 @@ const DEFAULT_TIPOS_RIESGO: any[] = [
     ]
   }
 ];
-const DEFAULT_IMPACTOS: Record<string, Record<number, string>> = {};
 const DEFAULT_OBJETIVOS: any[] = [];
 const DEFAULT_ORIGENES: any[] = [];
 const DEFAULT_TIPOS_PROCESO: any[] = [];
@@ -147,6 +154,8 @@ import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useRiesgos } from '../../contexts/RiesgosContext-NUEVO';
 import type { Riesgo, FiltrosRiesgo, CausaRiesgo, RiesgoFormData } from '../../types';
 import { generarIdRiesgoAutomatico, calcularImpactoGlobal, calcularRiesgoInherente, determinarNivelRiesgo, generarIdConContador, setSiglasConfig } from '../../utils/calculations';
+import { repairUtf8Mojibake, repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import { opcionesTipologiaTipo1ParaProceso } from '../../utils/tipologiaEstrategia';
 import { determinarNivelRiesgoSync, calcularCalificacionInherentePorCausaSync, agregarCalificacionInherenteGlobalSync } from '../../services/calificacionInherenteService';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { swalConfirmEliminarCausa } from '../../lib/swal';
@@ -163,6 +172,15 @@ import {
   calcularFrecuenciaResidualAvanzada,
   calcularImpactoResidualAvanzado
 } from '../../utils/calculations';
+import { estiloSemafotoCalificacionResidualCWR } from '../../utils/cwrCalificacionResidualColors';
+import {
+  CWR_AMARILLO_EXCEL,
+  CWR_NARANJA_EXCEL,
+  CWR_ROJO_EXCEL,
+  CWR_VERDE_EFECTIVO_INTERMEDIO,
+  CWR_VERDE_EXCEL,
+} from '../../utils/paletaSemafotoCWR';
+import { colorTextoContrasteSobreFondo, estiloNivelResidualDesdeNombre } from '../../utils/residualNivelColor';
 import {
   useGetTiposRiesgosQuery,
   useGetObjetivosQuery,
@@ -195,18 +213,43 @@ const normalizarDescripcionesImpacto = (data?: Record<string, Record<number, str
   personas: data?.personas ?? data?.['7'] ?? {},
 });
 
+/** Alinea cada fila del catálogo con la clave interna (economico, legal, …). */
+function resolveImpactoTipoClave(it: any): string | null {
+  const raw = it?.clave;
+  if (raw != null && String(raw).trim() !== '') {
+    return String(raw);
+  }
+  const nombre = String(it?.nombre ?? '').trim();
+  if (!nombre) return null;
+  const fold = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .trim()
+      .toLowerCase();
+  const f = fold(nombre);
+  for (const d of DIMENSIONES_IMPACTO) {
+    if (String(d.key) === f || fold(String(d.label)) === f) {
+      return d.key as string;
+    }
+  }
+  return null;
+}
+
 // Convierte el array retornado por la API de impactos a un objeto { clave: { nivel: descripcion } }
 const mapImpactosArrayToObject = (impactosArray?: any[]) => {
   if (!Array.isArray(impactosArray)) return {} as Record<string, Record<number, string>>;
   const result: Record<string, Record<number, string>> = {};
   impactosArray.forEach((it: any) => {
-    // Usar String(...) y nullish coalescing para evitar ambigüedades
-    const clave = String(it.clave ?? it.nombre ?? it.tipo ?? it.id ?? '');
-    result[clave] = {};
-    const niveles = Array.isArray(it.niveles) ? it.niveles : (it.niveles ?? []);
+    const clave = resolveImpactoTipoClave(it);
+    if (!clave) return;
+    if (!result[clave]) result[clave] = {};
+    const niveles = Array.isArray(it.niveles) ? it.niveles : [];
     (niveles as any[]).forEach((n: any) => {
-      const nivelNum = (Number(n.nivel ?? n.valor ?? n.id)) || 0;
-      result[clave][nivelNum] = n.descripcion ?? '';
+      const nivelNum = Number(n?.nivel ?? n?.valor);
+      if (!Number.isFinite(nivelNum) || nivelNum < 1 || nivelNum > 5) return;
+      const texto = repairSpanishDisplayArtifacts(String(n?.descripcion ?? ''));
+      result[clave][nivelNum] = texto;
     });
   });
   return result;
@@ -295,13 +338,11 @@ function computeNivelRiesgoForRow(
       );
       if (nivelConfig?.color) {
         bgColor = nivelConfig.color;
-        color = '#fff';
+        color = colorTextoContrasteSobreFondo(bgColor);
       } else {
-        if (nivelNombre.toUpperCase().includes('CRITICO')) bgColor = '#d32f2f';
-        else if (nivelNombre.toUpperCase().includes('ALTO')) bgColor = '#f57c00';
-        else if (nivelNombre.toUpperCase().includes('MEDIO')) bgColor = '#fbc02d';
-        else if (nivelNombre.toUpperCase().includes('BAJO')) bgColor = '#388e3c';
-        color = '#fff';
+        const st = estiloNivelResidualDesdeNombre(nivelNombre, nivelesRiesgo);
+        bgColor = st.bg;
+        color = st.color;
       }
     } catch {
       // keep default
@@ -457,6 +498,17 @@ export default function IdentificacionPage() {
   const { data: vicepresidenciasApi, isLoading: isLoadingVicepresidencias } = useGetVicepresidenciasQuery(undefined, catalogQueryOptions);
   const { data: configuracionesApi, isLoading: isLoadingConfiguraciones } = useGetConfiguracionesQuery(undefined, catalogQueryOptions);
   const { data: pesosImpactoApi = [] } = useGetPesosImpactoQuery(undefined, catalogQueryOptions);
+  const { data: cfgResidualEstrategicaResp } = useGetConfigResidualEstrategicaQuery(undefined, {
+    refetchOnMountOrArgChange: false,
+  });
+
+  /** Derivado directamente del API (evita estado desincronizado con React.memo / efectos). */
+  const descripcionesImpacto = useMemo(() => {
+    if (!Array.isArray(impactosApi) || impactosApi.length === 0) {
+      return normalizarDescripcionesImpacto(undefined);
+    }
+    return normalizarDescripcionesImpacto(mapImpactosArrayToObject(impactosApi as any[]));
+  }, [impactosApi]);
 
   // Determinar si alguna query crítica está cargando (solo las esenciales para mostrar la UI)
   const isLoadingCatalogos = isLoadingTipos || isLoadingFrecuencias || isLoadingImpactos || isLoadingNiveles;
@@ -661,7 +713,6 @@ export default function IdentificacionPage() {
   const [origenes, setOrigenes] = useState(DEFAULT_ORIGENES);
   const [tiposProceso, setTiposProceso] = useState(DEFAULT_TIPOS_PROCESO);
   const [consecuencias, setConsecuencias] = useState(DEFAULT_CONSECUENCIAS);
-  const [descripcionesImpacto, setDescripcionesImpacto] = useState(normalizarDescripcionesImpacto(DEFAULT_IMPACTOS));
   const [nivelesRiesgo, setNivelesRiesgo] = useState(DEFAULT_NIVELES_RIESGO);
   const [clasificacionesRiesgo, setClasificacionesRiesgo] = useState(DEFAULT_CLASIFICACIONES_RIESGO);
 
@@ -675,6 +726,20 @@ export default function IdentificacionPage() {
     field: 'id',
     direction: 'desc', // Nuevos riesgos (id mayor) aparecen arriba
   });
+
+  const idsTipologiaEstrategiaKey = (cfgResidualEstrategicaResp?.config?.tipologiaTipo1IdsEstrategia ?? [])
+    .slice()
+    .sort((a, b) => Number(a) - Number(b))
+    .join(',');
+
+  const tipologiasTipo1ParaAutocomplete = useMemo(
+    () =>
+      opcionesTipologiaTipo1ParaProceso(tiposRiesgos || [], {
+        residualModoEstrategico: procesoSeleccionado?.residualModo === 'ESTRATEGICO',
+        idsEstrategiaConfig: cfgResidualEstrategicaResp?.config?.tipologiaTipo1IdsEstrategia ?? [],
+      }),
+    [tiposRiesgos, procesoSeleccionado?.residualModo, idsTipologiaEstrategiaKey]
+  );
 
   // Causas pendientes (solo en memoria hasta "Guardar" en el riesgo): declarar antes de riesgosParaRender
   type CausasPendientesRecord = Record<string, {
@@ -827,15 +892,32 @@ export default function IdentificacionPage() {
   // Memoizar función de mapeo de riesgos
   const mapearRiesgos = useCallback((riesgosData: any[], objetivosList: any[], procesoSel: any) => {
     return riesgosData.map((r: any) => {
-      // Mapear objetivoId a texto objetivo
-      let objetivoTexto = '';
-      if (r.objetivoId && objetivosList.length > 0) {
-        const obj = objetivosList.find((o: any) => o.id === r.objetivoId);
-        if (obj) {
-          objetivoTexto = `${obj.codigo} ${obj.descripcion}`;
+      // Valor del Select de objetivo: id del catálogo (string), sin mostrar código al usuario
+      let objetivoValor = '';
+      if (r.objetivoId != null && r.objetivoId !== '') {
+        const idStr = String(r.objetivoId);
+        if (objetivosList.length > 0) {
+          const obj = objetivosList.find((o: any) => String(o.id) === idStr);
+          objetivoValor = obj ? String(obj.id) : idStr;
+        } else {
+          objetivoValor = idStr;
         }
       } else if (r.objetivo) {
-        objetivoTexto = `${r.objetivo.codigo || ''} ${r.objetivo.descripcion || ''}`.trim();
+        if (typeof r.objetivo === 'object') {
+          if (r.objetivo.id != null && r.objetivo.id !== '') {
+            objetivoValor = String(r.objetivo.id);
+          } else {
+            const combined = `${r.objetivo.codigo ?? ''} ${r.objetivo.descripcion ?? ''}`.trim();
+            const found =
+              objetivosList.find(
+                (o: any) => `${String(o.codigo)} ${o.descripcion}`.trim() === combined
+              ) ||
+              (r.objetivo.descripcion
+                ? objetivosList.find((o: any) => o.descripcion === r.objetivo.descripcion)
+                : undefined);
+            if (found) objetivoValor = String(found.id);
+          }
+        }
       }
 
       // Recalcular numeroIdentificacion usando la sigla del proceso
@@ -871,7 +953,7 @@ export default function IdentificacionPage() {
         numeroIdentificacion: numeroIdentificacion || r.numero || '',
         origenRiesgo: r.origen || 'Interno',
         consecuencia: r.clasificacion || 'Negativa',
-        objetivo: objetivoTexto || '',
+        objetivo: objetivoValor || '',
         tipoRiesgo: r.tipoRiesgo || '',
         subtipoRiesgo: r.subtipoRiesgo || '',
         tipoRiesgoId: (r as any).tipoRiesgoId ?? null,
@@ -1095,15 +1177,6 @@ export default function IdentificacionPage() {
   }, [fuentesApi, fuentesCausa.length]);
 
   useEffect(() => {
-    if (impactosApi) {
-      const normalized = Array.isArray(impactosApi) 
-        ? normalizarDescripcionesImpacto(mapImpactosArrayToObject(impactosApi as any[]))
-        : normalizarDescripcionesImpacto(impactosApi as any);
-      setDescripcionesImpacto(normalized);
-    }
-  }, [impactosApi]);
-
-  useEffect(() => {
     if (origenesApi && (origenes.length === 0 || origenes.length !== origenesApi.length)) {
       setOrigenes(origenesApi as any[]);
     }
@@ -1163,14 +1236,17 @@ export default function IdentificacionPage() {
     }
   }, [gerenciasApi, vicepresidenciasApi]);
 
-  // Actualizar numeroIdentificacion de todos los riesgos cuando cambie el proceso
+  // Actualizar numeroIdentificacion de todos los riesgos cuando cambie el proceso (solo id/sigla/nombre, no el objeto entero: evita bucle infinito si el contexto devuelve nueva referencia cada render)
+  const procesoIdSel = procesoSeleccionado?.id;
+  const procesoNombreSel = procesoSeleccionado?.nombre;
+  const procesoSiglaSel = (procesoSeleccionado as any)?.sigla;
   useEffect(() => {
-    if (!procesoSeleccionado || riesgos.length === 0) return;
+    if (!procesoIdSel) return;
 
-    // Obtener la sigla del proceso (prioridad: proceso.sigla > generar desde nombre)
-    const procesoSigla = (procesoSeleccionado as any).sigla || 
-      (procesoSeleccionado.nombre 
-        ? procesoSeleccionado.nombre
+    const procesoSigla =
+      procesoSiglaSel ||
+      (procesoNombreSel
+        ? String(procesoNombreSel)
             .split(' ')
             .filter((p: string) => p.length > 0 && !['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e'].includes(p.toLowerCase()))
             .map((palabra: string) => palabra.charAt(0).toUpperCase())
@@ -1180,35 +1256,31 @@ export default function IdentificacionPage() {
 
     const sigla = procesoSigla.toUpperCase();
 
-    // Recalcular el numeroIdentificacion para cada riesgo basado en procesoSeleccionado.sigla
-    const riesgosActualizados = riesgos.map(riesgo => {
-      // Extraer el número del riesgo (del numeroIdentificacion actual o del campo numero)
-      let numeroRiesgo = riesgo.numero || 0;
-      if (!numeroRiesgo && riesgo.numeroIdentificacion) {
-        const match = String(riesgo.numeroIdentificacion).match(/^(\d+)/);
-        if (match) {
-          numeroRiesgo = parseInt(match[1], 10);
+    setRiesgos((prev) => {
+      if (prev.length === 0) return prev;
+
+      const riesgosActualizados = prev.map((riesgo) => {
+        let numeroRiesgo = riesgo.numero || 0;
+        if (!numeroRiesgo && riesgo.numeroIdentificacion) {
+          const match = String(riesgo.numeroIdentificacion).match(/^(\d+)/);
+          if (match) {
+            numeroRiesgo = parseInt(match[1], 10);
+          }
         }
-      }
-      if (!numeroRiesgo) {
-        numeroRiesgo = 1; // Fallback
-      }
+        if (!numeroRiesgo) {
+          numeroRiesgo = 1;
+        }
+        const nuevoNumeroIdentificacion = `${numeroRiesgo}${sigla}`;
+        return {
+          ...riesgo,
+          numeroIdentificacion: nuevoNumeroIdentificacion,
+        };
+      });
 
-      // Generar nuevo numeroIdentificacion: número + sigla del proceso
-      const nuevoNumeroIdentificacion = `${numeroRiesgo}${sigla}`;
-
-      return {
-        ...riesgo,
-        numeroIdentificacion: nuevoNumeroIdentificacion
-      };
+      const haycambios = riesgosActualizados.some((r, idx) => r.numeroIdentificacion !== prev[idx]?.numeroIdentificacion);
+      return haycambios ? riesgosActualizados : prev;
     });
-
-    // Actualizar estado solo si hay cambios
-    const haycambios = riesgosActualizados.some((r, idx) => r.numeroIdentificacion !== riesgos[idx]?.numeroIdentificacion);
-    if (haycambios) {
-      setRiesgos(riesgosActualizados);
-    }
-  }, [procesoSeleccionado]);
+  }, [procesoIdSel, procesoNombreSel, procesoSiglaSel]);
 
   // Función para crear un nuevo riesgo vacío
   const crearNuevoRiesgo = (): RiesgoFormData => {
@@ -1258,7 +1330,10 @@ export default function IdentificacionPage() {
       subtipoRiesgo: '',
       tipologiaTipo3: '',
       tipologiaTipo4: '',
-      objetivo: procesoSeleccionado?.objetivos?.[0] || '',
+      objetivo:
+        procesoSeleccionado?.objetivos?.[0] != null && procesoSeleccionado?.objetivos?.[0] !== ''
+          ? String((procesoSeleccionado as any).objetivos[0])
+          : '',
       causas: [],
       impactos: {
         economico: 1,
@@ -1501,12 +1576,15 @@ export default function IdentificacionPage() {
       // Siempre enviar clasificación con el valor actual del formulario para que no se pierda al guardar
       payload.clasificacion = riesgoActualizado.consecuencia ?? riesgoActual.consecuencia ?? 'Negativa';
       
-      // Objetivo: guardar como texto completo (código + descripción)
+      // Objetivo: valor del formulario = id del catálogo (string); compat. con formato antiguo código + descripción
       if (cambios.objetivo !== undefined) {
-        const objetivoTexto = cambios.objetivo;
-        const objetivoEncontrado = objetivos?.find((obj: any) => 
-          `${obj.codigo} ${obj.descripcion}` === objetivoTexto
-        );
+        const sel = String(cambios.objetivo ?? '').trim();
+        const objetivoEncontrado =
+          objetivos?.find((obj: any) => String(obj.id) === sel) ||
+          objetivos?.find(
+            (obj: any) => `${String(obj.codigo)} ${obj.descripcion}`.trim() === sel
+          ) ||
+          objetivos?.find((obj: any) => String(obj.descripcion).trim() === sel);
         if (objetivoEncontrado) {
           payload.objetivoId = objetivoEncontrado.id;
         }
@@ -1984,15 +2062,21 @@ export default function IdentificacionPage() {
                         textAlign: 'justify',
                       }}
                     >
-                      {riesgo.descripcionRiesgo || (riesgo as any).descripcion || (riesgo as any).nombre || 'Sin descripción'}
+                      {repairSpanishDisplayArtifacts(
+                        riesgo.descripcionRiesgo || (riesgo as any).descripcion || (riesgo as any).nombre || 'Sin descripción'
+                      )}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tipoRiesgoObj ? (tipoRiesgoObj.nombre || tipoRiesgoObj.codigo) : (riesgo.tipoRiesgo || 'Sin tipología I')}
+                      {repairSpanishDisplayArtifacts(
+                        tipoRiesgoObj ? (tipoRiesgoObj.nombre || tipoRiesgoObj.codigo) : (riesgo.tipoRiesgo || 'Sin tipología I')
+                      )}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" fontSize="0.75rem" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin tipología II')}
+                      {repairSpanishDisplayArtifacts(
+                        subtipoObj ? (subtipoObj.nombre || subtipoObj.codigo) : (riesgo.subtipoRiesgo || 'Sin tipología II')
+                      )}
                     </Typography>
 
                     {/* Columna de Clasificación/Nivel de Riesgo (precalculado en riesgosConNivel) */}
@@ -2158,6 +2242,7 @@ export default function IdentificacionPage() {
                         labelsFrecuencia={labelsFrecuencia}
                         fuentesCausa={fuentesCausa}
                         descripcionesImpacto={descripcionesImpacto}
+                        tipologiasTipo1ParaAutocomplete={tipologiasTipo1ParaAutocomplete}
                       />
 
                       {/* Resumen de Calificaciones */}
@@ -2819,12 +2904,12 @@ export default function IdentificacionPage() {
               // % Mitigación según evaluación definitiva
               const porcentajeMitigacion = obtenerPorcentajeMitigacionAvanzado(evaluacionDefinitiva);
 
-              const getEfectividadColor = (efectividad: string) => {
-                if (efectividad === 'Altamente Efectivo') return '#4caf50';
-                if (efectividad === 'Efectivo') return '#8bc34a';
-                if (efectividad === 'Medianamente Efectivo') return '#fbc02d';
-                if (efectividad === 'Baja Efectividad') return '#ff9800';
-                return '#f44336';
+              const estiloChipEvaluacionCWR = (efectividad: string): { backgroundColor: string; color: string } => {
+                if (efectividad === 'Altamente Efectivo') return { backgroundColor: CWR_VERDE_EXCEL, color: '#fff' };
+                if (efectividad === 'Efectivo') return { backgroundColor: CWR_VERDE_EFECTIVO_INTERMEDIO, color: '#000' };
+                if (efectividad === 'Medianamente Efectivo') return { backgroundColor: CWR_AMARILLO_EXCEL, color: '#000' };
+                if (efectividad === 'Baja Efectividad') return { backgroundColor: CWR_NARANJA_EXCEL, color: '#fff' };
+                return { backgroundColor: CWR_ROJO_EXCEL, color: '#fff' };
               };
 
               return (
@@ -2850,8 +2935,7 @@ export default function IdentificacionPage() {
                           label={evaluacionPreliminar}
                           size="small"
                           sx={{
-                            backgroundColor: getEfectividadColor(evaluacionPreliminar),
-                            color: '#fff',
+                            ...estiloChipEvaluacionCWR(evaluacionPreliminar),
                             fontWeight: 700,
                             mt: 0.5,
                           }}
@@ -2865,8 +2949,7 @@ export default function IdentificacionPage() {
                           label={evaluacionDefinitiva}
                           size="small"
                           sx={{
-                            backgroundColor: getEfectividadColor(evaluacionDefinitiva),
-                            color: '#fff',
+                            ...estiloChipEvaluacionCWR(evaluacionDefinitiva),
                             fontWeight: 700,
                             mt: 0.5,
                           }}
@@ -2909,9 +2992,25 @@ export default function IdentificacionPage() {
                       evaluacionPreliminar,
                       criteriosEvaluacion.recomendacion
                     );
+
+                    if (procesoSeleccionado?.residualModo === 'ESTRATEGICO') {
+                      return {
+                        ...c,
+                        ...criteriosEvaluacion,
+                        puntajeTotal,
+                        evaluacionPreliminar,
+                        evaluacionDefinitiva,
+                        efectividadControl: evaluacionDefinitiva,
+                        frecuenciaResidual: c.frecuenciaResidual,
+                        impactoResidual: c.impactoResidual,
+                        calificacionResidual: (c as { calificacionResidual?: number }).calificacionResidual,
+                        porcentajeMitigacion: (c as { porcentajeMitigacion?: number }).porcentajeMitigacion,
+                      };
+                    }
+
                     const porcentajeMitigacion = obtenerPorcentajeMitigacionAvanzado(evaluacionDefinitiva);
 
-                    // Calcular residuales usando el tipo de mitigación
+                    // Calcular residuales usando el tipo de mitigación (solo modo ESTANDAR)
                     const frecuenciaInherente = c.frecuencia || 1;
                     const impactoInherente = c.calificacionGlobalImpacto || 1;
 
@@ -3012,7 +3111,27 @@ export default function IdentificacionPage() {
                     <Typography variant="caption">Mitigación:</Typography>
                     <Typography variant="body2" fontWeight="bold">{(causaSeleccionadaDetalle.porcentajeMitigacion || 0) * 100}%</Typography>
                     <Typography variant="caption">Calif. Residual:</Typography>
-                    <Typography variant="body2" fontWeight="bold" color="success.main">{causaSeleccionadaDetalle.calificacionResidual?.toFixed(2)}</Typography>
+                    <Typography
+                      variant="body2"
+                      fontWeight="bold"
+                      sx={(() => {
+                        const cr = causaSeleccionadaDetalle.calificacionResidual;
+                        if (cr == null) return {};
+                        const st = estiloSemafotoCalificacionResidualCWR(Number(cr));
+                        return st
+                          ? {
+                              color: st.color,
+                              bgcolor: st.bg,
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 1,
+                              display: 'inline-block',
+                            }
+                          : { color: 'text.primary' };
+                      })()}
+                    >
+                      {causaSeleccionadaDetalle.calificacionResidual?.toFixed(2)}
+                    </Typography>
                   </Box>
                 </>
               )}
@@ -3050,6 +3169,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
   descripcionesImpacto,
   causaEliminando,
   onVerDetalleCausa,
+  tipologiasTipo1ParaAutocomplete,
 }: {
   riesgo: RiesgoFormData;
   actualizarRiesgo: (riesgoId: string, actualizacion: Partial<RiesgoFormData>) => void;
@@ -3070,14 +3190,48 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
   labelsFrecuencia: any;
   fuentesCausa: any;
   descripcionesImpacto: any;
+  tipologiasTipo1ParaAutocomplete: any[];
 }) {
   const tipoRiesgoSeleccionado = useMemo(() => {
-    return (tiposRiesgos || []).find(t => 
-      t.nombre === riesgo.tipoRiesgo || 
-      t.codigo === riesgo.tipoRiesgo ||
-      String(t.id) === String(riesgo.tipoRiesgo)
-    ) || null;
-  }, [riesgo.tipoRiesgo, tiposRiesgos]);
+    const tid = (riesgo as any).tipoRiesgoId;
+    return (
+      (tiposRiesgos || []).find(
+        (t: any) =>
+          (tid != null && String(t.id) === String(tid)) ||
+          t.nombre === riesgo.tipoRiesgo ||
+          t.codigo === riesgo.tipoRiesgo ||
+          String(t.id) === String(riesgo.tipoRiesgo)
+      ) || null
+    );
+  }, [riesgo.tipoRiesgo, (riesgo as any).tipoRiesgoId, tiposRiesgos]);
+
+  const objetivoSelectValue = useMemo(() => {
+    const v = riesgo.objetivo;
+    if (v == null || v === '') return '';
+    const s = String(v);
+    if (objetivos?.some((o: any) => String(o.id) === s)) return s;
+    const byCombo = objetivos?.find(
+      (o: any) => `${String(o.codigo)} ${o.descripcion}`.trim() === s.trim()
+    );
+    if (byCombo) return String(byCombo.id);
+    return s;
+  }, [riesgo.objetivo, objetivos]);
+
+  const etiquetaObjetivoSeleccionado = useCallback(
+    (selected: string) => {
+      if (!selected) return '';
+      const s = String(selected);
+      const obj = objetivos?.find((o: any) => String(o.id) === s);
+      if (obj?.descripcion) return obj.descripcion;
+      const byCombo = objetivos?.find(
+        (o: any) => `${String(o.codigo)} ${o.descripcion}`.trim() === s.trim()
+      );
+      if (byCombo?.descripcion) return byCombo.descripcion;
+      const m = s.match(/^\s*\d+\s+(.+)$/);
+      return m ? m[1] : s;
+    },
+    [objetivos]
+  );
 
   const impactos: RiesgoFormData['impactos'] = {
     economico: 1,
@@ -3257,30 +3411,10 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                 actualizarRiesgo(riesgo.id, { tipoRiesgoId: null, tipoRiesgo: '', subtipoRiesgoId: null, subtipoRiesgo: '' });
                               }
                             }}
-                            options={(() => {
-                              // Filtrar opciones según el proceso de gestión
-                              const esGestionEstrategica = procesoSeleccionado?.nombre?.toLowerCase().includes('estratégica') || 
-                                                          procesoSeleccionado?.nombre?.toLowerCase().includes('estrategica');
-                              
-                              if (esGestionEstrategica) {
-                                // Solo mostrar "Estratégico"
-                                return (tiposRiesgos || []).filter((t: any) => 
-                                  t.nombre?.toLowerCase().includes('estratégico') || 
-                                  t.nombre?.toLowerCase().includes('estrategico') ||
-                                  t.codigo?.toLowerCase().includes('estratégico') ||
-                                  t.codigo?.toLowerCase().includes('estrategico')
-                                );
-                              } else {
-                                // Mostrar todos EXCEPTO "Estratégico"
-                                return (tiposRiesgos || []).filter((t: any) => 
-                                  !(t.nombre?.toLowerCase().includes('estratégico') || 
-                                    t.nombre?.toLowerCase().includes('estrategico') ||
-                                    t.codigo?.toLowerCase().includes('estratégico') ||
-                                    t.codigo?.toLowerCase().includes('estrategico'))
-                                );
-                              }
-                            })()}
-                            getOptionLabel={(option) => option.nombre || option.codigo}
+                            options={tipologiasTipo1ParaAutocomplete}
+                            getOptionLabel={(option) =>
+                              repairSpanishDisplayArtifacts(String(option.nombre || option.codigo || ''))
+                            }
                             disabled={isReadOnly}
                             size="small"
                             renderInput={(params) => (
@@ -3326,14 +3460,14 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                             }}
                             renderOption={(props, option) => (
                               <Tooltip
-                                title={option.descripcion || ''}
+                                title={repairSpanishDisplayArtifacts(String(option.descripcion || ''))}
                                 placement="right"
                                 arrow
                                 enterDelay={300}
                               >
                                 <Box component="li" {...props} sx={{ py: 0.75 }}>
                                   <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.875rem' }}>
-                                    {option.nombre || option.codigo}
+                                    {repairSpanishDisplayArtifacts(String(option.nombre || option.codigo || ''))}
                                   </Typography>
                                 </Box>
                               </Tooltip>
@@ -3356,7 +3490,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         <TableRow>
                           <TableCell colSpan={2} sx={{ pt: 0, pb: 1 }}>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', lineHeight: 1.5 }}>
-                              {tipoRiesgoSeleccionado.descripcion}
+                              {repairSpanishDisplayArtifacts(String(tipoRiesgoSeleccionado.descripcion || ''))}
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -3392,7 +3526,11 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                 }
                               }}
                               options={tipoRiesgoSeleccionado.subtipos}
-                              getOptionLabel={(option) => option.nombre || option.codigo || getSubtipoCodigo(option)}
+                              getOptionLabel={(option) =>
+                                repairSpanishDisplayArtifacts(
+                                  String(option.nombre || option.codigo || getSubtipoCodigo(option))
+                                )
+                              }
                               disabled={isReadOnly}
                               size="small"
                               renderInput={(params) => (
@@ -3436,26 +3574,36 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                   maxHeight: '400px',
                                 },
                               }}
-                              renderOption={(props, option) => (
-                                <Tooltip
-                                  title={option.descripcion || ''}
-                                  placement="right"
-                                  arrow
-                                  enterDelay={300}
-                                >
+                              renderOption={(props, option) => {
+                                const desc = repairSpanishDisplayArtifacts(String(option.descripcion ?? '')).trim();
+                                const label = repairSpanishDisplayArtifacts(
+                                  String(option.nombre || option.codigo || getSubtipoCodigo(option))
+                                );
+                                const row = (
                                   <Box component="li" {...props} sx={{ py: 0.75 }}>
                                     <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.875rem' }}>
-                                      {option.nombre || option.codigo || getSubtipoCodigo(option)}
+                                      {label}
                                     </Typography>
                                   </Box>
-                                </Tooltip>
-                              )}
+                                );
+                                if (!desc) return row;
+                                return (
+                                  <Tooltip title={desc} placement="right" arrow enterDelay={300}>
+                                    {row}
+                                  </Tooltip>
+                                );
+                              }}
                               filterOptions={(options, { inputValue }) => {
                                 const searchTerm = (inputValue ?? '').toLowerCase();
                                 return options.filter((option) => {
                                   const codigo = (option.codigo ?? '').toLowerCase();
+                                  const nombre = (option.nombre ?? '').toLowerCase();
                                   const descripcion = (option.descripcion ?? '').toLowerCase();
-                                  return codigo.includes(searchTerm) || descripcion.includes(searchTerm);
+                                  return (
+                                    codigo.includes(searchTerm) ||
+                                    nombre.includes(searchTerm) ||
+                                    descripcion.includes(searchTerm)
+                                  );
                                 });
                               }}
                             />
@@ -3474,15 +3622,20 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                         </TableCell>
                       </TableRow>
 
-                      {/* Descripción de Tipología tipo II */}
-                      {riesgo.subtipoRiesgo && riesgo.tipoRiesgo && (() => {
-                        const tipoObj = (tiposRiesgos || []).find(t => t.codigo === riesgo.tipoRiesgo);
-                        const subtipoObj = tipoObj?.subtipos.find((s: any) => getSubtipoCodigo(s) === riesgo.subtipoRiesgo);
-                        return subtipoObj ? (
+                      {/* Descripción de Tipología tipo II (texto desde catálogo / API) */}
+                      {riesgo.subtipoRiesgo && tipoRiesgoSeleccionado && (() => {
+                        const subtipoObj = tipoRiesgoSeleccionado.subtipos?.find((s: any) =>
+                          String(s.id) === String((riesgo as any).subtipoRiesgoId) ||
+                          s.nombre === riesgo.subtipoRiesgo ||
+                          s.codigo === riesgo.subtipoRiesgo ||
+                          getSubtipoCodigo(s) === riesgo.subtipoRiesgo
+                        );
+                        const texto = repairSpanishDisplayArtifacts(String(subtipoObj?.descripcion ?? '')).trim();
+                        return texto ? (
                           <TableRow>
                             <TableCell colSpan={2} sx={{ pt: 0, pb: 1 }}>
                               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', lineHeight: 1.5 }}>
-                                {subtipoObj.descripcion}
+                                {texto}
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -3541,7 +3694,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                             </InputLabel>
                             <Select
                               labelId="objetivo-label"
-                              value={riesgo.objetivo || ''}
+                              value={objetivoSelectValue}
                               disabled={isReadOnly}
                               onChange={(e) => actualizarRiesgo(riesgo.id, { objetivo: e.target.value })}
                               label="Seleccione un objetivo"
@@ -3552,6 +3705,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                 if (!selected) {
                                   return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Seleccione un objetivo</span>;
                                 }
+                                const label = etiquetaObjetivoSeleccionado(String(selected));
                                 return (
                                   <span style={{
                                     whiteSpace: 'normal',
@@ -3560,7 +3714,7 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                                     display: 'block',
                                     maxWidth: '100%'
                                   }}>
-                                    {selected}
+                                    {label}
                                   </span>
                                 );
                               }}
@@ -3573,8 +3727,8 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
                               }}
                             >
                               {objetivos?.map((obj: any) => (
-                                <MenuItem key={obj.id} value={`${obj.codigo} ${obj.descripcion}`} sx={{ py: 0.5, fontSize: '0.875rem' }}>
-                                  {obj.codigo} {obj.descripcion}
+                                <MenuItem key={obj.id} value={String(obj.id)} sx={{ py: 0.5, fontSize: '0.875rem' }}>
+                                  {obj.descripcion}
                                 </MenuItem>
                               ))}
                             </Select>
@@ -4199,41 +4353,4 @@ const RiesgoFormularioMemo = memo(function RiesgoFormulario({
       )}
     </Box>
   );
-}, (prevProps, nextProps) => {
-  // Comparación personalizada para evitar re-renders innecesarios
-  // OPTIMIZADO: Comparación rápida sin JSON.stringify
-  if (prevProps.riesgo.id !== nextProps.riesgo.id) return false;
-  if (prevProps.riesgo.descripcionRiesgo !== nextProps.riesgo.descripcionRiesgo) return false;
-  if (prevProps.riesgo.tipoRiesgo !== nextProps.riesgo.tipoRiesgo) return false;
-  if (prevProps.riesgo.subtipoRiesgo !== nextProps.riesgo.subtipoRiesgo) return false;
-  if ((prevProps.riesgo as any).tipologiaTipo3 !== (nextProps.riesgo as any).tipologiaTipo3) return false;
-  if ((prevProps.riesgo as any).tipologiaTipo4 !== (nextProps.riesgo as any).tipologiaTipo4) return false;
-  if (prevProps.riesgo.origenRiesgo !== nextProps.riesgo.origenRiesgo) return false;
-  if (prevProps.riesgo.consecuencia !== nextProps.riesgo.consecuencia) return false;
-  if (prevProps.riesgo.objetivo !== nextProps.riesgo.objetivo) return false;
-  
-  // Comparar impactos de forma eficiente
-  const prevImp = prevProps.riesgo.impactos;
-  const nextImp = nextProps.riesgo.impactos;
-  if (prevImp?.economico !== nextImp?.economico ||
-      prevImp?.procesos !== nextImp?.procesos ||
-      prevImp?.legal !== nextImp?.legal ||
-      prevImp?.reputacion !== nextImp?.reputacion ||
-      prevImp?.personas !== nextImp?.personas ||
-      prevImp?.ambiental !== nextImp?.ambiental ||
-      prevImp?.confidencialidadSGSI !== nextImp?.confidencialidadSGSI ||
-      prevImp?.disponibilidadSGSI !== nextImp?.disponibilidadSGSI ||
-      prevImp?.integridadSGSI !== nextImp?.integridadSGSI) {
-    return false;
-  }
-  
-  if (prevProps.riesgo.causas?.length !== nextProps.riesgo.causas?.length) return false;
-  // Re-render cuando cambia el contenido de causas (p. ej. edición en memoria: frecuencia, descripción)
-  if (prevProps.riesgo.causas !== nextProps.riesgo.causas) return false;
-  if (prevProps.isReadOnly !== nextProps.isReadOnly) return false;
-  if (prevProps.procesoSeleccionado?.id !== nextProps.procesoSeleccionado?.id) return false;
-  if (prevProps.causaEliminando !== nextProps.causaEliminando) return false;
-  
-  // Si llegamos aquí, las props son iguales, no re-renderizar
-  return true;
 });

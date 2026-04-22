@@ -48,7 +48,6 @@ import {
   useUpdateConfiguracionResidualMutation,
   useRecalcularClasificacionResidualMutation,
 } from '../../api/services/riesgosApi';
-
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -190,10 +189,6 @@ export default function ConfiguracionResidualPage() {
         <Typography variant="h4" fontWeight={700} gutterBottom sx={{ mb: 3, color: '#1976d2' }}>
           Configuración de Calificación Residual
         </Typography>
-
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Esta configuración controla cómo se calcula la calificación residual. Al guardar, se recalculan automáticamente todos los residuales con la nueva configuración.
-        </Alert>
 
         {/* Tabs */}
         <Paper sx={{ mb: 3 }}>

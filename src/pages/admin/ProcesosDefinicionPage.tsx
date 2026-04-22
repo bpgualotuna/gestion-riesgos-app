@@ -10,8 +10,13 @@ import {
     DialogTitle,
     TextField,
     FormControlLabel,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
     Switch,
     Alert,
+    Chip,
     Autocomplete,
     Tabs,
     Tab,
@@ -122,6 +127,7 @@ export default function ProcesosDefinicionPage() {
         responsableId: '',
         sigla: '',
         activo: true,
+        residualModo: 'ESTANDAR',
     });
     const [tipoFormData, setTipoFormData] = useState<any>({
         nombre: '',
@@ -168,6 +174,7 @@ export default function ProcesosDefinicionPage() {
                 responsableId: proceso.responsableId || (proceso as any).responsable?.id,
                 sigla: (proceso as any).sigla || '',
                 activo: proceso.activo,
+                residualModo: proceso.residualModo === 'ESTRATEGICO' ? 'ESTRATEGICO' : 'ESTANDAR',
             });
         } else {
             setEditingProceso(null);
@@ -183,6 +190,7 @@ export default function ProcesosDefinicionPage() {
                 responsableId: '',
                 sigla: '',
                 activo: true,
+                residualModo: 'ESTANDAR',
             });
         }
         setDialogOpen(true);
@@ -298,6 +306,17 @@ export default function ProcesosDefinicionPage() {
             }
         },
         { field: 'descripcion', headerName: 'Descripción', flex: 1.5 },
+        {
+            field: 'residualModo',
+            headerName: 'Residual',
+            width: 120,
+            renderCell: (params) =>
+                params.row.residualModo === 'ESTRATEGICO' ? (
+                    <Chip label="Estratégico" size="small" color="secondary" sx={{ fontWeight: 600 }} />
+                ) : (
+                    <Chip label="Estándar" size="small" variant="outlined" sx={{ fontWeight: 600 }} />
+                ),
+        },
         {
             field: 'tipoProceso',
             headerName: 'Tipo',
@@ -637,6 +656,25 @@ export default function ProcesosDefinicionPage() {
                                 helperText="Usada para identificar riesgos (ej: 'PF' para Planificación Financiera, 'GTH' para Gestión de Talento Humano)"
                             />
                         </Grid2>
+                        <Grid2 xs={12} md={6}>
+                            <FormControl fullWidth>
+                                <InputLabel id="residual-modo-label">Modo residual</InputLabel>
+                                <Select
+                                    labelId="residual-modo-label"
+                                    label="Modo residual"
+                                    value={formData.residualModo === 'ESTRATEGICO' ? 'ESTRATEGICO' : 'ESTANDAR'}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            residualModo: e.target.value as 'ESTANDAR' | 'ESTRATEGICO',
+                                        })
+                                    }
+                                >
+                                    <MenuItem value="ESTANDAR">Estándar (% control)</MenuItem>
+                                    <MenuItem value="ESTRATEGICO">Estratégico</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid2>
                         <Grid2 xs={12}>
                             <FormControlLabel
                                 control={
@@ -758,6 +796,16 @@ export default function ProcesosDefinicionPage() {
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Objetivo del Proceso</Typography>
                                 <Typography variant="body1">{selectedProcessDetail.objetivoProceso || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">Modo residual</Typography>
+                                <Box sx={{ mt: 0.5 }}>
+                                    {selectedProcessDetail.residualModo === 'ESTRATEGICO' ? (
+                                        <Chip label="Estratégico" size="small" color="secondary" />
+                                    ) : (
+                                        <Chip label="Estándar" size="small" variant="outlined" />
+                                    )}
+                                </Box>
                             </Box>
                             <Box>
                                 <Typography variant="body2" color="text.secondary">Estado</Typography>

@@ -52,6 +52,14 @@ import {
   calcularPuntajeControl,
   determinarEfectividadControl
 } from '../../utils/calculations';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import {
+  CWR_AMARILLO_EXCEL,
+  CWR_NARANJA_EXCEL,
+  CWR_ROJO_EXCEL,
+  CWR_VERDE_EFECTIVO_INTERMEDIO,
+  CWR_VERDE_EXCEL,
+} from '../../utils/paletaSemafotoCWR';
 
 // Re-definir constantes si no se importan correctamente de calculations (fallback)
 const CRITERIOS_LOCAL = {
@@ -366,14 +374,15 @@ export default function EvaluacionControlPage() {
     }
   };
 
-  const getColorEfectividad = (efectividad: string): string => {
+  /** Paleta Anexo 6 CWR (§4.5 / §5.7); mismos hex que Identificación / mapa residual. */
+  const estiloChipEfectividadCWR = (efectividad: string): { bgcolor: string; color: string } => {
     switch (efectividad) {
-      case 'Altamente Efectivo': return '#4caf50';
-      case 'Efectivo': return '#81c784';
-      case 'Medianamente Efectivo': return '#ffb74d';
-      case 'Baja Efectividad': return '#ff7043';
-      case 'Inefectivo': return '#d32f2f';
-      default: return '#999';
+      case 'Altamente Efectivo': return { bgcolor: CWR_VERDE_EXCEL, color: '#fff' };
+      case 'Efectivo': return { bgcolor: CWR_VERDE_EFECTIVO_INTERMEDIO, color: '#000' };
+      case 'Medianamente Efectivo': return { bgcolor: CWR_AMARILLO_EXCEL, color: '#000' };
+      case 'Baja Efectividad': return { bgcolor: CWR_NARANJA_EXCEL, color: '#fff' };
+      case 'Inefectivo': return { bgcolor: CWR_ROJO_EXCEL, color: '#fff' };
+      default: return { bgcolor: '#999', color: '#fff' };
     }
   };
 
@@ -425,9 +434,12 @@ export default function EvaluacionControlPage() {
                 </IconButton>
                 <Chip label={riesgo.numeroIdentificacion || riesgo.id} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
                 <Box>
-                  <Typography variant="subtitle1" fontWeight={600}>{riesgo.descripcionRiesgo || 'Sin descripción'}</Typography>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {repairSpanishDisplayArtifacts(riesgo.descripcionRiesgo || 'Sin descripción')}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {riesgo.tipologiaNivelI} • {riesgo.tipologiaNivelII}
+                    {repairSpanishDisplayArtifacts(String(riesgo.tipologiaNivelI ?? ''))} •{' '}
+                    {repairSpanishDisplayArtifacts(String(riesgo.tipologiaNivelII ?? ''))}
                   </Typography>
                 </Box>
                 <Chip
@@ -489,7 +501,9 @@ export default function EvaluacionControlPage() {
                                   <TableBody>
                                     {controlesDeCausa.map(control => (
                                       <TableRow key={control.id}>
-                                        <TableCell>{control.descripcionControl}</TableCell>
+                                        <TableCell>
+                                          {repairSpanishDisplayArtifacts(control.descripcionControl || '')}
+                                        </TableCell>
                                         <TableCell><Chip label={control.disminuye} size="small" /></TableCell>
                                         <TableCell>{control.responsable}</TableCell>
                                         <TableCell align="center">{(control.puntajeTotal || 0).toFixed(1)}</TableCell>
@@ -498,8 +512,7 @@ export default function EvaluacionControlPage() {
                                             label={control.efectividad}
                                             size="small"
                                             sx={{
-                                              bgcolor: getColorEfectividad(control.efectividad),
-                                              color: 'white',
+                                              ...estiloChipEfectividadCWR(control.efectividad),
                                               fontWeight: 600,
                                               fontSize: '0.75rem'
                                             }}

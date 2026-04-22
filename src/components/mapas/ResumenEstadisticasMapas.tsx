@@ -9,7 +9,13 @@ import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
 interface ResumenEstadisticasProps {
   matrizInherente: { [key: string]: unknown[] };
   matrizResidual: { [key: string]: unknown[] };
-  procesos: { id: string | number; nombre?: string; areaId?: string | number; areaNombre?: string }[];
+  procesos: {
+    id: string | number;
+    nombre?: string;
+    areaId?: string | number;
+    areaNombre?: string;
+    residualModo?: 'ESTANDAR' | 'ESTRATEGICO';
+  }[];
   filtroArea?: string;
   filtroProceso?: string;
   puntosFiltrados: {
@@ -46,9 +52,21 @@ export default function ResumenEstadisticasMapas({
       const valorInherente = probInh === 2 && impInh === 2 ? 3.99 : probInh * impInh;
 
       const riesgo = riesgosCompletos.find((r) => String(r.id) === String(punto.riesgoId));
+      const procesoIdStr =
+        punto.procesoId != null
+          ? String(punto.procesoId)
+          : riesgo?.procesoId != null
+            ? String(riesgo.procesoId)
+            : '';
+      const modo =
+        procesoIdStr &&
+        procesos.find((p) => String(p.id) === procesoIdStr)?.residualModo === 'ESTRATEGICO'
+          ? 'ESTRATEGICO'
+          : 'ESTANDAR';
       const { probabilidadResidual: probRes, impactoResidual: impRes } = resolverCoordsResidualMapa(
         punto,
-        riesgo ?? undefined
+        riesgo ?? undefined,
+        modo
       );
       const valorResidual = probRes === 2 && impRes === 2 ? 3.99 : probRes * impRes;
 

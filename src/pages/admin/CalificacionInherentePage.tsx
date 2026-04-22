@@ -48,6 +48,12 @@ import { invalidarCache, getConfigActiva } from '../../services/calificacionInhe
 import { useAuth } from '../../contexts/AuthContext';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import {
+  NIVEL_ALTO_BG,
+  NIVEL_BAJO_BG,
+  NIVEL_CRITICO_BG,
+  NIVEL_MEDIO_BG,
+} from '../../utils/paletaSemafotoCWR';
 
 export default function CalificacionInherentePage() {
   const { puedeEditar } = useAuth();
@@ -62,10 +68,10 @@ export default function CalificacionInherentePage() {
     if (!niveles || niveles.length === 0) {
       // Fallback a colores por defecto
       const coloresDefault: Record<string, string> = {
-        'Crítico': '#d32f2f',
-        'Alto': '#f57c00',
-        'Medio': '#fbc02d',
-        'Bajo': '#388e3c',
+        Crítico: NIVEL_CRITICO_BG,
+        Alto: NIVEL_ALTO_BG,
+        Medio: NIVEL_MEDIO_BG,
+        Bajo: NIVEL_BAJO_BG,
       };
       return coloresDefault[nivelNombre] || '#666';
     }

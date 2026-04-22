@@ -63,6 +63,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 
 // Opciones de impacto desde constants (no quemadas)
 const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => ({
@@ -161,7 +162,7 @@ export default function IncidenciasPage() {
       const key = tipo.clave === 'reputacion' ? 'reputacional' : tipo.clave;
       if (!base[key]) return;
       base[key] = (tipo.niveles || []).reduce((acc: Record<number, string>, nivel: any) => {
-        acc[nivel.nivel] = nivel.descripcion;
+        acc[nivel.nivel] = repairSpanishDisplayArtifacts(String(nivel.descripcion ?? ''));
         return acc;
       }, {});
     });
@@ -371,7 +372,7 @@ export default function IncidenciasPage() {
 
       <AppPageLayout
       title="Materializar Riesgos"
-      description={`Gestión de eventos y materialización de riesgos residuales para el proceso: ${procesoSeleccionado?.nombre || 'No seleccionado'}`}
+      description={`Gestión de eventos y materialización de riesgos residuales para el proceso: ${repairSpanishDisplayArtifacts(String(procesoSeleccionado?.nombre || 'No seleccionado'))}`}
       alert={
         !procesoSeleccionado?.id ? (
           <Alert severity="warning">
@@ -460,11 +461,13 @@ export default function IncidenciasPage() {
                       overflow: 'hidden',
                       lineHeight: 1.2
                     }}>
-                      {riesgo.nombre || riesgo.descripcionRiesgo || 'Sin descripción'}
+                      {repairSpanishDisplayArtifacts(
+                        String(riesgo.nombre || riesgo.descripcionRiesgo || 'Sin descripción')
+                      )}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary">
-                      {riesgo.tipoRiesgo || '02 Operacional'}
+                      {repairSpanishDisplayArtifacts(String(riesgo.tipoRiesgo || '02 Operacional'))}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -494,7 +497,9 @@ export default function IncidenciasPage() {
                           <Box key={causa.id} sx={{ mb: 1, border: '1px solid #eee', borderRadius: 1, bgcolor: 'white' }}>
                             <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Box>
-                                <Typography variant="body2" fontWeight="bold">{causa.descripcion}</Typography>
+                                <Typography variant="body2" fontWeight="bold">
+                                  {repairSpanishDisplayArtifacts(String(causa.descripcion ?? ''))}
+                                </Typography>
                                 <Chip
                                   label={incidenteExistente ? 'Materializado' : 'No Materializado'}
                                   color={incidenteExistente ? 'error' : 'success'}
@@ -513,11 +518,11 @@ export default function IncidenciasPage() {
                                     setFormData({ ...incidenteExistente });
                                   } else {
                                     setFormData({
-                                      titulo: `Materialización: ${causa.descripcion.substring(0, 50)}...`,
+                                      titulo: `Materialización: ${repairSpanishDisplayArtifacts(String(causa.descripcion ?? '')).substring(0, 50)}...`,
                                       riesgoId: riesgo.id,
-                                      riesgoNombre: riesgo.nombre,
+                                      riesgoNombre: repairSpanishDisplayArtifacts(String(riesgo.nombre ?? '')),
                                       causaId: causa.id,
-                                      causaNombre: causa.descripcion,
+                                      causaNombre: repairSpanishDisplayArtifacts(String(causa.descripcion ?? '')),
                                       descripcion: '',
                                       fechaOcurrencia: new Date().toISOString().split('T')[0],
                                       fechaReporte: new Date().toISOString().split('T')[0],
@@ -925,17 +930,24 @@ export default function IncidenciasPage() {
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
-                          <Typography variant="body2" fontWeight="bold">{inc.planNombre || inc.titulo}</Typography>
+                          <Typography variant="body2" fontWeight="bold">
+                            {repairSpanishDisplayArtifacts(String(inc.planNombre || inc.titulo || ''))}
+                          </Typography>
                           <Typography variant="caption" color="text.secondary">ID: {inc.codigo}</Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
                             {inc.accionesCorrectivas
-                              ? (inc.accionesCorrectivas.length > 60 ? `${inc.accionesCorrectivas.substring(0, 60)}...` : inc.accionesCorrectivas)
+                              ? (() => {
+                                  const t = repairSpanishDisplayArtifacts(String(inc.accionesCorrectivas));
+                                  return t.length > 60 ? `${t.substring(0, 60)}...` : t;
+                                })()
                               : 'Sin plan definido'}
                           </Typography>
                         </TableCell>
-                        <TableCell>{inc.responsableNombre || '-'}</TableCell>
+                        <TableCell>
+                          {repairSpanishDisplayArtifacts(String(inc.responsableNombre || '-'))}
+                        </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                             <Chip
@@ -969,13 +981,17 @@ export default function IncidenciasPage() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <Box>
                 <Typography variant="overline" color="text.secondary">Título</Typography>
-                <Typography variant="h6">{incidenciaSeleccionada.titulo}</Typography>
+                <Typography variant="h6">
+                  {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.titulo ?? ''))}
+                </Typography>
               </Box>
 
               <Box sx={{ display: 'flex', gap: 4 }}>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="overline" color="text.secondary">Descripción</Typography>
-                  <Typography variant="body1">{incidenciaSeleccionada.descripcion}</Typography>
+                  <Typography variant="body1">
+                    {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.descripcion ?? ''))}
+                  </Typography>
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="overline" color="text.secondary">Código</Typography>
@@ -988,7 +1004,9 @@ export default function IncidenciasPage() {
               <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 <Box>
                   <Typography variant="overline" color="text.secondary">Riesgo Asociado</Typography>
-                  <Typography variant="body1">{incidenciaSeleccionada.riesgoNombre || 'N/A'}</Typography>
+                  <Typography variant="body1">
+                    {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.riesgoNombre || 'N/A'))}
+                  </Typography>
                 </Box>
                 <Box>
                   <Typography variant="overline" color="text.secondary">Fecha Ocurrencia</Typography>
@@ -1022,15 +1040,21 @@ export default function IncidenciasPage() {
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Nombre del Plan</Typography>
-                    <Typography variant="body2" fontWeight="bold">{incidenciaSeleccionada.planNombre || 'Sin nombre'}</Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.planNombre || 'Sin nombre'))}
+                    </Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Objetivo</Typography>
-                    <Typography variant="body2" fontWeight="bold">{incidenciaSeleccionada.planObjetivo || 'Sin objetivo'}</Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.planObjetivo || 'Sin objetivo'))}
+                    </Typography>
                   </Box>
                   <Box sx={{ gridColumn: 'span 2' }}>
                     <Typography variant="caption" color="text.secondary">Descripción de Acciones</Typography>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{incidenciaSeleccionada.accionesCorrectivas || 'No definida'}</Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.accionesCorrectivas || 'No definida'))}
+                    </Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Fecha Inicio</Typography>
@@ -1042,7 +1066,9 @@ export default function IncidenciasPage() {
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Responsable</Typography>
-                    <Typography variant="body2" fontWeight="bold">{incidenciaSeleccionada.responsableNombre || 'No asignado'}</Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      {repairSpanishDisplayArtifacts(String(incidenciaSeleccionada.responsableNombre || 'No asignado'))}
+                    </Typography>
                   </Box>
                 </Box>
               </Box>
