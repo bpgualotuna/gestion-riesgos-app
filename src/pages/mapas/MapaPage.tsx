@@ -983,7 +983,7 @@ export default function MapaPage() {
 
                             ...(fuerApetito && { border: `3px solid ${colorZonaAlta}` }),
 
-                            backgroundColor: hexToRgba(cellColor, 0.3), // 30% de opacidad para mejor visibilidad
+                            backgroundColor: hexToRgba(cellColor, 0.6), // Opacidad más alta para que se vean los colores
                             // Thicker left border indicator
                             borderLeftWidth: fuerApetito ? 3 : (bordesLimite.left ? 3 : 4),
                             borderLeftColor: fuerApetito ? colorZonaAlta : (bordesLimite.left ? colorZonaAlta : cellColor),
@@ -997,7 +997,7 @@ export default function MapaPage() {
                             p: 0.25,
                             position: 'relative',
                             '&:hover': {
-                              backgroundColor: hexToRgba(cellColor, 0.5), // 50% de opacidad al hover
+                              backgroundColor: hexToRgba(cellColor, 0.8), // Hover más marcado
                               transform: riesgosValidosEnCelda.length > 0 ? 'scale(1.05)' : 'none',
                               zIndex: 10,
                             },
