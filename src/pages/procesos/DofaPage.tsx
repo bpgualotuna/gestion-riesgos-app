@@ -122,7 +122,7 @@ export default function DofaPage() {
       >
         <Box sx={{ p: 3 }}>
           <Alert severity="info" variant="outlined">
-            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para ver su matriz DOFA.
+            No hay proceso seleccionado.
           </Alert>
         </Box>
       </AppPageLayout>
@@ -358,11 +358,7 @@ export default function DofaPage() {
         description="Análisis de Fortalezas, Oportunidades, Debilidades y Amenazas del proceso."
         topContent={<FiltroProcesoSupervisor />}
       >
-        <Box sx={{ p: 3 }}>
-          <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
-            Seleccione un proceso para ver su matriz DOFA. Usted supervisa {procesosVisibles.length} proceso(s).
-          </Alert>
-        </Box>
+        <Box sx={{ p: 3 }} />
       </AppPageLayout>
     );
   }
@@ -375,9 +371,7 @@ export default function DofaPage() {
   ) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="warning">
-          Este proceso no está asignado a su supervisión. Por favor seleccione uno de sus procesos.
-        </Alert>
+        <Alert severity="warning">Este proceso no está asignado a su supervisión.</Alert>
       </Box>
     );
   }
@@ -483,22 +477,6 @@ export default function DofaPage() {
       topContent={<FiltroProcesoSupervisor />}
       action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isReadOnly && (
-            <Chip
-              icon={<VisibilityIcon />}
-              label="Modo Visualización"
-              color="info"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {modoProceso === 'editar' && (
-            <Chip
-              icon={<EditIcon />}
-              label="Modo Edición"
-              color="warning"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
           {!isReadOnly && (
             <Button
               variant="contained"
@@ -518,20 +496,7 @@ export default function DofaPage() {
           )}
         </Box>
       }
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ mb: 0, borderRadius: 2 }}>
-            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
-          </Alert>
-        )
-      }
     >
-      {isReadOnly && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Está en modo visualización. Solo puede ver la información.
-        </Alert>
-      )}
-
       <Card>
         <CardContent>
           <Box
@@ -671,9 +636,6 @@ export default function DofaPage() {
               <Box sx={{ mb: 3 }}>
                 <Typography variant="h5" gutterBottom fontWeight={700} sx={{ color: '#1976d2', mb: 1 }}>
                   Matriz DOFA Completa
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Haz clic en cualquier cuadrante para ver los detalles. Para añadir o editar texto, usa Contexto interno o Contexto externo; aquí solo puedes eliminar ítems.
                 </Typography>
               </Box>
               <Box

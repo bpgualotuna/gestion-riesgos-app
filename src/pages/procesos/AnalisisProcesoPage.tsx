@@ -36,7 +36,6 @@ import {
   Edit as EditIcon,
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
-import CircularProgress from '@mui/material/CircularProgress';
 import { useNotification } from '../../hooks/useNotification';
 import { useProceso } from '../../contexts/ProcesoContext';
 import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSupervisor';
@@ -50,6 +49,7 @@ import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { swalConfirmEliminarArchivo, swalRunWithLoading } from '../../lib/swal';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import MaxFilesUploadPanel from '../../components/common/MaxFilesUploadPanel';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 
 export default function AnalisisProcesoPage() {
   const theme = useTheme();
@@ -347,7 +347,7 @@ export default function AnalisisProcesoPage() {
         topContent={<FiltroProcesoSupervisor />}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info" variant="outlined">No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para cargar su análisis.</Alert>
+          <Alert severity="info" variant="outlined">No hay proceso seleccionado.</Alert>
         </Box>
       </AppPageLayout>
     );
@@ -372,28 +372,13 @@ export default function AnalisisProcesoPage() {
       topContent={<FiltroProcesoSupervisor />}
       action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isReadOnly && (
-            <Chip
-              icon={<VisibilityIcon />}
-              label="Modo Visualización"
-              color="info"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {modoProceso === 'editar' && (
-            <Chip
-              icon={<EditIcon />}
-              label="Modo Edición"
-              color="warning"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
           {!isReadOnly && (
-            <Button
+            <LoadingActionButton
               variant="contained"
-              startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+              startIcon={<SaveIcon />}
               onClick={handleSave}
-              disabled={saving}
+              loading={saving}
+              loadingText="Guardando..."
               sx={{
                 background: '#1976d2',
                 color: '#fff',
@@ -402,17 +387,10 @@ export default function AnalisisProcesoPage() {
                 fontWeight: 700,
               }}
             >
-              {saving ? 'Guardando…' : 'Guardar Análisis'}
-            </Button>
+              Guardar Análisis
+            </LoadingActionButton>
           )}
         </Box>
-      }
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Está en modo visualización. Solo puede ver la información.
-          </Alert>
-        )
       }
     >
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 3 }}>
@@ -606,11 +584,12 @@ export default function AnalisisProcesoPage() {
                 {!isReadOnly && (
                   <Box>
                     <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
-                      <Button
+                      <LoadingActionButton
                         variant="contained"
-                        startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+                        startIcon={<SaveIcon />}
                         onClick={handleSave}
-                        disabled={saving}
+                        loading={saving}
+                        loadingText="Guardando..."
                         sx={{
                           borderRadius: 2,
                           px: 4,
@@ -623,8 +602,8 @@ export default function AnalisisProcesoPage() {
                           transition: 'all 0.3s ease',
                         }}
                       >
-                        {saving ? 'Guardando…' : 'Guardar Análisis'}
-                      </Button>
+                        Guardar Análisis
+                      </LoadingActionButton>
                     </Box>
                   </Box>
                 )}

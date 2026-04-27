@@ -56,6 +56,7 @@ import { DIMENSIONES_IMPACTO, LABELS_PROBABILIDAD, LABELS_IMPACTO } from '../../
 import { getRiskColor } from '../../app/theme/colors';
 import { formatRiskValue } from "../../utils/formatters";
 import AppPageLayout from '../../components/layout/AppPageLayout';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
 
@@ -187,6 +188,8 @@ export default function EvaluacionPage() {
 
   // Requiere Controles
   const [requiereControles, setRequiereControles] = useState<boolean>(false);
+  const esRiesgoPositivo =
+    (selectedRiesgo?.clasificacion || '').toLowerCase().includes('positiva');
 
   // Cálculos para evaluación inherente negativa
   const resultadosNegativos = useCalculosRiesgo({
@@ -337,6 +340,11 @@ export default function EvaluacionPage() {
   };
 
   const handleAgregarControl = () => {
+    if (esRiesgoPositivo) {
+      showError('Para riesgos con consecuencia positiva, los controles no aplican.');
+      return;
+    }
+
     if (!nuevoControl.descripcion.trim()) {
       showError('La descripción del control es requerida');
       return;
@@ -411,6 +419,11 @@ export default function EvaluacionPage() {
   };
 
   const handleEditarControl = (control: ControlRiesgo) => {
+    if (esRiesgoPositivo) {
+      showError('Para riesgos con consecuencia positiva, los controles no aplican.');
+      return;
+    }
+
     setControlEditando(control);
     setNuevoControl({
       descripcion: control.descripcion,
@@ -429,9 +442,19 @@ export default function EvaluacionPage() {
   };
 
   const handleEliminarControl = (controlId: string) => {
+    if (esRiesgoPositivo) {
+      showError('Para riesgos con consecuencia positiva, los controles no aplican.');
+      return;
+    }
     setControles(controles.filter((c) => c.id !== controlId));
     showSuccess('Control quitado de la lista. Guarde la evaluación para persistir.');
   };
+
+  useEffect(() => {
+    if (esRiesgoPositivo) {
+      setRequiereControles(false);
+    }
+  }, [esRiesgoPositivo]);
 
   const handleSave = async () => {
     if (!selectedRiesgo) {
@@ -464,28 +487,6 @@ export default function EvaluacionPage() {
     <AppPageLayout
       title="Evaluación de Riesgos"
       description="Evaluación completa según estructura del Excel: Inherente (Negativa/Positiva), Causas y Controles."
-      action={
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {isReadOnly && (
-            <Chip
-              icon={<VisibilityIcon />}
-              label="Modo Visualización"
-              color="info"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {modoProceso === 'editar' && (
-            <Chip icon={<EditIcon />} label="Modo Edición" color="warning" sx={{ fontWeight: 600 }} />
-          )}
-        </Box>
-      }
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ mb: 0, borderRadius: 2 }}>
-            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
-          </Alert>
-        )
-      }
     >
 
       {/* Selector de Riesgo */}
@@ -571,7 +572,7 @@ export default function EvaluacionPage() {
                   <Chip
                     label={selectedRiesgo.clasificacion}
                     size="small"
-                    color={selectedRiesgo.clasificacion.includes('positiva') ? 'success' : 'error'}
+                    color={selectedRiesgo.clasificacion.toLowerCase().includes('positiva') ? 'success' : 'error'}
                   />
                   <Chip
                     label={`Zona: ${selectedRiesgo.zona}`}
@@ -765,21 +766,32 @@ export default function EvaluacionPage() {
                     </Typography>
                     <FormControl fullWidth disabled={isReadOnly}>
                       <Select
-                        value={requiereControles ? 'SI' : 'NO'}
+                        value={esRiesgoPositivo ? 'NO' : (requiereControles ? 'SI' : 'NO')}
                         onChange={(e) => setRequiereControles(e.target.value === 'SI')}
+                        disabled={isReadOnly || esRiesgoPositivo}
                       >
                         <MenuItem value="NO">NO</MenuItem>
                         <MenuItem value="SI">SI</MenuItem>
                       </Select>
                     </FormControl>
+                    {esRiesgoPositivo && (
+                      <Alert severity="info" sx={{ mt: 2 }}>
+                        Para consecuencia positiva, «¿Requiere controles?» queda fijo en NO.
+                      </Alert>
+                    )}
                   </CardContent>
                 </Card>
 
                 {!isReadOnly && (
                   <Box display="flex" justifyContent="flex-end" gap={2}>
-                    <Button variant="outlined" onClick={handleSave} disabled={isSaving}>
-                      {isSaving ? 'Guardando...' : 'Guardar Evaluación'}
-                    </Button>
+                    <LoadingActionButton
+                      variant="outlined"
+                      onClick={handleSave}
+                      loading={isSaving}
+                      loadingText="Guardando..."
+                    >
+                      Guardar Evaluación
+                    </LoadingActionButton>
                   </Box>
                 )}
               </CardContent>
@@ -1015,7 +1027,7 @@ export default function EvaluacionPage() {
                   <Typography variant="h6" fontWeight={600}>
                     Controles del Riesgo
                   </Typography>
-                  {!isReadOnly && (
+                  {!isReadOnly && !esRiesgoPositivo && (
                     <Button
                       variant="contained"
                       startIcon={<AddIcon />}
@@ -1046,9 +1058,17 @@ export default function EvaluacionPage() {
                   )}
                 </Box>
 
+                {esRiesgoPositivo && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    En riesgos con consecuencia positiva, los controles y su evaluación quedan en «No Aplica».
+                  </Alert>
+                )}
+
                 {controles.length === 0 ? (
                   <Alert severity="info">
-                    No hay controles registrados. Agregue un control para comenzar.
+                    {esRiesgoPositivo
+                      ? 'No aplica registrar controles para riesgos con consecuencia positiva.'
+                      : 'No hay controles registrados. Agregue un control para comenzar.'}
                   </Alert>
                 ) : (
                   <TableContainer>
@@ -1077,15 +1097,17 @@ export default function EvaluacionPage() {
                               <TableCell>
                                 <Chip
                                   label={
-                                    control.evaluacionDefinitiva === 'Efectivo'
-                                      ? `${control.estandarizacionPorcentajeMitigacion}%`
-                                      : 'Inefectivo'
+                                    esRiesgoPositivo
+                                      ? 'No Aplica'
+                                      : control.evaluacionDefinitiva === 'Efectivo'
+                                        ? `${control.estandarizacionPorcentajeMitigacion}%`
+                                        : 'Inefectivo'
                                   }
-                                  color={control.evaluacionDefinitiva === 'Efectivo' ? 'success' : 'error'}
+                                  color={esRiesgoPositivo ? 'default' : (control.evaluacionDefinitiva === 'Efectivo' ? 'success' : 'error')}
                                   size="small"
                                 />
                               </TableCell>
-                              {!isReadOnly && (
+                              {!isReadOnly && !esRiesgoPositivo && (
                                 <TableCell align="right">
                                   <IconButton
                                     size="small"
@@ -1190,7 +1212,7 @@ export default function EvaluacionPage() {
               {controlEditando ? 'Editar Control' : 'Agregar Control'}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              {!isReadOnly && (
+              {!isReadOnly && !esRiesgoPositivo && (
                 <Button onClick={handleAgregarControl} variant="contained" startIcon={<SaveIcon />}>
                   {controlEditando ? 'Actualizar' : 'Agregar'}
                 </Button>
@@ -1204,7 +1226,7 @@ export default function EvaluacionPage() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             {causas.length > 1 && (
-              <FormControl fullWidth disabled={isReadOnly}>
+              <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
                 <InputLabel>Causa del Riesgo *</InputLabel>
                 <Select
                   value={causaEditando?.id || ''}
@@ -1230,10 +1252,10 @@ export default function EvaluacionPage() {
               fullWidth
               multiline
               rows={3}
-              disabled={isReadOnly}
+              disabled={isReadOnly || esRiesgoPositivo}
             />
 
-            <FormControl fullWidth disabled={isReadOnly}>
+            <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
               <InputLabel>Clasificación Control (HSEQ) *</InputLabel>
               <Select
                 value={nuevoControl.tipoControl}
@@ -1250,7 +1272,7 @@ export default function EvaluacionPage() {
               </Select>
             </FormControl>
 
-            <FormControl fullWidth disabled={isReadOnly}>
+            <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
               <InputLabel>Disminuye la Frecuencia, el Impacto o Ambas?</InputLabel>
               <Select
                 value={nuevoControl.disminuyeFrecuenciaImpactoAmbas}
@@ -1273,7 +1295,7 @@ export default function EvaluacionPage() {
               value={nuevoControl.responsable}
               onChange={(e) => setNuevoControl({ ...nuevoControl, responsable: e.target.value })}
               fullWidth
-              disabled={isReadOnly}
+              disabled={isReadOnly || esRiesgoPositivo}
             />
 
             <Divider sx={{ my: 1 }} />
@@ -1283,7 +1305,7 @@ export default function EvaluacionPage() {
 
             <Grid2 container spacing={2}>
               <Grid2 xs={12} sm={6}>
-                <FormControl fullWidth disabled={isReadOnly}>
+                <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
                   <InputLabel>Aplicabilidad</InputLabel>
                   <Select
                     value={nuevoControl.aplicabilidad}
@@ -1296,7 +1318,7 @@ export default function EvaluacionPage() {
                 </FormControl>
               </Grid2>
               <Grid2 xs={12} sm={6}>
-                <FormControl fullWidth disabled={isReadOnly}>
+                <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
                   <InputLabel>Cobertura</InputLabel>
                   <Select
                     value={nuevoControl.cobertura}
@@ -1309,7 +1331,7 @@ export default function EvaluacionPage() {
                 </FormControl>
               </Grid2>
               <Grid2 xs={12} sm={6}>
-                <FormControl fullWidth disabled={isReadOnly}>
+                <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
                   <InputLabel>Facilidad de Uso</InputLabel>
                   <Select
                     value={nuevoControl.facilidadUso}
@@ -1322,7 +1344,7 @@ export default function EvaluacionPage() {
                 </FormControl>
               </Grid2>
               <Grid2 xs={12} sm={6}>
-                <FormControl fullWidth disabled={isReadOnly}>
+                <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
                   <InputLabel>Segregación</InputLabel>
                   <Select
                     value={nuevoControl.segregacion}
@@ -1335,7 +1357,7 @@ export default function EvaluacionPage() {
                 </FormControl>
               </Grid2>
               <Grid2 xs={12} sm={6}>
-                <FormControl fullWidth disabled={isReadOnly}>
+                <FormControl fullWidth disabled={isReadOnly || esRiesgoPositivo}>
                   <InputLabel>Naturaleza</InputLabel>
                   <Select
                     value={nuevoControl.naturaleza}
@@ -1357,7 +1379,7 @@ export default function EvaluacionPage() {
                     setNuevoControl({ ...nuevoControl, desviaciones: parseInt(e.target.value) || 0 })
                   }
                   fullWidth
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || esRiesgoPositivo}
                 />
               </Grid2>
             </Grid2>

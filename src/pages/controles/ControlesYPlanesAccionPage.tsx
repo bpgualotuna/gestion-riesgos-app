@@ -79,11 +79,12 @@ import {
   useGetConfiguracionResidualQuery,
   useGetFrecuenciasQuery,
   useGetNivelesRiesgoQuery,
+  useGetReglaResidualPlanCausaQuery,
   riesgosApi,
 } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { DIMENSIONES_IMPACTO, LABELS_IMPACTO, LABELS_PROBABILIDAD, UMBRALES_RIESGO, NIVELES_RIESGO, AUTH_TOKEN_KEY } from '../../utils/constants';
-import { formatDateISO } from '../../utils/formatters';
+import { formatDateISO, todayISO } from '../../utils/formatters';
 import {
   calcularRiesgoInherente,
   calcularPuntajeControl,
@@ -115,6 +116,18 @@ import {
   MA_PREGUNTA_PRESUPUESTO_RECURSOS,
 } from '../../utils/maEstrategicoLabels';
 import { colorCeldaMapaResidualNegativo, coordsResidualEnRangoMapa } from '../../utils/mapaResidualExcelColors';
+import {
+  causaGestionControlSinControlesAsociados,
+  causaTienePlanSinControlAsociado,
+  tituloTooltipFilaControlResidual,
+  tituloTooltipFilaPlanResidual,
+} from '../../utils/avisoResidualPorCausa';
+import {
+  calcularResidualDesdeCausas,
+  calcularResidualPorCausa,
+  nivelResidualDesdeCalificacionNumerica,
+  causaIncluidaEnAgregadoResidualPorControles,
+} from '../../utils/residualDesdeCausas';
 import {
   estiloSemafotoResidualCWRConFallback,
   normalizarCalificacionResidualNumero,
@@ -159,7 +172,7 @@ function etiquetaNivelMostrar(raw: string | null | undefined): string {
     .join(' ');
 }
 
-/** Opciones del select «Plan de acción vinculado» (planes de la causa, del riesgo y legacy en gestión). */
+/** Opciones del select "Plan de accion vinculado" (planes de la causa, del riesgo y legacy en gestion). */
 function planesAccionVinculadosMenuItems(
   riesgosApiData: unknown,
   riesgoIdEvaluacion: string | number | null | undefined,
@@ -216,8 +229,8 @@ function inferTipoGestionDetalle(causa: any): string {
 
 /**
  * Selects MA (residual estratégico): preguntas largas en etiqueta outlined.
- * Con valor elegido la etiqueta queda «shrink» y puede ocupar 2 líneas a escala 0,75;
- * hace falta mucho padding superior en el valor para que no la tape (p. ej. «soporten?» sobre «Sí»).
+ * Con valor elegido la etiqueta queda "shrink" y puede ocupar 2 lineas a escala 0,75;
+ * hace falta mucho padding superior en el valor para que no la tape (p. ej. "soporten?" sobre "Si").
  */
 const SX_MA_FORM_CONTROL_LONG_LABEL = {
   width: '100%',
@@ -297,7 +310,7 @@ function estiloCajaPorCalificacionCWR(
 
 type TipoMitigacionResidual = 'FRECUENCIA' | 'IMPACTO' | 'AMBAS';
 
-/** Modo CWR/estratégico: la fórmula residual usa «AFECTA FREC/IMPACTO/AMBAS» del anexo, no el campo del control estándar. */
+/** Modo CWR/estrategico: la formula residual usa "AFECTA FREC/IMPACTO/AMBAS" del anexo, no el campo del control estandar. */
 function tipoMitigacionResidualDesdeFormulario(
   procesoResidualEstrategico: boolean,
   ev: { tipoMitigacion: TipoMitigacionResidual; tipoMitigacionAnexo?: TipoMitigacionResidual }
@@ -347,6 +360,42 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+/**
+ * El objeto `gestion` (JSON/legacy) no debe pisar `tipoGestion`, `controles` ni `planesAccion` del API;
+ * si no, `calcularResidualDesdeCausas` excluye causas con control y el residual queda en «Medio» vs mapa «Crítico».
+ */
+function mergeCausaApiYGestionParaResidual(causa: any): any {
+  const gest: Record<string, unknown> =
+    causa?.gestion == null
+      ? {}
+      : typeof causa.gestion === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(String(causa.gestion)) as Record<string, unknown>;
+            } catch {
+              return {};
+            }
+          })()
+        : typeof causa.gestion === 'object'
+          ? { ...(causa.gestion as Record<string, unknown>) }
+          : {};
+  const planesG = gest.planesAccion as unknown[] | undefined;
+  const ctrlG = gest.controles as unknown[] | undefined;
+  return {
+    ...causa,
+    ...gest,
+    tipoGestion: causa.tipoGestion ?? gest.tipoGestion,
+    controles:
+      Array.isArray(causa.controles) && causa.controles.length > 0 ? causa.controles : ctrlG ?? causa.controles,
+    planesAccion:
+      Array.isArray(causa.planesAccion) && causa.planesAccion.length > 0
+        ? causa.planesAccion
+        : Array.isArray(planesG) && planesG.length > 0
+          ? planesG
+          : causa.planesAccion,
+  };
+}
+
 export default function ControlesYPlanesAccionPageNueva() {
   // ============ LOGS DE DEBUG CRÍTICOS ============
   console.log('🔴🔴🔴 [COMPONENTE MONTADO] ControlesYPlanesAccionPageNueva - TIMESTAMP:', new Date().toISOString());
@@ -362,7 +411,7 @@ export default function ControlesYPlanesAccionPageNueva() {
 
   const toDateInputValue = (value: unknown): string => {
     if (!value) return '';
-    if (value instanceof Date) return value.toISOString().split('T')[0];
+    if (value instanceof Date) return formatDateISO(value);
     const s = String(value);
     // MUI TextField type="date" expects YYYY-MM-DD
     if (s.includes('T')) return s.split('T')[0];
@@ -371,6 +420,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   };
   const dispatch = useAppDispatch();
   const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA desde contexto global
+  const ultimoPayloadScreenContext = useRef<string>('');
   
   console.log('🔴 [DEBUG] setScreenContext disponible:', !!setScreenContext);
   console.log('🔴 [DEBUG] procesoSeleccionado:', procesoSeleccionado?.sigla || 'NO HAY');
@@ -505,6 +555,27 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { data: configResidual } = useGetConfiguracionResidualQuery();
   const { data: frecuenciasCatalog = [] } = useGetFrecuenciasQuery();
   const { data: nivelesRiesgoCatalog = [] } = useGetNivelesRiesgoQuery();
+  const { data: reglaResidualPlanCausa } = useGetReglaResidualPlanCausaQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+  });
+  const reglaPlanCausaActiva = Boolean(reglaResidualPlanCausa?.activa);
+
+  // Al guardar la regla en admin se emite este evento: invalidar caché obliga a refrescar regla y listado de riesgos para que resumen y chips CLASIFICACIÓN recalculen (mapa ya invalidaba; aquí igualamos).
+  useEffect(() => {
+    const handler = () => {
+      dispatch(
+        riesgosApi.util.invalidateTags([
+          'ReglaResidualPlanCausa',
+          'Configuracion',
+          'Riesgo',
+          'Evaluacion',
+        ] as const),
+      );
+    };
+    window.addEventListener('calificacion-residual-updated', handler);
+    return () => window.removeEventListener('calificacion-residual-updated', handler);
+  }, [dispatch]);
 
   // Manejo de archivos de seguimiento
   const API_BASE_URL =
@@ -626,10 +697,7 @@ export default function ControlesYPlanesAccionPageNueva() {
           puntajeTotal: causa.puntajeTotal
         });
         
-        return {
-          ...causa,
-          ...(causa.gestion || {})
-        };
+        return mergeCausaApiYGestionParaResidual(causa);
       });
       
       return {
@@ -640,7 +708,8 @@ export default function ControlesYPlanesAccionPageNueva() {
     
     console.log('🔵 [RIESGOS DEL PROCESO] Resultado procesado:', resultado.length);
     return resultado;
-  }, [procesoSeleccionado?.id, riesgosApiData]);
+    // reglaPlanCausaActiva: al activar/desactivar «plan en causa» hay que regenerar referencias para residual en UI (calcularResidualDesdeCausas).
+  }, [procesoSeleccionado?.id, riesgosApiData, reglaPlanCausaActiva]);
 
   useEffect(() => {
     const nuevas: ClasificacionCausa[] = [];
@@ -900,97 +969,59 @@ export default function ControlesYPlanesAccionPageNueva() {
   const controles = useMemo(() => clasificaciones.filter(c => c.tipo === 'control'), [clasificaciones]);
   const planes = useMemo(() => clasificaciones.filter(c => c.tipo === 'plan'), [clasificaciones]);
 
-  // NUEVO: Actualizar contexto de pantalla para CORA IA (después de todos los useMemo)
+  // Actualizar contexto de pantalla para CORA IA (con guard anti-loop)
   useEffect(() => {
-    console.log('🟢🟢🟢 [useEffect CONTEXTO] EJECUTANDO - TIMESTAMP:', new Date().toISOString());
-    console.log('🟢 [useEffect] procesoSeleccionado:', !!procesoSeleccionado, procesoSeleccionado?.sigla);
-    console.log('🟢 [useEffect] setScreenContext:', !!setScreenContext);
-    console.log('🟢 [useEffect] activeTab:', activeTab);
-    
-    if (procesoSeleccionado && setScreenContext) {
-      const screenName = activeTab === 2 ? 'planes' : activeTab === 1 ? 'controles' : 'clasificacion';
-      
-      console.log('🟡 [CONTEXTO] Construyendo contexto para pantalla:', screenName);
-      console.log('🟡 [CONTEXTO] causaEnEdicion:', !!causaEnEdicion);
-      console.log('🟡 [CONTEXTO] tipoClasificacion:', tipoClasificacion);
-      
-      const context: ScreenContext = {
-        module: 'planes',
-        screen: screenName,
-        action: causaEnEdicion ? 'edit' : 'view',
-        processId: Number(procesoSeleccionado.id),
-        route: window.location.pathname,
-        formData: {
-          procesoSigla: procesoSeleccionado?.sigla || '',
-          procesoNombre: procesoSeleccionado?.nombre || '',
-          activeTab,
-          clasificaciones: clasificaciones.length,
-          // AMBOS cuenta como plan y como control; antes solo 'plan' dejaba planesActivos en 0.
-          planesActivos: clasificaciones.filter((c) => {
-            const t = String(c.tipo || '').toLowerCase();
-            return t === 'plan' || t === 'ambos';
-          }).length,
-          controlesActivos: clasificaciones.filter((c) => {
-            const t = String(c.tipo || '').toLowerCase();
-            return t === 'control' || t === 'ambos';
-          }).length,
-          ...(coraPlanesResumen.length > 0 && { planesResumen: coraPlanesResumen }),
-          // Si estamos en la pestaña de controles sin editar, enviar lista de controles visibles
-          ...(screenName === 'controles' && !causaEnEdicion && riesgosConControles.length > 0 && {
-            controlesVisibles: riesgosConControles.slice(0, 10).map((r: any) => ({
-              riesgoId: r.numeroIdentificacion || r.numero || r.id,
-              riesgoDescripcion: r.descripcion || r.descripcionRiesgo || 'Sin descripción',
-              controles: (r.causas || []).slice(0, 5).map((c: any) => {
-                // Intentar obtener la descripción del control de múltiples fuentes
-                const desc = c.controlDescripcion || 
-                            c.gestion?.controlDescripcion || 
-                            c.descripcion || 
-                            'Sin descripción';
-                const tipo = c.controlTipo || c.gestion?.controlTipo || 'N/A';
-                const efectividad = c.evaluacionPreliminar || 
-                                  c.gestion?.evaluacionPreliminar || 
-                                  c.efectividad || 
-                                  'N/A';
-                return { descripcion: desc, tipo, efectividad };
-              })
-            }))
-          }),
-          // Datos del formulario actual si está en edición
-          ...(causaEnEdicion && {
-            causaEnEdicion: {
+    if (!procesoSeleccionado || !setScreenContext) return;
+
+    const screenName = activeTab === 2 ? 'planes' : activeTab === 1 ? 'controles' : 'clasificacion';
+    const planesActivos = clasificaciones.filter((c) => {
+      const t = String(c.tipo || '').toLowerCase();
+      return t === 'plan' || t === 'ambos';
+    }).length;
+    const controlesActivos = clasificaciones.filter((c) => {
+      const t = String(c.tipo || '').toLowerCase();
+      return t === 'control' || t === 'ambos';
+    }).length;
+
+    const context: ScreenContext = {
+      module: 'planes',
+      screen: screenName,
+      action: causaEnEdicion ? 'edit' : 'view',
+      processId: Number(procesoSeleccionado.id),
+      route: window.location.pathname,
+      formData: {
+        procesoSigla: procesoSeleccionado?.sigla || '',
+        procesoNombre: procesoSeleccionado?.nombre || '',
+        activeTab,
+        clasificaciones: clasificaciones.length,
+        planesActivos,
+        controlesActivos,
+        totalRiesgosControles: riesgosConControles.length,
+        totalResumenPlanes: coraPlanesResumen.length,
+        causaEnEdicion: causaEnEdicion
+          ? {
               riesgoId: causaEnEdicion.riesgoId,
-              causaDescripcion: causaEnEdicion.causa?.descripcion,
               tipoClasificacion,
-              formControl: (() => {
-                const t = String(tipoClasificacion || '').toUpperCase();
-                return t === 'CONTROL' || t === 'AMBOS' ? formControl : undefined;
-              })(),
-              formPlan: (() => {
-                const t = String(tipoClasificacion || '').toUpperCase();
-                return t === 'PLAN' || t === 'AMBOS' ? formPlan : undefined;
-              })(),
             }
-          })
-        }
-      };
-      console.log('✅✅✅ [CORA Context] ENVIANDO CONTEXTO A CORA:', JSON.stringify(context, null, 2));
+          : undefined,
+      },
+    };
+
+    const payload = JSON.stringify(context);
+    if (payload !== ultimoPayloadScreenContext.current) {
+      ultimoPayloadScreenContext.current = payload;
       setScreenContext(context);
-    } else {
-      console.log('❌ [CONTEXTO] NO SE PUEDE ACTUALIZAR - Falta:', { 
-        procesoSeleccionado: !!procesoSeleccionado, 
-        setScreenContext: !!setScreenContext 
-      });
     }
   }, [
-    procesoSeleccionado,
+    procesoSeleccionado?.id,
+    procesoSeleccionado?.sigla,
+    procesoSeleccionado?.nombre,
     activeTab,
     clasificaciones,
-    causaEnEdicion,
+    causaEnEdicion?.riesgoId,
     tipoClasificacion,
-    formControl,
-    formPlan,
-    riesgosConControles,
-    coraPlanesResumen,
+    riesgosConControles.length,
+    coraPlanesResumen.length,
     setScreenContext,
   ]);
 
@@ -1059,7 +1090,7 @@ export default function ControlesYPlanesAccionPageNueva() {
 
     const toDateInputValue = (value: unknown): string => {
       if (!value) return '';
-      if (value instanceof Date) return value.toISOString().split('T')[0];
+      if (value instanceof Date) return formatDateISO(value);
       const s = String(value);
       // MUI TextField type="date" expects YYYY-MM-DD
       if (s.includes('T')) return s.split('T')[0];
@@ -2376,9 +2407,7 @@ export default function ControlesYPlanesAccionPageNueva() {
       >
         <Box sx={{ p: 3 }}>
           <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
-            <Typography variant="body1">
-              No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para cargar sus controles y planes de acción.
-            </Typography>
+            <Typography variant="body1">No hay proceso seleccionado.</Typography>
           </Alert>
         </Box>
       </AppPageLayout>
@@ -3121,7 +3150,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                             )
                                                           : null;
 
-                                                      /** Anexo 6 §5.7: semáforo por calificación; luego cálculo vivo y f×i mostrados (sin mapa si no es CWR estratégico, se caía a verde «Bajo»). */
+                                                      /** Anexo 6: semaforo por calificacion; luego calculo vivo y f x i mostrados (sin mapa si no es CWR estrategico, se caia a verde "Bajo"). */
                                                       const productoResidualUi =
                                                         displayFrecuenciaResidual != null &&
                                                         displayImpactoResidual != null &&
@@ -3665,7 +3694,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                                       />
                                                       {(() => {
                                                          if (formPlan.fechaEstimada && formPlan.estado !== 'completado' && formPlan.estado !== 'cancelado') {
-                                                            const todayStr = new Date().toISOString().split('T')[0];
+                                                            const todayStr = todayISO();
                                                             if (formPlan.fechaEstimada < todayStr) {
                                                                return (
                                                                   <Alert severity="warning">
@@ -3847,6 +3876,9 @@ export default function ControlesYPlanesAccionPageNueva() {
 
               {riesgosConControlesOrdenados.map((riesgo: any) => {
                 const estaExpandido = riesgosExpandidosResidual[riesgo.id] || false;
+                /** Lista tab solo CONTROL/AMBOS; el máximo residual debe usar todas las causas del API (p. ej. PLAN con control → 16, no 9). */
+                const riesgoResidualCalculo =
+                  riesgosDelProceso.find((r: any) => String(r.id) === String(riesgo.id)) ?? riesgo;
                 return (
                   <Card key={riesgo.id} sx={{ mb: 1.5, width: '100%', maxWidth: '100%', minWidth: 0 }}>
                     <Box
@@ -3914,13 +3946,22 @@ export default function ControlesYPlanesAccionPageNueva() {
                         {etiquetaTipologiaRiesgoTabla(riesgo)}
                       </Typography>
                       
-                      {/* Columna de Clasificación/Nivel de Riesgo RESIDUAL (en CONTROLES) — misma lógica que Resumen y mapa */}
+                      {/* Columna CLASIFICACIÓN = nivel residual (alineado con resumen: calcularResidualDesdeCausas + regla admin). */}
                       <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0, width: '100%' }}>
                         {(() => {
                           let nivelRiesgo: string | undefined | null = null;
                           const ev = riesgo.evaluacion || {};
+                          const prGlob = ev.probabilidadResidual;
+                          const irGlob = ev.impactoResidual;
+                          const rrGlob = ev.riesgoResidual;
 
-                          /** Modo CWR/estratégico: priorizar evaluación global persistida (no mezclar con f×i inherente). */
+                          const residualTablaChip =
+                            !procesoResidualEstrategico
+                              ? calcularResidualDesdeCausas(riesgoResidualCalculo, {
+                                  forzarInherenteSiPlanCausa: reglaPlanCausaActiva,
+                                })
+                              : null;
+
                           if (procesoResidualEstrategico) {
                             const nvG = ev.nivelRiesgoResidual;
                             if (nvG && String(nvG).trim() && String(nvG).trim() !== 'Sin Calificar') {
@@ -3932,43 +3973,27 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 if (nv && nv !== 'Sin Calificar') nivelRiesgo = nv;
                               }
                             }
+                          } else if (
+                            residualTablaChip?.nivelRiesgoResidual &&
+                            String(residualTablaChip.nivelRiesgoResidual).trim() !== 'Sin Calificar'
+                          ) {
+                            nivelRiesgo = String(residualTablaChip.nivelRiesgoResidual).trim();
                           }
 
-                          if (!nivelRiesgo && riesgo.causas && riesgo.causas.length > 0) {
-                            const causasConControles = riesgo.causas.filter((c: any) => {
-                              const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-                              return tipo === 'CONTROL' || tipo === 'AMBOS';
+                          if (!nivelRiesgo && riesgoResidualCalculo.causas && riesgoResidualCalculo.causas.length > 0) {
+                            const candidatas = riesgoResidualCalculo.causas.filter((c: any) =>
+                              causaIncluidaEnAgregadoResidualPorControles(c),
+                            );
+                            let mejorCalRes = 0;
+                            candidatas.forEach((c: any) => {
+                              const r = calcularResidualPorCausa(c);
+                              if (r && r.riesgoResidual > mejorCalRes) mejorCalRes = r.riesgoResidual;
                             });
-                            if (causasConControles.length > 0) {
-                              const calificacionesResiduales = causasConControles
-                                .map((c: any) => {
-                                  if (c.calificacionResidual !== undefined && c.calificacionResidual !== null) {
-                                    return Number(c.calificacionResidual);
-                                  }
-                                  if (c.riesgoResidual !== undefined && c.riesgoResidual !== null) {
-                                    return Number(c.riesgoResidual);
-                                  }
-                                  const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual;
-                                  const irRaw = c.impactoResidual ?? c.gestion?.impactoResidual;
-                                  if (frRaw == null || irRaw == null) return NaN;
-                                  const fr = Number(frRaw);
-                                  const ir = Number(irRaw);
-                                  if (!Number.isFinite(fr) || !Number.isFinite(ir)) return NaN;
-                                  return fr === 2 && ir === 2 ? 3.99 : fr * ir;
-                                })
-                                .filter((cal: number) => !isNaN(cal) && cal > 0);
-                              if (calificacionesResiduales.length > 0) {
-                                const calificacionMaxResidual = Math.max(...calificacionesResiduales);
-                                if (calificacionMaxResidual >= 15 && calificacionMaxResidual <= 25) nivelRiesgo = 'Crítico';
-                                else if (calificacionMaxResidual >= 10 && calificacionMaxResidual < 15) nivelRiesgo = 'Alto';
-                                else if (calificacionMaxResidual >= 4 && calificacionMaxResidual < 10) nivelRiesgo = 'Medio';
-                                else if (calificacionMaxResidual >= 1 && calificacionMaxResidual < 4) nivelRiesgo = 'Bajo';
-                                else nivelRiesgo = 'Sin Calificar';
-                              }
+                            if (mejorCalRes > 0) {
+                              nivelRiesgo = nivelResidualDesdeCalificacionNumerica(mejorCalRes);
                             }
                           }
 
-                          /** Proceso estándar: si aún no hay residual por causa, usar evaluación global como respaldo. */
                           if (
                             !procesoResidualEstrategico &&
                             (!nivelRiesgo || nivelRiesgo === 'Sin Calificar') &&
@@ -3982,24 +4007,37 @@ export default function ControlesYPlanesAccionPageNueva() {
                           if (!nivelRiesgo) nivelRiesgo = 'Sin Calificar';
                           const nivelParaLabel = String(nivelRiesgo).replace(/nivel\s*/gi, '').trim() || nivelRiesgo;
 
-                          const prGlob = ev.probabilidadResidual;
-                          const irGlob = ev.impactoResidual;
-                          const rrGlob = ev.riesgoResidual;
                           let calParaSemafoto: number | null = null;
                           let fSem: unknown = prGlob;
                           let iSem: unknown = irGlob;
+
+                          if (
+                            !procesoResidualEstrategico &&
+                            residualTablaChip != null &&
+                            Number(residualTablaChip.riesgoResidual) > 0
+                          ) {
+                            calParaSemafoto = Number(residualTablaChip.riesgoResidual);
+                            fSem = residualTablaChip.probabilidadResidual;
+                            iSem = residualTablaChip.impactoResidual;
+                          }
+
                           const calDesdeGlobal =
                             normalizarCalificacionResidualNumero(rrGlob) ??
                             (typeof rrGlob === 'number' ? rrGlob : Number(rrGlob));
                           if (
+                            (calParaSemafoto == null || calParaSemafoto <= 0) &&
                             rrGlob != null &&
                             rrGlob !== '' &&
                             Number.isFinite(calDesdeGlobal) &&
                             calDesdeGlobal >= 0
                           ) {
                             calParaSemafoto = calDesdeGlobal;
-                          } else if (procesoResidualEstrategico && riesgo.causas?.length) {
-                            const causasConResidual = (riesgo.causas || [])
+                          } else if (
+                            procesoResidualEstrategico &&
+                            (calParaSemafoto == null || calParaSemafoto <= 0) &&
+                            riesgoResidualCalculo.causas?.length
+                          ) {
+                            const causasConResidual = (riesgoResidualCalculo.causas || [])
                               .map((c: any) => {
                                 const frRaw =
                                   c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual ?? prGlob;
@@ -4040,7 +4078,6 @@ export default function ControlesYPlanesAccionPageNueva() {
                           }
 
                           const stChip2 =
-                            procesoResidualEstrategico &&
                             calParaSemafoto != null &&
                             calParaSemafoto > 0
                               ? estiloCajaPorCalificacionCWR(
@@ -4139,8 +4176,20 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 
                                 return (
                                 <Fragment key={causa.id}>
+                                {causaGestionControlSinControlesAsociados(causa) && (
+                                  <TableRow>
+                                    <TableCell colSpan={4} sx={{ py: 0.5, border: 0 }}>
+                                      <Alert severity="warning" variant="outlined" sx={{ py: 0.25, '& .MuiAlert-message': { py: 0 } }}>
+                                        <Typography variant="caption" component="span">
+                                          Calificación <strong>residual</strong> puede igualar a la <strong>inherente</strong> por falta de control asociado a esta causa.
+                                        </Typography>
+                                      </Alert>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
                                 <TableRow
                                   id={`causa-residual-${riesgo.id}-${causa.id}`}
+                                  title={tituloTooltipFilaControlResidual(reglaPlanCausaActiva)}
                                   sx={{ cursor: 'pointer' }}
                                   onClick={() => {
                                       setItemDetalle(detalleControl);
@@ -4798,14 +4847,33 @@ export default function ControlesYPlanesAccionPageNueva() {
 
                         {/* Resumen de calificaciones residuales (por causa y final, como en Identificación) */}
                         {(() => {
-                          // Obtener datos residuales del riesgo (nivel global)
                           const evaluacion = riesgo.evaluacion || {};
-                          const probabilidadResidualGlobal = evaluacion.probabilidadResidual;
-                          const impactoResidualGlobal = evaluacion.impactoResidual;
-                          const riesgoResidualGlobal = evaluacion.riesgoResidual;
-                          const nivelRiesgoResidualGlobal = evaluacion.nivelRiesgoResidual;
+                          const modoEstrategicoUi = procesoResidualEstrategico === true;
+                          const leyendaCalificacionResidualFinal = modoEstrategicoUi
+                            ? 'Tomado de la evaluación del riesgo (proceso en modo estratégico).'
+                            : reglaPlanCausaActiva
+                              ? 'Máximo entre causas con control; si aplica la regla de plan en causa sin control, puede igualarse al inherente.'
+                              : 'Máximo entre las calificaciones residuales de las causas con control.';
+                          const residualDesdeCausasResumen = modoEstrategicoUi
+                            ? null
+                            : calcularResidualDesdeCausas(riesgoResidualCalculo, {
+                                forzarInherenteSiPlanCausa: reglaPlanCausaActiva,
+                              });
+                          const probabilidadResidualGlobal = modoEstrategicoUi
+                            ? evaluacion.probabilidadResidual
+                            : (residualDesdeCausasResumen?.probabilidadResidual ??
+                              evaluacion.probabilidadResidual);
+                          const impactoResidualGlobal = modoEstrategicoUi
+                            ? evaluacion.impactoResidual
+                            : (residualDesdeCausasResumen?.impactoResidual ?? evaluacion.impactoResidual);
+                          const riesgoResidualGlobal = modoEstrategicoUi
+                            ? evaluacion.riesgoResidual
+                            : (residualDesdeCausasResumen?.riesgoResidual ?? evaluacion.riesgoResidual);
+                          const nivelRiesgoResidualGlobal = modoEstrategicoUi
+                            ? evaluacion.nivelRiesgoResidual
+                            : (residualDesdeCausasResumen?.nivelRiesgoResidual ?? evaluacion.nivelRiesgoResidual);
 
-                          // Si el riesgo tiene datos residuales globales, mostrarlos
+                          // Si el riesgo tiene calificación residual efectiva (cliente estándar o persistida estratégica), mostrar bloque compacto
                           const calificacionResidualFinalDesdeGlobal =
                             normalizarCalificacionResidualNumero(riesgoResidualGlobal) ??
                             (typeof riesgoResidualGlobal === 'number' ? riesgoResidualGlobal : Number(riesgoResidualGlobal));
@@ -4817,12 +4885,12 @@ export default function ControlesYPlanesAccionPageNueva() {
                           ) {
                             const calificacionResidualFinal = calificacionResidualFinalDesdeGlobal;
                             let nivelFinal = nivelRiesgoResidualGlobal || 'Sin Calificar';
-                            
-                            if (!nivelFinal || nivelFinal === 'Sin Calificar') {
-                              if (calificacionResidualFinal >= 15 && calificacionResidualFinal <= 25) nivelFinal = 'Crítico';
-                              else if (calificacionResidualFinal >= 10 && calificacionResidualFinal < 15) nivelFinal = 'Alto';
-                              else if (calificacionResidualFinal >= 4 && calificacionResidualFinal < 10) nivelFinal = 'Medio';
-                              else if (calificacionResidualFinal >= 1 && calificacionResidualFinal < 4) nivelFinal = 'Bajo';
+                            if (!modoEstrategicoUi && Number.isFinite(calificacionResidualFinal) && calificacionResidualFinal > 0) {
+                              nivelFinal = nivelResidualDesdeCalificacionNumerica(calificacionResidualFinal);
+                            } else if (!nivelFinal || nivelFinal === 'Sin Calificar') {
+                              if (Number.isFinite(calificacionResidualFinal) && calificacionResidualFinal > 0) {
+                                nivelFinal = nivelResidualDesdeCalificacionNumerica(calificacionResidualFinal);
+                              }
                             }
 
                             const { color: colorFinal, bg: bgFinal } = estiloCajaPorCalificacionCWR(
@@ -4860,7 +4928,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                                       {calificacionResidualFinal === 3.99 ? '3.99' : calificacionResidualFinal.toFixed(2)}
                                     </Typography>
                                     <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', mt: 0.5 }}>
-                                      (Máximo de las calificaciones residuales de las causas con control. Esta calificación se ubica en el mapa de riesgos residuales.)
+                                      {leyendaCalificacionResidualFinal}
                                     </Typography>
                                   </Box>
                                   <Chip
@@ -4880,7 +4948,7 @@ export default function ControlesYPlanesAccionPageNueva() {
                           // Si no hay datos globales, intentar con datos por causa
                           // Solo trabajar con datos residuales reales (BD). Si una causa no tiene
                           // frecuencia/impacto residual, usar los datos globales del riesgo
-                          const causasConResidual = (riesgo.causas || [])
+                          const causasConResidual = (riesgoResidualCalculo.causas || [])
                             .map((c: any) => {
                               // Buscar datos residuales en la causa o usar los globales del riesgo
                               const frRaw = c.frecuenciaResidual ?? c.gestion?.frecuenciaResidual ?? probabilidadResidualGlobal;
@@ -4919,13 +4987,10 @@ export default function ControlesYPlanesAccionPageNueva() {
                             .map((c: any) => c.calificacionResidualNum)
                             .filter((cal: number) => !isNaN(cal) && cal > 0);
                           const calificacionResidualFinal = calificacionesResiduales.length > 0 ? Math.max(...calificacionesResiduales) : 0;
-                          let nivelFinal = 'Sin Calificar';
-                          if (calificacionResidualFinal > 0) {
-                            if (calificacionResidualFinal >= 15 && calificacionResidualFinal <= 25) nivelFinal = 'Crítico';
-                            else if (calificacionResidualFinal >= 10 && calificacionResidualFinal < 15) nivelFinal = 'Alto';
-                            else if (calificacionResidualFinal >= 4 && calificacionResidualFinal < 10) nivelFinal = 'Medio';
-                            else if (calificacionResidualFinal >= 1 && calificacionResidualFinal < 4) nivelFinal = 'Bajo'; // incluye 3.99 (excepción 2×2)
-                          }
+                          const nivelFinal =
+                            calificacionResidualFinal > 0
+                              ? nivelResidualDesdeCalificacionNumerica(calificacionResidualFinal)
+                              : 'Sin Calificar';
                           return (
                             <Paper elevation={0} sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 2 }}>
                               <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
@@ -5010,8 +5075,19 @@ export default function ControlesYPlanesAccionPageNueva() {
 
                               {(() => {
                                 const lista = causasConResidual as any[];
+                                const usarCalificacionMapa =
+                                  !modoEstrategicoUi &&
+                                  residualDesdeCausasResumen != null &&
+                                  Number(residualDesdeCausasResumen.riesgoResidual) > 0;
+                                const calificacionCajaFinal = usarCalificacionMapa
+                                  ? Number(residualDesdeCausasResumen!.riesgoResidual)
+                                  : calificacionResidualFinal;
+                                let nivelCajaFinal = nivelFinal;
+                                if (usarCalificacionMapa && Number(calificacionCajaFinal) > 0) {
+                                  nivelCajaFinal = nivelResidualDesdeCalificacionNumerica(Number(calificacionCajaFinal));
+                                }
                                 const ganadora =
-                                  calificacionResidualFinal > 0
+                                  !usarCalificacionMapa && calificacionResidualFinal > 0
                                     ? lista.find((c) => {
                                         const a = normalizarCalificacionResidualNumero(c.calificacionResidualNum);
                                         const b = normalizarCalificacionResidualNumero(calificacionResidualFinal);
@@ -5022,11 +5098,17 @@ export default function ControlesYPlanesAccionPageNueva() {
                                         );
                                       })
                                     : undefined;
+                                const frCaja = usarCalificacionMapa
+                                  ? residualDesdeCausasResumen!.probabilidadResidual
+                                  : ganadora?.frecuenciaResidual;
+                                const irCaja = usarCalificacionMapa
+                                  ? residualDesdeCausasResumen!.impactoResidual
+                                  : ganadora?.impactoResidual;
                                 const { color: colorFinal, bg: bgFinal } = estiloCajaPorCalificacionCWR(
-                                  calificacionResidualFinal,
-                                  nivelFinal,
-                                  ganadora?.frecuenciaResidual,
-                                  ganadora?.impactoResidual,
+                                  calificacionCajaFinal,
+                                  nivelCajaFinal,
+                                  frCaja,
+                                  irCaja,
                                   nivelesRiesgoCatalog
                                 );
                                 return (
@@ -5048,14 +5130,18 @@ export default function ControlesYPlanesAccionPageNueva() {
                                         CALIFICACIÓN RESIDUAL FINAL DEL RIESGO
                                       </Typography>
                                       <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
-                                        {calificacionResidualFinal > 0 ? (calificacionResidualFinal === 3.99 ? '3.99' : calificacionResidualFinal.toFixed(2)) : 'N/A'}
+                                        {calificacionCajaFinal > 0
+                                          ? calificacionCajaFinal === 3.99
+                                            ? '3.99'
+                                            : calificacionCajaFinal.toFixed(2)
+                                          : 'N/A'}
                                       </Typography>
                                       <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', mt: 0.5 }}>
-                                        (Máximo de las calificaciones residuales de las causas con control. Esta calificación se ubica en el mapa de riesgos residuales.)
+                                        {leyendaCalificacionResidualFinal}
                                       </Typography>
                                     </Box>
                                     <Chip
-                                      label={etiquetaNivelMostrar(nivelFinal)}
+                                      label={etiquetaNivelMostrar(nivelCajaFinal)}
                                       sx={{
                                         backgroundColor: 'rgba(255,255,255,0.25)',
                                         color: colorFinal,
@@ -5292,7 +5378,31 @@ export default function ControlesYPlanesAccionPageNueva() {
                                 
                                 return (
                                 <Fragment key={causa.id}>
+                                    {reglaPlanCausaActiva && causaTienePlanSinControlAsociado(causa) ? (
+                                      <TableRow>
+                                        <TableCell colSpan={5} sx={{ py: 0.5, border: 0 }}>
+                                          <Alert severity="info" variant="outlined" sx={{ py: 0.25, '& .MuiAlert-message': { py: 0 } }}>
+                                            <Typography variant="caption" component="span">
+                                              <strong>Residual = inherente</strong>: plan sin control (regla activa).
+                                            </Typography>
+                                          </Alert>
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : (
+                                      causaGestionControlSinControlesAsociados(causa) && (
+                                        <TableRow>
+                                          <TableCell colSpan={5} sx={{ py: 0.5, border: 0 }}>
+                                            <Alert severity="warning" variant="outlined" sx={{ py: 0.25, '& .MuiAlert-message': { py: 0 } }}>
+                                              <Typography variant="caption" component="span">
+                                                Calificación <strong>residual</strong> puede igualar a la <strong>inherente</strong> por falta de control en esta causa.
+                                              </Typography>
+                                            </Alert>
+                                          </TableCell>
+                                        </TableRow>
+                                      )
+                                    )}
                                     <TableRow
+                                      title={tituloTooltipFilaPlanResidual(reglaPlanCausaActiva)}
                                       sx={{ cursor: 'pointer' }}
                                       onClick={() => {
                                         setItemDetalle(detallePlan);
@@ -5315,11 +5425,11 @@ export default function ControlesYPlanesAccionPageNueva() {
                                           size="small"
                                             color="primary"
                                           onClick={(e) => {
-                                            console.log('[CLICK] Botón editar plan clickeado'); // DEBUG MUY VISIBLE
+                                            console.log('[DEBUG] Botón editar plan activado');
                                             e.stopPropagation();
                                               const tipoGestion = (causa.tipoGestion || 'PLAN').toUpperCase();
                                               setTipoClasificacion(tipoGestion as any);
-                                            console.log('[CLICK] Llamando handleEvaluarControl con:', riesgo.id, detallePlan); // DEBUG
+                                            console.log('[DEBUG] Llamando handleEvaluarControl con:', riesgo.id, detallePlan);
                                             handleEvaluarControl(riesgo.id, detallePlan);
                                           }}
                                             title="Editar Plan"
@@ -5898,7 +6008,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG CLASIFICACION CAUSA (Existing) - Solo se abre cuando se hace clic en "Clasificar" o desde el tab CLASIFICACIÓN */}
+      {/* DIALOG CLASIFICACION CAUSA (Existing) - Solo se abre al usar «Clasificar» o desde el tab CLASIFICACIÓN */}
       <Dialog
         open={!!causaEnEdicion && !evaluacionExpandida}
         onClose={() => setCausaEnEdicion(null)}

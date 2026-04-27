@@ -167,13 +167,6 @@ export default function RiesgosPorProcesoPage() {
         </CardContent>
       </Card>
 
-      {/* Información */}
-      {!puedeVerTodosLosRiesgos && !procesoSeleccionado && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Seleccione un proceso desde el Dashboard para ver sus riesgos
-        </Alert>
-      )}
-
       {/* Lista de Procesos con Riesgos */}
       {Object.keys(riesgosPorProceso).length === 0 && !loadingRiesgos ? (
         <Card>

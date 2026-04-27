@@ -22,6 +22,7 @@ import {
 import { EstadoPlan, PlanAccionCardProps } from '../../types/planAccion.types';
 import { EstadoPlanSelector } from './EstadoPlanSelector';
 import { useState, useEffect } from 'react';
+import { formatDate, formatDateISO } from '../../utils/formatters';
 
 // Colores para cada estado
 const ESTADO_COLORS: Record<EstadoPlan, 'default' | 'primary' | 'warning' | 'success' | 'secondary' | 'info'> = {
@@ -59,9 +60,13 @@ export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
   // Calcular si el plan está vencido o próximo a vencer
   const getVencimientoStatus = () => {
     if (!plan.fechaProgramada) return null;
-
+    const fechaIso = formatDateISO(plan.fechaProgramada);
+    if (!fechaIso) return null;
+    const [y, m, d] = fechaIso.split('-').map(Number);
     const hoy = new Date();
-    const fechaVencimiento = new Date(plan.fechaProgramada);
+    hoy.setHours(0, 0, 0, 0);
+    const fechaVencimiento = new Date(y, m - 1, d);
+    fechaVencimiento.setHours(0, 0, 0, 0);
     const diffTime = fechaVencimiento.getTime() - hoy.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -91,11 +96,7 @@ export const PlanAccionCard: React.FC<PlanAccionCardProps> = ({
 
   const formatFecha = (fecha?: string) => {
     if (!fecha) return 'No definida';
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDate(fecha) || 'No definida';
   };
 
   const formatEstado = (estado: EstadoPlan) => {

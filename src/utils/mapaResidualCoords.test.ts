@@ -103,6 +103,25 @@ describe('resolverCoordsResidualMapa', () => {
       probabilidadResidual: 2,
       impactoResidual: 3,
     });
-    expect(calcularResidualDesdeCausas).toHaveBeenCalledWith(riesgo);
+    expect(calcularResidualDesdeCausas).toHaveBeenCalledWith(riesgo, {
+      forzarInherenteSiPlanCausa: false,
+    });
+  });
+
+  it('modo ESTANDAR reenvía forzarInherenteSiPlanCausa a calcularResidualDesdeCausas', () => {
+    const punto = { probabilidad: 4, impacto: 4 };
+    const riesgo = {
+      id: 1,
+      procesoId: 1,
+      descripcion: '',
+      clasificacion: 'Negativa',
+      proceso: '',
+      numero: 1,
+    } as Riesgo;
+
+    resolverCoordsResidualMapa(punto, riesgo, 'ESTANDAR', { forzarInherenteSiPlanCausa: true });
+    expect(calcularResidualDesdeCausas).toHaveBeenCalledWith(riesgo, {
+      forzarInherenteSiPlanCausa: true,
+    });
   });
 });

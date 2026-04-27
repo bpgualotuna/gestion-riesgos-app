@@ -1,5 +1,6 @@
-import { Box, Button, Tooltip } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
+import LoadingActionButton from '../ui/LoadingActionButton';
 
 type Props = {
   onClick: () => void;
@@ -18,12 +19,14 @@ export default function GuardarContextoButton({ onClick, disabled, isSaving }: P
       enterDelay={300}
     >
       <Box component="span" sx={{ display: 'inline-block' }}>
-        <Button
+        <LoadingActionButton
           variant="outlined"
           size="large"
           startIcon={<SaveIcon />}
           onClick={onClick}
-          disabled={disabled || isSaving}
+          disabled={disabled}
+          loading={isSaving}
+          loadingText="Guardando..."
           sx={{
             fontWeight: 700,
             px: 2.5,
@@ -31,8 +34,8 @@ export default function GuardarContextoButton({ onClick, disabled, isSaving }: P
             borderWidth: 2,
           }}
         >
-          {isSaving ? 'Guardando...' : 'Guardar'}
-        </Button>
+          Guardar
+        </LoadingActionButton>
       </Box>
     </Tooltip>
   );

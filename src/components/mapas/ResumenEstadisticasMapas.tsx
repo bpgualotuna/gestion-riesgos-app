@@ -32,12 +32,15 @@ interface ResumenEstadisticasProps {
   }[];
   /** Misma fuente que el mapa residual (causas → punto residual → inherente). */
   riesgosCompletos?: Riesgo[];
+  /** Alineado con catálogo admin: plan en causa → residual = inherente en modo estándar. */
+  forzarInherenteSiPlanCausa?: boolean;
 }
 
 export default function ResumenEstadisticasMapas({
   procesos,
   puntosFiltrados,
   riesgosCompletos = [],
+  forzarInherenteSiPlanCausa = false,
 }: ResumenEstadisticasProps) {
   const estadisticas = useMemo(() => {
     const riesgosComparativa: ComparativaRiesgo[] = [];
@@ -66,7 +69,8 @@ export default function ResumenEstadisticasMapas({
       const { probabilidadResidual: probRes, impactoResidual: impRes } = resolverCoordsResidualMapa(
         punto,
         riesgo ?? undefined,
-        modo
+        modo,
+        { forzarInherenteSiPlanCausa }
       );
       const valorResidual = probRes === 2 && impRes === 2 ? 3.99 : probRes * impRes;
 
@@ -109,7 +113,7 @@ export default function ResumenEstadisticasMapas({
       conteos,
       porcentajeReduccionTotal,
     };
-  }, [puntosFiltrados, procesos, riesgosCompletos]);
+  }, [puntosFiltrados, procesos, riesgosCompletos, forzarInherenteSiPlanCausa]);
 
   if (estadisticas.riesgosComparativa.length === 0) {
     return (

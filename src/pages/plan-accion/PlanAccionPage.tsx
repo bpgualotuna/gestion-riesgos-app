@@ -70,6 +70,7 @@ import {
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 import { useUnsavedChanges, useFormChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
+import { addDaysISO, todayISO } from '../../utils/formatters';
 
 // Tipos locales para Plan de Acción (Mock)
 interface PlanAccion {
@@ -139,8 +140,8 @@ export default function PlanAccionPage() {
     nombre: '',
     descripcion: '',
     objetivo: '',
-    fechaInicio: new Date().toISOString().split('T')[0],
-    fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    fechaInicio: todayISO(),
+    fechaLimite: addDaysISO(30),
     responsableNombre: '',
     presupuesto: 0,
     observaciones: ''
@@ -149,8 +150,8 @@ export default function PlanAccionPage() {
     nombre: '',
     descripcion: '',
     objetivo: '',
-    fechaInicio: new Date().toISOString().split('T')[0],
-    fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    fechaInicio: todayISO(),
+    fechaLimite: addDaysISO(30),
     responsableNombre: '',
     presupuesto: 0,
     observaciones: ''
@@ -284,8 +285,8 @@ export default function PlanAccionPage() {
         nombre: `Plan: ${causaSeleccionada?.descripcion.substring(0, 30)}...`,
         descripcion: '',
         objetivo: `Mitigar la causa: ${causaSeleccionada?.descripcion}`,
-        fechaInicio: new Date().toISOString().split('T')[0],
-        fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        fechaInicio: todayISO(),
+        fechaLimite: addDaysISO(30),
         responsableNombre: '',
         presupuesto: 0,
         observaciones: ''
@@ -567,8 +568,8 @@ export default function PlanAccionPage() {
                   nombre: '',
                   descripcion: '',
                   objetivo: '',
-                  fechaInicio: new Date().toISOString().split('T')[0],
-                  fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  fechaInicio: todayISO(),
+                  fechaLimite: addDaysISO(30),
                   responsableNombre: '',
                   presupuesto: 0,
                   observaciones: ''

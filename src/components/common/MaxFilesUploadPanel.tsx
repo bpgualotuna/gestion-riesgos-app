@@ -151,7 +151,7 @@ export default function MaxFilesUploadPanel({
           {leadingIcon ?? <UploadIcon sx={{ color: '#FFA500', mt: 0.5 }} />}
           <Box sx={{ flex: 1 }}>
             <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 1 }}>
-              Arrastra y suelta archivos aquí o haz clic en el área punteada. PDF, PNG, JPG, DOCX. Máx. {maxFileSizeMb}
+              Arrastre y suelte archivos aquí o seleccione el área punteada. PDF, PNG, JPG, DOCX. Máx. {maxFileSizeMb}
               MB. Máximo{' '}
               {maxFiles} archivo{maxFiles > 1 ? 's' : ''}.
             </Typography>

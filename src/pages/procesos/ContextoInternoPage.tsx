@@ -642,7 +642,7 @@ export default function ContextoInternoPage() {
   if (!procesoSeleccionado) {
     return (
       <AppPageLayout title="Análisis de Contexto Interno" description="Factores internos del proceso" topContent={<FiltroProcesoSupervisor />}>
-        <Box sx={{ p: 3 }}><Alert severity="info" variant="outlined">No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior.</Alert></Box>
+        <Box sx={{ p: 3 }}><Alert severity="info" variant="outlined">No hay proceso seleccionado.</Alert></Box>
       </AppPageLayout>
     );
   }
@@ -664,8 +664,6 @@ export default function ContextoInternoPage() {
         topContent={<FiltroProcesoSupervisor />}
         action={
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {isReadOnly && <Chip icon={<VisibilityIcon />} label="Modo Visualización" color="info" sx={{ fontWeight: 600 }} />}
-            {modoProceso === 'editar' && <Chip icon={<EditIcon />} label="Modo Edición" color="warning" sx={{ fontWeight: 600 }} />}
             {!isReadOnly && (
               <>
                 <GuardarContextoButton
@@ -682,7 +680,6 @@ export default function ContextoInternoPage() {
             )}
           </Box>
         }
-        alert={isReadOnly ? <Alert severity="info" sx={{ mb: 2 }}>Solo visualización.</Alert> : undefined}
       >
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>

@@ -861,7 +861,7 @@ export default function DashboardSupervisorPage() {
                 {estadisticas.fueraApetito}
               </Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textAlign: 'center' }}>
-                Click para detalles
+                Ver detalles
               </Typography>
             </CardContent>
           </Card>

@@ -19,6 +19,7 @@ import {
 import Grid2 from '../../utils/Grid2';
 import { PlanAccionAPI } from '../../api/services/planTrazabilidadApi';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import { formatDate, formatDateISO } from '../../utils/formatters';
 
 interface PlanDetalleDialogProps {
   open: boolean;
@@ -49,18 +50,18 @@ export const PlanDetalleDialog: React.FC<PlanDetalleDialogProps> = ({
 
   const formatFecha = (fecha: string | null) => {
     if (!fecha) return 'No definida';
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return formatDate(fecha) || 'No definida';
   };
 
   const getVencimientoStatus = () => {
     if (!plan.fechaProgramada) return null;
-
+    const fechaIso = formatDateISO(plan.fechaProgramada);
+    if (!fechaIso) return null;
+    const [y, m, d] = fechaIso.split('-').map(Number);
     const hoy = new Date();
-    const fechaVencimiento = new Date(plan.fechaProgramada);
+    hoy.setHours(0, 0, 0, 0);
+    const fechaVencimiento = new Date(y, m - 1, d);
+    fechaVencimiento.setHours(0, 0, 0, 0);
     const diffTime = fechaVencimiento.getTime() - hoy.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 

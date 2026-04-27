@@ -33,6 +33,7 @@ import { formatDate } from '../../utils/formatters';
 import { useUnsavedChanges, useArrayChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import PaginationBar from '../../components/ui/PaginationBar';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 
 interface Normatividad {
   id: string;
@@ -151,6 +152,10 @@ export default function NormatividadPage() {
       setCumplimientoSeleccionado('Total');
     }
   }, [dialogOpen, selectedNormatividad]);
+
+  const plazoImplementacionActual = selectedNormatividad?.plazoImplementacion || '';
+  const plazoImplementacionEsFecha = /^\d{4}-\d{2}-\d{2}$/.test(plazoImplementacionActual);
+  const usarInputFechaPlazo = !selectedNormatividad || !plazoImplementacionActual || plazoImplementacionEsFecha;
 
   const [sortField, setSortField] = useState<'numero' | 'nombre' | 'estado' | 'regulador' | 'cumplimiento' | 'clasificacion'>('numero');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -276,7 +281,7 @@ export default function NormatividadPage() {
         topContent={<FiltroProcesoSupervisor />}
       >
         <Box sx={{ p: 3 }}>
-          <Alert severity="info" variant="outlined">No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para cargar el inventario de normatividad.</Alert>
+          <Alert severity="info" variant="outlined">No hay proceso seleccionado.</Alert>
         </Box>
       </AppPageLayout>
     );
@@ -301,22 +306,6 @@ export default function NormatividadPage() {
       topContent={<FiltroProcesoSupervisor />}
       action={
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isReadOnly && (
-            <Chip
-              icon={<VisibilityIcon />}
-              label="Modo Visualización"
-              color="info"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {modoProceso === 'editar' && (
-            <Chip
-              icon={<EditIcon />}
-              label="Modo Edición"
-              color="warning"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
           {!isReadOnly && (
             <Button
               variant="contained"
@@ -338,13 +327,6 @@ export default function NormatividadPage() {
             </Button>
           )}
         </Box>
-      }
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Está en modo visualización. Solo puede ver la información.
-          </Alert>
-        )
       }
     >
       {/* Lista con encabezados, ordenación y paginación */}
@@ -648,28 +630,15 @@ export default function NormatividadPage() {
                 {selectedNormatividad ? 'Editar Normatividad' : 'Nueva Normatividad'}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                {!isReadOnly && (
-                  <Button
-                    variant="contained"
-                    type="submit"
-                    sx={{
-                      background: '#1976d2',
-                      color: '#fff',
-                      '&:hover': {
-                        background: '#1565c0',
-                      },
-                    }}
-                  >
-                    Guardar
-                  </Button>
-                )}
                 <IconButton
                   onClick={() => {
+                    if (isSaving) return;
                     setDialogOpen(false);
                     setCumplimientoSeleccionado('Total');
                   }}
                   size="small"
                   sx={{ ml: 1 }}
+                  disabled={isSaving}
                 >
                   <CloseIcon />
                 </IconButton>
@@ -730,13 +699,21 @@ export default function NormatividadPage() {
               <Box>
                 <TextField
                   fullWidth
+                  type={usarInputFechaPlazo ? 'date' : 'text'}
                   name="plazoImplementacion"
                   label="Plazo para Implementación"
                   defaultValue={selectedNormatividad?.plazoImplementacion || ''}
                   disabled={isReadOnly}
                   variant="outlined"
                   required={cumplimientoSeleccionado === 'Parcial'}
-                  helperText={cumplimientoSeleccionado === 'Parcial' ? 'Obligatorio para cumplimiento Parcial' : ''}
+                  slotProps={usarInputFechaPlazo ? { inputLabel: { shrink: true } } : undefined}
+                  helperText={
+                    cumplimientoSeleccionado === 'Parcial'
+                      ? 'Obligatorio para cumplimiento Parcial'
+                      : !usarInputFechaPlazo
+                        ? 'Valor heredado en texto. Puede mantenerlo o cambiarlo a fecha.'
+                        : ''
+                  }
                 />
               </Box>
               <Box>
@@ -825,6 +802,36 @@ export default function NormatividadPage() {
               </Box>
             </Box>
           </DialogContent>
+
+          {!isReadOnly && (
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button
+                onClick={() => {
+                  if (isSaving) return;
+                  setDialogOpen(false);
+                  setCumplimientoSeleccionado('Total');
+                }}
+                disabled={isSaving}
+              >
+                Cancelar
+              </Button>
+              <LoadingActionButton
+                variant="contained"
+                type="submit"
+                loading={isSaving}
+                loadingText="Guardando..."
+                sx={{
+                  background: '#1976d2',
+                  color: '#fff',
+                  '&:hover': {
+                    background: '#1565c0',
+                  },
+                }}
+              >
+                Guardar
+              </LoadingActionButton>
+            </DialogActions>
+          )}
         </form>
       </Dialog>
     </AppPageLayout>

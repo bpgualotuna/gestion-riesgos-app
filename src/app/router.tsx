@@ -64,6 +64,7 @@ const ConfiguracionPage = lazy(() => import('../pages/admin/ConfiguracionPage'))
 const ParametrosCalificacionPage = lazy(() => import('../pages/admin/ParametrosCalificacionPage'));
 const MapasConfigPage = lazy(() => import('../pages/admin/MapasConfigPage'));
 const CalificacionInherentePage = lazy(() => import('../pages/admin/CalificacionInherentePage'));
+/** Pantalla admin «Calificación residual»: `ConfiguracionResidualPage` (motor pesos/mitigación). */
 const CalificacionResidualPage = lazy(() => import('../pages/admin/ConfiguracionResidualPage'));
 const ResidualEstrategicoCwrPage = lazy(() => import('../admin/pages/ResidualEstrategicoCwrPage'));
 const AdminPanelPage = lazy(() => import('../pages/admin/AdminPanelPage'));

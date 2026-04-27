@@ -11,7 +11,6 @@ import {
     Card,
     CardContent,
     TextField,
-    Button,
     Typography,
     Alert,
     InputAdornment,
@@ -26,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../../utils/constants';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -190,12 +190,13 @@ export default function LoginPage() {
                             }}
                         />
 
-                        <Button
+                        <LoadingActionButton
                             type="submit"
                             fullWidth
                             variant="contained"
                             size="large"
-                            disabled={isLoading}
+                            loading={isLoading}
+                            loadingText="Iniciando sesión..."
                             sx={{
                                 mt: 3,
                                 mb: 2,
@@ -211,8 +212,8 @@ export default function LoginPage() {
                                 },
                             }}
                         >
-                            {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-                        </Button>
+                            Iniciar Sesión
+                        </LoadingActionButton>
                     </form>
 
 
