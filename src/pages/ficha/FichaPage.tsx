@@ -354,7 +354,7 @@ export default function FichaPage() {
   const [reunionEnEdicion, setReunionEnEdicion] = useState<Reunion | null>(null);
   const [reunionDetalle, setReunionDetalle] = useState<Reunion | null>(null);
   const [reunionDetalleFecha, setReunionDetalleFecha] = useState('');
-  const [asistenciaDetalle, setAsistenciaDetalle] = useState<Array<{ usuarioId: number; asistio: boolean; nombre: string; email: string }>>([]);
+  const [asistenciaDetalle, setAsistenciaDetalle] = useState<Array<{ usuarioId: number; asistio: boolean; nombre: string; email: string; tipo?: 'Interno' | 'Externo' }>>([]);
   const [savingReunion, setSavingReunion] = useState(false);
   const [reunionAsistenciaUsuarioIds, setReunionAsistenciaUsuarioIds] = useState<string[]>([]);
   const [reunionAsistentesTab, setReunionAsistentesTab] = useState<'internos' | 'externos'>('internos');
@@ -723,7 +723,7 @@ export default function FichaPage() {
         asistio: !!a?.asistio,
         nombre: getUserDisplayName(user || a?.usuario),
         email: getUserDisplayEmail(user || a?.usuario),
-        tipo: internosIds.has(Number(a?.usuarioId)) ? 'Interno' : 'Externo',
+        tipo: internosIds.has(Number(a?.usuarioId)) ? ('Interno' as const) : ('Externo' as const),
       };
     });
     setAsistenciaDetalle(detalle);
