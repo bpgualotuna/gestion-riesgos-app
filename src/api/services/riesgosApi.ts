@@ -5,6 +5,7 @@
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { API_BASE_URL, AUTH_TOKEN_KEY, CLASIFICACION_RIESGO } from '../../utils/constants';
+import { sanitizeTextTree } from '../../utils/utf8Repair';
 import type {
   Riesgo,
   CreateRiesgoDto,
@@ -41,6 +42,9 @@ const rawBaseQuery = fetchBaseQuery({
 
 const baseQuery = async (args: any, api: any, extraOptions: any) => {
   const result = await rawBaseQuery(args, api, extraOptions);
+  if (result.data !== undefined) {
+    result.data = sanitizeTextTree(result.data);
+  }
   if (result.error?.status === 401) {
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(AUTH_TOKEN_KEY);
     window.dispatchEvent(new CustomEvent('auth:session-expired'));

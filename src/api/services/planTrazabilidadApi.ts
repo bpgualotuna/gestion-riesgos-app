@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { AUTH_TOKEN_KEY } from '../../utils/constants';
+import { sanitizeTextTree } from '../../utils/utf8Repair';
 
 /**
  * API de Trazabilidad de Planes de Acción
@@ -152,21 +153,29 @@ export interface PlanesAccionResponse {
   };
 }
 
+const rawBaseQuery = fetchBaseQuery({
+  baseUrl:
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.VITE_API_URL ||
+    'http://localhost:8080/api',
+  prepareHeaders: (headers) => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return headers;
+  },
+});
+
 export const planTrazabilidadApi = createApi({
   reducerPath: 'planTrazabilidadApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl:
-      import.meta.env.VITE_API_BASE_URL ||
-      import.meta.env.VITE_API_URL ||
-      'http://localhost:8080/api',
-    prepareHeaders: (headers) => {
-      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-      }
-      return headers;
-    },
-  }),
+  baseQuery: async (args, api, extraOptions) => {
+    const result = await rawBaseQuery(args, api, extraOptions);
+    if (result.data !== undefined) {
+      result.data = sanitizeTextTree(result.data);
+    }
+    return result;
+  },
   tagTypes: ['Alertas', 'Trazabilidad', 'Cron'],
   endpoints: (builder) => ({
     // Obtener todos los planes de acción

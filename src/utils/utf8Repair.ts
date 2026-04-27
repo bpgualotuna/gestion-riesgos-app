@@ -338,3 +338,20 @@ export function repairSpanishDisplayArtifacts(input: string | null | undefined):
   s = applyArtifactFixes(s);
   return s;
 }
+
+export function sanitizeTextTree<T>(value: T): T {
+  if (typeof value === 'string') {
+    return repairSpanishDisplayArtifacts(value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeTextTree(item)) as T;
+  }
+  if (value && typeof value === 'object') {
+    const normalized: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      normalized[k] = sanitizeTextTree(v);
+    }
+    return normalized as T;
+  }
+  return value;
+}

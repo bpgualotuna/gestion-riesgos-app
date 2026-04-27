@@ -77,7 +77,7 @@ export default function AdminModule({ user, onLogout }: AdminProps) {
           {/* Logo COMWARE */}
           <Box
             component="img"
-            src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+            src="/Comware.webp"
             alt="COMWARE"
             sx={{
               height: 40,

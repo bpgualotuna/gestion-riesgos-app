@@ -926,7 +926,7 @@ export default function MainLayout() {
                 >
                   <Box
                     component="img"
-                    src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+                    src="/Comware.webp"
                     alt="COMWARE Logo"
                     sx={{
                       height: 32,
@@ -1109,7 +1109,7 @@ export default function MainLayout() {
               >
                 <Box
                   component="img"
-                  src="https://comware.com.ec/wp-content/uploads/2022/08/Comware-FC-F-blanco.webp"
+                  src="/Comware.webp"
                   alt="COMWARE Logo"
                   sx={{
                     height: 45,
