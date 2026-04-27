@@ -96,16 +96,21 @@ const MapaResumenCeldasDialog = memo(({
             {puntos.map((punto) => {
               const riesgo = riesgosCompletos.find((r) => String(r.id) === String(punto.riesgoId));
               const isExpanded = !!riesgosExpandidos[String(punto.riesgoId)];
+              const puntoExtendido = punto as PuntoMapa & {
+                descripcionRiesgo?: string;
+                updatedAt?: string;
+                riesgoInherente?: number;
+              };
               
-              const descripcion = punto.descripcionRiesgo || riesgo?.descripcionRiesgo || riesgo?.descripcion || 'Sin descripción';
+              const descripcion = puntoExtendido.descripcionRiesgo || riesgo?.descripcionRiesgo || riesgo?.descripcion || 'Sin descripción';
               const zona = punto.zona || riesgo?.zona || '';
               const tipologia = punto.tipologiaNivelI || riesgo?.tipologiaNivelI || '';
-              const fecha = punto.updatedAt || riesgo?.updatedAt || new Date().toISOString();
+              const fecha = puntoExtendido.updatedAt || riesgo?.updatedAt || new Date().toISOString();
               const fechaFormateada = new Date(fecha).toLocaleDateString('es-ES');
 
               const probabilidadInherente = punto.probabilidad;
               const impactoInherente = punto.impacto;
-              const riesgoInherente = punto.riesgoInherente || (probabilidadInherente * impactoInherente === 4 ? 3.99 : probabilidadInherente * impactoInherente);
+              const riesgoInherente = puntoExtendido.riesgoInherente || (probabilidadInherente * impactoInherente === 4 ? 3.99 : probabilidadInherente * impactoInherente);
               const nivelRiesgoInherente = punto.nivelRiesgo || calcularNivelRiesgo(probabilidadInherente, impactoInherente);
 
               const probabilidadResidual = punto.probabilidadResidual;

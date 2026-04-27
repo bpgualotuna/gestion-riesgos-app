@@ -23,9 +23,18 @@ const ResidualHeatMap = ({ riesgos, configuracion, onCellClick }: ResidualHeatMa
         if (!matriz[key]) matriz[key] = [];
         matriz[key].push({
           riesgoId: riesgo.id,
+          descripcion: riesgo.descripcionRiesgo || riesgo.descripcion || 'Sin descripción',
           numeroIdentificacion: riesgo.numeroIdentificacion || riesgo.id,
           probabilidad: prob,
-          impacto: imp
+          impacto: imp,
+          nivelRiesgo: ev.nivelRiesgoResidual || ev.nivelRiesgo || 'Sin calificar',
+          clasificacion: riesgo.clasificacion || '',
+          numero: Number(riesgo.numero || 0),
+          siglaGerencia: riesgo.siglaGerencia || '',
+          probabilidadResidual: prob,
+          impactoResidual: imp,
+          riesgoResidual: Number(ev.riesgoResidual || 0),
+          nivelRiesgoResidual: ev.nivelRiesgoResidual || null,
         });
       }
       

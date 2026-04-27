@@ -9,7 +9,6 @@ import {
   IconButton,
   Button,
   Chip,
-  Grid,
   Avatar,
   Paper,
   Stack,
@@ -20,6 +19,7 @@ import {
   MenuItem,
   Divider,
 } from '@mui/material';
+import Grid2 from '../../../utils/Grid2';
 import {
   Close as CloseIcon,
   Visibility as VisibilityIcon,
@@ -210,15 +210,15 @@ export const GestionFormDialog = ({
 
       <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ p: 3, bgcolor: '#fff', borderBottom: '1px solid #eee' }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+          <Grid2 container spacing={3}>
+            <Grid2 xs={12} md={6}>
               <Typography variant="overline" color="primary" fontWeight={700}>Información del Riesgo</Typography>
               <Box sx={{ mt: 1, p: 2, borderRadius: 1, border: '1px solid #f0f0f0', bgcolor: '#fafafa' }}>
                 <Typography variant="subtitle2" fontWeight={700}>{causaEnEdicion?.riesgoId}</Typography>
                 <Typography variant="body2" color="text.secondary">{repairSpanishDisplayArtifacts(getRiesgoNombre(causaEnEdicion?.riesgoId || ''))}</Typography>
               </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Grid2>
+            <Grid2 xs={12} md={6}>
               <Typography variant="overline" color="secondary" fontWeight={700}>Causa Raíz</Typography>
               <Box sx={{ mt: 1, p: 2, borderRadius: 1, border: '1px solid #f0f0f0', bgcolor: '#fafafa' }}>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>{causaEnEdicion?.causa?.descripcion || 'Sin descripción'}</Typography>
@@ -227,20 +227,20 @@ export const GestionFormDialog = ({
                   <Box><Typography variant="caption" color="text.secondary">Impacto</Typography><Typography variant="subtitle2">{(causaEnEdicion?.causa?.calificacionGlobalImpacto || 0).toFixed(2)}</Typography></Box>
                 </Box>
               </Box>
-            </Grid>
-          </Grid>
+            </Grid2>
+          </Grid2>
         </Box>
 
         <Box sx={{ flex: 1, overflowY: 'auto', p: 3, bgcolor: '#fcfcfc' }}>
-          <Grid container spacing={4}>
+          <Grid2 container spacing={4}>
             {showControl && (
-              <Grid item xs={12} lg={tipoClasificacion === 'AMBOS' ? 6 : 12}>
+              <Grid2 xs={12} lg={tipoClasificacion === 'AMBOS' ? 6 : 12}>
                 <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}><ShieldIcon color="primary" /><Typography variant="h6" fontWeight={700}>Evaluación del Control</Typography></Box>
                   <Stack spacing={3}>
                     <TextField label="Descripción del Control" multiline rows={3} fullWidth value={criteriosEvaluacion.descripcionControl} onChange={(e) => setCriteriosEvaluacion({ ...criteriosEvaluacion, descripcionControl: e.target.value })} disabled={isView} />
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
+                    <Grid2 container spacing={2}>
+                      <Grid2 xs={12} sm={6}>
                         <FormControl fullWidth disabled={isView}>
                           <InputLabel>Naturaleza</InputLabel>
                           <Select value={criteriosEvaluacion.naturaleza} label="Naturaleza" onChange={(e) => setCriteriosEvaluacion({ ...criteriosEvaluacion, naturaleza: e.target.value })}>
@@ -249,26 +249,26 @@ export const GestionFormDialog = ({
                             <MenuItem value="automatico">Automático</MenuItem>
                           </Select>
                         </FormControl>
-                      </Grid>
-                      <Grid item xs={12} sm={6}><TextField label="Responsable del Control" fullWidth value={criteriosEvaluacion.responsable} onChange={(e) => setCriteriosEvaluacion({ ...criteriosEvaluacion, responsable: e.target.value })} disabled={isView} /></Grid>
-                    </Grid>
-                    <Grid container spacing={2}>
+                      </Grid2>
+                      <Grid2 xs={12} sm={6}><TextField label="Responsable del Control" fullWidth value={criteriosEvaluacion.responsable} onChange={(e) => setCriteriosEvaluacion({ ...criteriosEvaluacion, responsable: e.target.value })} disabled={isView} /></Grid2>
+                    </Grid2>
+                    <Grid2 container spacing={2}>
                       {[
                         { label: 'Aplicabilidad', key: 'aplicabilidad', options: [{ label: 'Totalmente (100%)', val: 'totalmente' }, { label: 'Parcial (30%)', val: 'parcial' }, { label: 'Nula (0%)', val: 'nula' }] },
                         { label: 'Cobertura', key: 'cobertura', options: [{ label: 'Total (100%)', val: 'total' }, { label: 'Parcial (70%)', val: 'parcial' }, { label: 'Eventual (30%)', val: 'eventual' }] },
                         { label: 'Facilidad de Uso', key: 'facilidadUso', options: [{ label: 'Coherente (100%)', val: 'coherente' }, { label: 'Sencillo (70%)', val: 'sencillo' }, { label: 'Complejo (30%)', val: 'complejo' }] },
                         { label: 'Segregación', key: 'segregacion', options: [{ label: 'Sí (100%)', val: 'si' }, { label: 'No (0%)', val: 'no' }, { label: 'N/A (100%)', val: 'na' }] }
                       ].map((attr) => (
-                        <Grid item xs={12} sm={6} key={attr.key}>
+                        <Grid2 xs={12} sm={6} key={attr.key}>
                           <FormControl fullWidth disabled={isView} size="small">
                             <InputLabel>{attr.label}</InputLabel>
                             <Select value={(criteriosEvaluacion as any)[attr.key]} label={attr.label} onChange={(e) => setCriteriosEvaluacion({ ...criteriosEvaluacion, [attr.key]: e.target.value })}>
                               {attr.options.map(opt => <MenuItem key={opt.val} value={opt.val}>{opt.label}</MenuItem>)}
                             </Select>
                           </FormControl>
-                        </Grid>
+                        </Grid2>
                       ))}
-                    </Grid>
+                    </Grid2>
                     <FormControl fullWidth disabled={isView}>
                       <InputLabel>Desviaciones</InputLabel>
                       <Select value={criteriosEvaluacion.desviaciones} label="Desviaciones" onChange={(e) => setCriteriosEvaluacion({ ...criteriosEvaluacion, desviaciones: e.target.value })}>
@@ -292,20 +292,20 @@ export const GestionFormDialog = ({
                     </Box>
                   </Stack>
                 </Paper>
-              </Grid>
+              </Grid2>
             )}
 
             {showPlan && (
-              <Grid item xs={12} lg={tipoClasificacion === 'AMBOS' ? 6 : 12}>
+              <Grid2 xs={12} lg={tipoClasificacion === 'AMBOS' ? 6 : 12}>
                 <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}><AssignmentIcon color="secondary" /><Typography variant="h6" fontWeight={700}>Configuración del Plan de Acción</Typography></Box>
                   <Stack spacing={3}>
                     <TextField label="Descripción del Plan" multiline rows={3} fullWidth value={formPlan.descripcion} onChange={(e) => setFormPlan({ ...formPlan, descripcion: e.target.value })} disabled={isView} />
                     <TextField label="Detalle Adicional" multiline rows={2} fullWidth value={formPlan.detalle} onChange={(e) => setFormPlan({ ...formPlan, detalle: e.target.value })} disabled={isView} />
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}><TextField label="Responsable" fullWidth value={formPlan.responsable} onChange={(e) => setFormPlan({ ...formPlan, responsable: e.target.value })} disabled={isView} /></Grid>
-                      <Grid item xs={12} sm={6}><TextField label="Fecha Estimada" type="date" fullWidth InputLabelProps={{ shrink: true }} value={formPlan.fechaEstimada} onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} disabled={isView} /></Grid>
-                    </Grid>
+                    <Grid2 container spacing={2}>
+                      <Grid2 xs={12} sm={6}><TextField label="Responsable" fullWidth value={formPlan.responsable} onChange={(e) => setFormPlan({ ...formPlan, responsable: e.target.value })} disabled={isView} /></Grid2>
+                      <Grid2 xs={12} sm={6}><TextField label="Fecha Estimada" type="date" fullWidth InputLabelProps={{ shrink: true }} value={formPlan.fechaEstimada} onChange={(e) => setFormPlan({ ...formPlan, fechaEstimada: e.target.value })} disabled={isView} /></Grid2>
+                    </Grid2>
                     <Box sx={{ p: 2, bgcolor: '#fff8e1', borderRadius: 1, border: '1px solid #ffe082', display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                       <InfoIcon sx={{ color: '#f57c00', mt: 0.2 }} />
                       <Box>
@@ -315,9 +315,9 @@ export const GestionFormDialog = ({
                     </Box>
                   </Stack>
                 </Paper>
-              </Grid>
+              </Grid2>
             )}
-          </Grid>
+          </Grid2>
         </Box>
       </DialogContent>
 
