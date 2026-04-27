@@ -105,6 +105,12 @@ import {
   type MenuItemType,
 } from './menuConfig';
 
+/** Nombre y sigla entre paréntesis para el selector de proceso (lista, valor y búsqueda). */
+function etiquetaProcesoConSigla(option: { nombre: string; sigla?: string | null }): string {
+  const s = option.sigla != null && String(option.sigla).trim() !== '' ? String(option.sigla).trim() : '';
+  return s ? `${option.nombre} (${s})` : option.nombre;
+}
+
 export default function MainLayout() {
   // Inicializar cache de configuración de calificación inherente
   useCalificacionInherenteConfig();
@@ -132,12 +138,12 @@ export default function MainLayout() {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
 
-  // Cerrar submenús cuando se hace clic fuera
+  // Cerrar submenús cuando la interacción ocurre fuera del sidebar
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sidebarCollapsed) {
         const target = event.target as HTMLElement;
-        // Si el clic no es dentro del sidebar o del panel flotante, cerrar todos los submenús
+        // Si el objetivo no está dentro del sidebar o del panel flotante, cerrar todos los submenús
         if (!target.closest('.MuiDrawer-root') && !target.closest('[data-submenu]')) {
           setOpenMenus({});
         }
@@ -406,7 +412,7 @@ export default function MainLayout() {
                     color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text),
                     justifyContent: 'center',
                     fontSize: sidebarCollapsed && !isMobile ? '1.2rem' : '1.25rem',
-                    pointerEvents: 'none', // CRÍTICO: Permitir que clicks pasen al botón padre
+                    pointerEvents: 'none', // CRÍTICO: Permitir que la interacción llegue al botón padre
                   }}
                 >
                   {item.icon}
@@ -420,7 +426,7 @@ export default function MainLayout() {
                         fontWeight: isSelected ? 600 : 500,
                         color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : (isSelected ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)'),
                       }}
-                      sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que clicks pasen al botón padre
+                      sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que la interacción llegue al botón padre
                     />
                     <Box sx={{ ml: 1, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                       {isOpen ? <ExpandLess sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text) }} /> : <ExpandMore sx={{ fontSize: '1.2rem', color: isDisabledParent ? 'rgba(0, 0, 0, 0.2)' : getIconColor(item.text) }} />}
@@ -520,7 +526,7 @@ export default function MainLayout() {
                                 }}
                                 sx={() => ({
                                   color: isChildDisabled ? 'rgba(0, 0, 0, 0.2)' : (isChildActive ? subColor : 'rgba(0, 0, 0, 0.87)'),
-                                  pointerEvents: 'none', // CRÍTICO: Permitir que clicks pasen al botón padre
+                                  pointerEvents: 'none', // CRÍTICO: Permitir que la interacción llegue al botón padre
                                 })}
                               />
                             )}
@@ -593,7 +599,7 @@ export default function MainLayout() {
                   fontWeight: isActive ? 600 : 400,
                   color: isDisabled ? 'text.disabled' : (isActive ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)'),
                 }}
-                sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que clicks pasen al botón padre
+                sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que la interacción llegue al botón padre
               />
             )}
           </ListItemButton>
@@ -762,7 +768,7 @@ export default function MainLayout() {
                             fontWeight: isActive ? 600 : 400,
                             color: isActive ? getIconColor(item.text) : 'rgba(0, 0, 0, 0.87)',
                           }}
-                          sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que clicks pasen al botón padre
+                          sx={{ pointerEvents: 'none' }} // CRÍTICO: Permitir que la interacción llegue al botón padre
                         />
                       )}
                     </ListItemButton>
@@ -984,7 +990,7 @@ export default function MainLayout() {
                           setProcesoSeleccionado(newValue);
                           if (newValue.estado === 'aprobado') setModoProceso('visualizar');
                           else setModoProceso('editar');
-                          showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+                          showSuccess(`Proceso "${etiquetaProcesoConSigla(newValue)}" seleccionado`);
                         } else {
                           setProcesoSeleccionado(null);
                           setModoProceso(null);
@@ -992,7 +998,7 @@ export default function MainLayout() {
                       }}
                       options={procesosDisponibles}
                       getOptionDisabled={(option) => !option.activo}
-                      getOptionLabel={(option) => option.nombre}
+                      getOptionLabel={(option) => etiquetaProcesoConSigla(option)}
                       ListboxProps={{ style: { maxHeight: 'min(70vh, 400px)' }, sx: { py: 0 } }}
                       slotProps={{
                         paper: { sx: { maxHeight: 'min(70vh, 400px)', minWidth: 280, mt: 0.5 } },
@@ -1019,7 +1025,7 @@ export default function MainLayout() {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
                             <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
                             <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
+                              <Typography variant="body2" fontWeight={600}>{etiquetaProcesoConSigla(option)}</Typography>
                               <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
                             </Box>
                             <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
@@ -1127,7 +1133,7 @@ export default function MainLayout() {
                         setProcesoSeleccionado(newValue);
                         if (newValue.estado === 'aprobado') setModoProceso('visualizar');
                         else setModoProceso('editar');
-                        showSuccess(`Proceso "${newValue.nombre}" seleccionado`);
+                        showSuccess(`Proceso "${etiquetaProcesoConSigla(newValue)}" seleccionado`);
                       } else {
                         setProcesoSeleccionado(null);
                         setModoProceso(null);
@@ -1135,7 +1141,7 @@ export default function MainLayout() {
                     }}
                     options={procesosDisponibles}
                     getOptionDisabled={(option) => !option.activo}
-                    getOptionLabel={(option) => option.nombre}
+                    getOptionLabel={(option) => etiquetaProcesoConSigla(option)}
                     ListboxProps={{ style: { maxHeight: 'min(70vh, 400px)' }, sx: { py: 0 } }}
                     slotProps={{
                       paper: { sx: { maxHeight: 'min(70vh, 400px)', minWidth: 280, mt: 0.5 } },
@@ -1169,7 +1175,7 @@ export default function MainLayout() {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
                           <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
                           <Box sx={{ flex: 1 }}>
-                            <Typography variant="body2" fontWeight={600}>{option.nombre}</Typography>
+                            <Typography variant="body2" fontWeight={600}>{etiquetaProcesoConSigla(option)}</Typography>
                             <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
                           </Box>
                           <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
@@ -1537,14 +1543,6 @@ export default function MainLayout() {
                 </Alert>
               ) : (
                 <>
-                  {/* Mostrar alerta solo cuando SÍ hay asignaciones y aún no ha elegido proceso */}
-                  {(esDueñoProcesos || esSupervisorRiesgos) && tieneAsignaciones && !procesoSeleccionado?.id &&
-                   location.pathname !== ROUTES.DASHBOARD_SUPERVISOR &&
-                   location.pathname !== ROUTES.MAPA && (
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      Seleccione un proceso para habilitar el resto del menú.
-                    </Alert>
-                  )}
                   <Outlet />
                 </>
               )}

@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Alert,
   Chip,
   TextField,
   InputAdornment,
@@ -25,7 +24,7 @@ import { NIVELES_RIESGO } from '../../utils/constants';
 import { useState } from 'react';
 
 export default function ResumenRiesgosPage() {
-  const { esAdmin, esAuditoria, esDueñoProcesos, esGerenteGeneralProceso } = useAuth();
+  const { esAdmin, esAuditoria } = useAuth();
   const { procesoSeleccionado } = useProceso();
   const [busqueda, setBusqueda] = useState('');
 
@@ -207,13 +206,6 @@ export default function ResumenRiesgosPage() {
           </Box>
         </CardContent>
       </Card>
-
-      {/* Información */}
-      {!puedeVerTodosLosRiesgos && !procesoSeleccionado && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Seleccione un proceso desde el Dashboard para ver sus riesgos
-        </Alert>
-      )}
 
       {/* Tabla de Resumen */}
       <Card>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
     Card,
     CardContent,
@@ -47,6 +47,12 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
         if (!filtroArea || filtroArea === 'all') return procesos;
         return procesos.filter(p => p.areaNombre === filtroArea);
     }, [procesos, filtroArea]);
+
+    const etiquetaProcesoConSigla = (p: { nombre?: string; sigla?: string | null }) => {
+        const nombre = p.nombre || '';
+        const s = p.sigla != null && String(p.sigla).trim() !== '' ? String(p.sigla).trim() : '';
+        return s ? `${nombre} (${s})` : nombre;
+    };
 
     const handleClearFilters = () => {
         if (onFiltroAreaChange) onFiltroAreaChange('all');
@@ -119,7 +125,7 @@ const DashboardFiltros: React.FC<DashboardFiltrosProps> = ({
                                 </MenuItem>
                                 {procesosFiltradosPorArea.map((proceso) => (
                                     <MenuItem key={proceso.id} value={proceso.id}>
-                                        {proceso.nombre}
+                                        {etiquetaProcesoConSigla(proceso)}
                                     </MenuItem>
                                 ))}
                             </Select>

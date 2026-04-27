@@ -192,7 +192,7 @@ export default function PhotoUpdateFlowContent({ onCancel, onSelect }: PhotoUpda
             </Typography>
           )}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, textAlign: 'center' }}>
-            Arrastra una imagen aquí o haz clic para seleccionar. Luego podrás elegir la zona con el círculo.
+            Arrastre una imagen aquí o seleccione un archivo. Luego podrá elegir la zona con el círculo.
           </Typography>
           <Box
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setUploadZoneDragOver(true); }}
@@ -213,7 +213,7 @@ export default function PhotoUpdateFlowContent({ onCancel, onSelect }: PhotoUpda
           >
             <PhotoCamera sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
             <Typography variant="body2" color="text.secondary">
-              Arrastra la imagen o haz clic para subir
+              Arrastre la imagen o seleccione un archivo para subir
             </Typography>
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
               JPEG, PNG, GIF o WebP. Máx. {MAX_FILE_SIZE_MB} MB

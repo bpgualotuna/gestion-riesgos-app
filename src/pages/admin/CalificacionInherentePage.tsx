@@ -43,6 +43,7 @@ import {
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import { useNotification } from '../../hooks/useNotification';
 import { invalidarCache, getConfigActiva } from '../../services/calificacionInherenteService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -638,14 +639,16 @@ export default function CalificacionInherentePage() {
           <Button variant="outlined" onClick={() => refetch()}>
             Cancelar
           </Button>
-          <Button
+          <LoadingActionButton
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
-            disabled={!canEdit || isUpdating}
+            disabled={!canEdit}
+            loading={isUpdating}
+            loadingText="Guardando..."
           >
-            {isUpdating ? 'Guardando...' : 'Guardar Configuración'}
-          </Button>
+            Guardar Configuración
+          </LoadingActionButton>
         </Box>
 
         {/* Dialog para Excepciones */}

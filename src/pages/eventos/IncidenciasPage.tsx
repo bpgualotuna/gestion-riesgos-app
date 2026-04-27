@@ -50,6 +50,7 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useGetRiesgosQuery, useGetIncidenciasQuery, useCreateIncidenciaMutation, useUpdateIncidenciaMutation, useDeleteIncidenciaMutation, useCreatePlanAccionMutation } from '../../api/services/riesgosApi';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import { todayISO } from '../../utils/formatters';
 
 // Tipo de incidencia
 interface Incidencia {
@@ -134,8 +135,8 @@ export default function IncidenciasPage() {
     tipo: 'incidente',
     severidad: 'media',
     estado: 'abierta',
-    fechaOcurrencia: new Date().toISOString().split('T')[0],
-    fechaReporte: new Date().toISOString().split('T')[0],
+    fechaOcurrencia: todayISO(),
+    fechaReporte: todayISO(),
   });
 
   const [planData, setPlanData] = useState({
@@ -222,8 +223,8 @@ export default function IncidenciasPage() {
         tipo: 'incidente',
         severidad: 'media',
         estado: 'abierta',
-        fechaOcurrencia: new Date().toISOString().split('T')[0],
-        fechaReporte: new Date().toISOString().split('T')[0],
+        fechaOcurrencia: todayISO(),
+        fechaReporte: todayISO(),
         procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
       });
       setPlanData({
@@ -245,8 +246,8 @@ export default function IncidenciasPage() {
       tipo: 'incidente',
       severidad: 'media',
       estado: 'abierta',
-      fechaOcurrencia: new Date().toISOString().split('T')[0],
-      fechaReporte: new Date().toISOString().split('T')[0],
+      fechaOcurrencia: todayISO(),
+      fechaReporte: todayISO(),
       procesoId: procesoSeleccionado?.id ? String(procesoSeleccionado.id) : undefined,
     });
     setPlanData({
@@ -290,7 +291,7 @@ export default function IncidenciasPage() {
           descripcion: formData.descripcion,
           estado: formData.estado,
           fechaOcurrencia: formData.fechaOcurrencia,
-          fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+          fechaReporte: formData.fechaReporte || todayISO(),
           reportadoPor: 'Usuario Actual',
         }).unwrap();
 
@@ -486,7 +487,7 @@ export default function IncidenciasPage() {
 
       {!isLoadingProceso && !puedeElegirSinProceso && !procesoSeleccionado?.id && (
         <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
-          No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para registrar eventos.
+          No hay proceso seleccionado.
         </Alert>
       )}
 

@@ -266,12 +266,10 @@ export default function MapaResidualPage() {
         <PageLoadingSkeleton variant="table" tableRows={6} />
       ) : !procesoSeleccionado ? (
         <Alert severity="info" variant="outlined">
-          No hay un proceso seleccionado. Por favor seleccione un proceso de la lista en la parte superior para visualizar el mapa residual.
+          No hay proceso seleccionado.
         </Alert>
       ) : riesgosResidiales.length === 0 ? (
-        <Alert severity="info">
-          No hay riesgos con evaluación de controles. Completa primero la calificación RESIDUAL en Identificación y Calificación.
-        </Alert>
+        <Alert severity="info">No hay riesgos con evaluación residual para mostrar.</Alert>
       ) : (
         <>
           {/* Conteo por zonas */}

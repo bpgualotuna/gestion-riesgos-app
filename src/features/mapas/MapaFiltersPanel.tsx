@@ -13,12 +13,20 @@ import {
 } from '@mui/material';
 import { CLASIFICACION_RIESGO } from '../../utils/constants';
 import { colors } from '../../app/theme/colors';
+import { MAPA_POSITIVO_COLORES } from '../../utils/mapaPositivoPalette';
 
 interface ProcesoBasico {
   id: string | number;
   nombre: string;
+  /** Sigla del proceso (ej. mapa de calor / códigos de riesgo). */
+  sigla?: string | null;
   areaId?: string | number | null;
   areaNombre?: string | null;
+}
+
+function etiquetaProcesoConSigla(p: ProcesoBasico): string {
+  const s = p.sigla != null && String(p.sigla).trim() !== '' ? String(p.sigla).trim() : '';
+  return s ? `${p.nombre} (${s})` : p.nombre;
 }
 
 interface AreaBasica {
@@ -27,6 +35,9 @@ interface AreaBasica {
 }
 
 interface Props {
+  /** 0 = consecuencias negativas, 1 = positivas */
+  vistaMapaTab: number;
+  setVistaMapaTab: (value: number) => void;
   clasificacion: string;
   setClasificacion: (value: string) => void;
   filtroArea: string;
@@ -42,6 +53,8 @@ interface Props {
 }
 
 const MapaFiltersPanel: React.FC<Props> = ({
+  vistaMapaTab,
+  setVistaMapaTab,
   clasificacion,
   setClasificacion,
   filtroArea,
@@ -73,10 +86,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
       String(p.areaId) === String(filtroArea),
   );
 
-  const tabTipoMapa =
-    clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 1 : 0;
-
-  const esPositivo = clasificacion === CLASIFICACION_RIESGO.POSITIVA;
+  const esPositivo = vistaMapaTab === 1;
 
   return (
     <>
@@ -116,12 +126,19 @@ const MapaFiltersPanel: React.FC<Props> = ({
                     })}
                   </Select>
                 </FormControl>
-                <FormControl sx={{ minWidth: 220 }}>
+                <FormControl sx={{ minWidth: 280, maxWidth: '100%' }}>
                   <InputLabel>Proceso</InputLabel>
                   <Select
                     value={filtroProceso || 'all'}
                     onChange={(e) => setFiltroProceso(String(e.target.value))}
                     label="Proceso"
+                    renderValue={(value) => {
+                      if (value === 'all' || value == null || value === '') {
+                        return 'Todos los procesos';
+                      }
+                      const p = procesosFiltradosPorArea.find((x) => String(x.id) === String(value));
+                      return p ? etiquetaProcesoConSigla(p) : String(value);
+                    }}
                   >
                     <MenuItem value="all">Todos los procesos</MenuItem>
                     {procesosFiltradosPorArea.map((proceso) => (
@@ -129,7 +146,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
                         key={String(proceso.id)}
                         value={String(proceso.id)}
                       >
-                        {proceso.nombre}
+                        {etiquetaProcesoConSigla(proceso)}
                       </MenuItem>
                     ))}
                   </Select>
@@ -149,14 +166,18 @@ const MapaFiltersPanel: React.FC<Props> = ({
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ pt: 2, pb: 2 }}>
           <Tabs
-            value={tabTipoMapa}
+            value={vistaMapaTab}
             onChange={(_, v) => {
-              setClasificacion(
-                v === 1
-                  ? CLASIFICACION_RIESGO.POSITIVA
-                  : CLASIFICACION_RIESGO.NEGATIVA,
-              );
+              const n = Number(v);
+              setVistaMapaTab(n);
+              if (n === 0) {
+                setClasificacion(CLASIFICACION_RIESGO.NEGATIVA);
+              } else if (n === 1) {
+                setClasificacion(CLASIFICACION_RIESGO.POSITIVA);
+              }
             }}
+            variant="scrollable"
+            scrollButtons="auto"
             sx={{
               borderBottom: 1,
               borderColor: 'divider',
@@ -167,15 +188,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
             <Tab label="Consecuencias Negativas" />
             <Tab label="Consecuencias Positivas" />
           </Tabs>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {esPositivo
-              ? 'Solo riesgos con consecuencia positiva. La evaluación inherente usa la lógica de oportunidades (no la misma que el Excel de amenazas).'
-              : 'Riesgos que ya traían del Excel, migración o marcados como negativos: todo excepto oportunidades explícitas. Misma lógica de mapa y causas que antes.'}
-          </Typography>
 
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Leyenda de niveles (esta pestaña)
-          </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             {esPositivo ? (
               <>
@@ -184,7 +197,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
                     sx={{
                       width: 24,
                       height: 24,
-                      backgroundColor: '#1565c0',
+                      backgroundColor: MAPA_POSITIVO_COLORES.extremo,
                       borderRadius: 1,
                     }}
                   />
@@ -195,7 +208,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
                     sx={{
                       width: 24,
                       height: 24,
-                      backgroundColor: '#42a5f5',
+                      backgroundColor: MAPA_POSITIVO_COLORES.alto,
                       borderRadius: 1,
                     }}
                   />
@@ -206,7 +219,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
                     sx={{
                       width: 24,
                       height: 24,
-                      backgroundColor: '#757575',
+                      backgroundColor: MAPA_POSITIVO_COLORES.medio,
                       borderRadius: 1,
                     }}
                   />
@@ -217,7 +230,7 @@ const MapaFiltersPanel: React.FC<Props> = ({
                     sx={{
                       width: 24,
                       height: 24,
-                      backgroundColor: '#bdbdbd',
+                      backgroundColor: MAPA_POSITIVO_COLORES.bajo,
                       borderRadius: 1,
                     }}
                   />

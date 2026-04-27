@@ -17,7 +17,6 @@ import {
   IconButton,
   InputAdornment,
   Alert,
-  CircularProgress,
   Tabs,
   Tab,
   Divider,
@@ -42,6 +41,7 @@ import { AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useNotification } from '../../hooks/useNotification';
 import PhotoUpdateFlowContent from './PhotoUpdateFlowContent';
 import TwoFactorSetup from '../auth/TwoFactorSetup';
+import LoadingActionButton from '../ui/LoadingActionButton';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -382,9 +382,9 @@ export default function PerfilDialog({ open, onClose, user, onSaved }: PerfilDia
             </DialogContent>
             <DialogActions sx={{ px: 2, py: 1.5 }}>
               <Button type="button" onClick={onClose}>Cancelar</Button>
-              <Button type="submit" variant="contained" disabled={saving}>
-                {saving ? <CircularProgress size={22} /> : 'Guardar'}
-              </Button>
+              <LoadingActionButton type="submit" variant="contained" loading={saving} loadingText="Guardando...">
+                Guardar
+              </LoadingActionButton>
             </DialogActions>
           </form>
         </>

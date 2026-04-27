@@ -33,6 +33,7 @@ import { Visibility as VisibilityIcon, Edit as EditIcon } from '@mui/icons-mater
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';
 import { useEffect } from 'react';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 
 export default function PriorizaciónPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
@@ -199,28 +200,7 @@ export default function PriorizaciónPage() {
             Asigna respuestas y responsables a los riesgos evaluados
           </Typography>
         </Box>
-        {isReadOnly && (
-          <Chip
-            icon={<VisibilityIcon />}
-            label="Modo Visualización"
-            color="info"
-            sx={{ fontWeight: 600 }}
-          />
-        )}
-        {modoProceso === 'editar' && (
-          <Chip
-            icon={<EditIcon />}
-            label="Modo Edición"
-            color="warning"
-            sx={{ fontWeight: 600 }}
-          />
-        )}
       </Box>
-      {isReadOnly && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Está en modo visualización. Solo puede ver la información.
-        </Alert>
-      )}
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
@@ -330,11 +310,16 @@ export default function PriorizaciónPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cerrar</Button>
+          <Button onClick={() => setDialogOpen(false)} disabled={isSaving}>Cerrar</Button>
           {!isReadOnly && (
-            <Button variant="contained" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Guardando...' : 'Guardar'}
-            </Button>
+            <LoadingActionButton
+              variant="contained"
+              onClick={handleSave}
+              loading={isSaving}
+              loadingText="Guardando..."
+            >
+              Guardar
+            </LoadingActionButton>
           )}
         </DialogActions>
       </Dialog>

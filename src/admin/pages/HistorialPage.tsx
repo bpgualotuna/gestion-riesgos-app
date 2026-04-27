@@ -576,7 +576,7 @@ export default function HistorialPage({ user }: HistorialPageProps) {
         </AccordionDetails>
       </Accordion>
 
-      {/* Tabla: clic en fila o en "Ver" abre el detalle */}
+      {/* Tabla: seleccionar fila o «Ver» abre el detalle */}
       <Paper elevation={2}>
         <AppDataGrid
           rows={logs}

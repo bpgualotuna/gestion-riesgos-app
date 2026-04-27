@@ -9,6 +9,12 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Pagination,
+  Typography,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { PlanAccionCard } from '../../components/plan-accion/PlanAccionCard';
@@ -53,6 +59,9 @@ function TabPanel(props: TabPanelProps) {
 export const PlanesAccionPage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const [pageSize, setPageSize] = useState(10);
+  const [pageByTab, setPageByTab] = useState<Record<number, number>>({ 0: 1, 1: 1, 2: 1, 3: 1 });
   const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
   const [planToConvert, setPlanToConvert] = useState<PlanAccionAPI | null>(null);
   const [selectedPlanForTimeline, setSelectedPlanForTimeline] = useState<number | null>(null);
@@ -91,6 +100,7 @@ export const PlanesAccionPage = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    setPageByTab((p) => ({ ...p, [newValue]: 1 }));
   };
 
   const handleEstadoChange = async (planId: number, nuevoEstado: EstadoPlan) => {
@@ -201,35 +211,92 @@ export const PlanesAccionPage = () => {
       );
     }
 
-    return planesAMostrar.map((plan) => (
-      <Box key={plan.id}>
-        <PlanAccionCard
-          plan={{
-            ...plan,
-            nombre: plan.descripcion,
-            fechaProgramada: plan.fechaProgramada || undefined,
-            fechaEjecucion: plan.fechaFin || undefined,
-          } as any}
-          onEstadoChange={handleEstadoChange}
-          onConvertirAControl={handleConvertirAControl}
-          onVerDetalle={handleVerDetalle}
-          showConversionButton={false}
-          disableEstadoChange={esDuenoProcesos}
-        />
-        {selectedPlanForTimeline === plan.id && (
-          <Paper sx={{ p: 3, mb: 2 }}>
-            <Box component="h6" sx={{ fontSize: '1.25rem', fontWeight: 500, mb: 2 }}>
-              Trazabilidad del Plan
-            </Box>
-            <TrazabilidadTimeline
-              planId={plan.id}
-              controlId={plan.controlDerivadoId || undefined}
-              eventos={[]} // TODO: Obtener eventos reales
+    const currentPage = pageByTab[tabValue] || 1;
+    const total = planesAMostrar.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const from = (currentPage - 1) * pageSize + 1;
+    const to = Math.min(currentPage * pageSize, total);
+    const planesPaginados = planesAMostrar.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    return (
+      <>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color="text.secondary">
+              Mostrando {from} - {to} de {total}
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Mostrar</InputLabel>
+              <Select
+                value={pageSize}
+                label="Mostrar"
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPageByTab((p) => ({ ...p, [tabValue]: 1 }));
+                }}
+              >
+                <MenuItem value={5}>5 por página</MenuItem>
+                <MenuItem value={10}>10 por página</MenuItem>
+                <MenuItem value={20}>20 por página</MenuItem>
+                <MenuItem value={50}>50 por página</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={(_, p) => setPageByTab((s) => ({ ...s, [tabValue]: p }))}
+            color="primary"
+            size="small"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+
+        {planesPaginados.map((plan) => (
+          <Box key={plan.id}>
+            <PlanAccionCard
+              plan={{
+                ...plan,
+                nombre: plan.descripcion,
+                fechaProgramada: plan.fechaProgramada || undefined,
+                fechaEjecucion: plan.fechaFin || undefined,
+              } as any}
+              onEstadoChange={handleEstadoChange}
+              onConvertirAControl={handleConvertirAControl}
+              onVerDetalle={handleVerDetalle}
+              showConversionButton={false}
+              disableEstadoChange={esDuenoProcesos}
             />
-          </Paper>
-        )}
-      </Box>
-    ));
+            {selectedPlanForTimeline === plan.id && (
+              <Paper sx={{ p: 3, mb: 2 }}>
+                <Box component="h6" sx={{ fontSize: '1.25rem', fontWeight: 500, mb: 2 }}>
+                  Trazabilidad del Plan
+                </Box>
+                <TrazabilidadTimeline
+                  planId={plan.id}
+                  controlId={plan.controlDerivadoId || undefined}
+                  eventos={[]} // TODO: Obtener eventos reales
+                />
+              </Paper>
+            )}
+          </Box>
+        ))}
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={(_, p) => setPageByTab((s) => ({ ...s, [tabValue]: p }))}
+            color="primary"
+            size="small"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      </>
+    );
   };
 
   // Mostrar loading

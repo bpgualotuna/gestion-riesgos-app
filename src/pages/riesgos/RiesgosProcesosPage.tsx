@@ -42,7 +42,7 @@ export default function RiesgosProcesosPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const { setScreenContext } = useCoraIAContext();
   const { iniciarNuevo, iniciarVer, iniciarEditar, riesgoSeleccionado, modo } = useRiesgo();
-  const { esAdmin, esAuditoria, esDueñoProcesos, esGerenteGeneralProceso } = useAuth();
+  const { esAdmin, esAuditoria } = useAuth();
   const isReadOnly = modoProceso === 'visualizar';
   const { showSuccess } = useNotification();
   const [resumenOpen, setResumenOpen] = useState(false);
@@ -296,54 +296,7 @@ export default function RiesgosProcesosPage() {
         </Card>
       )}
 
-      {(procesoSeleccionado || puedeVerTodosLosRiesgos) && riesgoSeleccionado && modo === 'ver' && (
-        <Card sx={{ mb: 3, background: 'rgba(33, 150, 243, 0.1)', border: '2px solid #2196f3' }}>
-          <CardContent>
-            <Typography variant="h6" color="info.main" fontWeight={600}>
-              Modo Visualización
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Visualizando: {riesgoSeleccionado.descripcion.substring(0, 100)}...
-            </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => iniciarEditar(riesgoSeleccionado)}
-              sx={{ mt: 1 }}
-            >
-              Cambiar a Modo Edición
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {(procesoSeleccionado || puedeVerTodosLosRiesgos) && riesgoSeleccionado && modo === 'editar' && !isReadOnly && (
-        <Card sx={{ mb: 3, background: 'rgba(255, 152, 0, 0.1)', border: '2px solid #ff9800' }}>
-          <CardContent>
-            <Typography variant="h6" color="warning.main" fontWeight={600}>
-              Modo Edición
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Editando: {riesgoSeleccionado.descripcion.substring(0, 100)}...
-            </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<VisibilityIcon />}
-              onClick={() => iniciarVer(riesgoSeleccionado)}
-              sx={{ mt: 1 }}
-            >
-              Cambiar a Modo Visualización
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-      {isReadOnly && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Está en modo visualización. Solo puede ver la información de los riesgos.
-        </Alert>
-      )}
+      
 
       {/* Estadísticas */}
       {procesoSeleccionado && estadisticas && (
@@ -454,9 +407,7 @@ export default function RiesgosProcesosPage() {
         <Card>
           <CardContent>
             <Alert severity="info" sx={{ mb: 2 }}>
-              {esDueñoProcesos
-                ? 'Seleccione un proceso desde el Dashboard para ver sus riesgos'
-                : 'Debe seleccionar un proceso para ver sus riesgos'}
+              No hay datos para mostrar.
             </Alert>
             {/* Validación removida - permite cargar sin proceso seleccionado */}
           </CardContent>

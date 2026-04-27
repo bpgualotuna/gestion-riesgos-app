@@ -51,7 +51,7 @@ const baseQuery = async (args: any, api: any, extraOptions: any) => {
 export const riesgosApi = createApi({
   reducerPath: 'riesgosApi',
   baseQuery,
-  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'ConfigResidualEstrategica', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa'],
+  tagTypes: ['Riesgo', 'Evaluacion', 'Priorizacion', 'Estadisticas', 'Proceso', 'Tarea', 'Notificacion', 'Observacion', 'Historial', 'PasoProceso', 'Encuesta', 'PreguntaEncuesta', 'ListaValores', 'ParametroValoracion', 'Tipologia', 'Formula', 'Configuracion', 'ReglaResidualPlanCausa', 'ConfigResidualEstrategica', 'MapaConfig', 'Usuario', 'Role', 'Cargo', 'Gerencia', 'Area', 'Incidencia', 'PlanAccion', 'Control', 'Causa', 'CalificacionInherente', 'PuntosMapa'],
   // Caché: menos refetch y respuestas más ágiles; backend devuelve solo campos necesarios
   keepUnusedDataFor: 120,
   refetchOnMountOrArgChange: 120,
@@ -186,6 +186,8 @@ export const riesgosApi = createApi({
     getRiesgos: builder.query<PaginatedResponse<Riesgo>, (FiltrosRiesgo & { page?: number; pageSize?: number }) | undefined>({
       query: (params) => {
         const p = params ?? {};
+        const includeCausasReq = Boolean((p as { includeCausas?: boolean }).includeCausas);
+        const maxPage = includeCausasReq ? 500 : 100;
         const raw: Record<string, unknown> = {
           procesoId: p.procesoId,
           clasificacion: p.clasificacion && p.clasificacion !== 'all' ? p.clasificacion : undefined,
@@ -193,7 +195,7 @@ export const riesgosApi = createApi({
           zona: p.zona,
           includeCausas: (p as any).includeCausas,
           page: p.page != null && Number(p.page) >= 1 ? Number(p.page) : 1,
-          pageSize: p.pageSize != null && Number(p.pageSize) >= 1 ? Math.min(100, Number(p.pageSize)) : 50,
+          pageSize: p.pageSize != null && Number(p.pageSize) >= 1 ? Math.min(maxPage, Number(p.pageSize)) : 50,
         };
         const paramsClean = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== null));
         return { url: 'riesgos', params: paramsClean };
@@ -884,7 +886,7 @@ export const riesgosApi = createApi({
     /** Regla: si hay plan de acción en alguna causa, residual = inherente (no mitigación por controles). */
     getReglaResidualPlanCausa: builder.query<{ activa: boolean }, void>({
       query: () => 'catalogos/regla-residual-plan-causa',
-      providesTags: ['Configuracion'],
+      providesTags: ['Configuracion', 'ReglaResidualPlanCausa'],
       keepUnusedDataFor: 120,
     }),
 
@@ -894,7 +896,7 @@ export const riesgosApi = createApi({
         method: 'PUT',
         body,
       }),
-      invalidatesTags: ['Configuracion'],
+      invalidatesTags: ['Configuracion', 'ReglaResidualPlanCausa'],
     }),
 
     createConfiguracion: builder.mutation<any, { clave: string; valor: string; tipo: string; descripcion?: string }>({

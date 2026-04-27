@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import { Box, Typography, Alert, Tabs, Tab, Paper, FormControlLabel, Switch, CircularProgress } from '@mui/material';
+import { Box, Alert, Tabs, Tab, Card, CardContent, Typography, Stack, Button } from '@mui/material';
 import {
     Inventory as CatalogsIcon,
-    Settings as ConfigIcon,
-    Gavel as GavelIcon,
+    TrendingUp as PositiveConfigIcon,
+    Palette as MapIcon,
+    Tune as TuneIcon,
+    Rule as RuleIcon,
 } from '@mui/icons-material';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import CatalogosIdentificacion from './CatalogosIdentificacion';
-import MapasConfigPage from './MapasConfigPage';
 import { useAuth } from '../../contexts/AuthContext';
-import {
-    useGetReglaResidualPlanCausaQuery,
-    useUpdateReglaResidualPlanCausaMutation,
-} from '../../api/services/riesgosApi';
+import { useNavigate } from 'react-router-dom';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -43,10 +41,7 @@ function TabPanel(props: TabPanelProps) {
 export default function ConfiguracionPage() {
     const { esAdmin } = useAuth();
     const [value, setValue] = useState(0);
-    const { data: reglaPlanCausa, isLoading: cargandoRegla } = useGetReglaResidualPlanCausaQuery(undefined, {
-        skip: !esAdmin,
-    });
-    const [actualizarReglaPlanCausa, { isLoading: guardandoRegla }] = useUpdateReglaResidualPlanCausaMutation();
+    const navigate = useNavigate();
 
     const handleChange = (event: React.SyntheticEvent, newValue: number) => {
         setValue(newValue);
@@ -65,7 +60,7 @@ export default function ConfiguracionPage() {
     return (
         <AppPageLayout
             title="Configuración del Sistema"
-            description="Gestione los catálogos base, la configuración de los mapas y las normas de calificación residual."
+            description="Gestione catálogos y parámetros de configuración del sistema."
         >
             <Box sx={{ mt: -2 }}>
 
@@ -96,14 +91,9 @@ export default function ConfiguracionPage() {
                         label="Catálogos de Identificación"
                     />
                     <Tab
-                        icon={<ConfigIcon sx={{ fontSize: 24 }} />}
+                        icon={<PositiveConfigIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Configuración de Mapas"
-                    />
-                    <Tab
-                        icon={<GavelIcon sx={{ fontSize: 24 }} />}
-                        iconPosition="top"
-                        label="Normas de negocio (residual)"
+                        label="Configuración Positiva"
                     />
                 </Tabs>
 
@@ -112,41 +102,43 @@ export default function ConfiguracionPage() {
                 </TabPanel>
 
                 <TabPanel value={value} index={1}>
-                    <MapasConfigPage embedded={true} />
+                    <Stack spacing={2}>
+                        <Card variant="outlined">
+                            <CardContent>
+                                <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+                                    Configuración para Consecuencia Positiva
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    Administre los colores del mapa positivo, parámetros de calificación inherente y reglas de residual final para oportunidades.
+                                </Typography>
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<MapIcon />}
+                                        onClick={() => navigate('/admin/mapas')}
+                                    >
+                                        Colores de Mapa Positivo
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<TuneIcon />}
+                                        onClick={() => navigate('/admin/calificacion-inherente')}
+                                    >
+                                        Calificación Inherente
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<RuleIcon />}
+                                        onClick={() => navigate('/admin/calificacion-residual')}
+                                    >
+                                        Residual Final Positiva
+                                    </Button>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Stack>
                 </TabPanel>
 
-                <TabPanel value={value} index={2}>
-                    <Paper variant="outlined" sx={{ p: 3, maxWidth: 720 }}>
-                        <Typography variant="h6" gutterBottom fontWeight={600}>
-                            Plan de acción en causa e igualdad residual / inherente
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                            Si está activada: cuando un riesgo tiene al menos un plan de acción asociado a una de sus
-                            causas, la calificación residual se iguala a la inherente y no se aplica la mitigación por
-                            controles para ese residual (modo estándar y estratégico en servidor). Si está desactivada,
-                            se mantiene el comportamiento anterior (se califican controles para el residual salvo otras
-                            reglas del sistema).
-                        </Typography>
-                        {cargandoRegla ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                                <CircularProgress size={32} />
-                            </Box>
-                        ) : (
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={Boolean(reglaPlanCausa?.activa)}
-                                        disabled={guardandoRegla}
-                                        onChange={(_, checked) => {
-                                            void actualizarReglaPlanCausa({ activa: checked });
-                                        }}
-                                    />
-                                }
-                                label={reglaPlanCausa?.activa ? 'Regla activa' : 'Regla desactivada'}
-                            />
-                        )}
-                    </Paper>
-                </TabPanel>
             </Box>
         </AppPageLayout>
     );

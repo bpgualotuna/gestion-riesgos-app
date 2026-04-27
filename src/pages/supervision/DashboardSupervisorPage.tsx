@@ -38,6 +38,8 @@ import {
   Collapse,
   TablePagination,
   Tooltip as MuiTooltip,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import {
@@ -58,6 +60,7 @@ import {
   Shield as ShieldIcon,
   PlaylistAddCheck as PlaylistAddCheckIcon,
   FilterList as FilterListIcon,
+  NotificationsActive as NotificationsActiveIcon,
 } from '@mui/icons-material';
 import { useGetRiesgosQuery, useGetProcesosQuery, useGetPuntosMapaQuery, useGetEjesMapaQuery, useGetPlanesQuery, useGetIncidenciasEstadisticasQuery, useGetIncidenciasQuery } from '../../api/services/riesgosApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -79,6 +82,61 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useDashboardEstadisticas } from '../../hooks/useDashboardEstadisticas';
 import { useAreasProcesosAsignados, isProcesoAsignadoASupervisor, isAreaAsignadaASupervisor, esUsuarioResponsableProceso } from '../../hooks/useAsignaciones';
 
+/** Conteos por causas según tipoGestion (CONTROL, PLAN, AMBOS). */
+function conteosGestionPorCausas(causas: unknown[] | undefined): {
+  controles: number;
+  planes: number;
+  planesConControl: number;
+} {
+  let controles = 0;
+  let planes = 0;
+  let planesConControl = 0;
+  (causas || []).forEach((c: unknown) => {
+    const tipoGestion = String((c as { tipoGestion?: string }).tipoGestion || '').toUpperCase();
+    if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') controles++;
+    if (tipoGestion === 'PLAN' || tipoGestion === 'AMBOS') planes++;
+    if (tipoGestion === 'AMBOS') planesConControl++;
+  });
+  return { controles, planes, planesConControl };
+}
+
+/**
+ * Campana de alerta junto al código del riesgo: más planes que controles, causas solo PLAN (sin control),
+ * o ningún control/AMBOS en el riesgo. AMBOS cuenta como plan y control a la vez (correcto).
+ */
+function alertasGestionRiesgo(
+  causas: unknown[] | undefined,
+  controles: number,
+  planes: number
+): { activa: boolean; mensajeTooltip: string } {
+  const arr = causas || [];
+  if (arr.length === 0) {
+    return { activa: false, mensajeTooltip: '' };
+  }
+  const partes: string[] = [];
+  const hayCausaSoloPlan = arr.some((c: unknown) => {
+    const t = String((c as { tipoGestion?: string }).tipoGestion || '').toUpperCase();
+    return t === 'PLAN';
+  });
+  if (hayCausaSoloPlan) {
+    partes.push(
+      'Hay causas solo con plan (sin control ni AMBOS): conviene asociar control o usar clasificación AMBOS en esa causa.'
+    );
+  }
+  if (planes > controles) {
+    partes.push(
+      `Más causas con plan (${planes}) que con control (${controles}). Revise el balance de tratamiento.`
+    );
+  }
+  if (controles === 0 && !hayCausaSoloPlan) {
+    partes.push('Ninguna causa está como control o AMBOS: falta registrar controles o clasificar causas.');
+  }
+  return {
+    activa: partes.length > 0,
+    mensajeTooltip: partes.join(' '),
+  };
+}
+
 export default function DashboardSupervisorPage() {
   const { esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, user } = useAuth();
   const navigate = useNavigate();
@@ -94,6 +152,7 @@ export default function DashboardSupervisorPage() {
   const [pageDetalleProcesos, setPageDetalleProcesos] = useState(1);
   const [rowsPerPageDetalleProcesos, setRowsPerPageDetalleProcesos] = useState(5);
   const [chartExpandido, setChartExpandido] = useState<Record<string, boolean>>({});
+  const [vistaNivelRiesgoCalificacion, setVistaNivelRiesgoCalificacion] = useState<'inherente' | 'residual'>('inherente');
 
   // Consultas filtradas en backend: solo traer riesgos/incidencias del proceso cuando hay filtro (app más rápida)
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
@@ -830,11 +889,8 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
                   Resumen Ejecutivo
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Vista rápida de los principales indicadores del proceso seleccionado.
                 </Typography>
                 {/* Tarjetas compactas de KPIs dentro del resumen ejecutivo */}
                 <Grid2 container spacing={1.5}>
@@ -974,9 +1030,20 @@ export default function DashboardSupervisorPage() {
           <Grid2 xs={12} md={6}>
             <Card sx={{ height: '100%', minHeight: 350 }}>
               <CardContent sx={{ height: '100%' }}>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Calificaciones por Nivel de Riesgo
-                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Calificaciones por Nivel de Riesgo
+                  </Typography>
+                  <Tabs
+                    value={vistaNivelRiesgoCalificacion}
+                    onChange={(_, v: 'inherente' | 'residual') => setVistaNivelRiesgoCalificacion(v)}
+                    variant="fullWidth"
+                    sx={{ minHeight: 40, '& .MuiTab-root': { py: 0.5, minHeight: 40, textTransform: 'none', fontWeight: 600 } }}
+                  >
+                    <Tab value="inherente" label="Inherente" />
+                    <Tab value="residual" label="Residual" />
+                  </Tabs>
+                </Box>
                 {riesgosFiltrados.length === 0 ? (
                   <Box sx={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography color="text.secondary">No hay datos disponibles</Typography>
@@ -984,12 +1051,16 @@ export default function DashboardSupervisorPage() {
                 ) : (
                   <Box sx={{ width: '100%', height: 300 }}>
                     {(() => {
+                      const porNivel =
+                        vistaNivelRiesgoCalificacion === 'residual'
+                          ? estadisticas.porNivelRiesgoResidual
+                          : estadisticas.porNivelRiesgo;
                       // Asegurar que todos los niveles aparezcan, incluso con 0
                       const nivelesCompletos = {
-                        'Crítico': estadisticas.porNivelRiesgo?.['Crítico'] || 0,
-                        'Alto': estadisticas.porNivelRiesgo?.['Alto'] || 0,
-                        'Medio': estadisticas.porNivelRiesgo?.['Medio'] || 0,
-                        'Bajo': estadisticas.porNivelRiesgo?.['Bajo'] || 0,
+                        'Crítico': porNivel?.['Crítico'] || 0,
+                        'Alto': porNivel?.['Alto'] || 0,
+                        'Medio': porNivel?.['Medio'] || 0,
+                        'Bajo': porNivel?.['Bajo'] || 0,
                       };
                       
                       const dataNiveles = Object.entries(nivelesCompletos)
@@ -1542,6 +1613,9 @@ export default function DashboardSupervisorPage() {
             totalControles: number;
             totalPlanes: number;
             totalCausas: number;
+            totalPlanesConControl: number;
+            riesgosSinControles: number;
+            riesgosConAlerta: number;
           }> = [];
 
           const riesgosAgrupadosMap: Record<string, any[]> = {};
@@ -1561,17 +1635,35 @@ export default function DashboardSupervisorPage() {
             let totalControles = 0;
             let totalPlanes = 0;
             let totalCausas = 0;
+            let totalPlanesConControl = 0;
+            let riesgosSinControles = 0;
+            let riesgosConAlerta = 0;
             riesgosDelProc.forEach((r: any) => {
               if (r.causas && Array.isArray(r.causas)) {
                 totalCausas += r.causas.length;
-                r.causas.forEach((causa: any) => {
-                  const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
-                  if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') totalControles++;
-                  if (tipoGestion === 'PLAN' || tipoGestion === 'AMBOS') totalPlanes++;
-                });
+                const { controles, planes, planesConControl } = conteosGestionPorCausas(r.causas);
+                totalControles += controles;
+                totalPlanes += planes;
+                totalPlanesConControl += planesConControl;
+                if (r.causas.length > 0 && controles === 0) {
+                  riesgosSinControles += 1;
+                }
+                const { activa } = alertasGestionRiesgo(r.causas, controles, planes);
+                if (activa) {
+                  riesgosConAlerta += 1;
+                }
               }
             });
-            riesgosPorProcesoDetalle.push({ procesoNombre, riesgos: riesgosDelProc, totalControles, totalPlanes, totalCausas });
+            riesgosPorProcesoDetalle.push({
+              procesoNombre,
+              riesgos: riesgosDelProc,
+              totalControles,
+              totalPlanes,
+              totalCausas,
+              totalPlanesConControl,
+              riesgosSinControles,
+              riesgosConAlerta,
+            });
           });
 
           // Estado para acordeones expandidos
@@ -1592,6 +1684,7 @@ export default function DashboardSupervisorPage() {
           const totalGlobalControles = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.totalControles, 0);
           const totalGlobalPlanes = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.totalPlanes, 0);
           const totalGlobalRiesgos = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.riesgos.length, 0);
+          const totalGlobalPlanesConControl = riesgosPorProcesoDetalle.reduce((acc, p) => acc + p.totalPlanesConControl, 0);
 
           const totalProcesos = riesgosPorProcesoDetalle.length;
           const fromPage = (pageDetalleProcesos - 1) * rowsPerPageDetalleProcesos;
@@ -1609,9 +1702,6 @@ export default function DashboardSupervisorPage() {
                         <Typography variant="h6" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
                           Detalle de Riesgos por Proceso — Controles y Planes de Acción
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Haz clic en un proceso para ver el detalle de cada riesgo
-                        </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                         <Chip
@@ -1626,6 +1716,16 @@ export default function DashboardSupervisorPage() {
                           size="small"
                           sx={{ backgroundColor: '#e6510015', color: '#e65100', fontWeight: 600, fontSize: '0.8rem', border: '1px solid #e6510030' }}
                         />
+                        {totalGlobalPlanesConControl > 0 && (
+                          <MuiTooltip title="Causas clasificadas como plan y control a la vez (tipo AMBOS).">
+                            <Chip
+                              icon={<ShieldIcon sx={{ fontSize: 16 }} />}
+                              label={`${totalGlobalPlanesConControl} Plan${totalGlobalPlanesConControl !== 1 ? 'es' : ''} con control`}
+                              size="small"
+                              sx={{ backgroundColor: '#2e7d3215', color: '#2e7d32', fontWeight: 600, fontSize: '0.8rem', border: '1px solid #2e7d3230' }}
+                            />
+                          </MuiTooltip>
+                        )}
                         <Chip
                           label={`${totalGlobalRiesgos} Riesgos`}
                           size="small"
@@ -1683,12 +1783,7 @@ export default function DashboardSupervisorPage() {
                           const isExpanded = expandidos[procesoData.procesoNombre] || false;
                           const maxVal = Math.max(
                             ...procesoData.riesgos.map((r: any) => {
-                              let c = 0, p = 0;
-                              (r.causas || []).forEach((causa: any) => {
-                                const t = String(causa.tipoGestion || '').toUpperCase();
-                                if (t === 'CONTROL' || t === 'AMBOS') c++;
-                                if (t === 'PLAN' || t === 'AMBOS') p++;
-                              });
+                              const { controles: c, planes: p } = conteosGestionPorCausas(r.causas);
                               return Math.max(c, p);
                             }),
                             1
@@ -1722,8 +1817,36 @@ export default function DashboardSupervisorPage() {
                               >
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: { xs: 1, sm: 2 }, width: '100%', pr: 1, minWidth: 0 }}>
                                   {/* Nombre proceso + riesgos count */}
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: '1 1 180px', minWidth: 0 }}>
-                                    <AccountTreeIcon sx={{ color: '#1565c0', fontSize: 22, flexShrink: 0 }} />
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, flex: '1 1 180px', minWidth: 0 }}>
+                                    <Box sx={{ position: 'relative', width: 24, height: 24, flexShrink: 0 }}>
+                                      <AccountTreeIcon sx={{ color: '#1565c0', fontSize: 22, position: 'absolute', left: 0, top: 1 }} />
+                                      {procesoData.riesgosConAlerta > 0 && (
+                                        <MuiTooltip title={`Este proceso tiene ${procesoData.riesgosConAlerta} riesgo${procesoData.riesgosConAlerta !== 1 ? 's' : ''} con alerta de gestión.`}>
+                                          <Box
+                                            component="span"
+                                            sx={{
+                                              position: 'absolute',
+                                              right: -2,
+                                              top: -4,
+                                              width: 12,
+                                              height: 12,
+                                              borderRadius: '50%',
+                                              bgcolor: '#fff',
+                                              color: '#ed6c02',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              border: '1px solid #ed6c02',
+                                              lineHeight: 1,
+                                              fontSize: '0.55rem',
+                                              fontWeight: 800,
+                                            }}
+                                          >
+                                            !
+                                          </Box>
+                                        </MuiTooltip>
+                                      )}
+                                    </Box>
                                     <Box sx={{ minWidth: 0 }}>
                                       <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.3, wordBreak: 'break-word' }}>
                                         {procesoData.procesoNombre}
@@ -1776,25 +1899,63 @@ export default function DashboardSupervisorPage() {
                                         '.MuiChip-label': { px: 0.6 },
                                       }}
                                     />
+                                    {procesoData.totalPlanesConControl > 0 && (
+                                      <MuiTooltip title="Causas con plan y control (AMBOS) en este proceso.">
+                                        <Chip
+                                          icon={<ShieldIcon sx={{ fontSize: 14, color: '#2e7d32 !important' }} />}
+                                          label={procesoData.totalPlanesConControl}
+                                          size="small"
+                                          sx={{
+                                            backgroundColor: '#2e7d3212',
+                                            color: '#2e7d32',
+                                            fontWeight: 700,
+                                            fontSize: { xs: '0.75rem', sm: '0.85rem' },
+                                            height: 28,
+                                            minWidth: 44,
+                                            '.MuiChip-label': { px: 0.6 },
+                                          }}
+                                        />
+                                      </MuiTooltip>
+                                    )}
+                                    {procesoData.riesgosSinControles > 0 && (
+                                      <MuiTooltip title="Riesgos con al menos una causa y ningún control ni causa AMBOS.">
+                                        <Chip
+                                          icon={<WarningIcon sx={{ fontSize: 14, color: '#ed6c02 !important' }} />}
+                                          label={procesoData.riesgosSinControles}
+                                          size="small"
+                                          sx={{
+                                            backgroundColor: '#ed6c0212',
+                                            color: '#ed6c02',
+                                            fontWeight: 700,
+                                            fontSize: { xs: '0.75rem', sm: '0.85rem' },
+                                            height: 28,
+                                            minWidth: 44,
+                                            '.MuiChip-label': { px: 0.6 },
+                                          }}
+                                        />
+                                      </MuiTooltip>
+                                    )}
                                   </Box>
 
                                   {/* Mini barra de progreso visual - solo desktop */}
-                                  <Box sx={{ width: 120, flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
-                                    <Box sx={{ display: 'flex', gap: 0.3, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
-                                      <Box sx={{
-                                        width: `${procesoData.totalCausas > 0 ? (procesoData.totalControles / procesoData.totalCausas) * 100 : 0}%`,
-                                        backgroundColor: '#1976d2',
-                                        borderRadius: '4px 0 0 4px',
-                                        transition: 'width 0.3s ease',
-                                      }} />
-                                      <Box sx={{
-                                        width: `${procesoData.totalCausas > 0 ? (procesoData.totalPlanes / procesoData.totalCausas) * 100 : 0}%`,
-                                        backgroundColor: '#e65100',
-                                        borderRadius: '0 4px 4px 0',
-                                        transition: 'width 0.3s ease',
-                                      }} />
+                                  <MuiTooltip title="Azul: controles · Naranja: planes de acción" placement="top" arrow>
+                                    <Box sx={{ width: 120, flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
+                                      <Box sx={{ display: 'flex', gap: 0.3, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
+                                        <Box sx={{
+                                          width: `${procesoData.totalCausas > 0 ? (procesoData.totalControles / procesoData.totalCausas) * 100 : 0}%`,
+                                          backgroundColor: '#1976d2',
+                                          borderRadius: '4px 0 0 4px',
+                                          transition: 'width 0.3s ease',
+                                        }} />
+                                        <Box sx={{
+                                          width: `${procesoData.totalCausas > 0 ? (procesoData.totalPlanes / procesoData.totalCausas) * 100 : 0}%`,
+                                          backgroundColor: '#e65100',
+                                          borderRadius: '0 4px 4px 0',
+                                          transition: 'width 0.3s ease',
+                                        }} />
+                                      </Box>
                                     </Box>
-                                  </Box>
+                                  </MuiTooltip>
                                 </Box>
                               </AccordionSummary>
 
@@ -1821,13 +1982,12 @@ export default function DashboardSupervisorPage() {
 
                                     {/* Riesgos individuales como filas con barras */}
                                     {procesoData.riesgos.map((r: any, idx: number) => {
-                                      let controlesCount = 0;
-                                      let planesCount = 0;
-                                      (r.causas || []).forEach((causa: any) => {
-                                        const tipoGestion = String(causa.tipoGestion || '').toUpperCase();
-                                        if (tipoGestion === 'CONTROL' || tipoGestion === 'AMBOS') controlesCount++;
-                                        if (tipoGestion === 'PLAN' || tipoGestion === 'AMBOS') planesCount++;
-                                      });
+                                      const causasArr = r.causas || [];
+                                      const { controles: controlesCount, planes: planesCount, planesConControl } =
+                                        conteosGestionPorCausas(causasArr);
+                                      const faltaControles = causasArr.length > 0 && controlesCount === 0;
+                                      const { activa: alertaCampanaGestion, mensajeTooltip: tooltipAlertaGestion } =
+                                        alertasGestionRiesgo(causasArr, controlesCount, planesCount);
                                       const codigo = r.numeroIdentificacion || r.numero || `R-${r.id}`;
                                       const descripcionCorta = r.descripcion
                                         ? (r.descripcion.length > 60 ? r.descripcion.substring(0, 58) + '...' : r.descripcion)
@@ -1838,7 +1998,8 @@ export default function DashboardSupervisorPage() {
                                           key={r.id}
                                           sx={{
                                             display: 'flex',
-                                            alignItems: 'center',
+                                            alignItems: 'flex-start',
+                                            flexWrap: 'wrap',
                                             gap: 2,
                                             py: 1.2,
                                             px: 1.5,
@@ -1848,19 +2009,56 @@ export default function DashboardSupervisorPage() {
                                             transition: 'background 0.15s',
                                           }}
                                         >
-                                          {/* Código del riesgo */}
-                                          <Chip
-                                            label={codigo}
-                                            size="small"
-                                            sx={{
-                                              fontWeight: 700,
-                                              fontSize: '0.75rem',
-                                              backgroundColor: '#e3f2fd',
-                                              color: '#1565c0',
-                                              minWidth: 60,
-                                              height: 26,
-                                            }}
-                                          />
+                                          {/* Código + alerta sobrepuesta + total de causas al lado */}
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0, minWidth: 96 }}>
+                                            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                                              <Chip
+                                                label={codigo}
+                                                size="small"
+                                                sx={{
+                                                  fontWeight: 700,
+                                                  fontSize: '0.75rem',
+                                                  backgroundColor: '#e3f2fd',
+                                                  color: '#1565c0',
+                                                  minWidth: 60,
+                                                  height: 26,
+                                                }}
+                                              />
+                                              {alertaCampanaGestion && (
+                                                <MuiTooltip title={tooltipAlertaGestion} placement="top" arrow>
+                                                  <IconButton
+                                                    size="small"
+                                                    aria-label="Alerta: revisar planes y controles de este riesgo"
+                                                    tabIndex={0}
+                                                    sx={{
+                                                      position: 'absolute',
+                                                      right: -6,
+                                                      top: -8,
+                                                      p: 0.2,
+                                                      color: '#ed6c02',
+                                                      bgcolor: '#fff',
+                                                      border: '1px solid rgba(237,108,2,0.35)',
+                                                      '&:hover': { backgroundColor: 'rgba(237, 108, 2, 0.12)' },
+                                                    }}
+                                                  >
+                                                    <NotificationsActiveIcon sx={{ fontSize: 12 }} />
+                                                  </IconButton>
+                                                </MuiTooltip>
+                                              )}
+                                            </Box>
+                                            <Chip
+                                              label={`${causasArr.length} causa${causasArr.length !== 1 ? 's' : ''}`}
+                                              size="small"
+                                              sx={{
+                                                height: 18,
+                                                fontSize: '0.65rem',
+                                                fontWeight: 600,
+                                                backgroundColor: '#e3f2fd',
+                                                color: '#1565c0',
+                                                border: '1px solid rgba(21,101,192,0.25)',
+                                              }}
+                                            />
+                                          </Box>
 
                                           {/* Descripción */}
                                           <Typography
@@ -1879,38 +2077,68 @@ export default function DashboardSupervisorPage() {
                                             {descripcionCorta}
                                           </Typography>
 
-                                          {/* Barras visuales de Controles y Planes */}
-                                          <Box sx={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                                          {/* Alertas y barras: plan con control + controles/planes */}
+                                          <Box sx={{ width: { xs: '100%', sm: 260 }, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'stretch' }}>
+                                            {causasArr.length === 0 && (
+                                              <Alert severity="info" sx={{ py: 0, px: 1, '& .MuiAlert-message': { py: 0.5, fontSize: '0.72rem' } }}>
+                                                Sin causas registradas
+                                              </Alert>
+                                            )}
+                                            {faltaControles && (
+                                              <Alert severity="warning" sx={{ py: 0, px: 1, '& .MuiAlert-message': { py: 0.5, fontSize: '0.72rem' } }}>
+                                                Falta controles: hay causas sin control ni clasificación AMBOS.
+                                              </Alert>
+                                            )}
+                                            {planesConControl > 0 && (
+                                              <MuiTooltip title="Número de causas con plan y control a la vez (tipo AMBOS).">
+                                                <Chip
+                                                  size="small"
+                                                  label={`${planesConControl} plan${planesConControl !== 1 ? 'es' : ''} con control`}
+                                                  sx={{
+                                                    alignSelf: 'flex-end',
+                                                    height: 22,
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 600,
+                                                    backgroundColor: '#e8f5e9',
+                                                    color: '#2e7d32',
+                                                  }}
+                                                />
+                                              </MuiTooltip>
+                                            )}
                                             {/* Barra controles */}
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                              <Box sx={{
-                                                height: 10,
-                                                width: `${maxVal > 0 ? Math.max((controlesCount / maxVal) * 100, controlesCount > 0 ? 8 : 0) : 0}%`,
-                                                backgroundColor: '#1976d2',
-                                                borderRadius: '0 5px 5px 0',
-                                                transition: 'width 0.4s cubic-bezier(.4,0,.2,1)',
-                                                minWidth: controlesCount > 0 ? 8 : 0,
-                                                maxWidth: '80%',
-                                              }} />
-                                              <Typography variant="caption" fontWeight={700} sx={{ color: '#1565c0', fontSize: '0.75rem', minWidth: 14 }}>
-                                                {controlesCount}
-                                              </Typography>
-                                            </Box>
+                                            <MuiTooltip title="Controles" placement="top" arrow>
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                                <Box sx={{
+                                                  height: 10,
+                                                  width: `${maxVal > 0 ? Math.max((controlesCount / maxVal) * 100, controlesCount > 0 ? 8 : 0) : 0}%`,
+                                                  backgroundColor: '#1976d2',
+                                                  borderRadius: '0 5px 5px 0',
+                                                  transition: 'width 0.4s cubic-bezier(.4,0,.2,1)',
+                                                  minWidth: controlesCount > 0 ? 8 : 0,
+                                                  maxWidth: '80%',
+                                                }} />
+                                                <Typography variant="caption" fontWeight={700} sx={{ color: '#1565c0', fontSize: '0.75rem', minWidth: 14 }}>
+                                                  {controlesCount}
+                                                </Typography>
+                                              </Box>
+                                            </MuiTooltip>
                                             {/* Barra planes */}
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                              <Box sx={{
-                                                height: 10,
-                                                width: `${maxVal > 0 ? Math.max((planesCount / maxVal) * 100, planesCount > 0 ? 8 : 0) : 0}%`,
-                                                backgroundColor: '#e65100',
-                                                borderRadius: '0 5px 5px 0',
-                                                transition: 'width 0.4s cubic-bezier(.4,0,.2,1)',
-                                                minWidth: planesCount > 0 ? 8 : 0,
-                                                maxWidth: '80%',
-                                              }} />
-                                              <Typography variant="caption" fontWeight={700} sx={{ color: '#e65100', fontSize: '0.75rem', minWidth: 14 }}>
-                                                {planesCount}
-                                              </Typography>
-                                            </Box>
+                                            <MuiTooltip title="Planes de acción" placement="top" arrow>
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                                <Box sx={{
+                                                  height: 10,
+                                                  width: `${maxVal > 0 ? Math.max((planesCount / maxVal) * 100, planesCount > 0 ? 8 : 0) : 0}%`,
+                                                  backgroundColor: '#e65100',
+                                                  borderRadius: '0 5px 5px 0',
+                                                  transition: 'width 0.4s cubic-bezier(.4,0,.2,1)',
+                                                  minWidth: planesCount > 0 ? 8 : 0,
+                                                  maxWidth: '80%',
+                                                }} />
+                                                <Typography variant="caption" fontWeight={700} sx={{ color: '#e65100', fontSize: '0.75rem', minWidth: 14 }}>
+                                                  {planesCount}
+                                                </Typography>
+                                              </Box>
+                                            </MuiTooltip>
                                           </Box>
                                         </Box>
                                       );

@@ -209,13 +209,6 @@ export default function RiesgosPorTipologiaPage() {
         </CardContent>
       </Card>
 
-      {/* Información */}
-      {!puedeVerTodosLosRiesgos && !procesoSeleccionado && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Seleccione un proceso desde el Dashboard para ver sus riesgos
-        </Alert>
-      )}
-
       {/* Lista de Tipologías con Riesgos */}
       {Object.keys(riesgosPorTipologia).length === 0 && !loadingRiesgos ? (
         <Card>

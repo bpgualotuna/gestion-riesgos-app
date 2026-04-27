@@ -36,6 +36,7 @@ import {
   Tabs,
   Tab,
   Collapse,
+  Pagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -66,6 +67,7 @@ import FiltroProcesoSupervisor from '../../components/common/FiltroProcesoSuperv
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import { formatDate, todayISO } from '../../utils/formatters';
 
 // Opciones de impacto desde constants (no quemadas)
 const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => ({
@@ -141,8 +143,13 @@ export default function MaterializarRiesgosPage() {
   const [procesoFiltroId, setProcesoFiltroId] = useState<string | null>(null);
   // Deferir la carga de datos hasta después del primer render para que la navegación sea instantánea
   const [deferLoad, setDeferLoad] = useState(false);
-  // Mostrar pocos riesgos al inicio para no colgar la página; el usuario puede cargar más
-  const [visibleRiesgosCount, setVisibleRiesgosCount] = useState(15);
+  // Paginación de lista de riesgos
+  const [riesgosPage, setRiesgosPage] = useState(1);
+  const [riesgosPageSize, setRiesgosPageSize] = useState(10);
+
+  // Paginación de tabla de planes (incidencias materializadas)
+  const [planesPage, setPlanesPage] = useState(1);
+  const [planesPageSize, setPlanesPageSize] = useState(10);
 
   useEffect(() => {
     setDeferLoad(true);
@@ -173,7 +180,7 @@ export default function MaterializarRiesgosPage() {
       >
         <Box sx={{ p: 3 }}>
           <Alert severity="info" variant="outlined">
-            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para ver sus eventos.
+            No hay proceso seleccionado.
           </Alert>
         </Box>
       </AppPageLayout>
@@ -191,7 +198,8 @@ export default function MaterializarRiesgosPage() {
         : null;
 
   useEffect(() => {
-    setVisibleRiesgosCount(15);
+    setRiesgosPage(1);
+    setPlanesPage(1);
   }, [procesoIdConsulta]);
 
   // OPTIMIZADO: Agregar caché para incidencias
@@ -259,6 +267,18 @@ export default function MaterializarRiesgosPage() {
 
     return base;
   }, [impactosApi]);
+
+  const renderOpcionesImpacto = useCallback((descripciones: Record<number, string> = {}) => (
+    OPCIONES_IMPACTO.map((opcion) => (
+      <MenuItem key={opcion.valor} value={opcion.valor}>
+        <Tooltip title={descripciones[opcion.valor] || ''} arrow placement="left">
+          <Box component="span" sx={{ width: '100%' }}>
+            {opcion.valor}
+          </Box>
+        </Tooltip>
+      </MenuItem>
+    ))
+  ), []);
   
   // OPTIMIZADO: Agregar caché y optimizaciones
   const { data: riesgosResponse, isLoading: isLoadingRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery(
@@ -349,8 +369,8 @@ export default function MaterializarRiesgosPage() {
     titulo: '',
     descripcion: '',
     estado: 'abierta',
-    fechaOcurrencia: new Date().toISOString().split('T')[0],
-    fechaReporte: new Date().toISOString().split('T')[0],
+    fechaOcurrencia: todayISO(),
+    fechaReporte: todayISO(),
     impactosMaterializacion: {
       economico: 1,
       reputacional: 1,
@@ -419,7 +439,7 @@ export default function MaterializarRiesgosPage() {
         descripcion: formData.descripcion,
         estado: formData.estado,
         fechaOcurrencia: formData.fechaOcurrencia,
-        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+        fechaReporte: formData.fechaReporte || todayISO(),
         reportadoPor: 'Usuario Actual',
         impactosMaterializacion: impactos,
       }).unwrap();
@@ -491,12 +511,12 @@ export default function MaterializarRiesgosPage() {
             causaNombre: causaDescripcion,
             descripcion: '',
             estado: 'abierta' as EstadoIncidencia,
-            fechaOcurrencia: new Date().toISOString().split('T')[0],
-            fechaReporte: new Date().toISOString().split('T')[0],
+            fechaOcurrencia: todayISO(),
+            fechaReporte: todayISO(),
             accionesCorrectivas: '',
             planNombre: '',
             planObjetivo: '',
-            planFechaInicio: new Date().toISOString().split('T')[0],
+            planFechaInicio: todayISO(),
             planFechaLimite: '',
             planAvance: 0,
             planEstado: 'borrador' as const,
@@ -577,7 +597,7 @@ export default function MaterializarRiesgosPage() {
       field: 'fechaOcurrencia',
       headerName: 'Fecha Ocurrencia',
       width: 140,
-      renderCell: (params) => new Date(params.value).toLocaleDateString('es-ES'),
+      renderCell: (params) => formatDate(params.value),
     },
   ], [obtenerColorEstado]);
 
@@ -608,13 +628,6 @@ export default function MaterializarRiesgosPage() {
             }
           />
         ) : null
-      }
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
-            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
-          </Alert>
-        )
       }
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -665,8 +678,58 @@ export default function MaterializarRiesgosPage() {
                 <Typography variant="caption" fontWeight={700} color="text.secondary" align="center">ESTADO</Typography>
                 <Box />
               </Box>
-              {/* OPTIMIZADO: Renderizar solo N riesgos visibles para no colgar; "Ver más" carga el resto */}
-              {riesgosDelProceso.slice(0, visibleRiesgosCount).map((riesgo: any) => (
+              {(() => {
+                const total = riesgosDelProceso.length;
+                const totalPages = Math.max(1, Math.ceil(total / riesgosPageSize));
+                const from = (riesgosPage - 1) * riesgosPageSize + 1;
+                const to = Math.min(riesgosPage * riesgosPageSize, total);
+                const riesgosPaginados = riesgosDelProceso.slice((riesgosPage - 1) * riesgosPageSize, riesgosPage * riesgosPageSize);
+
+                return (
+                  <>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 1.5,
+                        px: 1,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Mostrando {from} - {to} de {total}
+                        </Typography>
+                        <FormControl size="small" sx={{ minWidth: 140 }}>
+                          <InputLabel>Mostrar</InputLabel>
+                          <Select
+                            value={riesgosPageSize}
+                            label="Mostrar"
+                            onChange={(e) => {
+                              setRiesgosPageSize(Number(e.target.value));
+                              setRiesgosPage(1);
+                            }}
+                          >
+                            <MenuItem value={5}>5 por página</MenuItem>
+                            <MenuItem value={10}>10 por página</MenuItem>
+                            <MenuItem value={15}>15 por página</MenuItem>
+                            <MenuItem value={20}>20 por página</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+                      <Pagination
+                        count={totalPages}
+                        page={riesgosPage}
+                        onChange={(_, p) => setRiesgosPage(p)}
+                        color="primary"
+                        size="small"
+                        showFirstButton
+                        showLastButton
+                      />
+                    </Box>
+
+                    {riesgosPaginados.map((riesgo: any) => (
                 <Card key={riesgo.id} variant="outlined" sx={{ overflow: 'hidden' }}>
                   <Box
                     sx={{
@@ -760,12 +823,12 @@ export default function MaterializarRiesgosPage() {
                               </Button>
                             </Box>
                             <Collapse in={isExpanded} mountOnEnter unmountOnExit>
-                              <Box sx={{ p: 2, bgcolor: '#fff3e0', borderTop: '1px solid #ffe0b2' }}>
+                              <Box sx={{ p: 1.5, bgcolor: '#fff3e0', borderTop: '1px solid #ffe0b2' }}>
                                 <Typography variant="subtitle2" color="warning.main" gutterBottom>
                                   {incidenteExistente ? 'Editar Incidencia' : 'Registrar Materialización'}
                                 </Typography>
 
-                                <Grid2 container spacing={2}>
+                                <Grid2 container spacing={1}>
                                   <Grid2 xs={12} sm={6}>
                                     <TextField label="Fecha del Incidente" type="date" fullWidth InputLabelProps={{ shrink: true }} value={formData.fechaOcurrencia || ''} onChange={e => setFormData({ ...formData, fechaOcurrencia: e.target.value })} />
                                   </Grid2>
@@ -783,14 +846,14 @@ export default function MaterializarRiesgosPage() {
                                       sx={{
                                         backgroundColor: '#1976d2',
                                         color: '#fff',
-                                        py: 2,
-                                        px: 3,
+                                        py: 1,
+                                        px: 2,
                                         textAlign: 'center',
                                         borderRadius: 1,
-                                        mb: 2
+                                        mb: 1
                                       }}
                                     >
-                                      <Typography variant="h6" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                                      <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: 'uppercase', lineHeight: 1.1 }}>
                                         IMPACTO
                                       </Typography>
                                     </Box>
@@ -798,9 +861,9 @@ export default function MaterializarRiesgosPage() {
 
                                   {/* Impacto económico */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.35, minHeight: 44 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.25 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Impacto económico
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -814,24 +877,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.economico)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.1 }}>
                                         {formData.impactosMaterializacion?.economico} - {descripcionesImpacto.economico?.[formData.impactosMaterializacion?.economico || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.25 }} />
                                   </Grid2>
 
                                   {/* Disponibilidad SGSI */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Disponibilidad SGSI
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -845,24 +906,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.disponibilidadSGSI)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.disponibilidadSGSI || 1} - {descripcionesImpacto.disponibilidadSGSI?.[formData.impactosMaterializacion?.disponibilidadSGSI || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Procesos */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Procesos
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -876,24 +935,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.procesos)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.operacional || 1} - {descripcionesImpacto.procesos?.[formData.impactosMaterializacion?.operacional || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Personas */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Personas
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -907,24 +964,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.personas)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.personas || 1} - {descripcionesImpacto.personas?.[formData.impactosMaterializacion?.personas || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Legal */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Legal
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -938,24 +993,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.legal)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.legal || 1} - {descripcionesImpacto.legal?.[formData.impactosMaterializacion?.legal || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Integridad SGSI */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Integridad SGSI
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -969,24 +1022,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.integridadSGSI)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.integridadSGSI || 1} - {descripcionesImpacto.integridadSGSI?.[formData.impactosMaterializacion?.integridadSGSI || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Confidencialidad SGSI */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Confidencialidad SGSI
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -1000,24 +1051,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.confidencialidadSGSI)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.confidencialidadSGSI || 1} - {descripcionesImpacto.confidencialidadSGSI?.[formData.impactosMaterializacion?.confidencialidadSGSI || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Reputacional */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Reputación
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -1031,24 +1080,22 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.reputacional)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.reputacional || 1} - {descripcionesImpacto.reputacional?.[formData.impactosMaterializacion?.reputacional || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   {/* Ambiental */}
                                   <Grid2 xs={12} md={6}>
-                                    <Box sx={{ pb: 2 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                        <Typography variant="body1" fontWeight={600}>
+                                    <Box sx={{ pb: 0.75, minHeight: 52 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>
                                           Ambiental
                                         </Typography>
                                         <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -1062,17 +1109,15 @@ export default function MaterializarRiesgosPage() {
                                               } as ImpactoMaterializacion
                                             })}
                                           >
-                                            {OPCIONES_IMPACTO.map(opcion => (
-                                              <MenuItem key={opcion.valor} value={opcion.valor}>{opcion.valor}</MenuItem>
-                                            ))}
+                                            {renderOpcionesImpacto(descripcionesImpacto.ambiental)}
                                           </Select>
                                         </FormControl>
                                       </Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.2 }}>
                                         {formData.impactosMaterializacion?.ambiental || 1} - {descripcionesImpacto.ambiental?.[formData.impactosMaterializacion?.ambiental || 1] || ''}
                                       </Typography>
                                     </Box>
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider sx={{ my: 0.5 }} />
                                   </Grid2>
 
                                   <Grid2 xs={12}>
@@ -1115,17 +1160,22 @@ export default function MaterializarRiesgosPage() {
                     </Box>
                   </Collapse>
                 </Card>
-              ))}
-              {riesgosDelProceso.length > visibleRiesgosCount && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => startTransition(() => setVisibleRiesgosCount((n) => Math.min(n + 15, riesgosDelProceso.length)))}
-                  >
-                    Ver más riesgos ({visibleRiesgosCount} de {riesgosDelProceso.length})
-                  </Button>
-                </Box>
-              )}
+                    ))}
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, pt: 1 }}>
+                      <Pagination
+                        count={totalPages}
+                        page={riesgosPage}
+                        onChange={(_, p) => setRiesgosPage(p)}
+                        color="primary"
+                        size="small"
+                        showFirstButton
+                        showLastButton
+                      />
+                    </Box>
+                  </>
+                );
+              })()}
             </Box>
           )}
         </Box>
@@ -1151,8 +1201,53 @@ export default function MaterializarRiesgosPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {/* OPTIMIZADO: Limitar a 50 incidencias para mejor rendimiento */}
-                    {incidenciasFiltradas.slice(0, 50).map((inc) => (
+                    {(() => {
+                      const total = incidenciasFiltradas.length;
+                      const totalPages = Math.max(1, Math.ceil(total / planesPageSize));
+                      const from = (planesPage - 1) * planesPageSize + 1;
+                      const to = Math.min(planesPage * planesPageSize, total);
+                      const planesPaginados = incidenciasFiltradas.slice((planesPage - 1) * planesPageSize, planesPage * planesPageSize);
+
+                      return (
+                        <>
+                          <TableRow>
+                            <TableCell colSpan={4} sx={{ bgcolor: '#fafafa' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    Mostrando {from} - {to} de {total}
+                                  </Typography>
+                                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                                    <InputLabel>Mostrar</InputLabel>
+                                    <Select
+                                      value={planesPageSize}
+                                      label="Mostrar"
+                                      onChange={(e) => {
+                                        setPlanesPageSize(Number(e.target.value));
+                                        setPlanesPage(1);
+                                      }}
+                                    >
+                                      <MenuItem value={5}>5 por página</MenuItem>
+                                      <MenuItem value={10}>10 por página</MenuItem>
+                                      <MenuItem value={20}>20 por página</MenuItem>
+                                      <MenuItem value={50}>50 por página</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </Box>
+                                <Pagination
+                                  count={totalPages}
+                                  page={planesPage}
+                                  onChange={(_, p) => setPlanesPage(p)}
+                                  color="primary"
+                                  size="small"
+                                  showFirstButton
+                                  showLastButton
+                                />
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+
+                          {planesPaginados.map((inc) => (
                       <TableRow
                         key={inc.id}
                         hover
@@ -1193,7 +1288,26 @@ export default function MaterializarRiesgosPage() {
                           </Box>
                         </TableCell>
                       </TableRow>
-                    ))}
+                          ))}
+
+                          <TableRow>
+                            <TableCell colSpan={4} sx={{ bgcolor: '#fafafa' }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <Pagination
+                                  count={totalPages}
+                                  page={planesPage}
+                                  onChange={(_, p) => setPlanesPage(p)}
+                                  color="primary"
+                                  size="small"
+                                  showFirstButton
+                                  showLastButton
+                                />
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        </>
+                      );
+                    })()}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -1240,7 +1354,7 @@ export default function MaterializarRiesgosPage() {
                 </Box>
                 <Box>
                   <Typography variant="overline" color="text.secondary">Fecha Ocurrencia</Typography>
-                  <Typography variant="body1">{new Date(incidenciaSeleccionada.fechaOcurrencia).toLocaleDateString()}</Typography>
+                  <Typography variant="body1">{formatDate(incidenciaSeleccionada.fechaOcurrencia)}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="overline" color="text.secondary">Estado</Typography>

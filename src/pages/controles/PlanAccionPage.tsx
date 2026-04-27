@@ -59,6 +59,7 @@ import { useRiesgo } from '../../contexts/RiesgoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useGetRiesgosQuery } from '../../api/services/riesgosApi';
+import { addDaysISO, todayISO } from '../../utils/formatters';
 // Tipos locales para Plan de Acción (en producción vendrían de la API)
 interface PlanAccion {
   id: string;
@@ -212,8 +213,8 @@ export default function PlanAccionPage() {
     nombre: '',
     descripcion: '',
     objetivo: '',
-    fechaInicio: new Date().toISOString(),
-    fechaLimite: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 días
+    fechaInicio: todayISO(),
+    fechaLimite: addDaysISO(90), // 90 días
     responsableId: '',
     presupuesto: undefined,
     observaciones: '',
@@ -223,8 +224,8 @@ export default function PlanAccionPage() {
     planAccionId: '',
     descripcion: '',
     responsableId: '',
-    fechaInicio: new Date().toISOString(),
-    fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
+    fechaInicio: todayISO(),
+    fechaLimite: addDaysISO(30), // 30 días
     prioridad: 'media',
     observaciones: '',
   });
@@ -303,8 +304,8 @@ export default function PlanAccionPage() {
       nombre: '',
       descripcion: '',
       objetivo: '',
-      fechaInicio: new Date().toISOString(),
-      fechaLimite: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      fechaInicio: todayISO(),
+      fechaLimite: addDaysISO(90),
       responsableId: '',
       presupuesto: undefined,
       observaciones: '',
@@ -389,8 +390,8 @@ export default function PlanAccionPage() {
       planAccionId: plan.id,
       descripcion: '',
       responsableId: '',
-      fechaInicio: new Date().toISOString(),
-      fechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      fechaInicio: todayISO(),
+      fechaLimite: addDaysISO(30),
       prioridad: 'media',
       observaciones: '',
     });
@@ -527,8 +528,7 @@ export default function PlanAccionPage() {
 
   // Función helper para formatear fecha para input type="date"
   const formatDateForInput = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
+    return String(dateString || '').slice(0, 10);
   };
 
   return (
@@ -745,12 +745,6 @@ export default function PlanAccionPage() {
                 </Box>
               </CardContent>
             </Card>
-          )}
-
-          {isReadOnly && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Está en modo visualización. Solo puede ver la información.
-            </Alert>
           )}
 
           {!riesgoSeleccionado && (
@@ -1123,7 +1117,7 @@ export default function PlanAccionPage() {
                   onChange={(e) =>
                     setFormPlan({
                       ...formPlan,
-                      fechaInicio: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
+                      fechaInicio: e.target.value || todayISO(),
                     })
                   }
                   InputLabelProps={{ shrink: true }}
@@ -1136,7 +1130,7 @@ export default function PlanAccionPage() {
                   onChange={(e) =>
                     setFormPlan({
                       ...formPlan,
-                      fechaLimite: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
+                      fechaLimite: e.target.value || todayISO(),
                     })
                   }
                   InputLabelProps={{ shrink: true }}
@@ -1215,7 +1209,7 @@ export default function PlanAccionPage() {
                   onChange={(e) =>
                     setFormTarea({
                       ...formTarea,
-                      fechaInicio: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
+                      fechaInicio: e.target.value || todayISO(),
                     })
                   }
                   InputLabelProps={{ shrink: true }}
@@ -1228,7 +1222,7 @@ export default function PlanAccionPage() {
                   onChange={(e) =>
                     setFormTarea({
                       ...formTarea,
-                      fechaLimite: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString(),
+                      fechaLimite: e.target.value || todayISO(),
                     })
                   }
                   InputLabelProps={{ shrink: true }}

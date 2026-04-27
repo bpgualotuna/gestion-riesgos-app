@@ -4,6 +4,7 @@
 
 import axios from 'axios';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../utils/constants';
+import { repairSpanishDisplayArtifacts } from '../utils/utf8Repair';
 
 export const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -23,9 +24,28 @@ axiosClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+function sanitizeResponseData(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return repairSpanishDisplayArtifacts(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeResponseData(item));
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    const normalized: Record<string, unknown> = {};
+    for (const [k, v] of entries) {
+      normalized[k] = sanitizeResponseData(v);
+    }
+    return normalized;
+  }
+  return value;
+}
+
 // Response interceptor
 axiosClient.interceptors.response.use(
   (response) => {
+    response.data = sanitizeResponseData(response.data);
     return response;
   },
   (error) => {

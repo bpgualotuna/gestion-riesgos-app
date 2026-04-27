@@ -47,6 +47,8 @@ import {
   useGetConfiguracionResidualQuery,
   useUpdateConfiguracionResidualMutation,
   useRecalcularClasificacionResidualMutation,
+  useGetReglaResidualPlanCausaQuery,
+  useUpdateReglaResidualPlanCausaMutation,
 } from '../../api/services/riesgosApi';
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -74,6 +76,9 @@ export default function ConfiguracionResidualPage() {
   const { data: configData, isLoading, error } = useGetConfiguracionResidualQuery();
   const [updateConfig, { isLoading: isSaving }] = useUpdateConfiguracionResidualMutation();
   const [recalcularClasificacion, { isLoading: isRecalculating }] = useRecalcularClasificacionResidualMutation();
+  const { data: reglaPlanCausa, isLoading: cargandoReglaPlanCausa } = useGetReglaResidualPlanCausaQuery();
+  const [actualizarReglaPlanCausa, { isLoading: guardandoReglaPlanCausa }] =
+    useUpdateReglaResidualPlanCausaMutation();
 
   // Estados locales (se inicializan con datos de la API)
   const [pesosCriterios, setPesosCriterios] = useState<any[]>([]);
@@ -190,9 +195,28 @@ export default function ConfiguracionResidualPage() {
           Configuración de Calificación Residual
         </Typography>
 
-        {/* Tabs */}
+        {/* Tabs: primera pestaña fija al inicio — regla plan en causa */}
         <Paper sx={{ mb: 3 }}>
-          <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} variant="scrollable" scrollButtons="auto">
+          <Tabs
+            value={tabValue}
+            onChange={(_, newValue) => setTabValue(newValue)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              borderBottom: 1,
+              borderColor: 'divider',
+              '& .MuiTab-root:first-of-type': {
+                position: 'sticky',
+                left: 0,
+                zIndex: 2,
+                bgcolor: 'background.paper',
+                borderRight: 1,
+                borderColor: 'divider',
+                maxWidth: 'none',
+              },
+            }}
+          >
+            <Tab label="Plan en causa / inherente" />
             <Tab label="Pesos de Criterios" />
             <Tab label="Opciones de Criterios" />
             <Tab label="Rangos de Evaluación" />
@@ -200,8 +224,62 @@ export default function ConfiguracionResidualPage() {
             <Tab label="Rangos de Nivel de Riesgo Residual" />
           </Tabs>
 
-          {/* Tab 1: Pesos de Criterios */}
+          {/* Tab 0: regla residual cuando hay plan en causa */}
           <TabPanel value={tabValue} index={0}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Plan de acción en causa (residual = inherente)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  Si está <strong>activada</strong>: solo cuando una causa tiene plan de acción y <strong>aún no tiene
+                  control</strong> vinculado, el residual del riesgo se iguala al inherente (sin mitigación por controles
+                  en ese caso; servidor, estándar y estratégico). Si todas las causas con plan ya tienen control, el
+                  residual se calcula con la lógica habitual por controles. Si está <strong>desactivada</strong>, siempre
+                  el comportamiento anterior por controles. Use <strong>Recalcular</strong> tras cambiar el interruptor
+                  para actualizar evaluaciones y mapas.
+                </Typography>
+                {cargandoReglaPlanCausa ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={28} />
+                  </Box>
+                ) : (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={Boolean(reglaPlanCausa?.activa)}
+                        disabled={!canEdit || guardandoReglaPlanCausa}
+                        onChange={(_, checked) => {
+                          void actualizarReglaPlanCausa({ activa: checked })
+                            .unwrap()
+                            .then(() => {
+                              showSuccess('Regla de plan en causa actualizada.');
+                              window.dispatchEvent(
+                                new CustomEvent('calificacion-residual-updated', {
+                                  detail: { timestamp: Date.now() },
+                                })
+                              );
+                            })
+                            .catch((err: { data?: { error?: string } }) => {
+                              showError(err?.data?.error ?? 'No se pudo guardar la regla.');
+                            });
+                        }}
+                      />
+                    }
+                    label={reglaPlanCausa?.activa ? 'Regla activa' : 'Regla desactivada'}
+                  />
+                )}
+                {!canEdit && (
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                    Solo usuarios con permiso de edición pueden cambiar esta opción.
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </TabPanel>
+
+          {/* Tab 1: Pesos de Criterios */}
+          <TabPanel value={tabValue} index={1}>
             <Card sx={{ mb: 3, p: 2 }}>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                 Parámetros generales
@@ -282,7 +360,7 @@ export default function ConfiguracionResidualPage() {
           </TabPanel>
 
           {/* Tab 2: Opciones de Criterios */}
-          <TabPanel value={tabValue} index={1}>
+          <TabPanel value={tabValue} index={2}>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Opciones de Criterios (Dropdowns)
             </Typography>
@@ -638,7 +716,7 @@ export default function ConfiguracionResidualPage() {
           </TabPanel>
 
           {/* Tab 3: Rangos de Evaluación Preliminar */}
-          <TabPanel value={tabValue} index={2}>
+          <TabPanel value={tabValue} index={3}>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Rangos de Evaluación Preliminar
             </Typography>
@@ -729,7 +807,7 @@ export default function ConfiguracionResidualPage() {
           </TabPanel>
 
           {/* Tab 4: Tabla de Mitigación */}
-          <TabPanel value={tabValue} index={3}>
+          <TabPanel value={tabValue} index={4}>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Tabla de Porcentajes de Mitigación
             </Typography>
@@ -785,7 +863,7 @@ export default function ConfiguracionResidualPage() {
           </TabPanel>
 
           {/* Tab 5: Rangos de Nivel de Riesgo Residual */}
-          <TabPanel value={tabValue} index={4}>
+          <TabPanel value={tabValue} index={5}>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               Rangos de Nivel de Riesgo Residual
             </Typography>

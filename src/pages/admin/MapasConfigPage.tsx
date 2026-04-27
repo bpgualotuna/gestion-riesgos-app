@@ -8,7 +8,6 @@ import {
     Button,
     Grid,
     Skeleton,
-    Alert,
     Tooltip,
     TextField,
     InputAdornment
@@ -28,19 +27,35 @@ import {
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
+import { MAPA_POSITIVO_COLORES } from '../../utils/mapaPositivoPalette';
 
 
 // Tipos para la configuración
 type MapaConfigType = 'inherente' | 'residual';
 type MapaTabType = MapaConfigType | 'tolerancia';
 
+const PALETA_POSITIVA = [
+    { label: 'EXTREMO', color: MAPA_POSITIVO_COLORES.extremo },
+    { label: 'ALTO', color: MAPA_POSITIVO_COLORES.alto },
+    { label: 'MEDIO', color: MAPA_POSITIVO_COLORES.medio },
+    { label: 'BAJO', color: MAPA_POSITIVO_COLORES.bajo },
+] as const;
+type ItemLeyenda = { id?: string; nombre?: string; label?: string; color: string };
+
 interface MapaGridProps {
     type: MapaConfigType | 'tolerancia';
     config: Record<string, string> | string[];
     niveles: any[];
     onUpdate: (newConfig: any) => void;
+}
+interface NivelRiesgoBase {
+    id: string;
+    nombre: string;
+    color: string;
+    [key: string]: unknown;
 }
 
 const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) => {
@@ -50,8 +65,19 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
     const impactos = ejes?.impacto.map(i => i.valor).sort((a, b) => b - a) || [5, 4, 3, 2, 1];
 
     const isToleranceMode = type === 'tolerancia';
+    const isPositiveMode = type === 'residual';
     const toleranceList = isToleranceMode ? (config as string[]) : [];
     const colorConfig = !isToleranceMode ? (config as Record<string, string>) : {};
+    const coloresPositivosPermitidos = PALETA_POSITIVA.map((p) => p.color.toLowerCase());
+
+    const colorPositivoPorRiesgo = (prob: number, imp: number): string => {
+        let riesgo = prob * imp;
+        if (prob === 2 && imp === 2) riesgo = 3.99;
+        if (riesgo >= 15 && riesgo <= 25) return PALETA_POSITIVA[0].color;
+        if (riesgo >= 10 && riesgo <= 14) return PALETA_POSITIVA[1].color;
+        if (riesgo >= 4 && riesgo <= 9) return PALETA_POSITIVA[2].color;
+        return PALETA_POSITIVA[3].color;
+    };
 
     const handleCellClick = (prob: number, imp: number) => {
         const key = `${prob}-${imp}`;
@@ -67,15 +93,32 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
         }
 
         // Color Mode
-        const currentLevelId = colorConfig[key] || '5';
-        const currentIndex = niveles.findIndex(n => n.id === currentLevelId);
-        const nextIndex = (currentIndex + 1) % niveles.length;
-        const nextLevel = niveles[nextIndex];
-
-        const newConfig = {
-            ...colorConfig,
-            [key]: nextLevel.id
-        };
+        let newConfig: Record<string, string>;
+        if (isPositiveMode) {
+            const currentColorRaw = colorConfig[key] || colorPositivoPorRiesgo(prob, imp);
+            const currentColor = String(currentColorRaw).toLowerCase();
+            const colorActualNormalizado = coloresPositivosPermitidos.includes(currentColor)
+                ? currentColor
+                : colorPositivoPorRiesgo(prob, imp).toLowerCase();
+            const currentIndex = Math.max(
+                0,
+                PALETA_POSITIVA.findIndex((p) => p.color.toLowerCase() === colorActualNormalizado)
+            );
+            const nextIndex = (currentIndex + 1) % PALETA_POSITIVA.length;
+            newConfig = {
+                ...colorConfig,
+                [key]: PALETA_POSITIVA[nextIndex].color,
+            };
+        } else {
+            const currentLevelId = colorConfig[key] || '5';
+            const currentIndex = niveles.findIndex(n => n.id === currentLevelId);
+            const nextIndex = (currentIndex + 1) % niveles.length;
+            const nextLevel = niveles[nextIndex];
+            newConfig = {
+                ...colorConfig,
+                [key]: nextLevel.id
+            };
+        }
         onUpdate(newConfig);
     };
 
@@ -91,6 +134,20 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
         }
 
         const levelId = colorConfig[key];
+        if (isPositiveMode) {
+            if (typeof levelId === 'string' && levelId.startsWith('#')) {
+                const colorHex = levelId.toLowerCase();
+                if (coloresPositivosPermitidos.includes(colorHex)) return levelId;
+            }
+            if (levelId) {
+                const level = niveles.find(n => n.id === levelId);
+                if (level?.color) {
+                    const colorNivel = String(level.color).toLowerCase();
+                    if (coloresPositivosPermitidos.includes(colorNivel)) return level.color;
+                }
+            }
+            return colorPositivoPorRiesgo(prob, imp);
+        }
         const level = niveles.find(n => n.id === levelId);
         return level ? level.color : '#e0e0e0';
     };
@@ -186,6 +243,11 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
         }
 
         const levelId = colorConfig[key];
+        if (isPositiveMode) {
+            const color = getCellColor(prob, imp).toLowerCase();
+            const encontrado = PALETA_POSITIVA.find((p) => p.color.toLowerCase() === color);
+            return encontrado?.label || '?';
+        }
         const level = niveles.find(n => n.id === levelId);
         return level ? level.nombre : '?';
     };
@@ -277,10 +339,10 @@ const MapaGrid: React.FC<MapaGridProps> = ({ type, config, niveles, onUpdate }) 
             </Box>
 
             <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                {!isToleranceMode && niveles.map(nivel => (
-                    <Box key={nivel.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {!isToleranceMode && (isPositiveMode ? PALETA_POSITIVA : niveles).map((nivel: ItemLeyenda) => (
+                    <Box key={nivel.id || nivel.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ width: 20, height: 20, bgcolor: nivel.color, borderRadius: 0.5 }} />
-                        <Typography variant="caption">{nivel.nombre}</Typography>
+                        <Typography variant="caption">{nivel.nombre || nivel.label}</Typography>
                     </Box>
                 ))}
                 {isToleranceMode && (
@@ -301,6 +363,25 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     const [searchTerm, setSearchTerm] = useState('');
     const { data: configDataRaw, isLoading: isLoadingConfig } = useGetMapaConfigQuery();
     const { data: nivelesData, isLoading: isLoadingNiveles } = useGetNivelesRiesgoQuery();
+    const nivelesPositivos = useMemo(() => {
+        if (!nivelesData) return [];
+        const porNombre: Record<string, { nombre: string; color: string }> = {
+            critico: { nombre: 'EXTREMO', color: MAPA_POSITIVO_COLORES.extremo },
+            alto: { nombre: 'ALTO', color: MAPA_POSITIVO_COLORES.alto },
+            medio: { nombre: 'MEDIO', color: MAPA_POSITIVO_COLORES.medio },
+            bajo: { nombre: 'BAJO', color: MAPA_POSITIVO_COLORES.bajo },
+            'muy alto': { nombre: 'EXTREMO', color: MAPA_POSITIVO_COLORES.extremo },
+            'muy bajo': { nombre: 'BAJO', color: MAPA_POSITIVO_COLORES.bajo },
+        };
+
+        return (nivelesData as NivelRiesgoBase[]).map((nivel) => {
+            const clave = String(nivel?.nombre || '').trim().toLowerCase();
+            const mapeado = porNombre[clave];
+            return mapeado
+                ? { ...nivel, nombre: mapeado.nombre, color: mapeado.color }
+                : nivel;
+        });
+    }, [nivelesData]);
 
     const [updateMapaConfig, { isLoading: isUpdating }] = useUpdateMapaConfigMutation();
 
@@ -345,14 +426,6 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
         );
     }
 
-    const alertContent = (
-        <Alert severity="info" sx={{ mb: 3 }}>
-            {tabValue === 'tolerancia'
-                ? 'Haga clic en las celdas para definir qué combinaciones son TOLERABLES (Azul). La línea de tolerancia se dibujará automáticamente en el límite.'
-                : 'Haga clic en las celdas de la matriz para cambiar el Nivel de Riesgo asignado. Asegúrese de guardar los cambios antes de cambiar de pestaña.'}
-        </Alert>
-    );
-
     const mainContent = (
         <>
             <Box sx={{ mt: embedded ? 0 : -2 }}>
@@ -380,13 +453,13 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                     <Tab
                         icon={<InherentIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Mapa Inherente (Negativo)"
+                        label="Mapa Negativos"
                         value="inherente"
                     />
                     <Tab
                         icon={<ResidualIcon sx={{ fontSize: 24 }} />}
                         iconPosition="top"
-                        label="Mapa Residual (Negativo)"
+                        label="Mapa Positivos"
                         value="residual"
                     />
                     <Tab
@@ -404,7 +477,7 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                                 <MapaGrid
                                     type={tabValue}
                                     config={localConfig}
-                                    niveles={nivelesData}
+                                    niveles={tabValue === 'residual' ? nivelesPositivos : nivelesData}
                                     onUpdate={canEdit ? handleUpdateConfig : () => {}}
                                 />
                             </Box>
@@ -412,15 +485,17 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
                                 <Paper variant="outlined" sx={{ p: 2 }}>
                                     <Typography variant="subtitle2" gutterBottom>Acciones</Typography>
 
-                                    <Button
+                                    <LoadingActionButton
                                         variant="contained"
                                         color="primary"
                                         fullWidth
                                         onClick={handleSave}
-                                        disabled={!canEdit || isUpdating}
+                                        disabled={!canEdit}
+                                        loading={isUpdating}
+                                        loadingText="Guardando..."
                                     >
-                                        {isUpdating ? 'Guardando...' : 'Guardar Cambios'}
-                                    </Button>
+                                        Guardar Cambios
+                                    </LoadingActionButton>
                                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
                                         {tabValue === 'tolerancia'
                                             ? 'La línea de tolerancia es una referencia visual importante para los reportes.'
@@ -445,7 +520,6 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     if (embedded) {
         return (
             <Box>
-                {alertContent}
                 {mainContent}
             </Box>
         );
@@ -454,8 +528,7 @@ export default function MapasConfigPage({ embedded = false }: { embedded?: boole
     return (
         <AppPageLayout
             title="Configuración de Mapa de Riesgos"
-            description="Defina los niveles de riesgo y tolerancia para los mapas inherente y residual."
-            alert={alertContent}
+            description="Defina niveles, colores y tolerancia para mapas inherente y residual (negativos y positivos)."
         >
             {mainContent}
         </AppPageLayout>

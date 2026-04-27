@@ -27,7 +27,7 @@ export default function RouteErrorElement() {
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           {errorStatus === 404
-            ? 'La página que buscas no existe. Por favor regresa al dashboard.'
+            ? 'La página que buscas no existe.'
             : errorMessage}
         </Typography>
 

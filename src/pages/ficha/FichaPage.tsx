@@ -29,13 +29,17 @@ import {
   AccordionDetails,
   Dialog,
   DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tabs,
+  Tab,
 } from '@mui/material';
-import { Save as SaveIcon, Info as InfoIcon, Edit as EditIcon, Visibility as VisibilityIcon, ExpandMore as ExpandMoreIcon, Add as AddIcon, People as PeopleIcon, Event as EventIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Edit as EditIcon, Visibility as VisibilityIcon, ExpandMore as ExpandMoreIcon, Add as AddIcon, Event as EventIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdateProcesoMutation, useGetGerenciasQuery, useGetAsistentesProcesoQuery, useAsignarAsistentesProcesoMutation, useGetReunionesQuery, useCrearReunionMutation, useActualizarReunionMutation, useEliminarReunionMutation, useGetAsistenciasQuery, useActualizarAsistenciasMutation, useGetUsuariosQuery } from '../../api/services/riesgosApi';
+import { useUpdateProcesoMutation, useGetGerenciasQuery, useGetAsistentesProcesoQuery, useAsignarAsistentesProcesoMutation, useGetReunionesQuery, useCrearReunionMutation, useActualizarReunionMutation, useEliminarReunionMutation, useActualizarAsistenciasMutation, useGetUsuariosQuery } from '../../api/services/riesgosApi';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from '../../utils/constants';
 import { useEffect } from 'react';
 import { useProcesosFiltradosPorArea } from '../../hooks/useAsignaciones';
@@ -44,6 +48,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import type { ScreenContext } from '../../types/ia.types';interface FichaData {
   vicepresidencia: string;
@@ -85,6 +90,100 @@ interface AsistenciaReunion {
     email: string;
   };
 }
+
+const parseFlexibleDate = (value: any): Date | null => {
+  if (value == null) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'number') {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const d = new Date(`${s}T00:00:00`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+      const [dd, mm, yyyy] = s.split('/');
+      const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === 'object') {
+    const nested = (value as any).$date ?? (value as any).date ?? (value as any).fecha;
+    if (nested != null) return parseFlexibleDate(nested);
+    return null;
+  }
+  return null;
+};
+
+const getDateParts = (value: any): { year: number; month: number; day: number } | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const isoLike = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoLike) {
+      return {
+        year: Number(isoLike[1]),
+        month: Number(isoLike[2]),
+        day: Number(isoLike[3]),
+      };
+    }
+    const slashLike = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashLike) {
+      return {
+        year: Number(slashLike[3]),
+        month: Number(slashLike[2]),
+        day: Number(slashLike[1]),
+      };
+    }
+  }
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) return null;
+  return {
+    year: parsed.getFullYear(),
+    month: parsed.getMonth() + 1,
+    day: parsed.getDate(),
+  };
+};
+
+const toDateInputValue = (value?: any): string => {
+  const parts = getDateParts(value);
+  if (!parts) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+};
+
+const formatDisplayDate = (value?: any): string => {
+  const parts = getDateParts(value);
+  if (!parts) return 'Fecha no definida';
+  const parsed = new Date(parts.year, parts.month - 1, parts.day);
+  return parsed.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
+
+const getReunionFechaValue = (reunion: any): string | Date | null =>
+  reunion?.fecha ?? reunion?.fechaReunion ?? reunion?.date ?? reunion?.createdAt ?? reunion?.updatedAt ?? null;
+
+const sanitizeVisibleText = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/[\u200B\u200E\u200F\uFEFF]/g, '')
+    .trim();
+
+const getUserDisplayName = (user: any): string =>
+  sanitizeVisibleText(user?.nombre || user?.fullName || user?.name || user?.usuarioNombre) || 'Usuario sin nombre';
+
+const getUserDisplayEmail = (user: any): string =>
+  sanitizeVisibleText(user?.email || user?.correo || user?.mail) || 'Sin correo';
 
 export default function FichaPage() {
   const { showSuccess, showError } = useNotification();
@@ -174,38 +273,6 @@ export default function FichaPage() {
     return String(gerenciaValue);
   }, [gerenciaMap]);
 
-  // Skeleton mientras carga el proceso
-  if (isLoadingProceso) {
-    return (
-      <AppPageLayout
-        title="Ficha del Proceso"
-        description="Formulario de diligenciamiento obligatorio con información básica del proceso."
-        topContent={null}
-      >
-        <Box sx={{ p: 3 }}>
-          <PageLoadingSkeleton variant="table" tableRows={6} />
-        </Box>
-      </AppPageLayout>
-    );
-  }
-
-  // Dueño de Proceso: si no tiene proceso seleccionado (ni por URL ni por header), mostrar solo mensaje
-  if (esDueñoProcesos && !procesoActual?.id) {
-    return (
-      <AppPageLayout
-        title="Ficha del Proceso"
-        description="Formulario de diligenciamiento obligatorio con información básica del proceso."
-        topContent={null}
-      >
-        <Box sx={{ p: 3 }}>
-          <Alert severity="info" variant="outlined">
-            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para ver su ficha.
-          </Alert>
-        </Box>
-      </AppPageLayout>
-    );
-  }
-
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
 
   const procesosPorArea = useMemo(() => {
@@ -246,7 +313,7 @@ export default function FichaPage() {
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
-        fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        fechaCreacion: toDateInputValue(procesoActual.createdAt),
         // En backend el campo se llama "objetivo"
         objetivoProceso: (procesoActual as any).objetivo || '',
       };
@@ -258,7 +325,7 @@ export default function FichaPage() {
       area: '',
       responsable: '',
       encargado: '',
-      fechaCreacion: new Date().toISOString().split('T')[0],
+      fechaCreacion: toDateInputValue(),
       objetivoProceso: '',
     };
   });
@@ -283,17 +350,20 @@ export default function FichaPage() {
 
   // Estados para Asistentes y Reuniones
   const [dialogReunionOpen, setDialogReunionOpen] = useState(false);
-  const [dialogAsistenciaOpen, setDialogAsistenciaOpen] = useState(false);
-  const [dialogAsistentesExternosOpen, setDialogAsistentesExternosOpen] = useState(false);
+  const [dialogDetalleReunionOpen, setDialogDetalleReunionOpen] = useState(false);
   const [reunionEnEdicion, setReunionEnEdicion] = useState<Reunion | null>(null);
-  const [reunionParaAsistencia, setReunionParaAsistencia] = useState<Reunion | null>(null);
-  const [asistencias, setAsistencias] = useState<AsistenciaReunion[]>([]);
+  const [reunionDetalle, setReunionDetalle] = useState<Reunion | null>(null);
+  const [reunionDetalleFecha, setReunionDetalleFecha] = useState('');
+  const [asistenciaDetalle, setAsistenciaDetalle] = useState<Array<{ usuarioId: number; asistio: boolean; nombre: string; email: string }>>([]);
+  const [savingReunion, setSavingReunion] = useState(false);
+  const [reunionAsistenciaUsuarioIds, setReunionAsistenciaUsuarioIds] = useState<string[]>([]);
+  const [reunionAsistentesTab, setReunionAsistentesTab] = useState<'internos' | 'externos'>('internos');
+  const [reunionBusquedaUsuario, setReunionBusquedaUsuario] = useState('');
   const [formReunion, setFormReunion] = useState({
     fecha: '',
     descripcion: '',
     estado: 'programada' as 'programada' | 'realizada' | 'cancelada'
   });
-  const [busquedaUsuario, setBusquedaUsuario] = useState('');
 
   // Usar directamente los datos del backend sin estados intermedios
   const asistentesSeleccionados = useMemo(() => {
@@ -327,50 +397,36 @@ export default function FichaPage() {
     return usuarios;
   }, [procesoActual]);
 
-  // Filtrar usuarios externos (que no están en el proceso pero están seleccionados como asistentes)
-  const usuariosExternosSeleccionados = useMemo(() => {
-    const idsUsuariosDelProceso = usuariosDisponibles.map(u => u.id);
-    return asistentesSeleccionados.filter(id => !idsUsuariosDelProceso.includes(id));
-  }, [asistentesSeleccionados, usuariosDisponibles]);
-
-  // Obtener información completa de usuarios externos
-  const usuariosExternosInfo = useMemo(() => {
-    return usuariosExternosSeleccionados.map(id => {
-      const usuario = todosUsuarios.find((u: any) => u.id === id);
-      return usuario ? {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        email: usuario.email,
-        rol: usuario.role
-      } : null;
-    }).filter(Boolean);
-  }, [usuariosExternosSeleccionados, todosUsuarios]);
-
-  // Filtrar usuarios para el diálogo de asistentes externos
-  const usuariosFiltrados = useMemo(() => {
-    console.log('[FichaPage] Filtrando usuarios. Total:', todosUsuarios?.length);
-    console.log('[FichaPage] Búsqueda:', busquedaUsuario);
-    
-    if (!todosUsuarios || !Array.isArray(todosUsuarios)) {
-      console.log('[FichaPage] todosUsuarios no es un array válido');
-      return [];
-    }
-    
-    if (!busquedaUsuario.trim()) {
-      console.log('[FichaPage] Sin búsqueda, retornando todos');
-      return todosUsuarios;
-    }
-    
-    const busqueda = busquedaUsuario.toLowerCase();
-    const filtrados = todosUsuarios.filter((u: any) => {
-      const nombreMatch = u.nombre?.toLowerCase().includes(busqueda);
-      const emailMatch = u.email?.toLowerCase().includes(busqueda);
-      return nombreMatch || emailMatch;
+  const usuariosExternosDisponibles = useMemo(() => {
+    const internos = new Set(usuariosDisponibles.map((u) => String(u.id)));
+    return (todosUsuarios as any[]).filter((u) => {
+      const id = u?.id ?? u?.usuarioId ?? u?._id;
+      return !internos.has(String(id));
     });
-    
-    console.log('[FichaPage] Usuarios filtrados:', filtrados.length);
-    return filtrados;
-  }, [todosUsuarios, busquedaUsuario]);
+  }, [todosUsuarios, usuariosDisponibles]);
+
+  const usuariosExternosUi = useMemo(() => {
+    return usuariosExternosDisponibles.map((u: any, idx: number) => {
+      const rawId = u?.id ?? u?.usuarioId ?? u?._id;
+      const idAsString = String(rawId);
+      return {
+        raw: u,
+        id: rawId == null ? `sin-id-${idx}` : idAsString,
+        canSelect: rawId != null && idAsString.trim() !== '',
+        displayName: getUserDisplayName(u),
+        displayEmail: getUserDisplayEmail(u),
+      };
+    });
+  }, [usuariosExternosDisponibles]);
+
+  const usuariosExternosFiltradosReunion = useMemo(() => {
+    const filtro = reunionBusquedaUsuario.trim().toLowerCase();
+    if (!filtro) return usuariosExternosUi;
+    return usuariosExternosUi.filter((u) =>
+      u.displayName.toLowerCase().includes(filtro) ||
+      u.displayEmail.toLowerCase().includes(filtro)
+    );
+  }, [usuariosExternosUi, reunionBusquedaUsuario]);
 
   // Actualizar formData cuando cambie el proceso seleccionado
   useEffect(() => {
@@ -382,15 +438,38 @@ export default function FichaPage() {
         area: procesoActual.areaNombre || (procesoActual as any).area?.nombre || '',
         responsable: (procesoActual as any).responsable?.nombre || '',
         encargado: (procesoActual as any).responsable?.nombre || '',
-        fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        fechaCreacion: toDateInputValue(procesoActual.createdAt),
         // En backend el campo se llama "objetivo"
         objetivoProceso: (procesoActual as any).objetivo || '',
       };
-      
-      setFormData(newData);
-      setInitialFormData(newData);
+
+      setFormData((prev) => {
+        const same =
+          prev.vicepresidencia === newData.vicepresidencia &&
+          prev.gerencia === newData.gerencia &&
+          prev.sigla === newData.sigla &&
+          prev.area === newData.area &&
+          prev.responsable === newData.responsable &&
+          prev.encargado === newData.encargado &&
+          prev.fechaCreacion === newData.fechaCreacion &&
+          prev.objetivoProceso === newData.objetivoProceso;
+        return same ? prev : newData;
+      });
+
+      setInitialFormData((prev) => {
+        const same =
+          prev.vicepresidencia === newData.vicepresidencia &&
+          prev.gerencia === newData.gerencia &&
+          prev.sigla === newData.sigla &&
+          prev.area === newData.area &&
+          prev.responsable === newData.responsable &&
+          prev.encargado === newData.encargado &&
+          prev.fechaCreacion === newData.fechaCreacion &&
+          prev.objetivoProceso === newData.objetivoProceso;
+        return same ? prev : newData;
+      });
     }
-  }, [procesoActual, gerencias]);
+  }, [procesoActual]);
 
   // NUEVO: useEffect para capturar contexto de pantalla para CORA IA
   useEffect(() => {
@@ -502,14 +581,32 @@ export default function FichaPage() {
   };
 
   // Handlers para Reuniones
-  const handleAbrirDialogReunion = (reunion?: Reunion) => {
+  const fetchAsistenciasReunion = async (reunionId: number | string): Promise<AsistenciaReunion[]> => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    const response = await fetch(`${API_BASE_URL}/reuniones/${reunionId}/asistencias`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) return [];
+    const data = await response.json().catch(() => []);
+    return Array.isArray(data) ? data : [];
+  };
+
+  const handleAbrirDialogReunion = async (reunion?: Reunion) => {
+    setReunionAsistentesTab('internos');
+    setReunionBusquedaUsuario('');
     if (reunion) {
       setReunionEnEdicion(reunion);
       setFormReunion({
-        fecha: reunion.fecha.split('T')[0], // Formato YYYY-MM-DD para input date
+        fecha: toDateInputValue(getReunionFechaValue(reunion)), // Formato YYYY-MM-DD para input date
         descripcion: reunion.descripcion,
         estado: reunion.estado
       });
+      const asistenciasReunion = await fetchAsistenciasReunion(reunion.id);
+      const asistentesAsistieron = asistenciasReunion
+        .filter((a: any) => a?.asistio)
+        .map((a: any) => String(a?.usuarioId))
+        .filter((id: string) => id && id !== 'undefined' && id !== 'null');
+      setReunionAsistenciaUsuarioIds(asistentesAsistieron);
     } else {
       setReunionEnEdicion(null);
       setFormReunion({
@@ -517,6 +614,7 @@ export default function FichaPage() {
         descripcion: '',
         estado: 'programada'
       });
+      setReunionAsistenciaUsuarioIds([]);
     }
     setDialogReunionOpen(true);
   };
@@ -526,6 +624,10 @@ export default function FichaPage() {
       showError('Fecha y descripción son requeridas');
       return;
     }
+    if (reunionAsistenciaUsuarioIds.length === 0) {
+      showError('Seleccione al menos un asistente (interno o externo) para la reunión');
+      return;
+    }
 
     if (!procesoActual?.id) {
       showError('No hay proceso seleccionado');
@@ -533,6 +635,19 @@ export default function FichaPage() {
     }
 
     try {
+      setSavingReunion(true);
+      const asistentesProcesoActuales = asistentesSeleccionados.map((id) => String(id));
+      const asistentesNecesariosStrings = Array.from(new Set([...asistentesProcesoActuales, ...reunionAsistenciaUsuarioIds]));
+      const asistentesNecesarios = asistentesNecesariosStrings
+        .map((id) => Number(id))
+        .filter((id) => !Number.isNaN(id));
+
+      await asignarAsistentes({
+        procesoId: String(procesoActual.id),
+        usuariosIds: asistentesNecesarios,
+      }).unwrap();
+
+      let reunionId: number | null = null;
       if (reunionEnEdicion) {
         // Actualizar reunión existente
         await actualizarReunionMutation({
@@ -541,22 +656,40 @@ export default function FichaPage() {
           descripcion: formReunion.descripcion,
           estado: formReunion.estado
         }).unwrap();
+        reunionId = reunionEnEdicion.id;
         showSuccess('Reunión actualizada');
       } else {
         // Crear nueva reunión
-        await crearReunionMutation({
+        const creada = await crearReunionMutation({
           procesoId: String(procesoActual.id),
           fecha: formReunion.fecha,
           descripcion: formReunion.descripcion,
           estado: formReunion.estado
         }).unwrap();
+        reunionId = Number((creada as any)?.id);
         showSuccess('Reunión creada');
+      }
+
+      if (reunionId && !Number.isNaN(reunionId)) {
+        const asistenciasReunion = await fetchAsistenciasReunion(reunionId);
+        if (asistenciasReunion.length > 0) {
+          await actualizarAsistenciasMutation({
+            reunionId,
+            asistencias: asistenciasReunion.map((a: any) => ({
+              id: a.id,
+              asistio: reunionAsistenciaUsuarioIds.includes(String(a?.usuarioId)),
+            })),
+          }).unwrap();
+        }
       }
       
       await refetchReuniones();
+      await refetchAsistentes();
       setDialogReunionOpen(false);
     } catch (error) {
       showError('Error al guardar reunión');
+    } finally {
+      setSavingReunion(false);
     }
   };
 
@@ -572,67 +705,61 @@ export default function FichaPage() {
     }
   };
 
-  // Handlers para Asistencia
-  const handleAbrirDialogAsistencia = async (reunion: Reunion) => {
-    console.log('[FichaPage] Abriendo diálogo de asistencia para reunión:', reunion);
-    setReunionParaAsistencia(reunion);
-    
-    // Cargar asistencias de esta reunión desde el backend
-    try {
-      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-      console.log('[FichaPage] Token presente:', !!token);
-      console.log('[FichaPage] URL:', `${API_BASE_URL}/reuniones/${reunion.id}/asistencias`);
-      
-      const response = await fetch(`${API_BASE_URL}/reuniones/${reunion.id}/asistencias`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      console.log('[FichaPage] Response status:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[FichaPage] Asistencias cargadas:', data);
-        console.log('[FichaPage] Cantidad de asistencias:', data.length);
-        setAsistencias(data);
-      } else {
-        const errorText = await response.text();
-        console.error('[FichaPage] Error en respuesta:', errorText);
-      }
-    } catch (error) {
-      console.error('[FichaPage] Error al cargar asistencias:', error);
-    }
-    
-    setDialogAsistenciaOpen(true);
+  const toggleAsistenciaUsuario = (userId: string) => {
+    setReunionAsistenciaUsuarioIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
   };
 
-  const handleToggleAsistencia = (asistenciaId: number) => {
-    setAsistencias(prev => prev.map(a => 
-      a.id === asistenciaId 
-        ? { ...a, asistio: !a.asistio }
-        : a
-    ));
+  const handleAbrirDetalleReunion = async (reunion: Reunion) => {
+    setReunionDetalle(reunion);
+    setReunionDetalleFecha(toDateInputValue(getReunionFechaValue(reunion)));
+    const internosIds = new Set(usuariosDisponibles.map((u) => Number(u.id)));
+    const asistenciasReunion = await fetchAsistenciasReunion(reunion.id);
+    const detalle = asistenciasReunion.map((a: any) => {
+      const user = (todosUsuarios as any[]).find((u) => Number(u?.id ?? u?.usuarioId ?? u?._id) === Number(a?.usuarioId));
+      return {
+        usuarioId: Number(a?.usuarioId),
+        asistio: !!a?.asistio,
+        nombre: getUserDisplayName(user || a?.usuario),
+        email: getUserDisplayEmail(user || a?.usuario),
+        tipo: internosIds.has(Number(a?.usuarioId)) ? 'Interno' : 'Externo',
+      };
+    });
+    setAsistenciaDetalle(detalle);
+    setDialogDetalleReunionOpen(true);
   };
 
-  const handleGuardarAsistencia = async () => {
-    if (!reunionParaAsistencia) return;
-    
-    try {
-      await actualizarAsistenciasMutation({
-        reunionId: reunionParaAsistencia.id,
-        asistencias: asistencias.map(a => ({
-          id: a.id,
-          asistio: a.asistio
-        }))
-      }).unwrap();
-      
-      showSuccess('Asistencia registrada');
-      setDialogAsistenciaOpen(false);
-    } catch (error) {
-      showError('Error al guardar asistencia');
-    }
-  };
+  // Mantener todos los hooks en el mismo orden antes de retornar UI condicional.
+  if (isLoadingProceso) {
+    return (
+      <AppPageLayout
+        title="Ficha del Proceso"
+        description="Formulario de diligenciamiento obligatorio con información básica del proceso."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <PageLoadingSkeleton variant="table" tableRows={6} />
+        </Box>
+      </AppPageLayout>
+    );
+  }
+
+  if (esDueñoProcesos && !procesoActual?.id) {
+    return (
+      <AppPageLayout
+        title="Ficha del Proceso"
+        description="Formulario de diligenciamiento obligatorio con información básica del proceso."
+        topContent={null}
+      >
+        <Box sx={{ p: 3 }}>
+          <Alert severity="info" variant="outlined">
+            No hay proceso seleccionado.
+          </Alert>
+        </Box>
+      </AppPageLayout>
+    );
+  }
 
   if (!procesoActual && mostrarFiltrosProceso) {
     return (
@@ -645,9 +772,6 @@ export default function FichaPage() {
             sx={{ color: '#1976d2' }}
           >
             Ficha del Proceso
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Seleccione un proceso para ver su ficha.
           </Typography>
         </Box>
 
@@ -754,22 +878,6 @@ export default function FichaPage() {
       description="Formulario de diligenciamiento obligatorio con información básica del proceso"
       action={
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {isReadOnly && (
-            <Chip
-              icon={<VisibilityIcon />}
-              label="Modo Visualización"
-              color="info"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-          {isEditMode && (
-            <Chip
-              icon={<EditIcon />}
-              label="Modo Edición"
-              color="warning"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
           {puedeEditarInfoOrganizacional && (
             <Button
               variant="contained"
@@ -783,13 +891,6 @@ export default function FichaPage() {
         </Box>
       }
       topContent={<FiltroProcesoSupervisor />}
-      alert={
-        isReadOnly && (
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
-            Está en modo visualización. Solo puede ver la información. Para editar, seleccione el proceso en modo "Editar" desde el Dashboard.
-          </Alert>
-        )
-      }
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <Box>
@@ -918,115 +1019,6 @@ export default function FichaPage() {
             Gestione los asistentes del proceso y programe reuniones de seguimiento.
           </Typography>
 
-          {/* Subsección: Asistentes */}
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PeopleIcon color="primary" />
-                Asistentes del Proceso
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setDialogAsistentesExternosOpen(true)}
-                sx={{ borderRadius: 2 }}
-              >
-                Agregar Externos
-              </Button>
-            </Box>
-            
-            {usuariosDisponibles.length === 0 && usuariosExternosInfo.length === 0 ? (
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                No hay usuarios asignados a este proceso. Los asistentes deben ser Dueños de Procesos o Supervisores de Riesgos asignados al proceso, o puede agregar asistentes externos.
-              </Alert>
-            ) : (
-              <>
-                {/* Asistentes del Proceso */}
-                {usuariosDisponibles.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                      Usuarios del Proceso
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {usuariosDisponibles.map(usuario => (
-                        <Card 
-                          key={usuario.id} 
-                          sx={{ 
-                            cursor: 'pointer',
-                            border: asistentesSeleccionados.includes(usuario.id) ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                            bgcolor: asistentesSeleccionados.includes(usuario.id) ? 'rgba(25, 118, 210, 0.04)' : 'white',
-                            transition: 'all 0.2s',
-                            '&:hover': { boxShadow: 2 },
-                            maxWidth: 300,
-                            flex: '0 1 auto'
-                          }}
-                          onClick={() => handleToggleAsistente(usuario.id)}
-                        >
-                          <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              {asistentesSeleccionados.includes(usuario.id) && (
-                                <CheckCircleIcon color="primary" fontSize="small" />
-                              )}
-                              <Box sx={{ minWidth: 0 }}>
-                                <Typography variant="body2" fontWeight={600} noWrap>
-                                  {usuario.nombre}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap>
-                                  {usuario.rol === 'dueño_procesos' ? 'Dueño' : 'Supervisor'}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Asistentes Externos */}
-                {usuariosExternosInfo.length > 0 && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                      Asistentes Externos ({usuariosExternosInfo.length})
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {usuariosExternosInfo.map((usuario: any) => (
-                        <Card 
-                          key={usuario.id} 
-                          sx={{ 
-                            cursor: 'pointer',
-                            border: '2px solid #9c27b0',
-                            bgcolor: 'rgba(156, 39, 176, 0.04)',
-                            transition: 'all 0.2s',
-                            '&:hover': { boxShadow: 2 },
-                            maxWidth: 300,
-                            flex: '0 1 auto'
-                          }}
-                          onClick={() => handleToggleAsistente(usuario.id)}
-                        >
-                          <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <CheckCircleIcon sx={{ color: '#9c27b0' }} fontSize="small" />
-                              <Box sx={{ minWidth: 0 }}>
-                                <Typography variant="body2" fontWeight={600} noWrap>
-                                  {usuario.nombre}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap>
-                                  Externo
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Box>
-                  </Box>
-                )}
-              </>
-            )}
-          </Box>
-
           {/* Subsección: Reuniones */}
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1039,7 +1031,6 @@ export default function FichaPage() {
                 size="small"
                 startIcon={<AddIcon />}
                 onClick={() => handleAbrirDialogReunion()}
-                disabled={asistentesSeleccionados.length === 0}
                 sx={{ borderRadius: 2 }}
               >
                 Nueva Reunión
@@ -1048,32 +1039,27 @@ export default function FichaPage() {
 
             {asistentesSeleccionados.length === 0 ? (
               <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                Debe seleccionar al menos un asistente antes de crear reuniones.
+                Debe seleccionar al menos un asistente dentro del modal de reunión.
               </Alert>
             ) : reuniones.length === 0 ? (
               <Alert severity="info" sx={{ borderRadius: 2 }}>
-                No hay reuniones programadas. Haga clic en "Nueva Reunión" para crear una.
+                No hay reuniones programadas.
               </Alert>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {reuniones.map(reunion => {
-                  const asistenciasReunion = asistencias.filter(a => a.reunionId === reunion.id);
-                  const totalAsistentes = asistenciasReunion.length;
-                  const asistieron = asistenciasReunion.filter(a => a.asistio).length;
-                  
                   return (
-                    <Card key={reunion.id} sx={{ borderRadius: 2 }}>
+                    <Card
+                      key={reunion.id}
+                      sx={{ borderRadius: 2, cursor: 'pointer' }}
+                      onClick={() => handleAbrirDetalleReunion(reunion)}
+                    >
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                           <Box sx={{ flex: 1 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                               <Typography variant="h6" fontWeight={600}>
-                                {new Date(reunion.fecha).toLocaleDateString('es-ES', { 
-                                  weekday: 'long', 
-                                  year: 'numeric', 
-                                  month: 'long', 
-                                  day: 'numeric' 
-                                })}
+                                {formatDisplayDate(getReunionFechaValue(reunion))}
                               </Typography>
                               <Chip 
                                 label={reunion.estado.charAt(0).toUpperCase() + reunion.estado.slice(1)}
@@ -1088,23 +1074,16 @@ export default function FichaPage() {
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                               {reunion.descripcion}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              Asistencia: {asistieron} de {totalAsistentes} asistentes
-                            </Typography>
                           </Box>
                           
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Button
                               size="small"
                               variant="outlined"
-                              onClick={() => handleAbrirDialogAsistencia(reunion)}
-                            >
-                              Registrar Asistencia
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleAbrirDialogReunion(reunion)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAbrirDialogReunion(reunion);
+                              }}
                             >
                               Editar
                             </Button>
@@ -1112,7 +1091,10 @@ export default function FichaPage() {
                               size="small"
                               variant="outlined"
                               color="error"
-                              onClick={() => handleEliminarReunion(reunion.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEliminarReunion(reunion.id);
+                              }}
                             >
                               <DeleteIcon fontSize="small" />
                             </Button>
@@ -1141,7 +1123,7 @@ export default function FichaPage() {
                     area: procesoActual.areaNombre || '',
                     responsable: procesoActual.responsableNombre || procesoActual.responsable || '',
                     encargado: procesoActual.responsableNombre || procesoActual.responsable || '',
-                    fechaCreacion: procesoActual.createdAt ? new Date(procesoActual.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                    fechaCreacion: toDateInputValue(procesoActual.createdAt),
                     objetivoProceso: procesoActual.objetivoProceso || '',
                   });
                 }
@@ -1150,12 +1132,14 @@ export default function FichaPage() {
             >
               Restaurar
             </Button>
-            <Button
+            <LoadingActionButton
               variant="contained"
               size="large"
               startIcon={<SaveIcon />}
               onClick={handleSave}
-              disabled={isSaving || !hasFormChanges}
+              disabled={!hasFormChanges}
+              loading={isSaving}
+              loadingText="Guardando..."
               sx={{
                 borderRadius: 2,
                 px: 5,
@@ -1168,8 +1152,8 @@ export default function FichaPage() {
                 transition: 'all 0.3s ease',
               }}
             >
-              {isSaving ? 'Guardando...' : 'Guardar Ficha'}
-            </Button>
+              Guardar Ficha
+            </LoadingActionButton>
           </Box>
         )}
       </Box>
@@ -1178,7 +1162,10 @@ export default function FichaPage() {
       {/* Dialog para Crear/Editar Reunión */}
       <Dialog 
         open={dialogReunionOpen} 
-        onClose={() => setDialogReunionOpen(false)}
+        onClose={() => {
+          if (savingReunion) return;
+          setDialogReunionOpen(false);
+        }}
         maxWidth="xs"
       >
         <DialogTitle>
@@ -1208,255 +1195,192 @@ export default function FichaPage() {
             />
 
             <Alert severity="info" sx={{ mt: 1 }}>
-              Esta reunión incluirá a los {asistentesSeleccionados.length} asistentes seleccionados.
+              Seleccione asistentes para esta reunión desde Internos o Externos.
             </Alert>
+
+            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 2 }}>
+              <Tabs
+                value={reunionAsistentesTab}
+                onChange={(_e, v) => setReunionAsistentesTab(v)}
+                sx={{ px: 1, pt: 1 }}
+              >
+                <Tab label={`Internos (${usuariosDisponibles.length})`} value="internos" />
+                <Tab label={`Externos (${usuariosExternosUi.length})`} value="externos" />
+              </Tabs>
+
+              {reunionAsistentesTab === 'internos' ? (
+                <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 220, overflowY: 'auto' }}>
+                  {usuariosDisponibles.length === 0 ? (
+                    <Alert severity="warning">No hay usuarios internos disponibles para este proceso.</Alert>
+                  ) : (
+                    usuariosDisponibles.map((usuario) => {
+                      const selected = reunionAsistenciaUsuarioIds.includes(String(usuario.id));
+                      return (
+                        <Card
+                          key={`interno-${usuario.id}`}
+                          sx={{
+                            cursor: 'pointer',
+                            border: selected ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                            bgcolor: selected ? 'rgba(25, 118, 210, 0.04)' : 'white',
+                          }}
+                          onClick={() => toggleAsistenciaUsuario(String(usuario.id))}
+                        >
+                          <CardContent sx={{ py: 1.2, '&:last-child': { pb: 1.2 } }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" fontWeight={600}>{usuario.nombre}</Typography>
+                              <Chip size="small" label={selected ? 'Seleccionado' : 'No seleccionado'} color={selected ? 'primary' : 'default'} />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  )}
+                </Box>
+              ) : (
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Buscar externo por nombre o email..."
+                    value={reunionBusquedaUsuario}
+                    onChange={(e) => setReunionBusquedaUsuario(e.target.value)}
+                    sx={{ mb: 1.5 }}
+                  />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 180, overflowY: 'auto' }}>
+                    {usuariosExternosFiltradosReunion.length === 0 ? (
+                      <Alert severity="info">No hay usuarios externos para el filtro actual.</Alert>
+                    ) : (
+                      usuariosExternosFiltradosReunion.map((usuario) => {
+                        const selected = usuario.canSelect
+                          ? reunionAsistenciaUsuarioIds.map((id) => String(id)).includes(usuario.id)
+                          : false;
+                        return (
+                          <Card
+                            key={`externo-${usuario.id}`}
+                            sx={{
+                              cursor: usuario.canSelect ? 'pointer' : 'default',
+                              border: selected ? '2px solid #9c27b0' : '1px solid #e0e0e0',
+                              bgcolor: selected ? 'rgba(156, 39, 176, 0.05)' : 'white',
+                              minHeight: 68,
+                            }}
+                            onClick={() => {
+                              if (!usuario.canSelect) return;
+                              toggleAsistenciaUsuario(String(usuario.id));
+                            }}
+                          >
+                            <CardContent sx={{ py: 1.2, px: 1.5, '&:last-child': { pb: 1.2 } }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                  <Typography variant="body2" fontWeight={700} sx={{ color: '#111827' }}>
+                                    {usuario.displayName}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                                    {usuario.displayEmail}
+                                  </Typography>
+                                </Box>
+                                <Chip
+                                  size="small"
+                                  label={!usuario.canSelect ? 'Sin ID' : selected ? 'Seleccionado' : 'No seleccionado'}
+                                  color={selected ? 'secondary' : 'default'}
+                                  variant={selected ? 'filled' : 'outlined'}
+                                />
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        );
+                      })
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </Box>
           </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-            <Button onClick={() => setDialogReunionOpen(false)}>
+            <Button onClick={() => setDialogReunionOpen(false)} disabled={savingReunion}>
               Cancelar
             </Button>
-            <Button 
-              variant="contained" 
+            <LoadingActionButton
+              variant="contained"
               onClick={handleGuardarReunion}
-              disabled={!formReunion.fecha || !formReunion.descripcion}
+              loading={savingReunion}
+              loadingText="Guardando..."
+              disabled={!formReunion.fecha || !formReunion.descripcion || reunionAsistenciaUsuarioIds.length === 0}
             >
               {reunionEnEdicion ? 'Actualizar' : 'Crear Reunión'}
-            </Button>
+            </LoadingActionButton>
           </Box>
         </Box>
       </Dialog>
 
-      {/* Dialog para Registrar Asistencia */}
-      <Dialog 
-        open={dialogAsistenciaOpen} 
-        onClose={() => setDialogAsistenciaOpen(false)}
-        maxWidth="xs"
+      <Dialog
+        open={dialogDetalleReunionOpen}
+        onClose={() => setDialogDetalleReunionOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { maxWidth: 840 } }}
       >
-        <DialogTitle>
-          Registro de Asistencia
-        </DialogTitle>
-        <Box sx={{ px: 3, pb: 3 }}>
-          {reunionParaAsistencia && (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Reunión: {new Date(reunionParaAsistencia.fecha).toLocaleDateString('es-ES')} - {reunionParaAsistencia.descripcion}
+        <DialogTitle>Detalle de Reunión</DialogTitle>
+        <DialogContent dividers>
+          {reunionDetalle && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                {formatDisplayDate(reunionDetalleFecha)}
               </Typography>
-
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {(() => {
-                  console.log('[FichaPage] Estado asistencias completo:', asistencias);
-                  console.log('[FichaPage] Reunión para asistencia ID:', reunionParaAsistencia.id);
-                  
-                  const asistenciasFiltradas = asistencias.filter(a => {
-                    console.log('[FichaPage] Comparando:', a.reunionId, '===', reunionParaAsistencia.id);
-                    return a.reunionId === reunionParaAsistencia.id;
-                  });
-                  
-                  console.log('[FichaPage] Asistencias filtradas:', asistenciasFiltradas);
-                  console.log('[FichaPage] Cantidad filtrada:', asistenciasFiltradas.length);
-                  
-                  if (asistenciasFiltradas.length === 0) {
-                    return (
-                      <Alert severity="warning">
-                        No se encontraron asistentes para esta reunión. 
-                        Asegúrese de haber seleccionado asistentes en la sección "Asistentes".
-                      </Alert>
-                    );
-                  }
-                  
-                  return asistenciasFiltradas.map(asistencia => (
-                    <Card 
-                      key={asistencia.id}
-                      sx={{ 
-                        cursor: 'pointer',
-                        border: asistencia.asistio ? '2px solid #4caf50' : '1px solid #e0e0e0',
-                        bgcolor: asistencia.asistio ? 'rgba(76, 175, 80, 0.04)' : 'white'
-                      }}
-                      onClick={() => handleToggleAsistencia(asistencia.id)}
-                    >
-                      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            {asistencia.asistio ? (
-                              <CheckCircleIcon color="success" />
-                            ) : (
-                              <CancelIcon color="disabled" />
-                            )}
-                            <Box>
-                              <Typography variant="body1" fontWeight={600}>
-                                {asistencia.usuario?.nombre}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {asistencia.usuario?.email}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Chip 
-                            label={asistencia.asistio ? 'Asistió' : 'No Asistió'}
-                            color={asistencia.asistio ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ));
-                })()}
-              </Box>
-
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Haga clic en cada asistente para marcar/desmarcar su asistencia.
-              </Alert>
-            </>
-          )}
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-            <Button onClick={() => setDialogAsistenciaOpen(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              variant="contained" 
-              onClick={handleGuardarAsistencia}
-            >
-              Guardar Asistencia
-            </Button>
-          </Box>
-        </Box>
-      </Dialog>
-
-      {/* Dialog para Agregar Asistentes Externos */}
-      <Dialog 
-        open={dialogAsistentesExternosOpen} 
-        onClose={() => {
-          setDialogAsistentesExternosOpen(false);
-          setBusquedaUsuario('');
-        }}
-        maxWidth="xs"
-      >
-        <DialogTitle>
-          Agregar Asistentes Externos
-        </DialogTitle>
-        <Box sx={{ px: 3, pb: 3 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Seleccione usuarios externos al proceso para agregarlos como asistentes a las reuniones.
-          </Typography>
-
-          {/* Buscador */}
-          <TextField
-            fullWidth
-            placeholder="Buscar por nombre o email..."
-            value={busquedaUsuario}
-            onChange={(e) => setBusquedaUsuario(e.target.value)}
-            sx={{ mb: 2 }}
-            autoFocus
-          />
-          {/* Lista de usuarios */}
-          <Box sx={{ 
-            maxHeight: 400, 
-            overflowY: 'auto',
-            border: '1px solid #e0e0e0',
-            borderRadius: 2,
-            p: 1
-          }}>
-            {loadingUsuarios ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <Typography color="text.secondary">Cargando usuarios...</Typography>
-              </Box>
-            ) : !todosUsuarios || todosUsuarios.length === 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
-                <Typography color="text.secondary">No hay usuarios disponibles</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                  Verifique la consola del navegador para más detalles
-                </Typography>
-              </Box>
-            ) : usuariosFiltrados.length === 0 ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <Typography color="text.secondary">
-                  No se encontraron usuarios con "{busquedaUsuario}"
-                </Typography>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {usuariosFiltrados.map((usuario: any) => {
-                  const estaSeleccionado = asistentesSeleccionados.includes(usuario.id);
-                  const esDelProceso = usuariosDisponibles.some(u => u.id === usuario.id);
-                  
+              <Typography variant="body1">{reunionDetalle.descripcion}</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                {(['Interno', 'Externo'] as const).map((tipo) => {
+                  const lista = asistenciaDetalle.filter((a) => a.tipo === tipo);
                   return (
-                    <Card 
-                      key={usuario.id}
-                      sx={{ 
-                        cursor: 'pointer',
-                        border: estaSeleccionado ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                        bgcolor: estaSeleccionado ? 'rgba(25, 118, 210, 0.04)' : 'white',
-                        transition: 'all 0.2s',
-                        '&:hover': { boxShadow: 2 }
-                      }}
-                      onClick={() => handleToggleAsistente(usuario.id)}
-                    >
-                      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            {estaSeleccionado && (
-                              <CheckCircleIcon color="primary" />
-                            )}
-                            <Box>
-                              <Typography variant="body1" fontWeight={600}>
-                                {usuario.nombre}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {usuario.email}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                            {esDelProceso && (
-                              <Chip 
-                                label="Del Proceso" 
-                                size="small" 
-                                color="primary"
-                                variant="outlined"
-                              />
-                            )}
-                            <Chip 
-                              label={
-                                usuario.roleRelacion?.codigo === 'dueño_procesos' ? 'Dueño' : 
-                                usuario.roleRelacion?.codigo === 'supervisor_riesgos' ? 'Supervisor' : 
-                                usuario.roleRelacion?.nombre || usuario.roleRelacion?.codigo || 'Sin rol'
-                              }
-                              size="small"
-                              variant="outlined"
-                            />
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
+                    <Box key={tipo} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {tipo === 'Interno' ? 'Asistentes Internos' : 'Asistentes Externos'}
+                      </Typography>
+                      {lista.length === 0 ? (
+                        <Alert severity="info">No hay {tipo.toLowerCase()}s en esta reunión.</Alert>
+                      ) : (
+                        lista.map((a) => (
+                          <Card key={`detalle-${tipo}-${a.usuarioId}`} variant="outlined">
+                            <CardContent sx={{ py: 1.2, '&:last-child': { pb: 1.2 } }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                                <Box>
+                                  <Typography variant="body2" fontWeight={600}>{a.nombre}</Typography>
+                                  <Typography variant="caption" color="text.secondary">{a.email}</Typography>
+                                </Box>
+                                <Chip
+                                  size="small"
+                                  label={a.asistio ? 'Asistió' : 'No asistió'}
+                                  color={a.asistio ? 'success' : 'default'}
+                                  variant={a.asistio ? 'filled' : 'outlined'}
+                                />
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </Box>
                   );
                 })}
               </Box>
-            )}
-          </Box>
-
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Los usuarios seleccionados serán incluidos automáticamente en todas las reuniones del proceso.
-          </Alert>
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              {asistentesSeleccionados.length} asistente(s) seleccionado(s)
-            </Typography>
-            <Button 
-              variant="contained" 
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogDetalleReunionOpen(false)}>Cerrar</Button>
+          {reunionDetalle && (
+            <Button
+              variant="contained"
               onClick={() => {
-                setDialogAsistentesExternosOpen(false);
-                setBusquedaUsuario('');
-                showSuccess('Asistentes actualizados');
+                setDialogDetalleReunionOpen(false);
+                void handleAbrirDialogReunion(reunionDetalle);
               }}
             >
-              Cerrar
+              Editar
             </Button>
-          </Box>
-        </Box>
+          )}
+        </DialogActions>
       </Dialog>
+
     </>
   );
 }

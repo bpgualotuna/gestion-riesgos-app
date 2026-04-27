@@ -64,6 +64,7 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '../../components/common/UnsavedChangesDialog';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
+import { addDaysISO, todayISO } from '../../utils/formatters';
 
 // Opciones de impacto desde constants (no quemadas)
 const OPCIONES_IMPACTO = Object.entries(LABELS_IMPACTO).map(([valor, label]) => ({
@@ -189,8 +190,8 @@ export default function IncidenciasPage() {
     titulo: '',
     descripcion: '',
     estado: 'abierta',
-    fechaOcurrencia: new Date().toISOString().split('T')[0],
-    fechaReporte: new Date().toISOString().split('T')[0],
+    fechaOcurrencia: todayISO(),
+    fechaReporte: todayISO(),
     impactosMaterializacion: {
       economico: 1,
       reputacional: 1,
@@ -260,7 +261,7 @@ export default function IncidenciasPage() {
         descripcion: formData.descripcion,
         estado: formData.estado,
         fechaOcurrencia: formData.fechaOcurrencia,
-        fechaReporte: formData.fechaReporte || new Date().toISOString().split('T')[0],
+        fechaReporte: formData.fechaReporte || todayISO(),
         reportadoPor: 'Usuario Actual',
         impactosMaterializacion: impactos,
       }).unwrap();
@@ -524,13 +525,13 @@ export default function IncidenciasPage() {
                                       causaId: causa.id,
                                       causaNombre: repairSpanishDisplayArtifacts(String(causa.descripcion ?? '')),
                                       descripcion: '',
-                                      fechaOcurrencia: new Date().toISOString().split('T')[0],
-                                      fechaReporte: new Date().toISOString().split('T')[0],
+                                      fechaOcurrencia: todayISO(),
+                                      fechaReporte: todayISO(),
                                       accionesCorrectivas: '',
                                       planNombre: '',
                                       planObjetivo: '',
-                                      planFechaInicio: new Date().toISOString().split('T')[0],
-                                      planFechaLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                      planFechaInicio: todayISO(),
+                                      planFechaLimite: addDaysISO(30),
                                       responsableNombre: '',
                                       estado: 'abierta'
                                     });

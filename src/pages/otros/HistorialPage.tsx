@@ -24,7 +24,7 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   FilterList as FilterIcon,
-  Refresh as RefreshIcon,
+
   Info as InfoIcon,
   Close as CloseIcon,
   ChevronLeft as ChevronLeftIcon,
@@ -280,13 +280,6 @@ export default function HistorialPage() {
   // Si no es admin ni gerente general, filtrar automáticamente por el usuario actual
   const usuarioIdFiltro = puedeVerTodos ? filtros.usuarioId : (user?.id ? String(user.id) : '');
 
-  useEffect(() => {
-    if (puedeVerTodos) {
-      cargarUsuarios();
-    }
-    cargarHistorial();
-  }, [paginacion.page, paginacion.pageSize, puedeVerTodos, usuarioIdFiltro, filterApplyKey]);
-
   const cargarUsuarios = async () => {
     try {
       const response = await axiosClient.get('/usuarios');
@@ -296,7 +289,7 @@ export default function HistorialPage() {
     }
   };
 
-  const cargarHistorial = async () => {
+  const cargarHistorial = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -318,12 +311,12 @@ export default function HistorialPage() {
       }));
     } catch (err: any) {
       console.error('Error cargando historial:', err);
-      
+
       // Si es error 401 o 403, mostrar mensaje de autorización
       if (err.response?.status === 401 || err.response?.status === 403) {
         setError('No autorizado para ver el historial de auditoría.');
         setLogs([]);
-      } 
+      }
       // Si es error de red o el endpoint no existe
       else if (!err.response || err.response?.status === 404) {
         setError('El sistema de auditoría no está disponible. Contacta al administrador.');
@@ -337,7 +330,31 @@ export default function HistorialPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [paginacion.page, paginacion.pageSize, usuarioIdFiltro]);
+
+  useEffect(() => {
+    if (puedeVerTodos) {
+      cargarUsuarios();
+    }
+    cargarHistorial();
+  }, [cargarHistorial, puedeVerTodos, filterApplyKey]);
+
+  // Auto-actualización: al enfocar ventana + polling ligero (solo cuando la pestaña está visible)
+  useEffect(() => {
+    const onFocus = () => cargarHistorial();
+    window.addEventListener('focus', onFocus);
+
+    const id = window.setInterval(() => {
+      if (!document.hidden) {
+        cargarHistorial();
+      }
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(id);
+    };
+  }, [cargarHistorial]);
 
   const handleVerDetalles = useCallback((log: AuditLog) => {
     setSelectedLog(log);
@@ -409,14 +426,7 @@ export default function HistorialPage() {
             Registro de auditoría de todas las operaciones realizadas en el sistema
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={cargarHistorial}
-          disabled={loading}
-        >
-          Actualizar
-        </Button>
+
       </Box>
 
       {/* Alert de error o info */}
@@ -640,17 +650,60 @@ export default function HistorialPage() {
             <Typography color="text.secondary">No hay registros en el historial.</Typography>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 2 }}>
-            {sortedLogs.map((log) => (
-              <HistorialLogCard
-                key={log.id}
-                log={log}
-                onVerDetalle={handleVerDetalles}
-                formatearFechaFn={formatearFecha}
-                tablaLabel={TABLA_A_PAGINA[log.tabla] || log.tabla}
-              />
-            ))}
-          </Box>
+          <>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 2 }}>
+              {sortedLogs.map((log) => (
+                <HistorialLogCard
+                  key={log.id}
+                  log={log}
+                  onVerDetalle={handleVerDetalles}
+                  formatearFechaFn={formatearFecha}
+                  tablaLabel={TABLA_A_PAGINA[log.tabla] || log.tabla}
+                />
+              ))}
+            </Box>
+
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1.5,
+                px: 2,
+                py: 1.25,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'grey.50',
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Mostrando {from} - {to} de {paginacion.total}
+              </Typography>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <IconButton
+                  size="small"
+                  disabled={paginacion.page <= 1}
+                  onClick={() => setPaginacion((p) => ({ ...p, page: p.page - 1 }))}
+                  aria-label="Página anterior"
+                >
+                  <ChevronLeftIcon fontSize="small" />
+                </IconButton>
+                <Typography variant="body2" sx={{ minWidth: 90, textAlign: 'center' }}>
+                  Pág. {paginacion.page} de {totalPages}
+                </Typography>
+                <IconButton
+                  size="small"
+                  disabled={paginacion.page >= totalPages}
+                  onClick={() => setPaginacion((p) => ({ ...p, page: p.page + 1 }))}
+                  aria-label="Página siguiente"
+                >
+                  <ChevronRightIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+          </>
         )}
 
       </Paper>

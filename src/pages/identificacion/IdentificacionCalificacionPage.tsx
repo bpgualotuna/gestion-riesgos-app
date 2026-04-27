@@ -278,6 +278,12 @@ function computeNivelRiesgoForRow(
   nivelesRiesgoApi: any[],
   obtenerPesoFrecuencia: (frecuencia: any, frecuenciasApi: any[]) => number
 ): { nivelRiesgo: string; nivelBgColor: string; nivelColor: string } {
+  const esClasificacionPositiva = (valor: string | null | undefined): boolean => {
+    const texto = String(valor || '').trim().toLowerCase();
+    return texto.includes('positiva') || texto.includes('oportunidad');
+  };
+  const riesgoPositivo = esClasificacionPositiva((riesgo as any)?.clasificacion);
+
   const causasOrdenadas = [...(riesgo.causas || [])].sort((a: any, b: any) => {
     const idA = Number(a.id) || 0;
     const idB = Number(b.id) || 0;
@@ -326,6 +332,13 @@ function computeNivelRiesgoForRow(
 
   if (calificacionInherenteGlobal > 0) {
     try {
+      if (riesgoPositivo) {
+        if (calificacionInherenteGlobal >= 15) return { nivelRiesgo: 'MUY ALTO', nivelBgColor: '#0D47A1', nivelColor: '#ffffff' };
+        if (calificacionInherenteGlobal >= 10) return { nivelRiesgo: 'ALTO', nivelBgColor: '#1E88E5', nivelColor: '#ffffff' };
+        if (calificacionInherenteGlobal >= 4) return { nivelRiesgo: 'MEDIO', nivelBgColor: '#64B5F6', nivelColor: '#0D47A1' };
+        return { nivelRiesgo: 'BAJO', nivelBgColor: '#BBDEFB', nivelColor: '#0D47A1' };
+      }
+
       const nivelNombre = determinarNivelRiesgoSync(calificacionInherenteGlobal);
       nivel = nivelNombre.toUpperCase();
       const nivelesRiesgo = nivelesRiesgoApi || [];
@@ -1770,7 +1783,7 @@ export default function IdentificacionPage() {
       >
         <Box sx={{ p: 3 }}>
           <Alert severity="info" variant="outlined">
-            No hay un proceso seleccionado. Por favor selecciona un proceso de la lista en la parte superior para gestionar sus riesgos.
+            No hay proceso seleccionado.
           </Alert>
         </Box>
       </AppPageLayout>
@@ -1828,7 +1841,7 @@ export default function IdentificacionPage() {
           <Card>
             <CardContent>
               <Typography variant="body1" color="text.secondary" align="center" sx={{ py: 4 }}>
-                No hay riesgos registrados. Haga clic en "Añadir Riesgo" para comenzar.
+                No hay riesgos registrados.
               </Typography>
               {riesgosApiData && riesgosApiData.length > 0 && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
@@ -2262,12 +2275,31 @@ export default function IdentificacionPage() {
                           economico: 1, procesos: 1, legal: 1, confidencialidadSGSI: 1,
                           reputacion: 1, disponibilidadSGSI: 1, personas: 1, integridadSGSI: 1, ambiental: 1,
                         };
+                        const causasEfectivasResumen = getCausasEfectivas(riesgo, causasPendientes);
                         // Ordenar causas por ID ascendente para numeración consistente
-                        const causasOrdenadas = [...(riesgo.causas || [])].sort((a, b) => {
+                        const causasOrdenadas = [...(causasEfectivasResumen || [])].sort((a, b) => {
                           const idA = Number(a.id) || 0;
                           const idB = Number(b.id) || 0;
                           return idA - idB;
                         });
+
+                        const obtenerEtiquetaFrecuenciaResumen = (frecuencia: unknown): string => {
+                          if (frecuencia == null) return 'N/A';
+                          if (typeof frecuencia === 'string' && Number.isNaN(Number(frecuencia))) {
+                            return frecuencia;
+                          }
+                          const freqId = Number(frecuencia);
+                          if (Number.isNaN(freqId)) return String(frecuencia);
+                          const byLabels = labelsFrecuencia[freqId]?.label;
+                          if (byLabels) return byLabels;
+                          const byCatalog = (frecuenciasApi || []).find((f: any) => Number(f.id) === freqId);
+                          return byCatalog?.label || byCatalog?.nombre || String(freqId);
+                        };
+                        const esClasificacionPositivaResumen = (valor: string | null | undefined): boolean => {
+                          const texto = String(valor || '').trim().toLowerCase();
+                          return texto.includes('positiva') || texto.includes('oportunidad');
+                        };
+                        const riesgoPositivoResumen = esClasificacionPositivaResumen((riesgo as any)?.clasificacion);
 
                         // Asegurar que cada causa tenga calificación global impacto e inherente (p. ej. causas recién añadidas o sin normalizar)
                         const causasConCalificacion = causasOrdenadas.map((causa: any) => {
@@ -2317,7 +2349,14 @@ export default function IdentificacionPage() {
                         // Usar servicio centralizado y colores de la configuración del mapa
                         const getNivelRiesgoSync = (calificacion: number): { nivel: string; color: string; bgColor: string } => {
                           if (calificacion === 0) return { nivel: 'Sin Calificar', color: '#666', bgColor: '#f5f5f5' };
-                          
+
+                          if (riesgoPositivoResumen) {
+                            if (calificacion >= 15) return { nivel: 'MUY ALTO', color: '#ffffff', bgColor: '#0D47A1' };
+                            if (calificacion >= 10) return { nivel: 'ALTO', color: '#ffffff', bgColor: '#1E88E5' };
+                            if (calificacion >= 4) return { nivel: 'MEDIO', color: '#0D47A1', bgColor: '#64B5F6' };
+                            return { nivel: 'BAJO', color: '#0D47A1', bgColor: '#BBDEFB' };
+                          }
+
                           try {
                             const nivelNombre = determinarNivelRiesgoSync(calificacion);
                             
@@ -2389,7 +2428,7 @@ export default function IdentificacionPage() {
                                         </TableCell>
                                         <TableCell align="center">
                                           <Chip
-                                            label={labelsFrecuencia[causa.frecuencia || 3]?.label || 'N/A'}
+                                            label={obtenerEtiquetaFrecuenciaResumen(causa.frecuencia)}
                                             size="small"
                                             color="primary"
                                             variant="outlined"
@@ -2443,6 +2482,11 @@ export default function IdentificacionPage() {
                                 <Typography variant="caption" sx={{ color: nivelInfo.color, opacity: 0.8, mt: 0.5, display: 'block' }}>
                                   (Máximo de todas las calificaciones inherentes por causa)
                                 </Typography>
+                                {riesgoPositivoResumen && (
+                                  <Typography variant="caption" sx={{ color: nivelInfo.color, opacity: 0.9, mt: 0.5, display: 'block', fontWeight: 700 }}>
+                                    OPORTUNIDAD (escala positiva)
+                                  </Typography>
+                                )}
                               </Box>
                               <Chip
                                 label={nivelInfo.nivel}

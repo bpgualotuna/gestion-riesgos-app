@@ -1,4 +1,5 @@
 import type { Riesgo } from '../types';
+import { causaTienePlanSinControlAsociado } from './avisoResidualPorCausa';
 
 export interface ResultadoResidualDesdeCausas {
   probabilidadResidual: number;
@@ -7,13 +8,21 @@ export interface ResultadoResidualDesdeCausas {
   nivelRiesgoResidual: string;
 }
 
-function nivelDesdeCalificacion(mejorCal: number): string {
+/** Bandas CWR alineadas con mapa / Controles (misma escala que `calcularNivelRiesgo` del mapa). */
+export function nivelResidualDesdeCalificacionNumerica(mejorCal: number): string {
   let nivel = 'Sin Calificar';
   if (mejorCal >= 15 && mejorCal <= 25) nivel = 'Crítico';
   else if (mejorCal >= 10 && mejorCal < 15) nivel = 'Alto';
   else if (mejorCal >= 4 && mejorCal < 10) nivel = 'Medio';
   else if (mejorCal >= 1 && mejorCal < 4) nivel = 'Bajo';
   return nivel;
+}
+
+/** Causa que entra en el máximo residual por control (misma condición que el mapa estándar). */
+export function causaIncluidaEnAgregadoResidualPorControles(c: any): boolean {
+  const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
+  const tieneControles = Array.isArray(c.controles) && c.controles.length > 0;
+  return tipo === 'CONTROL' || tipo === 'AMBOS' || tieneControles;
 }
 
 function parseGestion(causa: any): Record<string, unknown> {
@@ -36,20 +45,28 @@ export interface OpcionesResidualPorCausa {
 
 export interface OpcionesResidualDesdeCausas {
   /**
-   * Si true y el riesgo tiene al menos una causa con `planesAccion` no vacío,
-   * devuelve la calificación residual alineada con la evaluación inherente persistida.
+   * Si true y el riesgo tiene al menos una causa con plan de acción **sin** control vinculado,
+   * devuelve la calificación residual alineada con la evaluación inherente persistida (misma regla que el servidor).
    */
   forzarInherenteSiPlanCausa?: boolean;
 }
 
-/** Detecta planes ligados a causas (misma condición que backend: `planesAccion` en la causa). */
-export function riesgoTienePlanAccionEnAlgunaCausaCliente(riesgo: Riesgo | Record<string, unknown> | null | undefined): boolean {
-  const causas = riesgo && Array.isArray((riesgo as { causas?: unknown }).causas)
-    ? ((riesgo as { causas: unknown[] }).causas)
-    : [];
-  return causas.some(
-    (c: { planesAccion?: unknown[] }) => Array.isArray(c.planesAccion) && c.planesAccion.length > 0
-  );
+/** Misma condición que `debeForzarResidualIgualInherentePorPlanesCausa` en backend (plan en causa sin control). */
+export function riesgoTieneCausaConPlanSinControlCliente(
+  riesgo: Riesgo | Record<string, unknown> | null | undefined
+): boolean {
+  const causas =
+    riesgo && Array.isArray((riesgo as { causas?: unknown }).causas)
+      ? ((riesgo as { causas: Record<string, unknown>[] }).causas)
+      : [];
+  return causas.some((c) => causaTienePlanSinControlAsociado(c));
+}
+
+/** @deprecated Usar `riesgoTieneCausaConPlanSinControlCliente` (regla refinada: solo plan sin control). */
+export function riesgoTienePlanAccionEnAlgunaCausaCliente(
+  riesgo: Riesgo | Record<string, unknown> | null | undefined
+): boolean {
+  return riesgoTieneCausaConPlanSinControlCliente(riesgo);
 }
 
 /**
@@ -106,7 +123,7 @@ export function calcularResidualPorCausa(
     probabilidadResidual: fr,
     impactoResidual: ir,
     riesgoResidual: cal,
-    nivelRiesgoResidual: nivelDesdeCalificacion(cal),
+    nivelRiesgoResidual: nivelResidualDesdeCalificacionNumerica(cal),
   };
 }
 
@@ -155,7 +172,7 @@ export function calcularResidualDesdeCausas(
   const causas = riesgo && Array.isArray((riesgo as any).causas) ? (riesgo as any).causas : [];
   if (!causas || causas.length === 0) return null;
 
-  if (opts?.forzarInherenteSiPlanCausa && riesgoTienePlanAccionEnAlgunaCausaCliente(riesgo)) {
+  if (opts?.forzarInherenteSiPlanCausa && riesgoTieneCausaConPlanSinControlCliente(riesgo)) {
     const ev = (riesgo as { evaluacion?: Record<string, unknown> }).evaluacion;
     if (!ev) return null;
     const pr = Math.max(1, Math.min(5, Math.round(Number(ev.probabilidad ?? 1))));
@@ -171,15 +188,11 @@ export function calcularResidualDesdeCausas(
       probabilidadResidual: pr,
       impactoResidual: ir,
       riesgoResidual: rr,
-      nivelRiesgoResidual: nivelPersistido || nivelDesdeCalificacion(rr),
+      nivelRiesgoResidual: nivelPersistido || nivelResidualDesdeCalificacionNumerica(rr),
     };
   }
 
-  const causasConControles = causas.filter((c: any) => {
-    const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();
-    const tieneControles = c.controles && c.controles.length > 0;
-    return tipo === 'CONTROL' || tipo === 'AMBOS' || tieneControles;
-  });
+  const causasConControles = causas.filter((c: any) => causaIncluidaEnAgregadoResidualPorControles(c));
   if (causasConControles.length === 0) return null;
 
   let mejorCal = 0;
@@ -202,6 +215,6 @@ export function calcularResidualDesdeCausas(
     probabilidadResidual: mejorFrecuencia,
     impactoResidual: mejorImpacto,
     riesgoResidual: mejorCal,
-    nivelRiesgoResidual: nivelDesdeCalificacion(mejorCal),
+    nivelRiesgoResidual: nivelResidualDesdeCalificacionNumerica(mejorCal),
   };
 }

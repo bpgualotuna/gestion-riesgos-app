@@ -49,6 +49,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useRevisionProceso } from '../../hooks/useRevisionProceso';
 import AppDataGrid from '../../components/ui/AppDataGrid';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { CreateProcesoDto, Proceso } from '../../types';
 import { EstadoProceso } from '../../types';
@@ -554,14 +555,15 @@ export default function ProcesosPage() {
                   />
                 </Grid2>
                 <Grid2 xs={12}>
-                  <Button
+                  <LoadingActionButton
                     type="submit"
                     variant="contained"
-                    disabled={isCreating}
+                    loading={isCreating}
+                    loadingText="Guardando..."
                     sx={{ background: '#1976d2' }}
                   >
-                    {isCreating ? 'Guardando...' : 'Crear Proceso'}
-                  </Button>
+                    Crear Proceso
+                  </LoadingActionButton>
                 </Grid2>
               </Grid2>
             </form>

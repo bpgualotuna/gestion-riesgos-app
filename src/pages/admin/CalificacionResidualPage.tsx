@@ -55,6 +55,7 @@ import {
 } from '../../api/services/riesgosApi';
 import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
+import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
@@ -596,14 +597,16 @@ export default function CalificacionResidualPage() {
           <Button variant="outlined" onClick={() => refetch()}>
             Cancelar
           </Button>
-          <Button
+          <LoadingActionButton
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
-            disabled={!canEdit || isUpdating}
+            disabled={!canEdit}
+            loading={isUpdating}
+            loadingText="Guardando..."
           >
-            {isUpdating ? 'Guardando...' : 'Guardar configuración'}
-          </Button>
+            Guardar configuración
+          </LoadingActionButton>
         </Box>
       </Box>
     </AppPageLayout>

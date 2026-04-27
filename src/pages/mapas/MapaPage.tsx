@@ -3,7 +3,7 @@
  * Interactive 5x5 risk matrix visualization
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import {
@@ -50,6 +50,7 @@ import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery, useGetAreasQuery, useGetReglaResidualPlanCausaQuery, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { colors } from '../../app/theme/colors';
+import { MAPA_POSITIVO_COLORES } from '../../utils/mapaPositivoPalette';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, ROUTES, NIVELES_RIESGO } from '../../utils/constants';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useRiesgo } from '../../contexts/RiesgoContext';
@@ -66,7 +67,7 @@ import {
   calcularResidualDesdeCausas,
   calcularResidualPorCausa,
   getDatosEvaluacionControlDesdeCausa,
-  riesgoTienePlanAccionEnAlgunaCausaCliente,
+  riesgoTieneCausaConPlanSinControlCliente,
 } from '../../utils/residualDesdeCausas';
 import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
@@ -139,6 +140,8 @@ export default function MapaPage() {
   const { data: niveles = [] } = useGetNivelesRiesgoQuery();
   const { data: ejes } = useGetEjesMapaQuery();
   const [clasificacion, setClasificacion] = useState<string>(CLASIFICACION_RIESGO.NEGATIVA);
+  /** 0 consecuencias negativas, 1 positivas (pestañas del mapa). */
+  const [vistaMapaTab, setVistaMapaTab] = useState(0);
   const [filtroArea, setFiltroArea] = useState<string>('all');
   const [filtroProceso, setFiltroProceso] = useState<string>('all');
   const [celdaSeleccionada, setCeldaSeleccionada] = useState<{ probabilidad: number; impacto: number } | null>(null);
@@ -158,6 +161,12 @@ export default function MapaPage() {
     residual: false,
     controles: false,
   });
+
+  const esClasificacionPositiva = (valor: string | null | undefined): boolean => {
+    const texto = String(valor || '').trim().toLowerCase();
+    return texto.includes('positiva') || texto.includes('oportunidad');
+  };
+  const ultimoPayloadScreenContext = useRef<string>('');
 
   // Limpiar estados de diálogos al desmontar el componente para evitar bloqueos de navegación
   useEffect(() => {
@@ -263,7 +272,6 @@ export default function MapaPage() {
   // Cuando los filtros están en "all", NO enviar filtros al backend para obtener TODOS los riesgos
   const filtros: FiltrosRiesgo = {
     procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
-    clasificacion: clasificacion as ClasificacionRiesgo,
   };
 
   const dispatch = useAppDispatch();
@@ -277,9 +285,8 @@ export default function MapaPage() {
   // Riesgos filtrados en backend por proceso/clasificación; pageSize acotado para no colgar la app
   const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery({
     procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
-    clasificacion: clasificacion as ClasificacionRiesgo,
     includeCausas: true,
-    pageSize: 200,
+    pageSize: 500,
   }, {
     refetchOnMountOrArgChange: true,
   });
@@ -289,7 +296,7 @@ export default function MapaPage() {
     dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
     refetchPuntos();
     refetchRiesgos();
-  }, [filtros.procesoId, filtros.clasificacion, filtroArea, filtroProceso, clasificacion, dispatch, refetchPuntos, refetchRiesgos]);
+  }, [filtros.procesoId, filtroArea, filtroProceso, clasificacion, dispatch, refetchPuntos, refetchRiesgos]);
 
   // Escuchar eventos de actualización de riesgos para refrescar el mapa en tiempo real
   useEffect(() => {
@@ -322,41 +329,41 @@ export default function MapaPage() {
 
   const { data: reglaResidualPlanCausa } = useGetReglaResidualPlanCausaQuery(undefined, {
     refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
   });
   const mapaOptsResidualPlan = useMemo(
     () => ({ forzarInherenteSiPlanCausa: Boolean(reglaResidualPlanCausa?.activa) }),
     [reglaResidualPlanCausa?.activa]
   );
 
+  /** IDs de proceso incluidos en el mapa según filtros (misma lógica que puntosFiltrados). */
+  const procesosIdsMapa = useMemo(() => {
+    if (filtroProceso && filtroProceso !== 'all') {
+      const procesoFiltrado = procesosPropios.find((p) => String(p.id) === String(filtroProceso));
+      if (procesoFiltrado) return [String(filtroProceso)];
+      return [];
+    }
+    if (filtroArea && filtroArea !== 'all') {
+      return procesosPropios.filter((p) => String(p.areaId) === String(filtroArea)).map((p) => String(p.id));
+    }
+    return procesosPropios.map((p) => String(p.id));
+  }, [filtroProceso, filtroArea, procesosPropios]);
+
+  const procesosEnAlcanceMapa = useMemo(
+    () =>
+      procesosIdsMapa.map((id) => ({
+        id,
+        nombre: procesos.find((p) => String(p.id) === id)?.nombre ?? `Proceso ${id}`,
+      })),
+    [procesosIdsMapa, procesos],
+  );
+
   // Filtrar puntos y riesgos aplicando filtros de área, proceso y clasificación
   // IMPORTANTE: Siempre respetar las asignaciones del usuario (procesosPropios)
   const puntosFiltrados = useMemo(() => {
     if (!puntos || puntos.length === 0) return [];
-    
-    // Aplicar filtros de área y proceso
-    let procesosIds: string[] = [];
-    
-    // Si hay filtro de proceso específico, usarlo (sobrescribe todo)
-    if (filtroProceso && filtroProceso !== 'all') {
-      // Verificar que el proceso filtrado esté en los procesos asignados del usuario
-      const procesoFiltrado = procesosPropios.find(p => String(p.id) === String(filtroProceso));
-      if (procesoFiltrado) {
-        procesosIds = [String(filtroProceso)];
-      } else {
-        // Si el proceso filtrado no está asignado al usuario, no mostrar nada
-        return [];
-      }
-    } 
-    // Si hay filtro de área, filtrar procesos por área (pero solo de los asignados)
-    else if (filtroArea && filtroArea !== 'all') {
-        procesosIds = procesosPropios
-        .filter(p => String(p.areaId) === String(filtroArea))
-        .map(p => String(p.id));
-    }
-    // Si no hay filtros de área ni proceso, usar procesos asignados del usuario
-    else {
-      procesosIds = procesosPropios.map((p) => String(p.id));
-    }
+
+    const procesosIds = procesosIdsMapa;
 
     // Filtrar puntos aplicando todos los filtros
     const filtrados = puntos.filter((p) => {
@@ -379,10 +386,10 @@ export default function MapaPage() {
       
       // Negativos/heredados: todo lo que no es oportunidad explícita (null, Excel, negativa). Positivos: solo consecuencia positiva.
       if (clasificacion === CLASIFICACION_RIESGO.NEGATIVA) {
-        if (riesgo.clasificacion === CLASIFICACION_RIESGO.POSITIVA) {
+        if (esClasificacionPositiva(riesgo.clasificacion)) {
           return false;
         }
-      } else if (riesgo.clasificacion !== CLASIFICACION_RIESGO.POSITIVA) {
+      } else if (!esClasificacionPositiva(riesgo.clasificacion)) {
         return false;
       }
 
@@ -390,7 +397,7 @@ export default function MapaPage() {
     });
     
     return filtrados;
-  }, [puntos, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, procesosPropios, riesgosCompletos, procesos, filtroArea, filtroProceso, clasificacion]);
+  }, [puntos, procesosIdsMapa, riesgosCompletos, clasificacion]);
 
   // Crear matriz 5x5 para riesgo inherente usando puntos filtrados
   // IMPORTANTE: Cada riesgo debe aparecer SOLO UNA VEZ en la celda correcta según su clasificación
@@ -669,61 +676,49 @@ export default function MapaPage() {
 
   // NUEVO: useEffect para capturar contexto de pantalla para CORA IA (DESPUÉS de todos los useMemo)
   useEffect(() => {
-    if (setScreenContext && puntosFiltrados) {
-      const context: ScreenContext = {
-        module: 'mapas',
-        screen: tipoMapaSeleccionado === 'inherente' ? 'mapa-inherente' : 'mapa-residual',
-        action: 'view',
-        route: window.location.pathname,
-        formData: {
-          tipoMapa: tipoMapaSeleccionado,
-          filtros: {
-            clasificacion:
-              clasificacion === CLASIFICACION_RIESGO.POSITIVA
-                ? 'Oportunidades (positivos)'
-                : 'Riesgos negativos',
-            area: filtroArea === 'all' ? 'Todas' : areas.find(a => String(a.id) === filtroArea)?.nombre || 'N/A',
-            proceso: filtroProceso === 'all' ? 'Todos' : procesos.find(p => String(p.id) === filtroProceso)?.nombre || 'N/A',
-          },
-          totalRiesgos: puntosFiltrados.length,
-          estadisticas: estadisticasComparativas ? {
-            inherente: {
-              total: estadisticasComparativas.inherente.total,
-              criticos: estadisticasComparativas.inherente.porNivel.critico,
-              altos: estadisticasComparativas.inherente.porNivel.alto,
-              medios: estadisticasComparativas.inherente.porNivel.medio,
-              bajos: estadisticasComparativas.inherente.porNivel.bajo,
-            },
-            residual: {
-              total: estadisticasComparativas.residual.total,
-              criticos: estadisticasComparativas.residual.porNivel.critico,
-              altos: estadisticasComparativas.residual.porNivel.alto,
-              medios: estadisticasComparativas.residual.porNivel.medio,
-              bajos: estadisticasComparativas.residual.porNivel.bajo,
-            },
-          } : undefined,
-          topMitigaciones: riskInsights?.topMitigaciones?.slice(0, 3).map(m => ({
-            id: m?.id,
-            reduccion: m?.reduccion,
-            nivelResidual: m?.nivelResidual,
-          })) || [],
-          criticosPersistentes: riskInsights?.criticosPersistentes?.length || 0,
-          eficaciaGlobal: riskInsights?.eficacia || 0,
-        }
-      };
+    if (!setScreenContext) return;
+    const nombreArea = filtroArea === 'all'
+      ? 'Todas'
+      : areas.find(a => String(a.id) === filtroArea)?.nombre || 'N/A';
+    const nombreProceso = filtroProceso === 'all'
+      ? 'Todos'
+      : procesos.find(p => String(p.id) === filtroProceso)?.nombre || 'N/A';
+
+    const context: ScreenContext = {
+      module: 'mapas',
+      screen: tipoMapaSeleccionado === 'inherente' ? 'mapa-inherente' : 'mapa-residual',
+      action: 'view',
+      route: window.location.pathname,
+      formData: {
+        tipoMapa: tipoMapaSeleccionado,
+        clasificacion:
+          clasificacion === CLASIFICACION_RIESGO.POSITIVA
+            ? 'Oportunidades (positivos)'
+            : 'Riesgos negativos',
+        area: nombreArea,
+        proceso: nombreProceso,
+        totalRiesgos: puntosFiltrados.length,
+        totalInherente: estadisticasComparativas?.inherente?.total || 0,
+        totalResidual: estadisticasComparativas?.residual?.total || 0,
+      },
+    };
+
+    const payload = JSON.stringify(context);
+    if (payload !== ultimoPayloadScreenContext.current) {
+      ultimoPayloadScreenContext.current = payload;
       setScreenContext(context);
     }
   }, [
-    puntosFiltrados,
+    setScreenContext,
     tipoMapaSeleccionado,
     clasificacion,
     filtroArea,
     filtroProceso,
-    estadisticasComparativas,
-    riskInsights,
+    puntosFiltrados.length,
+    estadisticasComparativas?.inherente?.total,
+    estadisticasComparativas?.residual?.total,
     areas,
     procesos,
-    setScreenContext
   ]);
 
   // isLoading state para la página completa
@@ -753,6 +748,50 @@ export default function MapaPage() {
 
 
   /* Hook moved to top */
+  const colorPositivoFallbackPorRiesgo = (prob: number, imp: number): string => {
+    let riesgo = prob * imp;
+    if (prob === 2 && imp === 2) {
+      riesgo = 3.99;
+    }
+    if (riesgo >= 15 && riesgo <= 25) return MAPA_POSITIVO_COLORES.extremo;
+    if (riesgo >= 10 && riesgo <= 14) return MAPA_POSITIVO_COLORES.alto;
+    if (riesgo >= 4 && riesgo <= 9) return MAPA_POSITIVO_COLORES.medio;
+    return MAPA_POSITIVO_COLORES.bajo;
+  };
+
+  const colorPositivoDesdeConfig = (cellKey: string, prob: number, imp: number): string => {
+    const fallback = colorPositivoFallbackPorRiesgo(prob, imp);
+    const configResidual = mapaConfig?.residual as Record<string, string> | undefined;
+    if (!configResidual) return fallback;
+
+    const valorConfig = configResidual[cellKey];
+    if (!valorConfig) return fallback;
+
+    const coloresPermitidos = new Set(
+      Object.values(MAPA_POSITIVO_COLORES).map((c) => c.toLowerCase()),
+    );
+
+    if (typeof valorConfig === 'string' && valorConfig.startsWith('#')) {
+      const colorHex = valorConfig.toLowerCase();
+      return coloresPermitidos.has(colorHex) ? valorConfig : fallback;
+    }
+
+    const nivel = niveles?.find((n) => n.id === valorConfig);
+    if (!nivel?.nombre) return fallback;
+    const nombreNivel = String(nivel.nombre).toUpperCase();
+    if (
+      nombreNivel.includes('CRÍTICO') ||
+      nombreNivel.includes('CRITICO') ||
+      nombreNivel.includes('EXTREMO') ||
+      nombreNivel.includes('MUY ALTO')
+    ) {
+      return MAPA_POSITIVO_COLORES.extremo;
+    }
+    if (nombreNivel.includes('ALTO')) return MAPA_POSITIVO_COLORES.alto;
+    if (nombreNivel.includes('MEDIO')) return MAPA_POSITIVO_COLORES.medio;
+    return MAPA_POSITIVO_COLORES.bajo;
+  };
+
   const getCellColor = (probabilidad: number, impacto: number): string => {
     const prob = Number(probabilidad) || 1;
     const imp = Number(impacto) || 1;
@@ -776,12 +815,9 @@ export default function MapaPage() {
       riesgo = 3.99;
     }
 
-    // Mapa positivo (oportunidades): escala fría distinta — no usa la config del mapa de amenazas
+    // Mapa positivo (oportunidades): usar configuración residual de admin (BD) con fallback de paleta positiva.
     if (esOportunidades) {
-      if (riesgo >= 15 && riesgo <= 25) return '#1565c0';
-      if (riesgo >= 10 && riesgo <= 14) return '#42a5f5';
-      if (riesgo >= 4 && riesgo <= 9) return '#757575';
-      return '#bdbdbd';
+      return colorPositivoDesdeConfig(cellKey, prob, imp);
     }
 
     if (riesgo >= 15 && riesgo <= 25) return colors.risk.critical.main;
@@ -802,11 +838,11 @@ export default function MapaPage() {
         nivelUpper.includes('CRITICO') ||
         nivelUpper.includes('EXTREMO')
       ) {
-        return '#1565c0';
+        return MAPA_POSITIVO_COLORES.extremo;
       }
-      if (nivelUpper.includes('ALTO')) return '#42a5f5';
-      if (nivelUpper.includes('MEDIO')) return '#757575';
-      return '#bdbdbd';
+      if (nivelUpper.includes('ALTO')) return MAPA_POSITIVO_COLORES.alto;
+      if (nivelUpper.includes('MEDIO')) return MAPA_POSITIVO_COLORES.medio;
+      return MAPA_POSITIVO_COLORES.bajo;
     }
 
     if (!nivelRiesgo) return colors.risk.low.main;
@@ -917,9 +953,14 @@ export default function MapaPage() {
     const probabilidades = ejes?.probabilidad.map(p => p.valor) || [1, 2, 3, 4, 5];
     const impactos = ejes?.impacto.map(i => i.valor).sort((a, b) => b - a) || [5, 4, 3, 2, 1];
 
-    const esFueraApetito = (prob: number, imp: number) => {
-      const valor = prob * imp;
-      return valor >= 15; // Hardcoded threshold based on constants
+    const esNivelExtremo = (prob: number, imp: number) => {
+      if (esMapaOportunidades) {
+        const cellKey = `${prob}-${imp}`;
+        const colorPositivo = colorPositivoDesdeConfig(cellKey, prob, imp).toLowerCase();
+        return colorPositivo === MAPA_POSITIVO_COLORES.extremo.toLowerCase();
+      }
+
+      return calcularNivelRiesgo(prob, imp) === NIVELES_RIESGO.CRITICO;
     };
 
     return (
@@ -972,7 +1013,7 @@ export default function MapaPage() {
                       const key = `${prob}-${imp}`;
                       const riesgosCelda = matriz[key] || [];
                       const cellColor = getCellColor(prob, imp);
-                      const fuerApetito = esFueraApetito(prob, imp);
+                      const fuerApetito = esNivelExtremo(prob, imp);
                       const bordesLimite = getBordesLimite(prob, imp);
                       
                       // Validar que los riesgos en esta celda realmente pertenezcan aquí
@@ -1228,6 +1269,8 @@ export default function MapaPage() {
           {/* Columna principal: Filtros y Leyenda */}
           <Grid2 xs={12}>
             <MapaFiltersPanel
+              vistaMapaTab={vistaMapaTab}
+              setVistaMapaTab={setVistaMapaTab}
               clasificacion={clasificacion}
               setClasificacion={setClasificacion}
               filtroArea={filtroArea}
@@ -1238,7 +1281,7 @@ export default function MapaPage() {
               esDueñoProcesos={!!esDueñoProcesos}
               esGerenteGeneralDirector={!!esGerenteGeneralDirector}
               esGerenteGeneralProceso={!!esGerenteGeneralProceso}
-              procesosPropios={procesosPropios as any}
+              procesosPropios={procesosPropios}
               areas={areas as any}
             />
 
@@ -1293,7 +1336,7 @@ export default function MapaPage() {
           disableScrollLock={true}
           BackdropProps={{
             sx: {
-              pointerEvents: 'auto', // Asegurar que el backdrop capture clicks para cerrar
+              pointerEvents: 'auto', // Asegurar que el backdrop capture la interacción para cerrar
             },
           }}
         >
@@ -1382,9 +1425,9 @@ export default function MapaPage() {
                               }}
                             />
                             <Chip
-                              label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                              label={esClasificacionPositiva(punto.clasificacion) ? 'Oportunidad' : 'Riesgo Negativo'}
                               size="small"
-                              color={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
+                              color={esClasificacionPositiva(punto.clasificacion) ? 'success' : 'warning'}
                                 sx={{ height: 20, fontSize: '0.7rem' }}
                             />
                           </Box>
@@ -1559,7 +1602,7 @@ export default function MapaPage() {
                   const omitirMitigacionTablaResidual =
                     mapaOptsResidualPlan.forzarInherenteSiPlanCausa &&
                     riesgo != null &&
-                    riesgoTienePlanAccionEnAlgunaCausaCliente(riesgo);
+                    riesgoTieneCausaConPlanSinControlCliente(riesgo);
 
                   // Estándar: causa dominante; estratégico: usar evaluación persistida, no recálculo por causas en cliente.
                   const residualDesdeCausas =
@@ -1693,9 +1736,9 @@ export default function MapaPage() {
                                 <Chip label="Sin control" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
                               )}
                               <Chip
-                                label={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                                label={esClasificacionPositiva(punto.clasificacion) ? 'Oportunidad' : 'Riesgo Negativo'}
                                 size="small"
-                                color={punto.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'success' : 'warning'}
+                                color={esClasificacionPositiva(punto.clasificacion) ? 'success' : 'warning'}
                                 sx={{ height: 20, fontSize: '0.7rem' }}
                               />
                             </Box>
@@ -2013,7 +2056,7 @@ export default function MapaPage() {
           disableScrollLock={true}
           BackdropProps={{
             sx: {
-              pointerEvents: 'auto', // Asegurar que el backdrop capture clicks para cerrar
+              pointerEvents: 'auto', // Asegurar que el backdrop capture la interacción para cerrar
             },
           }}
         >
@@ -2080,9 +2123,9 @@ export default function MapaPage() {
                         }}
                       />
                       <Chip
-                        label={puntoSeleccionadoDetalle?.clasificacion === CLASIFICACION_RIESGO.POSITIVA ? 'Oportunidad' : 'Riesgo Negativo'}
+                        label={esClasificacionPositiva(puntoSeleccionadoDetalle?.clasificacion) ? 'Oportunidad' : 'Riesgo Negativo'}
                         size="small"
-                        color={(puntoSeleccionadoDetalle?.clasificacion === CLASIFICACION_RIESGO.POSITIVA) ? 'success' : 'warning'}
+                        color={esClasificacionPositiva(puntoSeleccionadoDetalle?.clasificacion) ? 'success' : 'warning'}
                       />
                     </Box>
                     <Typography variant="body2" color="text.secondary" paragraph>
@@ -2384,7 +2427,7 @@ export default function MapaPage() {
                                 const datosCtrl = getDatosEvaluacionControlDesdeCausa(causa);
                                 const omitirMitigacionDetalleDialog =
                                   mapaOptsResidualPlan.forzarInherenteSiPlanCausa &&
-                                  riesgoTienePlanAccionEnAlgunaCausaCliente(riesgoSeleccionadoDetalle);
+                                  riesgoTieneCausaConPlanSinControlCliente(riesgoSeleccionadoDetalle);
                                 const residualCausa = calcularResidualPorCausa(
                                   causa,
                                   omitirMitigacionDetalleDialog ? { omitirMitigacion: true } : undefined
@@ -2460,7 +2503,6 @@ export default function MapaPage() {
         </Dialog>
 
 
-        {/* Resumen de Estadísticas: Comparativa Inherente vs Residual */}
         <ResumenEstadisticasMapas
           matrizInherente={matrizInherente}
           matrizResidual={matrizResidual}

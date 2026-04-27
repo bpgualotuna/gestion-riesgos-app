@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Alert,
   Chip,
   TextField,
   InputAdornment,
@@ -25,7 +24,7 @@ import { NIVELES_RIESGO } from '../../utils/constants';
 import { useState } from 'react';
 
 export default function ResumenRiesgosPage() {
-  const { esAdmin, esAuditoria, esDueñoProcesos, esGerenteGeneralProceso } = useAuth();
+  const { esAdmin, esAuditoria } = useAuth();
   const { procesoSeleccionado } = useProceso();
   const [busqueda, setBusqueda] = useState('');
 
@@ -48,8 +47,26 @@ export default function ResumenRiesgosPage() {
 
   const riesgos = riesgosData?.data || [];
 
-  // Función para obtener el nivel de riesgo según el valor
-  const obtenerNivelRiesgo = (valor: number): { nivel: string; color: string } => {
+  const PALETA_POSITIVA_RESUMEN = {
+    bajo: '#BBDEFB',
+    medio: '#64B5F6',
+    alto: '#1E88E5',
+    muyAlto: '#0D47A1',
+  } as const;
+
+  const esClasificacionPositiva = (valor: string | null | undefined): boolean => {
+    const texto = String(valor || '').trim().toLowerCase();
+    return texto.includes('positiva') || texto.includes('oportunidad');
+  };
+
+  // Función para obtener el nivel de riesgo según el valor y clasificación
+  const obtenerNivelRiesgo = (valor: number, esPositivo: boolean): { nivel: string; color: string } => {
+    if (esPositivo) {
+      if (valor >= 15) return { nivel: 'MUY ALTO', color: PALETA_POSITIVA_RESUMEN.muyAlto };
+      if (valor >= 10) return { nivel: 'ALTO', color: PALETA_POSITIVA_RESUMEN.alto };
+      if (valor >= 4) return { nivel: 'MEDIO', color: PALETA_POSITIVA_RESUMEN.medio };
+      return { nivel: 'BAJO', color: PALETA_POSITIVA_RESUMEN.bajo };
+    }
     if (valor >= 20) return { nivel: 'CRÍTICO', color: colors.risk.critical.main };
     if (valor >= 15) return { nivel: 'ALTO', color: colors.risk.high.main };
     if (valor >= 10) return { nivel: 'MEDIO', color: colors.risk.medium.main };
@@ -82,9 +99,10 @@ export default function ResumenRiesgosPage() {
       // Por ahora, usamos valores por defecto o del riesgo si existen
       const riesgoInherente = riesgo.riesgoInherente || 0;
       const riesgoResidual = riesgo.riesgoResidual || 0;
+      const riesgoPositivo = esClasificacionPositiva(riesgo.clasificacion);
 
-      const nivelRI = obtenerNivelRiesgo(riesgoInherente);
-      const nivelRR = obtenerNivelRiesgo(riesgoResidual);
+      const nivelRI = obtenerNivelRiesgo(riesgoInherente, riesgoPositivo);
+      const nivelRR = obtenerNivelRiesgo(riesgoResidual, riesgoPositivo);
 
       return {
         id: riesgo.id,
@@ -97,6 +115,7 @@ export default function ResumenRiesgosPage() {
         nivelRR: nivelRR.nivel,
         colorRI: nivelRI.color,
         colorRR: nivelRR.color,
+        clasificacion: riesgo.clasificacion || '',
         procesoId: riesgo.procesoId,
         riesgo: riesgo,
       };
@@ -125,6 +144,26 @@ export default function ResumenRiesgosPage() {
       headerName: 'Descripción',
       flex: 2,
       minWidth: 300,
+    },
+    {
+      field: 'clasificacion',
+      headerName: 'Clasificación',
+      width: 170,
+      renderCell: (params) => {
+        const esPositivo = esClasificacionPositiva(params.value);
+        return (
+          <Chip
+            label={esPositivo ? 'Oportunidad' : 'Amenaza'}
+            size="small"
+            sx={{
+              backgroundColor: esPositivo ? `${PALETA_POSITIVA_RESUMEN.alto}20` : `${colors.risk.high.main}20`,
+              color: esPositivo ? PALETA_POSITIVA_RESUMEN.muyAlto : colors.risk.high.main,
+              border: `1px solid ${esPositivo ? PALETA_POSITIVA_RESUMEN.alto : colors.risk.high.main}`,
+              fontWeight: 700,
+            }}
+          />
+        );
+      },
     },
     {
       field: 'riesgoInherente',
@@ -207,13 +246,6 @@ export default function ResumenRiesgosPage() {
           </Box>
         </CardContent>
       </Card>
-
-      {/* Información */}
-      {!puedeVerTodosLosRiesgos && !procesoSeleccionado && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Seleccione un proceso desde el Dashboard para ver sus riesgos
-        </Alert>
-      )}
 
       {/* Tabla de Resumen */}
       <Card>
