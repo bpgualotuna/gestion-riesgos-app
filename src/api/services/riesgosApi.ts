@@ -881,6 +881,22 @@ export const riesgosApi = createApi({
       invalidatesTags: ['Configuracion'],
     }),
 
+    /** Regla: si hay plan de acción en alguna causa, residual = inherente (no mitigación por controles). */
+    getReglaResidualPlanCausa: builder.query<{ activa: boolean }, void>({
+      query: () => 'catalogos/regla-residual-plan-causa',
+      providesTags: ['Configuracion'],
+      keepUnusedDataFor: 120,
+    }),
+
+    updateReglaResidualPlanCausa: builder.mutation<{ activa: boolean }, { activa: boolean }>({
+      query: (body) => ({
+        url: 'catalogos/regla-residual-plan-causa',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Configuracion'],
+    }),
+
     createConfiguracion: builder.mutation<any, { clave: string; valor: string; tipo: string; descripcion?: string }>({
       query: (body) => ({
         url: 'catalogos/configuraciones',
@@ -1518,6 +1534,8 @@ export const {
   useGetConfiguracionesQuery,
   useGetCamposHabilitacionUiQuery,
   useUpdateCamposHabilitacionUiMutation,
+  useGetReglaResidualPlanCausaQuery,
+  useUpdateReglaResidualPlanCausaMutation,
   useCreateConfiguracionMutation,
   useUpdateConfiguracionMutation,
   // Configuración de Identificación y Calificación

@@ -29,23 +29,49 @@ function parseGestion(causa: any): Record<string, unknown> {
   return {};
 }
 
+export interface OpcionesResidualPorCausa {
+  /** Si true, no aplica porcentaje de mitigación del control (residual de la causa = inherente de la causa). */
+  omitirMitigacion?: boolean;
+}
+
+export interface OpcionesResidualDesdeCausas {
+  /**
+   * Si true y el riesgo tiene al menos una causa con `planesAccion` no vacío,
+   * devuelve la calificación residual alineada con la evaluación inherente persistida.
+   */
+  forzarInherenteSiPlanCausa?: boolean;
+}
+
+/** Detecta planes ligados a causas (misma condición que backend: `planesAccion` en la causa). */
+export function riesgoTienePlanAccionEnAlgunaCausaCliente(riesgo: Riesgo | Record<string, unknown> | null | undefined): boolean {
+  const causas = riesgo && Array.isArray((riesgo as { causas?: unknown }).causas)
+    ? ((riesgo as { causas: unknown[] }).causas)
+    : [];
+  return causas.some(
+    (c: { planesAccion?: unknown[] }) => Array.isArray(c.planesAccion) && c.planesAccion.length > 0
+  );
+}
+
 /**
  * Calificación residual de una sola causa con control (misma fórmula que el mapa).
  * Usa `causa.controles[0]` (ControlRiesgo) para mitigación cuando existe.
  */
-export function calcularResidualPorCausa(causa: any): ResultadoResidualDesdeCausas | null {
+export function calcularResidualPorCausa(
+  causa: any,
+  opts?: OpcionesResidualPorCausa
+): ResultadoResidualDesdeCausas | null {
   if (!causa) return null;
 
   const control = causa.controles?.[0] || {};
   const g = parseGestion(causa);
 
   let porcentajeMitigacion = 0;
-  if (control.estandarizacionPorcentajeMitigacion !== undefined) {
+  if (!opts?.omitirMitigacion && control.estandarizacionPorcentajeMitigacion !== undefined) {
     porcentajeMitigacion = Number(control.estandarizacionPorcentajeMitigacion) / 100;
-  } else if (g.porcentajeMitigacion !== undefined) {
+  } else if (!opts?.omitirMitigacion && g.porcentajeMitigacion !== undefined) {
     const valor = Number(g.porcentajeMitigacion);
     porcentajeMitigacion = valor > 1 ? valor / 100 : valor;
-  } else if (causa.porcentajeMitigacion !== undefined) {
+  } else if (!opts?.omitirMitigacion && causa.porcentajeMitigacion !== undefined) {
     const valor = Number(causa.porcentajeMitigacion);
     porcentajeMitigacion = valor > 1 ? valor / 100 : valor;
   }
@@ -122,9 +148,32 @@ export function getDatosEvaluacionControlDesdeCausa(causa: any): {
 }
 
 /** Causa con mayor calificación residual (misma regla que Controles / mapa residual). */
-export function calcularResidualDesdeCausas(riesgo: Riesgo | any): ResultadoResidualDesdeCausas | null {
+export function calcularResidualDesdeCausas(
+  riesgo: Riesgo | any,
+  opts?: OpcionesResidualDesdeCausas
+): ResultadoResidualDesdeCausas | null {
   const causas = riesgo && Array.isArray((riesgo as any).causas) ? (riesgo as any).causas : [];
   if (!causas || causas.length === 0) return null;
+
+  if (opts?.forzarInherenteSiPlanCausa && riesgoTienePlanAccionEnAlgunaCausaCliente(riesgo)) {
+    const ev = (riesgo as { evaluacion?: Record<string, unknown> }).evaluacion;
+    if (!ev) return null;
+    const pr = Math.max(1, Math.min(5, Math.round(Number(ev.probabilidad ?? 1))));
+    const ig = ev.impactoGlobal != null ? Number(ev.impactoGlobal) : Number(ev.impactoMaximo ?? 1);
+    const ir = Math.max(1, Math.min(5, Math.round(ig)));
+    const rrRaw =
+      ev.riesgoInherente != null && ev.riesgoInherente !== ''
+        ? Number(ev.riesgoInherente)
+        : pr * ir;
+    const rr = pr === 2 && ir === 2 ? 3.99 : Number(rrRaw);
+    const nivelPersistido = ev.nivelRiesgo != null ? String(ev.nivelRiesgo) : '';
+    return {
+      probabilidadResidual: pr,
+      impactoResidual: ir,
+      riesgoResidual: rr,
+      nivelRiesgoResidual: nivelPersistido || nivelDesdeCalificacion(rr),
+    };
+  }
 
   const causasConControles = causas.filter((c: any) => {
     const tipo = (c.tipoGestion || (c.puntajeTotal !== undefined ? 'CONTROL' : '')).toUpperCase();

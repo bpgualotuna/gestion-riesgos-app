@@ -47,7 +47,7 @@ import {
 } from '@mui/icons-material';
 import Grid2 from '../../utils/Grid2';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
-import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery, useGetAreasQuery, riesgosApi } from '../../api/services/riesgosApi';
+import { useGetPuntosMapaQuery, useGetRiesgosQuery, useGetProcesosQuery, useGetEvaluacionesByRiesgoQuery, useGetMapaConfigQuery, useGetNivelesRiesgoQuery, useGetEjesMapaQuery, useGetAreasQuery, useGetReglaResidualPlanCausaQuery, riesgosApi } from '../../api/services/riesgosApi';
 import { useAppDispatch } from '../../app/hooks';
 import { colors } from '../../app/theme/colors';
 import { CLASIFICACION_RIESGO, type ClasificacionRiesgo, ROUTES, NIVELES_RIESGO } from '../../utils/constants';
@@ -66,6 +66,7 @@ import {
   calcularResidualDesdeCausas,
   calcularResidualPorCausa,
   getDatosEvaluacionControlDesdeCausa,
+  riesgoTienePlanAccionEnAlgunaCausaCliente,
 } from '../../utils/residualDesdeCausas';
 import { resolverCoordsResidualMapa } from '../../utils/mapaResidualCoords';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
@@ -319,6 +320,14 @@ export default function MapaPage() {
     return m;
   }, [procesos]);
 
+  const { data: reglaResidualPlanCausa } = useGetReglaResidualPlanCausaQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
+  const mapaOptsResidualPlan = useMemo(
+    () => ({ forzarInherenteSiPlanCausa: Boolean(reglaResidualPlanCausa?.activa) }),
+    [reglaResidualPlanCausa?.activa]
+  );
+
   // Filtrar puntos y riesgos aplicando filtros de área, proceso y clasificación
   // IMPORTANTE: Siempre respetar las asignaciones del usuario (procesosPropios)
   const puntosFiltrados = useMemo(() => {
@@ -444,7 +453,12 @@ export default function MapaPage() {
       const procesoIdStr =
         punto.procesoId != null ? String(punto.procesoId) : riesgo?.procesoId != null ? String(riesgo.procesoId) : '';
       const modo = procesoIdStr ? (residualModoPorProcesoId.get(procesoIdStr) ?? 'ESTANDAR') : 'ESTANDAR';
-      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(punto, riesgo ?? undefined, modo);
+      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(
+        punto,
+        riesgo ?? undefined,
+        modo,
+        mapaOptsResidualPlan
+      );
 
       const clave = `${probabilidadResidual}-${impactoResidual}`;
       if (!matriz[clave]) {
@@ -465,7 +479,7 @@ export default function MapaPage() {
     });
     
     return matriz;
-  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId]);
+  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaOptsResidualPlan]);
 
   // Calcular nivel de riesgo basado en probabilidad e impacto (Usando Configuración o Fallback)
   const calcularNivelRiesgo = (probabilidad: number, impacto: number): string => {
@@ -553,7 +567,12 @@ export default function MapaPage() {
       const procesoIdStr =
         punto.procesoId != null ? String(punto.procesoId) : riesgo.procesoId != null ? String(riesgo.procesoId) : '';
       const modo = procesoIdStr ? (residualModoPorProcesoId.get(procesoIdStr) ?? 'ESTANDAR') : 'ESTANDAR';
-      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(punto, riesgo, modo);
+      const { probabilidadResidual, impactoResidual } = resolverCoordsResidualMapa(
+        punto,
+        riesgo,
+        modo,
+        mapaOptsResidualPlan
+      );
       const nivelResidual = calcularNivelRiesgo(probabilidadResidual, impactoResidual);
 
       // Contar por nivel residual
@@ -574,7 +593,7 @@ export default function MapaPage() {
       residual,
       cambios,
     };
-  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaConfig, niveles]);
+  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaOptsResidualPlan, mapaConfig, niveles]);
 
   // Análisis de Mitigación (Insights)
   const riskInsights = useMemo(() => {
@@ -592,7 +611,8 @@ export default function MapaPage() {
       const { probabilidadResidual: probRes, impactoResidual: impRes } = resolverCoordsResidualMapa(
         punto,
         riesgo,
-        modo
+        modo,
+        mapaOptsResidualPlan
       );
       const scoreResidual = probRes === 2 && impRes === 2 ? 3.99 : probRes * impRes;
 
@@ -622,7 +642,7 @@ export default function MapaPage() {
       criticosPersistentes,
       eficacia
     };
-  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaConfig, niveles]);
+  }, [puntosFiltrados, riesgosCompletos, residualModoPorProcesoId, mapaOptsResidualPlan, mapaConfig, niveles]);
 
   // Obtener riesgos de la celda seleccionada usando puntos filtrados
   const matrizActual = tipoMapaSeleccionado === 'inherente' ? matrizInherente : matrizResidual;
@@ -1536,9 +1556,18 @@ export default function MapaPage() {
                     ? (residualModoPorProcesoId.get(procesoIdRes) ?? 'ESTANDAR')
                     : 'ESTANDAR';
 
+                  const omitirMitigacionTablaResidual =
+                    mapaOptsResidualPlan.forzarInherenteSiPlanCausa &&
+                    riesgo != null &&
+                    riesgoTienePlanAccionEnAlgunaCausaCliente(riesgo);
+
                   // Estándar: causa dominante; estratégico: usar evaluación persistida, no recálculo por causas en cliente.
                   const residualDesdeCausas =
-                    modoResidualUi === 'ESTRATEGICO' ? null : calcularResidualDesdeCausas(riesgo);
+                    modoResidualUi === 'ESTRATEGICO'
+                      ? null
+                      : calcularResidualDesdeCausas(riesgo, {
+                          forzarInherenteSiPlanCausa: mapaOptsResidualPlan.forzarInherenteSiPlanCausa,
+                        });
 
                   const probabilidadResidual =
                     modoResidualUi === 'ESTRATEGICO'
@@ -1854,7 +1883,10 @@ export default function MapaPage() {
                                     <TableBody>
                                       {controlesAplicados.map((causa: any, idx: number) => {
                                         const datosCtrl = getDatosEvaluacionControlDesdeCausa(causa);
-                                        const residualCausa = calcularResidualPorCausa(causa);
+                                        const residualCausa = calcularResidualPorCausa(
+                                          causa,
+                                          omitirMitigacionTablaResidual ? { omitirMitigacion: true } : undefined
+                                        );
 
                                         let calificacionResidual: number | null = residualCausa?.riesgoResidual ?? null;
                                         let nivelRiesgoResidual: string | null = residualCausa?.nivelRiesgoResidual ?? null;
@@ -2350,7 +2382,13 @@ export default function MapaPage() {
                               })
                               .map((causa: any, idx: number) => {
                                 const datosCtrl = getDatosEvaluacionControlDesdeCausa(causa);
-                                const residualCausa = calcularResidualPorCausa(causa);
+                                const omitirMitigacionDetalleDialog =
+                                  mapaOptsResidualPlan.forzarInherenteSiPlanCausa &&
+                                  riesgoTienePlanAccionEnAlgunaCausaCliente(riesgoSeleccionadoDetalle);
+                                const residualCausa = calcularResidualPorCausa(
+                                  causa,
+                                  omitirMitigacionDetalleDialog ? { omitirMitigacion: true } : undefined
+                                );
 
                                 let frecuenciaResidual: number | string =
                                   residualCausa?.probabilidadResidual ?? causa.frecuenciaResidual ?? 'N/A';
@@ -2431,6 +2469,7 @@ export default function MapaPage() {
           filtroProceso={filtroProceso}
           puntosFiltrados={puntosFiltrados}
           riesgosCompletos={riesgosCompletos}
+          forzarInherenteSiPlanCausa={mapaOptsResidualPlan.forzarInherenteSiPlanCausa}
         />
       </>
         )

@@ -3,6 +3,11 @@ import { calcularResidualDesdeCausas } from './residualDesdeCausas';
 
 export type ResidualModoMapa = 'ESTANDAR' | 'ESTRATEGICO' | undefined;
 
+/** Alineación con backend: regla “plan en causa → residual = inherente” en modo estándar. */
+export type OpcionesMapaResidual = {
+  forzarInherenteSiPlanCausa?: boolean;
+};
+
 function coordsValidas(prob: unknown, imp: unknown): boolean {
   const p = Number(prob);
   const i = Number(imp);
@@ -21,7 +26,8 @@ function clampRoundCoord(n: number): number {
 export function resolverCoordsResidualMapa(
   punto: Partial<Pick<PuntoMapa, 'probabilidad' | 'impacto' | 'probabilidadResidual' | 'impactoResidual'>>,
   riesgo?: Riesgo | null,
-  residualModo: ResidualModoMapa = 'ESTANDAR'
+  residualModo: ResidualModoMapa = 'ESTANDAR',
+  opts?: OpcionesMapaResidual
 ): { probabilidadResidual: number; impactoResidual: number } {
   let probabilidadResidual: number | undefined | null = undefined;
   let impactoResidual: number | undefined | null = undefined;
@@ -41,7 +47,9 @@ export function resolverCoordsResidualMapa(
       }
     }
   } else if (riesgo) {
-    const desdeCausas = calcularResidualDesdeCausas(riesgo);
+    const desdeCausas = calcularResidualDesdeCausas(riesgo, {
+      forzarInherenteSiPlanCausa: Boolean(opts?.forzarInherenteSiPlanCausa),
+    });
     if (desdeCausas) {
       probabilidadResidual = desdeCausas.probabilidadResidual;
       impactoResidual = desdeCausas.impactoResidual;
