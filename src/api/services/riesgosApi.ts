@@ -175,7 +175,14 @@ export const riesgosApi = createApi({
       invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
     }),
 
-    updateResponsablesProceso: builder.mutation<any[], { procesoId: string; responsablesIds?: number[]; responsables?: Array<{ usuarioId: number; modo?: 'dueño' | 'supervisor' | null }> }>({
+    updateResponsablesProceso: builder.mutation<
+      any[],
+      {
+        procesoId: string;
+        responsablesIds?: number[];
+        responsables?: Array<{ usuarioId: number; modo: 'director' | 'proceso' | 'ambos' }>;
+      }
+    >({
       query: ({ procesoId, responsablesIds, responsables }) => ({
         url: `procesos/${procesoId}/responsables`,
         method: 'PUT',

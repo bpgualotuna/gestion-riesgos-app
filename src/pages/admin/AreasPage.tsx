@@ -55,10 +55,6 @@ import {
     useDeleteAreaMutation,
     useGetUsuariosQuery,
     useGetProcesosQuery,
-    useBulkUpdateProcesosMutation,
-    useGetResponsablesByProcesoQuery,
-    useAddResponsableToProcesoMutation,
-    useRemoveResponsableFromProcesoMutation,
     useUpdateResponsablesProcesoMutation,
     useGetRolesQuery,
 } from '../../api/services/riesgosApi';
@@ -87,12 +83,15 @@ export default function AreasPage() {
 
     // Mapear usuarios para incluir role como string (codigo) desde el objeto anidado del backend
     const usuarios = useMemo(() => {
-        const mapped = (usuariosData as any[]).map((u: any) => ({
-            ...u,
-            role: u.role?.codigo || u.role || 'sin_rol',
-            roleId: u.roleId || u.role?.id || null,
-            roleNombre: u.role?.nombre || 'Sin rol asignado'
-        }));
+        const mapped = (usuariosData as any[]).map((u: any) => {
+            const rol = u.roleRelacion ?? u.role;
+            return {
+                ...u,
+                role: rol?.codigo || u.role || 'sin_rol',
+                roleId: u.roleId ?? rol?.id ?? null,
+                roleNombre: rol?.nombre || 'Sin rol asignado'
+            };
+        });
         return mapped;
     }, [usuariosData]);
 
@@ -168,9 +167,6 @@ export default function AreasPage() {
     const [createArea] = useCreateAreaMutation();
     const [updateArea] = useUpdateAreaMutation();
     const [deleteArea] = useDeleteAreaMutation();
-    const [bulkUpdateProcesos] = useBulkUpdateProcesosMutation();
-    const [addResponsable] = useAddResponsableToProcesoMutation();
-    const [removeResponsable] = useRemoveResponsableFromProcesoMutation();
     const [updateResponsables] = useUpdateResponsablesProcesoMutation();
 
     // Filtered data
@@ -394,15 +390,14 @@ export default function AreasPage() {
     const saveAssignments = async () => {
         try {
             const promesas = Object.entries(responsablesSeleccionados).map(async ([procesoId, responsables]) => {
-                const responsablesConModo = responsables.map((r) => ({
-                    usuarioId: Number(r.usuarioId),
-                    modo:
-                        r.modo === 'director'
-                            ? ('supervisor' as const)
-                            : r.modo === 'proceso'
-                              ? ('dueño' as const)
-                              : (r.modo as 'supervisor' | 'dueño'),
-                }));
+                // El backend exige modo "director", "proceso" o "ambos" (tabla ProcesoResponsable)
+                const responsablesConModo = responsables.map((r) => {
+                    const m = String(r.modo || 'proceso').toLowerCase();
+                    let modo: 'director' | 'proceso' | 'ambos' = 'proceso';
+                    if (m === 'director') modo = 'director';
+                    else if (m === 'ambos') modo = 'ambos';
+                    return { usuarioId: Number(r.usuarioId), modo };
+                });
                 await updateResponsables({
                     procesoId,
                     responsables: responsablesConModo
