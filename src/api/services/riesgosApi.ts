@@ -158,19 +158,26 @@ export const riesgosApi = createApi({
       providesTags: (_result, _error, procesoId) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
     }),
 
-    addResponsableToProceso: builder.mutation<any, { procesoId: string; usuarioId: number }>({
-      query: ({ procesoId, usuarioId }) => ({
+    addResponsableToProceso: builder.mutation<
+      any,
+      { procesoId: string; usuarioId: number; modo: 'director' | 'proceso' }
+    >({
+      query: ({ procesoId, usuarioId, modo }) => ({
         url: `procesos/${procesoId}/responsables`,
         method: 'POST',
-        body: { usuarioId },
+        body: { usuarioId, modo },
       }),
       invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
     }),
 
-    removeResponsableFromProceso: builder.mutation<void, { procesoId: string; usuarioId: number }>({
-      query: ({ procesoId, usuarioId }) => ({
+    removeResponsableFromProceso: builder.mutation<
+      void,
+      { procesoId: string; usuarioId: number; modo: 'director' | 'proceso' }
+    >({
+      query: ({ procesoId, usuarioId, modo }) => ({
         url: `procesos/${procesoId}/responsables/${usuarioId}`,
         method: 'DELETE',
+        body: { modo },
       }),
       invalidatesTags: (_result, _error, { procesoId }) => [{ type: 'Proceso', id: procesoId }, 'Proceso'],
     }),
