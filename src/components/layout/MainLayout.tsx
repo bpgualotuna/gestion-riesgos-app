@@ -191,7 +191,7 @@ export default function MainLayout() {
   const [modoManagerDialogOpen, setModoManagerDialogOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [profileImgError, setProfileImgError] = useState(false);
-  const [profilePhotoVersion, setProfilePhotoVersion] = useState(0);
+  const [profilePhotoVersion, setProfilePhotoVersion] = useState(() => Date.now());
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
   const [alertasAnchorEl, setAlertasAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -219,6 +219,7 @@ export default function MainLayout() {
 
   useEffect(() => {
     setProfileImgError(false);
+    setProfilePhotoVersion(Date.now());
   }, [user?.id, user?.fotoPerfil]);
 
   // Obtener asignaciones del supervisor/dueño de procesos (misma lógica que el selector de proceso)
@@ -1415,7 +1416,7 @@ export default function MainLayout() {
             user={user}
             onSaved={(data) => {
               setProfileImgError(false);
-              setProfilePhotoVersion((v) => v + 1);
+              setProfilePhotoVersion(Date.now());
               refreshUser(data ?? undefined);
             }}
           />
