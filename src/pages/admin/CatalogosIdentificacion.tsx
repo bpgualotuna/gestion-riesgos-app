@@ -51,7 +51,7 @@ function TabPanel(props: TabPanelProps) {
 
 export default function CatalogosIdentificacion({ embedded = false }: { embedded?: boolean }) {
     const [currentTab, setCurrentTab] = useState(0);
-    const { showSuccess, showError } = useNotification();
+    const { showSuccess, showError, showEliminacionExitosa } = useNotification();
     const { confirmDelete } = useConfirm();
 
     // Queries
@@ -127,7 +127,7 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
                         if (!(await confirmDelete('esta tipología'))) return;
                         try {
                             await deleteTipologia(id).unwrap();
-                            showSuccess('Tipología eliminada');
+                            showEliminacionExitosa('La tipología se eliminó correctamente.');
                         } catch (e) {
                             showError((e as any)?.data?.error || 'Error al eliminar tipología');
                         }
@@ -162,7 +162,7 @@ export default function CatalogosIdentificacion({ embedded = false }: { embedded
                         if (!(await confirmDelete('este objetivo'))) return;
                         try {
                             await deleteObjetivo(id).unwrap();
-                            showSuccess('Objetivo eliminado');
+                            showEliminacionExitosa('El objetivo se eliminó correctamente.');
                         } catch (e) {
                             showError((e as any)?.data?.error || 'Error al eliminar objetivo');
                         }

@@ -88,7 +88,7 @@ function TabPanel(props: TabPanelProps) {
 
 export default function UsuariosPage() {
     const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
-    const { showSuccess, showError } = useNotification();
+    const { showSuccess, showError, showEliminacionExitosa } = useNotification();
     const { confirmDelete } = useConfirm();
     const [currentTab, setCurrentTab] = useState(0);
 
@@ -360,7 +360,7 @@ export default function UsuariosPage() {
         if (await confirmDelete('este rol')) {
             try {
                 await deleteRole(id as any).unwrap();
-                showSuccess('Rol eliminado correctamente');
+                showEliminacionExitosa('El rol se eliminó correctamente.');
             } catch (error: any) {
                 const errorMsg = (error as any)?.data?.error || 'Error al eliminar el rol';
                 showError(errorMsg);
@@ -456,7 +456,7 @@ export default function UsuariosPage() {
         if (await confirmDelete('esta gerencia')) {
             try {
                 await deleteGerencia(id as any).unwrap();
-                showSuccess('Gerencia eliminada correctamente');
+                showEliminacionExitosa('La gerencia se eliminó correctamente.');
             } catch (error) {
                 showError((error as any)?.data?.error || 'Error al eliminar la gerencia');
             }
@@ -487,7 +487,7 @@ export default function UsuariosPage() {
         if (await confirmDelete('este cargo')) {
             try {
                 await deleteCargo(id as any).unwrap();
-                showSuccess('Cargo eliminado correctamente');
+                showEliminacionExitosa('El cargo se eliminó correctamente.');
             } catch (error) {
                 showError((error as any)?.data?.error || 'Error al eliminar el cargo');
             }
@@ -527,7 +527,7 @@ export default function UsuariosPage() {
         if (await confirmDelete('este usuario')) {
             try {
                 await deleteUsuario(id as any).unwrap();
-                showSuccess('Usuario eliminado correctamente');
+                showEliminacionExitosa('El usuario se eliminó correctamente.');
             } catch (error) {
                 showError((error as any)?.data?.error || 'Error al eliminar el usuario');
             }

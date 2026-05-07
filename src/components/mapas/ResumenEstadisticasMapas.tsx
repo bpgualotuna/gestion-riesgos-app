@@ -16,8 +16,8 @@ interface ResumenEstadisticasProps {
     areaNombre?: string;
     residualModo?: 'ESTANDAR' | 'ESTRATEGICO';
   }[];
-  filtroArea?: string;
-  filtroProceso?: string;
+  filtroArea?: string | string[];
+  filtroProceso?: string | string[];
   puntosFiltrados: {
     riesgoId: string | number;
     procesoId?: string | number;

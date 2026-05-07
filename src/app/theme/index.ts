@@ -125,6 +125,17 @@ const themeOptions = {
         },
       },
     },
+    // Gutter en raíz; el scroll real suele estar en <main> (MainLayout), también con gutter allí
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: {
+          scrollbarGutter: 'stable',
+        },
+        body: {
+          scrollbarGutter: 'stable',
+        },
+      },
+    },
     MuiDataGrid: {
       styleOverrides: {
         root: {
@@ -145,6 +156,10 @@ const themeOptions = {
       },
     },
     MuiDialog: {
+      // Evita overflow/padding en body y en .mui-fixed (AppBar) que provocan saltos con layout de scroll interno
+      defaultProps: {
+        disableScrollLock: true,
+      },
       styleOverrides: {
         paper: {
           margin: 8,

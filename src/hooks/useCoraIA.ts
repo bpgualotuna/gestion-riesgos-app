@@ -10,6 +10,12 @@ import {
 } from '../api/services/iaApi';
 import type { ChatMessage, ScreenContext } from '../types/ia.types';
 
+/** Saludo inicial visible como primer mensaje del asistente en el hilo de chat. */
+export function textoSaludoCoraAsistente(nombreDisplay: string): string {
+  const n = nombreDisplay.trim() || 'Usuario';
+  return `Hola ${n}, soy CORA. Estoy lista para ayudarte con tus riesgos y procesos. ¿En qué puedo apoyarte hoy?`;
+}
+
 /** Asegura role/content por mensaje (Mongo puede traer createdAt u otros campos). */
 function normalizeMensajesDesdeApi(raw: unknown): ChatMessage[] {
   if (!Array.isArray(raw)) return [];
@@ -51,9 +57,9 @@ export function useCoraIA() {
     }
   };
 
-  const limpiar = useCallback(() => {
+  const limpiar = useCallback((nombreUsuario: string) => {
     setConversationId(undefined);
-    setMensajes([]);
+    setMensajes([{ role: 'assistant', content: textoSaludoCoraAsistente(nombreUsuario) }]);
     setError(null);
     setLoading(false);
     setStreaming(false);
@@ -170,6 +176,18 @@ export function useCoraIA() {
     }
   }, []);
 
+  /** Si solo está el saludo genérico "Usuario", actualiza el nombre cuando el perfil ya cargó. */
+  const sincronizarSaludoNombre = useCallback((nombreUsuario: string) => {
+    const etiqueta = nombreUsuario.trim();
+    if (!etiqueta || etiqueta === 'Usuario') return;
+    setMensajes((prev) => {
+      if (prev.length !== 1 || prev[0].role !== 'assistant') return prev;
+      const placeholder = textoSaludoCoraAsistente('Usuario');
+      if (prev[0].content !== placeholder) return prev;
+      return [{ role: 'assistant', content: textoSaludoCoraAsistente(etiqueta) }];
+    });
+  }, []);
+
   return {
     conversationId,
     mensajes,
@@ -183,5 +201,6 @@ export function useCoraIA() {
     seleccionarConversacion,
     borrar,
     renombrar,
+    sincronizarSaludoNombre,
   };
 }

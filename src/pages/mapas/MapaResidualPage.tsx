@@ -19,12 +19,16 @@ import {
   CardContent,
   Chip,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import Grid2 from '../../utils/Grid2';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { useNotification } from '../../hooks/useNotification';
 import type { RiesgoFormData } from '../../types';
-import { useGetPuntosMapaQuery } from '../../api/services/riesgosApi';
+import { useGetPuntosMapaQuery, useGetProcesosQuery, useGetAreasQuery } from '../../api/services/riesgosApi';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import { repairSpanishDisplayArtifacts } from '../../utils/utf8Repair';
 import { useCoraIAContext } from '../../contexts/CoraIAContext';
@@ -39,6 +43,7 @@ import {
 interface RiesgoResidual {
   numeroIdentificacion: string;
   descripcion: string;
+  procesoId?: string | number;
   frecuenciaResidual: number;
   impactoResidual: number;
   calificacionResidual: number;
@@ -111,18 +116,15 @@ export default function MapaResidualPage() {
   // const { showError } = useNotification();
 
   const [riesgosResidiales, setRiesgosResidiales] = useState<RiesgoResidual[]>([]);
-  const [riesgosOrdenados, setRiesgosOrdenados] = useState<RiesgoResidual[]>([]);
-  const [conteoZonas, setConteoZonas] = useState<ConteoZonasRiesgo>({
-    critico: 0,
-    alto: 0,
-    medio: 0,
-    bajo: 0,
-    minimo: 0,
-  });
+  const [filtroArea, setFiltroArea] = useState<string>('all');
+  const [filtroProceso, setFiltroProceso] = useState<string>('all');
+
+  const { data: procesos = [] } = useGetProcesosQuery();
+  const { data: areas = [] } = useGetAreasQuery();
 
   const { data: puntosMapa, isLoading } = useGetPuntosMapaQuery(
-    { procesoId: procesoSeleccionado?.id },
-    { skip: !procesoSeleccionado?.id }
+    {},
+    { skip: false }
   );
 
   useEffect(() => {
@@ -142,6 +144,7 @@ export default function MapaResidualPage() {
           return {
             numeroIdentificacion: p.numeroIdentificacion || p.numero.toString(),
             descripcion: p.descripcion,
+            procesoId: p.procesoId,
             frecuenciaResidual: f,
             impactoResidual: i,
             calificacionResidual: cal,
@@ -153,22 +156,39 @@ export default function MapaResidualPage() {
         });
 
       setRiesgosResidiales(riesgosCalculados);
-
-      // Ordenar por calificación residual descendente (mayor a menor)
-      const ordenados = [...riesgosCalculados].sort((a, b) => b.calificacionResidual - a.calificacionResidual);
-      setRiesgosOrdenados(ordenados);
-
-      // Contar por zonas de riesgo
-      const conteo: ConteoZonasRiesgo = {
-        critico: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Crítico').length,
-        alto: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Alto').length,
-        medio: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Medio').length,
-        bajo: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Bajo').length,
-        minimo: riesgosCalculados.filter((r) => r.zonaRiesgo === 'Mínimo').length,
-      };
-      setConteoZonas(conteo);
     }
   }, [puntosMapa]);
+
+  const procesosFiltradosPorArea = useMemo(() => {
+    if (filtroArea === 'all') return procesos;
+    return procesos.filter((p) => String(p.areaId) === String(filtroArea));
+  }, [filtroArea, procesos]);
+
+  const riesgosFiltrados = useMemo(() => {
+    if (filtroProceso !== 'all') {
+      return riesgosResidiales.filter((r) => String(r.procesoId) === String(filtroProceso));
+    }
+
+    if (filtroArea !== 'all') {
+      const procesoIds = new Set(procesosFiltradosPorArea.map((p) => String(p.id)));
+      return riesgosResidiales.filter((r) => procesoIds.has(String(r.procesoId)));
+    }
+
+    return riesgosResidiales;
+  }, [filtroProceso, filtroArea, riesgosResidiales, procesosFiltradosPorArea]);
+
+  const riesgosOrdenados = useMemo(
+    () => [...riesgosFiltrados].sort((a, b) => b.calificacionResidual - a.calificacionResidual),
+    [riesgosFiltrados]
+  );
+
+  const conteoZonas = useMemo<ConteoZonasRiesgo>(() => ({
+    critico: riesgosFiltrados.filter((r) => r.zonaRiesgo === 'Crítico').length,
+    alto: riesgosFiltrados.filter((r) => r.zonaRiesgo === 'Alto').length,
+    medio: riesgosFiltrados.filter((r) => r.zonaRiesgo === 'Medio').length,
+    bajo: riesgosFiltrados.filter((r) => r.zonaRiesgo === 'Bajo').length,
+    minimo: riesgosFiltrados.filter((r) => r.zonaRiesgo === 'Mínimo').length,
+  }), [riesgosFiltrados]);
 
   // Contexto de pantalla para CORA IA
   useEffect(() => {
@@ -181,7 +201,7 @@ export default function MapaResidualPage() {
         route: window.location.pathname,
         formData: {
           tipoMapa: 'residual',
-          totalRiesgos: riesgosResidiales.length,
+          totalRiesgos: riesgosFiltrados.length,
           conteoZonas: {
             criticos: conteoZonas.critico,
             altos: conteoZonas.alto,
@@ -198,12 +218,12 @@ export default function MapaResidualPage() {
       };
       setScreenContext(context);
     }
-  }, [procesoSeleccionado, riesgosResidiales, conteoZonas, riesgosOrdenados, setScreenContext]);
+  }, [procesoSeleccionado, riesgosFiltrados, conteoZonas, riesgosOrdenados, setScreenContext]);
 
   // Construir matriz 5x5 con riesgos negativos y positivos
   const { matrizNegativa, matrizPositiva } = useMemo(() => {
-    const negativos = riesgosResidiales.filter((r) => r.consecuencia === 'Negativa');
-    const positivos = riesgosResidiales.filter((r) => r.consecuencia === 'Positiva');
+    const negativos = riesgosFiltrados.filter((r) => r.consecuencia === 'Negativa');
+    const positivos = riesgosFiltrados.filter((r) => r.consecuencia === 'Positiva');
 
     // Crear matrices 5x5 (filas = impacto 5-1, columnas = frecuencia 1-5)
     const matrizNeg: Map<string, RiesgoResidual[]> = new Map();
@@ -222,7 +242,7 @@ export default function MapaResidualPage() {
     });
 
     return { matrizNegativa: matrizNeg, matrizPositiva: matrizPos };
-  }, [riesgosResidiales]);
+  }, [riesgosFiltrados]);
 
   // Componente para renderizar una celda de la matriz
   const CeldaMatriz = ({ frecuencia, impacto, riesgos }: { frecuencia: number; impacto: number; riesgos?: RiesgoResidual[] }) => {
@@ -268,10 +288,55 @@ export default function MapaResidualPage() {
         <Alert severity="info" variant="outlined">
           No hay proceso seleccionado.
         </Alert>
-      ) : riesgosResidiales.length === 0 ? (
-        <Alert severity="info">No hay riesgos con evaluación residual para mostrar.</Alert>
       ) : (
         <>
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+              Filtros
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <FormControl sx={{ minWidth: 220 }}>
+                <InputLabel>Área</InputLabel>
+                <Select
+                  value={filtroArea}
+                  label="Área"
+                  onChange={(e) => {
+                    setFiltroArea(String(e.target.value));
+                    setFiltroProceso('all');
+                  }}
+                >
+                  <MenuItem value="all">Todas las áreas</MenuItem>
+                  {areas.map((area) => (
+                    <MenuItem key={String(area.id)} value={String(area.id)}>
+                      {area.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl sx={{ minWidth: 280 }}>
+                <InputLabel>Proceso</InputLabel>
+                <Select
+                  value={filtroProceso}
+                  label="Proceso"
+                  onChange={(e) => setFiltroProceso(String(e.target.value))}
+                >
+                  <MenuItem value="all">Todos los procesos</MenuItem>
+                  {procesosFiltradosPorArea.map((proceso) => (
+                    <MenuItem key={String(proceso.id)} value={String(proceso.id)}>
+                      {proceso.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Paper>
+
+          {riesgosFiltrados.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              No hay riesgos con evaluación residual para mostrar con los filtros seleccionados.
+            </Alert>
+          ) : null}
+
           {/* Conteo por zonas */}
           <Grid2 container spacing={2} sx={{ mb: 3 }}>
             <Grid2 xs={12} sm={6} md={3}>

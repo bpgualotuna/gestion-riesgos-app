@@ -2,7 +2,7 @@
  * Colores de celda del mapa residual (riesgos negativos), alineados a la macro Excel
  * `MapaRiesgoResidual` / `MapaRiesgo` (rangos T15–T19 / F15–F19): prioridad rojo oscuro → rojo → naranja → amarillo → verde.
  *
- * Hexes: `paletaSemafotoCWR` (Anexo 6 §5.7).
+ * Hexes: `paletaSemafotoResidualExcel` (Anexo 6 §5.7).
  *
  * Ejes: frecuencia residual 1–5 (Muy Bajo…Muy Alta), impacto residual 1–5 (No significativo…Extremo).
  */

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -6,7 +6,6 @@ import {
   Alert,
   Button,
   TextField,
-  Autocomplete,
   Table,
   TableBody,
   TableCell,
@@ -31,16 +30,14 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import Grid2 from '../../utils/Grid2';
 import {
-  useGetProcesosQuery,
-  useUpdateProcesoMutation,
   useGetConfigResidualEstrategicaQuery,
   useUpdateConfigResidualEstrategicaMutation,
-  useRecalcularClasificacionResidualMutation,
   useGetTiposRiesgosQuery,
+  useUpdateTipologiaMutation,
 } from '../../api/services/riesgosApi';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Proceso, StrategicEngineConfigDto, StrategicBaRowDto } from '../../types';
+import type { StrategicEngineConfigDto, StrategicBaRowDto } from '../../types';
 import {
   MA_PREGUNTA_ACTITUD_STAKEHOLDERS,
   MA_PREGUNTA_CAPACITACION_FUNCIONARIOS,
@@ -93,36 +90,24 @@ export default function ResidualEstrategicoCwrPage() {
   const { showSuccess, showError, showEliminacionExitosa } = useNotification();
 
   const {
-    data: procesosRaw,
-    isLoading: loadingProcesos,
-    isError: errProcesos,
-    error: errorProcesos,
-  } = useGetProcesosQuery();
-
-  const {
     data: cfgResp,
     isLoading: loadingCfg,
     isError: errCfg,
     error: errorCfg,
   } = useGetConfigResidualEstrategicaQuery();
 
-  const { data: tiposRiesgosCatalog = [] } = useGetTiposRiesgosQuery();
+  const {
+    data: tiposRiesgosCatalog = [],
+    isLoading: loadingTipos,
+    isError: errTipos,
+    error: errorTipos,
+  } = useGetTiposRiesgosQuery();
 
-  const [updateProceso] = useUpdateProcesoMutation();
+  const [updateTipologia, { isLoading: guardandoTipologia }] = useUpdateTipologiaMutation();
   const [updateConfigMotor, { isLoading: savingMotor }] = useUpdateConfigResidualEstrategicaMutation();
-  const [recalcularClasificacionResidual, { isLoading: recalculandoGlobal }] =
-    useRecalcularClasificacionResidualMutation();
 
-  const [strategicProceso, setStrategicProceso] = useState<Proceso | null>(null);
   const [engineForm, setEngineForm] = useState<StrategicEngineConfigDto | null>(null);
-  const [savingProcesos, setSavingProcesos] = useState(false);
   const [tabValue, setTabValue] = useState(0);
-
-  useEffect(() => {
-    if (!procesosRaw) return;
-    const list = procesosRaw.filter((p) => p.residualModo === 'ESTRATEGICO');
-    setStrategicProceso(list[0] ?? null);
-  }, [procesosRaw]);
 
   useEffect(() => {
     if (cfgResp?.config) {
@@ -135,70 +120,21 @@ export default function ResidualEstrategicoCwrPage() {
     }
   }, [cfgResp]);
 
-  const procesoOptions = useMemo(() => [...(procesosRaw ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre)), [procesosRaw]);
-
-  const tipologiaTipo1Unica = useMemo(() => {
-    if (!engineForm) return null;
-    const id0 = engineForm.tipologiaTipo1IdsEstrategia?.[0];
-    if (id0 == null) return null;
-    return tiposRiesgosCatalog.find((t: { id?: number }) => Number(t.id) === Number(id0)) ?? null;
-  }, [engineForm, tiposRiesgosCatalog]);
-
-  const msgProcesos = errorPayload(errorProcesos);
+  const msgTipos = errorPayload(errorTipos);
   const msgCfg = errorPayload(errorCfg);
 
-  const handleGuardarTabProcesosYMotor = async () => {
-    if (!procesosRaw?.length && !engineForm) return;
-    if (!canEdit && !canEditMotor) return;
-    setSavingProcesos(true);
+  const handleToggleEsRiesgoEstrategico = async (tipoId: number, checked: boolean) => {
+    if (!canEdit) return;
     try {
-      const partes: string[] = [];
-      if (canEdit && procesosRaw?.length) {
-        const sid = strategicProceso ? Number(strategicProceso.id) : null;
-        const ops: Promise<unknown>[] = [];
-        for (const p of procesosRaw) {
-          const want = sid != null && Number(p.id) === sid ? 'ESTRATEGICO' : 'ESTANDAR';
-          const cur = p.residualModo === 'ESTRATEGICO' ? 'ESTRATEGICO' : 'ESTANDAR';
-          if (want !== cur) {
-            ops.push(updateProceso({ id: String(p.id), residualModo: want }).unwrap());
-          }
-        }
-        if (ops.length > 0) {
-          await Promise.all(ops);
-          const resRecalc = await recalcularClasificacionResidual({ confirmacion: true }).unwrap();
-          const r = resRecalc?.resultado;
-          dispatchResidualRefreshEvent();
-          const extra =
-            r != null
-              ? ` Clasificación residual: ${r.causasActualizadas ?? 0} causas, ${r.riesgosActualizados ?? 0} riesgos.`
-              : '';
-          partes.push(`Procesos: ${ops.length} actualizado(s).${extra}`);
-        }
-      }
-      if (canEditMotor && engineForm) {
-        const res = await updateConfigMotor(engineForm).unwrap();
-        setEngineForm(cloneCfg(res.config));
-        dispatchResidualRefreshEvent();
-        const rec = res.recalc;
-        let motorMsg =
-          rec != null
-            ? (res.message ||
-                `Motor: residuales recalculados para ${rec.procesados} riesgo(s).`)
-            : (res.message || 'Motor guardado.');
-        if (rec?.errores?.length) {
-          motorMsg += ` Advertencias: ${rec.errores.length}.`;
-        }
-        partes.push(motorMsg);
-      }
-      if (partes.length === 0) {
-        showSuccess('No hay cambios que guardar.');
-        return;
-      }
-      showSuccess(partes.join(' '));
+      await updateTipologia({ id: String(tipoId), esRiesgoEstrategico: checked }).unwrap();
+      dispatchResidualRefreshEvent();
+      showSuccess(
+        checked
+          ? 'Tipo marcado como estratégico (CWR). Los riesgos asociados fueron recalculados en el servidor.'
+          : 'Tipo actualizado a estándar. Los residuales se recalcularon si correspondía.'
+      );
     } catch (e: unknown) {
-      showError(errorPayload(e).message || 'No se pudo guardar.');
-    } finally {
-      setSavingProcesos(false);
+      showError(errorPayload(e).message || 'No se pudo actualizar la tipología.');
     }
   };
 
@@ -264,7 +200,7 @@ export default function ResidualEstrategicoCwrPage() {
     showEliminacionExitosa('La fila se quitó del formulario. Guarde para persistir.');
   };
 
-  if (loadingProcesos) {
+  if (loadingTipos) {
     return (
       <AppPageLayout>
         <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
@@ -283,12 +219,12 @@ export default function ResidualEstrategicoCwrPage() {
           Residual estratégico
         </Typography>
 
-        {errProcesos && (
+        {errTipos && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {msgProcesos.message || 'No se pudieron cargar los procesos.'}
-            {msgProcesos.details ? (
+            {msgTipos.message || 'No se pudieron cargar las tipologías tipo I.'}
+            {msgTipos.details ? (
               <Typography variant="caption" component="div" sx={{ mt: 1, display: 'block', whiteSpace: 'pre-wrap' }}>
-                {msgProcesos.details}
+                {msgTipos.details}
               </Typography>
             ) : null}
           </Alert>
@@ -302,102 +238,57 @@ export default function ResidualEstrategicoCwrPage() {
             scrollButtons="auto"
             sx={{ px: 1, borderBottom: 1, borderColor: 'divider', '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 } }}
           >
-            <Tab label="Procesos estratégicos" />
+            <Tab label="Tipologías tipo I" />
             <Tab label="Ponderación de criterios" />
             <Tab label="Efectividad y coeficientes" />
           </Tabs>
 
           <TabPanel value={tabValue} index={0}>
-            <Card sx={{ mb: 2 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Marque en el catálogo qué tipologías tipo I usan el motor residual CWR / Anexo 6. Cada riesgo hereda el modo según su tipo I; la parametrización numérica del motor está en las pestañas siguientes.
+            </Alert>
+            {!errTipos && !canEdit && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Solo lectura: no puede modificar el catálogo de tipologías.
+              </Alert>
+            )}
+            <Card variant="outlined">
               <CardContent>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Elegir proceso estratégico
-              </Typography>
-              {!errProcesos && !canEdit && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  Solo lectura: no puede modificar procesos.
-                </Alert>
-              )}
-              {!errProcesos && (
-                <Autocomplete
-                  options={procesoOptions}
-                  value={strategicProceso}
-                  onChange={(_, v) => setStrategicProceso(v)}
-                  getOptionLabel={(p) => repairSpanishDisplayArtifacts(p.nombre)}
-                  isOptionEqualToValue={(a, b) => Number(a.id) === Number(b.id)}
-                  disabled={!canEdit || recalculandoGlobal}
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder="Buscar proceso…" size="small" />
-                  )}
-                  renderOption={(props, option) => {
-                    const { key, ...rest } = props as typeof props & { key?: string };
-                    return (
-                      <li key={key} {...rest}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                          <Typography variant="body2">{repairSpanishDisplayArtifacts(option.nombre)}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {option.areaNombre || 'Sin área'}
-                          </Typography>
-                        </Box>
-                      </li>
-                    );
-                  }}
-                />
-              )}
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Catálogo 
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700 }}>Nombre</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }} align="center">
+                          Estratégico (CWR)
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {[...tiposRiesgosCatalog]
+                        .sort((a: { nombre?: string }, b: { nombre?: string }) =>
+                          String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es')
+                        )
+                        .map((t: { id: number; nombre?: string; esRiesgoEstrategico?: boolean }) => (
+                          <TableRow key={t.id}>
+                            <TableCell>{repairSpanishDisplayArtifacts(String(t.nombre || ''))}</TableCell>
+                            <TableCell align="center">
+                              <Switch
+                                checked={Boolean(t.esRiesgoEstrategico)}
+                                disabled={!canEdit || guardandoTipologia}
+                                onChange={(_, checked) => void handleToggleEsRiesgoEstrategico(t.id, checked)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </CardContent>
             </Card>
-
-            {engineForm && (
-              <Card sx={{ mt: 2 }}>
-                <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Tipología tipo I en identificación (residual estratégico)
-                </Typography>
-                <Autocomplete
-                  options={tiposRiesgosCatalog}
-                  value={tipologiaTipo1Unica}
-                  onChange={(_, v) =>
-                    setEngineForm({
-                      ...engineForm,
-                      tipologiaTipo1IdsEstrategia:
-                        v && typeof (v as { id?: number }).id !== 'undefined'
-                          ? [Number((v as { id: number }).id)]
-                          : [],
-                    })
-                  }
-                  getOptionLabel={(t: { nombre?: string; codigo?: string }) =>
-                    repairSpanishDisplayArtifacts(t.nombre || t.codigo || '')
-                  }
-                  isOptionEqualToValue={(a, b) => Number(a.id) === Number(b.id)}
-                  disabled={!canEditMotor}
-                  renderInput={(params) => (
-                    <TextField {...params} size="small" placeholder="Buscar tipología tipo I…" />
-                  )}
-                />
-                </CardContent>
-              </Card>
-            )}
-
-            {!errProcesos && (
-              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button
-                  variant="contained"
-                  startIcon={
-                    savingProcesos || savingMotor || recalculandoGlobal ? (
-                      <CircularProgress size={18} color="inherit" />
-                    ) : (
-                      <SaveIcon />
-                    )
-                  }
-                  onClick={() => void handleGuardarTabProcesosYMotor()}
-                  disabled={
-                    (!canEdit && !canEditMotor) || savingProcesos || savingMotor || recalculandoGlobal
-                  }
-                >
-                  Guardar
-                </Button>
-              </Box>
-            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>

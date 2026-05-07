@@ -28,7 +28,7 @@ import {
   agregarCalificacionInherenteGlobalSync 
 } from '../../../services/calificacionInherenteService';
 import { calcularImpactoGlobal } from '../../../utils/calculations';
-import { swalConfirmEliminarCausa } from '../../../lib/swal';
+import { swalConfirmEliminarCausa, swalExitoEliminacion } from '../../../lib/swal';
 
 interface RiesgoCardItemProps {
   riesgo: any;
@@ -86,7 +86,6 @@ export const RiesgoCardItem = memo(function RiesgoCardItem({
   setCausasPendientes,
   setCausaSeleccionadaDetalle,
   setCausaDetalleOpen,
-  showSuccess,
   fuentesCausa,
   tiposRiesgos,
   origenes,
@@ -383,7 +382,9 @@ export const RiesgoCardItem = memo(function RiesgoCardItem({
                 }
                 return next;
               });
-              showSuccess('Causa quitada en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.');
+              void swalExitoEliminacion(
+                'La causa se quitó en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.'
+              );
             }}
             causaEliminando={causaEliminando}
             onVerDetalleCausa={(causa) => {

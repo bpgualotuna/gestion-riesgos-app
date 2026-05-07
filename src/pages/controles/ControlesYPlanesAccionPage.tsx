@@ -404,7 +404,7 @@ export default function ControlesYPlanesAccionPageNueva() {
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
   const procesoResidualEstrategico = procesoSeleccionado?.residualModo === 'ESTRATEGICO';
   const { user, esDueñoProcesos } = useAuth();
-  const { showSuccess, showError, showLoading, hideLoading } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa, showLoading, hideLoading } = useNotification();
   const { confirmDelete } = useConfirm();
   const campoEditable = useCampoEditable();
   const puedeEditarCierrePlan = campoEditable(UI_CAMPO_PLAN_ACCION_FECHA_FINALIZACION);
@@ -2249,7 +2249,7 @@ export default function ControlesYPlanesAccionPageNueva() {
           // Invalidar caché para refrescar datos
           dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
           
-          showSuccess('Ambos eliminados. La causa vuelve a estado sin clasificar.');
+          showEliminacionExitosa('Ambos registros se eliminaron. La causa volvió a estado sin clasificar.');
         } else {
           // Mantener AMBOS con estado parcial (solo uno eliminado)
           // Construir objeto gestion con TODOS los datos
@@ -2299,10 +2299,10 @@ export default function ControlesYPlanesAccionPageNueva() {
           // Invalidar caché para refrescar datos
           dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
           
-          showSuccess(
-            contexto === 'CONTROL' 
-              ? 'Control eliminado. Puede re-agregarlo desde Clasificación.'
-              : 'Plan de Acción eliminado. Puede re-agregarlo desde Clasificación.'
+          showEliminacionExitosa(
+            contexto === 'CONTROL'
+              ? 'El control se eliminó. Puede re-agregarlo desde Clasificación.'
+              : 'El plan de acción se eliminó. Puede re-agregarlo desde Clasificación.'
           );
         }
       } else {
@@ -2346,7 +2346,7 @@ export default function ControlesYPlanesAccionPageNueva() {
         // Invalidar caché para refrescar datos
           dispatch(riesgosApi.util.invalidateTags(['Riesgo']));
         
-        showSuccess('Clasificación eliminada. La causa volverá a aparecer en Clasificación.');
+        showEliminacionExitosa('La clasificación se eliminó. La causa volverá a aparecer en Clasificación.');
       }
     } catch {
       showError('Error al eliminar clasificación');

@@ -83,7 +83,7 @@ interface Incidencia {
 export default function IncidenciasPage() {
   const { esAdmin, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso, esDueñoProcesos } = useAuth();
   const { procesoSeleccionado, isLoading: isLoadingProceso } = useProceso();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
 
@@ -315,7 +315,7 @@ export default function IncidenciasPage() {
     if (!(await confirmDelete('esta incidencia'))) return;
     try {
       await deleteIncidencia(id).unwrap();
-      showSuccess('Incidencia eliminada exitosamente');
+      showEliminacionExitosa('La incidencia se eliminó correctamente.');
     } catch (error) {
       showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }

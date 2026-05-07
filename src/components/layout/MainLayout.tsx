@@ -84,6 +84,7 @@ import {
 } from '@mui/icons-material';
 import { ROUTES } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCoraIAContext } from '../../contexts/CoraIAContext';
 import PerfilDialog from '../profile/PerfilDialog';
 import { useRiesgo } from "../../contexts/RiesgoContext";
 import { useProceso } from "../../contexts/ProcesoContext";
@@ -159,6 +160,13 @@ export default function MainLayout() {
   }, [sidebarCollapsed]); // Menú que está expandido temporalmente
   const navigate = useNavigate();
   const location = useLocation();
+  const { setScreenContext } = useCoraIAContext();
+
+  // Evita que CORA reciba datos de la pantalla anterior tras cambiar de ruta.
+  useEffect(() => {
+    setScreenContext(null);
+  }, [location.pathname, setScreenContext]);
+
   const {
     user,
     logout,
@@ -1020,18 +1028,21 @@ export default function MainLayout() {
                           }}
                         />
                       )}
-                      renderOption={(props, option) => (
-                        <Box component="li" {...props} sx={{ py: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                            <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" fontWeight={600}>{etiquetaProcesoConSigla(option)}</Typography>
-                              <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                      renderOption={(props, option) => {
+                        const { key, ...liProps } = props as typeof props & { key?: string };
+                        return (
+                          <Box component="li" key={key} {...liProps} sx={{ py: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                              <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body2" fontWeight={600}>{etiquetaProcesoConSigla(option)}</Typography>
+                                <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                              </Box>
+                              <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
                             </Box>
-                            <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
                           </Box>
-                        </Box>
-                      )}
+                        );
+                      }}
                       noOptionsText="No hay procesos"
                     />
                   </>
@@ -1170,18 +1181,21 @@ export default function MainLayout() {
                         }}
                       />
                     )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props} sx={{ py: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                          <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="body2" fontWeight={600}>{etiquetaProcesoConSigla(option)}</Typography>
-                            <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                    renderOption={(props, option) => {
+                      const { key, ...liProps } = props as typeof props & { key?: string };
+                      return (
+                        <Box component="li" key={key} {...liProps} sx={{ py: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                            <BusinessIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" fontWeight={600}>{etiquetaProcesoConSigla(option)}</Typography>
+                              <Typography variant="caption" color="text.secondary">{(option as any).area?.nombre || option.areaNombre || 'Sin área'}</Typography>
+                            </Box>
+                            <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
                           </Box>
-                          <Chip label={option.activo ? 'Activo' : 'Inactivo'} size="small" color={option.activo ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.65rem' }} />
                         </Box>
-                      </Box>
-                    )}
+                      );
+                    }}
                     noOptionsText="No hay procesos"
                   />
                   <FormControl size="small">
@@ -1515,6 +1529,7 @@ export default function MainLayout() {
             minHeight: '100%',
             overflow: 'auto',
             overflowX: 'hidden',
+            scrollbarGutter: 'stable',
             position: 'relative',
             zIndex: { xs: 0, md: 1 },
           }}

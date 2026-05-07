@@ -10,6 +10,10 @@ export interface ScreenContext {
   riskId?: number | string; // ID del riesgo actual (si aplica)
   formData?: Record<string, any>; // Datos del formulario actual
   route?: string; // Ruta completa
+  /** Equivalente en menú lateral (ej. "Procesos › Ficha del Proceso"). */
+  menuPath?: string;
+  /** Etiqueta corta de la pantalla para CORA. */
+  pantallaEtiqueta?: string;
 }
 
 export interface ChatMessage {

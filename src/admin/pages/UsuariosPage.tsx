@@ -25,6 +25,7 @@ import {
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useNotification } from '../../hooks/useNotification';
 
 interface UsuariosPageProps {
   user: any;
@@ -46,6 +47,7 @@ export default function UsuariosPage({ user }: UsuariosPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirmDelete } = useConfirm();
+  const { showEliminacionExitosa } = useNotification();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState({
@@ -123,6 +125,7 @@ export default function UsuariosPage({ user }: UsuariosPageProps) {
         headers: { Authorization: `Bearer ${token}` }
       });
       cargarUsuarios();
+      showEliminacionExitosa('El usuario se eliminó correctamente.');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al eliminar usuario');
     }

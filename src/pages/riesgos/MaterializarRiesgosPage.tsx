@@ -128,7 +128,7 @@ interface Incidencia {
 
 export default function MaterializarRiesgosPage() {
   const { esAdmin, esDueñoProcesos, esSupervisorRiesgos } = useAuth();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
@@ -461,11 +461,11 @@ export default function MaterializarRiesgosPage() {
     if (!(await confirmDelete('esta incidencia'))) return;
     try {
       await deleteIncidencia(id).unwrap();
-      showSuccess('Incidencia eliminada exitosamente');
+      showEliminacionExitosa('La incidencia se eliminó correctamente.');
     } catch (error) {
       showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }
-  }, [deleteIncidencia, showSuccess, showError, confirmDelete]);
+  }, [deleteIncidencia, showEliminacionExitosa, showError, confirmDelete]);
 
   // OPTIMIZADO: useMemo para función que no cambia
   const obtenerColorEstado = useCallback((estado: string) => {

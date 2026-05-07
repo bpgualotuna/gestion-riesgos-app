@@ -59,6 +59,17 @@ export async function swalConfirmEliminacion(descripcion?: string): Promise<bool
   return r.isConfirmed === true;
 }
 
+/** Mensaje de éxito tras eliminar (misma UX que CORA). */
+export async function swalExitoEliminacion(texto?: string, timerMs?: number): Promise<void> {
+  await Swal.fire({
+    icon: 'success',
+    title: 'Eliminación exitosa',
+    text: texto ?? 'El registro se eliminó correctamente.',
+    timer: timerMs ?? 1700,
+    showConfirmButton: false,
+  });
+}
+
 export async function swalConfirmEliminarCausa(): Promise<boolean> {
   const r = await Swal.fire({
     title: 'Eliminar causa',

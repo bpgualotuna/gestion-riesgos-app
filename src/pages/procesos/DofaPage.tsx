@@ -84,7 +84,7 @@ const TOOLTIP_TAB_DEBILIDADES =
   'Debilidades = factor interno negativo. Edítalo en Contexto interno (pestaña Negativo). En esta pantalla solo puedes eliminar.';
 
 export default function DofaPage() {
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const { esSupervisorRiesgos, esGerenteGeneralDirector, esDueñoProcesos } = useAuth();
   const {
@@ -381,7 +381,7 @@ export default function DofaPage() {
   const requestDelete = async (tipo: string, id: string) => {
     if (!(await swalConfirmEliminarItemDofa())) return;
     handleDelete(tipo as any, id);
-    showSuccess('Elemento eliminado correctamente');
+    showEliminacionExitosa('El elemento se eliminó correctamente.');
   };
 
   const renderDofaSection = (

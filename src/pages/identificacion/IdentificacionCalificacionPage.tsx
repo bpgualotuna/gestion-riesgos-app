@@ -482,7 +482,7 @@ export default function IdentificacionPage() {
       setScreenContext(context);
     }
   }, [procesoSeleccionado, riesgosApiDataOptimizado, currentPage, pageSize, totalRiesgos, totalPages, isReadOnly, setScreenContext]);
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const dispatch = useAppDispatch();
 
@@ -1467,13 +1467,13 @@ export default function IdentificacionPage() {
     if (!(await confirmDelete('este riesgo'))) return;
     try {
       await eliminarRiesgoApi(Number(riesgoId));
-      showSuccess('Riesgo eliminado');
+      showEliminacionExitosa('El riesgo se eliminó correctamente.');
       refetchRiesgosRTK();
       dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa', 'Estadisticas']));
     } catch (e) {
       showError((e as any)?.data?.error || 'Error al eliminar riesgo');
     }
-  }, [confirmDelete, eliminarRiesgoApi, refetchRiesgosRTK, dispatch, showSuccess, showError]);
+  }, [confirmDelete, eliminarRiesgoApi, refetchRiesgosRTK, dispatch, showEliminacionExitosa, showError]);
 
   // Toggle expandir/colapsar riesgo
   const { iniciarVer } = useRiesgo();
@@ -2249,8 +2249,8 @@ export default function IdentificacionPage() {
                             return next;
                           });
                           setCausaEliminando(null);
-                          showSuccess(
-                            'Causa quitada en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.'
+                          showEliminacionExitosa(
+                            'La causa se quitó en memoria. Pulse "Guardar" en el riesgo para guardar todo en la base.'
                           );
                         }}
                         causaEliminando={causaEliminando}

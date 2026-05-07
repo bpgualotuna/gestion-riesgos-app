@@ -125,7 +125,7 @@ interface Incidencia {
 
 export default function IncidenciasPage() {
   const { esAdmin } = useAuth();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const { procesoSeleccionado } = useProceso();
   const [incidenciasLocal, setIncidenciasLocal] = useState<Incidencia[]>([]);
@@ -292,7 +292,7 @@ export default function IncidenciasPage() {
     if (!(await confirmDelete('esta incidencia'))) return;
     try {
       await deleteIncidencia(id).unwrap();
-      showSuccess('Incidencia eliminada exitosamente');
+      showEliminacionExitosa('La incidencia se eliminó correctamente.');
     } catch (error) {
       showError((error as any)?.data?.error || 'Error al eliminar la incidencia');
     }

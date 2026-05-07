@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, TextField, Button, Typography } from '@mui/material';
+import { Box, TextField, Button } from '@mui/material';
 
 interface Props {
   value: string;
@@ -38,12 +38,6 @@ const CoraInputBar: React.FC<Props> = React.memo(({ value, onChange, onSend, dis
               onSend();
             }
           }}
-          helperText={
-            <Typography component="span" variant="caption" color="text.secondary" sx={{ lineHeight: 1.35 }}>
-              Enter envía · Shift+Enter nueva línea · crece hasta ~{MAX_ROWS} líneas
-            </Typography>
-          }
-          FormHelperTextProps={{ sx: { mx: 0, mt: 0.5 } }}
           sx={{
             '& .MuiInputBase-root': {
               borderRadius: 2,

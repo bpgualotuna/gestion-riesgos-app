@@ -73,7 +73,7 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
 
 export default function AreasPage() {
     const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
-    const { showSuccess, showError } = useNotification();
+    const { showSuccess, showError, showEliminacionExitosa } = useNotification();
     const { confirmDelete } = useConfirm();
     const { data: areas = [], isLoading: loadingAreas } = useGetAreasQuery();
     const { data: usuariosData = [] } = useGetUsuariosQuery();
@@ -251,7 +251,7 @@ export default function AreasPage() {
         if (!(await confirmDelete('esta área'))) return;
         try {
             await deleteArea(areaId).unwrap();
-            showSuccess('Área eliminada correctamente');
+            showEliminacionExitosa('El área se eliminó correctamente.');
         } catch (error) {
             showError((error as any)?.data?.error || 'Error al eliminar el área');
         }

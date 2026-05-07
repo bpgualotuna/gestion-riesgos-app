@@ -186,7 +186,7 @@ const getUserDisplayEmail = (user: any): string =>
   sanitizeVisibleText(user?.email || user?.correo || user?.mail) || 'Sin correo';
 
 export default function FichaPage() {
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const { procesoSeleccionado, modoProceso, setProcesoSeleccionado, iniciarModoVisualizar, isLoading: isLoadingProceso } = useProceso();
   const { user, esAdmin, esDueñoProcesos, esSupervisorRiesgos, esGerenteGeneralDirector, esGerenteGeneralProceso } = useAuth();
@@ -698,7 +698,7 @@ export default function FichaPage() {
     
     try {
       await eliminarReunionMutation(reunionId).unwrap();
-      showSuccess('Reunión eliminada');
+      showEliminacionExitosa('La reunión se eliminó correctamente.');
       await refetchReuniones();
     } catch (error) {
       showError('Error al eliminar reunión');

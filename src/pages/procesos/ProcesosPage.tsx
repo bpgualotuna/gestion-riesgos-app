@@ -57,7 +57,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import { swalPromptRechazoProceso, swalRunWithLoading } from '../../lib/swal';
+import { swalPromptRechazoProceso, swalRunWithLoading, Swal } from '../../lib/swal';
 
 export default function ProcesosPage() {
   const { data: procesos = [], isLoading, refetch } = useGetProcesosQuery();
@@ -66,7 +66,7 @@ export default function ProcesosPage() {
   const { procesosVisibles } = useProcesosVisibles();
   const [createProceso, { isLoading: isCreating }] = useCreateProcesoMutation();
   const [deleteProceso] = useDeleteProcesoMutation();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const {
     enviarARevision,
@@ -259,7 +259,7 @@ export default function ProcesosPage() {
     if (await confirmDelete('este proceso')) {
       try {
         await deleteProceso(String(id)).unwrap();
-        showSuccess('Proceso eliminado exitosamente');
+        showEliminacionExitosa('El proceso se eliminó correctamente.');
         // Si el proceso eliminado era el seleccionado, seleccionar otro
         if (String(procesoSeleccionado?.id) === String(id)) {
           const otrosProcesos = procesosVisibles.filter((p) => String(p.id) !== String(id));
@@ -414,7 +414,14 @@ export default function ProcesosPage() {
             {esDueño && estado === 'borrador' && (
               <Button
                 size="small"
-                onClick={() => alert('Funcionalidad de edición próximamente')}
+                onClick={() =>
+                  void Swal.fire({
+                    icon: 'info',
+                    title: 'Próximamente',
+                    text: 'Funcionalidad de edición próximamente.',
+                    confirmButtonText: 'Aceptar',
+                  })
+                }
                 title="Editar"
               >
                 <EditIcon fontSize="small" sx={{ color: '#2196f3' }} />

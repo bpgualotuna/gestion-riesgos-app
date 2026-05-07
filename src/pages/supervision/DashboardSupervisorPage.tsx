@@ -23,8 +23,6 @@ import {
   DialogContent,
   DialogActions,
   List,
-  ListItem,
-  ListItemText,
   Table,
   TableBody,
   TableCell,
@@ -142,9 +140,9 @@ export default function DashboardSupervisorPage() {
   const navigate = useNavigate();
   const { areas: areasAsignadasIds, procesos: procesosAsignadosIds } = useAreasProcesosAsignados();
 
-  // Filtros
-  const [filtroProceso, setFiltroProceso] = useState<string>('all');
-  const [filtroArea, setFiltroArea] = useState<string>('all');
+  // Filtros — procesos: [] = todos los procesos visibles; uno o varios IDs restringen el dashboard
+  const [filtroProcesoIds, setFiltroProcesoIds] = useState<string[]>([]);
+  const [filtroAreaNombres, setFiltroAreaNombres] = useState<string[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<string>('all');
   const [busqueda, setBusqueda] = useState('');
   const [riesgosFueraApetitoDialogOpen, setRiesgosFueraApetitoDialogOpen] = useState(false);
@@ -154,27 +152,30 @@ export default function DashboardSupervisorPage() {
   const [chartExpandido, setChartExpandido] = useState<Record<string, boolean>>({});
   const [vistaNivelRiesgoCalificacion, setVistaNivelRiesgoCalificacion] = useState<'inherente' | 'residual'>('inherente');
 
-  // Consultas filtradas en backend: solo traer riesgos/incidencias del proceso cuando hay filtro (app más rápida)
+  const procesoIdParaConsultas =
+    filtroProcesoIds.length === 1 ? filtroProcesoIds[0] : undefined;
+
+  // Backend: un solo proceso seleccionado optimiza la consulta; varios o ninguno → traer lote amplio y filtrar en cliente
   const { data: riesgosData, isLoading: loadingRiesgos } = useGetRiesgosQuery(
     {
-      procesoId: filtroProceso !== 'all' ? filtroProceso : undefined,
-      pageSize: filtroProceso !== 'all' ? 200 : 200,
+      procesoId: procesoIdParaConsultas,
+      pageSize: procesoIdParaConsultas ? 200 : 500,
       includeCausas: true,
     },
     { refetchOnMountOrArgChange: false }
   );
   const { data: procesosData } = useGetProcesosQuery();
   const { data: puntosMapa } = useGetPuntosMapaQuery(
-    filtroProceso !== 'all' ? { procesoId: filtroProceso } : {},
+    procesoIdParaConsultas ? { procesoId: procesoIdParaConsultas } : {},
     { refetchOnMountOrArgChange: false }
   );
   const { data: planesResponse } = useGetPlanesQuery({ page: 1, pageSize: 50 });
   const planesApi = planesResponse?.data ?? [];
   const { data: incidenciasStats } = useGetIncidenciasEstadisticasQuery({
-    procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
+    procesoId: procesoIdParaConsultas,
   });
   const { data: incidenciasData = [] } = useGetIncidenciasQuery({
-    procesoId: filtroProceso !== 'all' ? filtroProceso : undefined
+    procesoId: procesoIdParaConsultas,
   });
 
   const todosLosRiesgos = riesgosData?.data || [];
@@ -276,16 +277,20 @@ export default function DashboardSupervisorPage() {
   const riesgosFiltrados = useMemo(() => {
     let filtrados = [...riesgos]; // Copiar array para no mutar el original
 
-    // Filtrar por área
-    if (filtroArea !== 'all') {
-      const procesosEnArea = procesos.filter((p: any) => p.areaNombre === filtroArea);
-      const procesosIds = procesosEnArea.map((p: any) => String(p.id));
-      filtrados = filtrados.filter((r: any) => procesosIds.includes(String(r.procesoId)));
+    // Filtrar por una o varias áreas (vacío = todas)
+    if (filtroAreaNombres.length > 0) {
+      const setNombres = new Set(filtroAreaNombres);
+      const procesosEnAreas = procesos.filter(
+        (p: any) => p.areaNombre != null && setNombres.has(String(p.areaNombre))
+      );
+      const procesosIds = new Set(procesosEnAreas.map((p: any) => String(p.id)));
+      filtrados = filtrados.filter((r: any) => procesosIds.has(String(r.procesoId)));
     }
 
-    // Filtrar por proceso específico
-    if (filtroProceso !== 'all') {
-      filtrados = filtrados.filter((r: any) => String(r.procesoId) === String(filtroProceso));
+    // Filtrar por uno o varios procesos elegidos en el multi-select (vacío = todos)
+    if (filtroProcesoIds.length > 0) {
+      const ids = new Set(filtroProcesoIds.map(String));
+      filtrados = filtrados.filter((r: any) => ids.has(String(r.procesoId)));
     }
 
     // Filtrar por origen
@@ -317,7 +322,7 @@ export default function DashboardSupervisorPage() {
     }
 
     return filtrados;
-  }, [riesgos, filtroArea, filtroProceso, filtroOrigen, busqueda, procesos]);
+  }, [riesgos, filtroAreaNombres, filtroProcesoIds, filtroOrigen, busqueda, procesos]);
 
   // Crear matrices de riesgo inherente y residual
   // IMPORTANTE: Filtrar puntos según riesgos filtrados (que ya respetan asignaciones)
@@ -371,9 +376,10 @@ export default function DashboardSupervisorPage() {
 
   // Procesos filtrados por área (para KPIs dinámicos)
   const procesosFiltradosPorArea = useMemo(() => {
-    if (filtroArea === 'all') return procesos;
-    return procesos.filter((p: any) => p.areaNombre === filtroArea);
-  }, [procesos, filtroArea]);
+    if (filtroAreaNombres.length === 0) return procesos;
+    const setNombres = new Set(filtroAreaNombres);
+    return procesos.filter((p: any) => p.areaNombre != null && setNombres.has(String(p.areaNombre)));
+  }, [procesos, filtroAreaNombres]);
 
   const kpis = useMemo(() => {
     const totalRiesgos = riesgosFiltrados.length;
@@ -394,9 +400,13 @@ export default function DashboardSupervisorPage() {
 
   const topProcesos = useMemo(() => {
     // Usar procesos filtrados por área si hay filtro de área
-    const procesosParaContar = filtroArea !== 'all' 
-      ? procesos.filter((p: any) => p.areaNombre === filtroArea)
-      : procesos;
+    const setAreasTop = new Set(filtroAreaNombres);
+    const procesosParaContar =
+      filtroAreaNombres.length > 0
+        ? procesos.filter(
+            (p: any) => p.areaNombre != null && setAreasTop.has(String(p.areaNombre))
+          )
+        : procesos;
     
     const counts = procesosParaContar.map((p: any) => {
       const total = riesgosFiltrados.filter((r: any) => String(r.procesoId) === String(p.id)).length;
@@ -405,7 +415,7 @@ export default function DashboardSupervisorPage() {
 
     // Mostrar todos los procesos con riesgos, no solo top 5
     return counts.sort((a: any, b: any) => b.total - a.total);
-  }, [procesos, riesgosFiltrados, filtroArea]);
+  }, [procesos, riesgosFiltrados, filtroAreaNombres]);
 
   const riesgosPorTipoProceso = useMemo(() => {
     return Object.entries(estadisticas.porTipoProceso || {}).map(([name, value]) => ({
@@ -487,8 +497,11 @@ export default function DashboardSupervisorPage() {
     }
     
     const riesgosIds = new Set(riesgosFiltrados.map((r: any) => String(r.id)));
-    const procesosIds = new Set(procesos.map((p: any) => String(p.id)));
-    
+    const procesosIdsParaPlanes =
+      filtroProcesoIds.length > 0
+        ? new Set(filtroProcesoIds.map(String))
+        : new Set(procesos.map((p: any) => String(p.id)));
+
     const filtrados = (planesApi || []).filter((plan: any) => {
       // Planes preventivos: filtrar por riesgoId
       if (plan.riesgoId) {
@@ -497,13 +510,13 @@ export default function DashboardSupervisorPage() {
       // Planes reactivos (sin riesgoId): filtrar por procesoId del plan
       // El backend ahora incluye procesoId desde la incidencia para planes reactivos
       if (plan.procesoId) {
-        return procesosIds.has(String(plan.procesoId));
+        return procesosIdsParaPlanes.has(String(plan.procesoId));
       }
       return false;
     });
-    
+
     return filtrados;
-  }, [planesApi, riesgosFiltrados, procesos]);
+  }, [planesApi, riesgosFiltrados, procesos, filtroProcesoIds]);
 
   // Preparar datos para tabla de planes de acción - Usando servicio centralizado
   const planesAccion = useMemo(() => {
@@ -803,68 +816,112 @@ export default function DashboardSupervisorPage() {
         {tieneAsignaciones && (
           <Grid2 container spacing={2} sx={{ mb: 3 }}>
             <Grid2 xs={12} sm={6}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    <Typography variant="h6" fontWeight={600}>
+              <Card variant="outlined" sx={{ height: '100%', boxShadow: 'none' }}>
+                <CardContent sx={{ py: 1.25, px: 2, '&:last-child': { pb: 1.25 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <BusinessIcon sx={{ mr: 1, color: 'primary.main', fontSize: 22 }} />
+                    <Typography variant="subtitle1" fontWeight={600} component="div">
                       Áreas Asignadas ({areasAsignadas.length})
                     </Typography>
                   </Box>
-                  <Box sx={{ maxHeight: 150, overflowY: 'auto', pr: 1 }}>
-                    {areasAsignadas.length > 0 ? (
-                      <List dense>
-                        {areasAsignadas.map((area, idx) => (
-                          <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                            <Chip
-                              label={area}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                              sx={{ fontSize: '0.75rem' }}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No hay áreas asignadas
-                      </Typography>
-                    )}
-                  </Box>
+                  {areasAsignadas.length > 0 ? (
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 0.75,
+                        columnGap: 1,
+                        maxHeight: 104,
+                        overflowY: 'auto',
+                        pr: 0.5,
+                        alignContent: 'start',
+                      }}
+                    >
+                      {areasAsignadas.map((area, idx) => (
+                        <Chip
+                          key={`${area}-${idx}`}
+                          label={area}
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          sx={{
+                            width: '100%',
+                            height: 'auto',
+                            minHeight: 26,
+                            justifyContent: 'flex-start',
+                            borderRadius: 2,
+                            fontSize: '0.75rem',
+                            '& .MuiChip-label': {
+                              whiteSpace: 'normal',
+                              textAlign: 'left',
+                              lineHeight: 1.25,
+                              py: 0.35,
+                              display: 'block',
+                            },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No hay áreas asignadas
+                    </Typography>
+                  )}
                 </CardContent>
               </Card>
             </Grid2>
             <Grid2 xs={12} sm={6}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <AccountTreeIcon sx={{ mr: 1, color: 'secondary.main' }} />
-                    <Typography variant="h6" fontWeight={600}>
+              <Card variant="outlined" sx={{ height: '100%', boxShadow: 'none' }}>
+                <CardContent sx={{ py: 1.25, px: 2, '&:last-child': { pb: 1.25 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <AccountTreeIcon sx={{ mr: 1, color: 'secondary.main', fontSize: 22 }} />
+                    <Typography variant="subtitle1" fontWeight={600} component="div">
                       Procesos Asignados ({procesosAsignados.length})
                     </Typography>
                   </Box>
-                  <Box sx={{ maxHeight: 150, overflowY: 'auto', pr: 1 }}>
-                    {procesosAsignados.length > 0 ? (
-                      <List dense>
-                        {procesosAsignados.map((proceso, idx) => (
-                          <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                            <Chip
-                              label={proceso}
-                              size="small"
-                              variant="outlined"
-                              color="secondary"
-                              sx={{ fontSize: '0.75rem' }}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No hay procesos asignados
-                      </Typography>
-                    )}
-                  </Box>
+                  {procesosAsignados.length > 0 ? (
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 0.75,
+                        columnGap: 1,
+                        maxHeight: 104,
+                        overflowY: 'auto',
+                        pr: 0.5,
+                        alignContent: 'start',
+                      }}
+                    >
+                      {procesosAsignados.map((proceso, idx) => (
+                        <Chip
+                          key={`${proceso}-${idx}`}
+                          label={proceso}
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          sx={{
+                            width: '100%',
+                            height: 'auto',
+                            minHeight: 26,
+                            justifyContent: 'flex-start',
+                            borderRadius: 2,
+                            fontSize: '0.75rem',
+                            '& .MuiChip-label': {
+                              whiteSpace: 'normal',
+                              textAlign: 'left',
+                              lineHeight: 1.25,
+                              py: 0.35,
+                              display: 'block',
+                            },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No hay procesos asignados
+                    </Typography>
+                  )}
                 </CardContent>
               </Card>
             </Grid2>
@@ -873,14 +930,13 @@ export default function DashboardSupervisorPage() {
 
         {/* Filtros - Usando componente */}
         <DashboardFiltros
-          filtroArea={filtroArea}
-          filtroProceso={filtroProceso}
+          filtroAreaNombres={filtroAreaNombres}
+          onFiltroAreaNombresChange={setFiltroAreaNombres}
+          filtroProcesoIds={filtroProcesoIds}
           filtroOrigen={filtroOrigen}
-          onFiltroAreaChange={setFiltroArea}
-          onFiltroProcesoChange={setFiltroProceso}
+          onFiltroProcesoIdsChange={setFiltroProcesoIds}
           onFiltroOrigenChange={setFiltroOrigen}
           procesos={procesos}
-          riesgos={riesgos}
           ocultarFiltroOrigen={esDueñoProcesos} // Ocultar filtro Origen para Dueño de Procesos (incluye Gerente General en modo Dueño)
         />
 

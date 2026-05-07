@@ -92,7 +92,7 @@ function SubtiposCatalog({
     onUpdateSubtipo: (data: { id: number; nombre?: string; descripcion?: string }) => Promise<void>;
     onDeleteSubtipo: (id: number) => Promise<void>;
 }) {
-    const { showError, showSuccess } = useNotification();
+    const { showError, showSuccess, showEliminacionExitosa } = useNotification();
     const { confirmDelete } = useConfirm();
     const [tipoSeleccionado, setTipoSeleccionado] = useState<number | null>(tiposRiesgo[0]?.id ?? null);
 
@@ -129,7 +129,7 @@ function SubtiposCatalog({
         if (!(await confirmDelete('la tipología tipo II'))) return;
         try {
             await onDeleteSubtipo(id);
-            showSuccess('Tipología tipo II eliminada.');
+            showEliminacionExitosa('La tipología tipo II se eliminó correctamente.');
         } catch (err: any) {
             const msg = err?.data?.error || err?.message || 'No se pudo eliminar.';
             showError(msg);
@@ -176,6 +176,7 @@ export default function ParametrosCalificacionPage() {
     const { puedeEditar } = useAuth();
     const canEdit = puedeEditar !== false;
     const { confirmDelete } = useConfirm();
+    const { showEliminacionExitosa } = useNotification();
     const [tabValue, setTabValue] = useState(0);
     const [subTabValue, setSubTabValue] = useState<{ [key: number]: number }>({ 0: 0, 1: 0, 2: 0, 3: 0 });
 
@@ -339,6 +340,7 @@ export default function ParametrosCalificacionPage() {
                 try {
                     const newList = currentList.filter(i => i.id !== id);
                     await updateService(newList);
+                    showEliminacionExitosa();
                 } catch {
                 }
         };
@@ -359,6 +361,7 @@ export default function ParametrosCalificacionPage() {
         if (!(await confirmDelete('esta tipología'))) return;
         try {
             await deleteTipologia(id as any).unwrap();
+            showEliminacionExitosa('La tipología se eliminó correctamente.');
         } catch {
         }
     };
@@ -625,7 +628,6 @@ export default function ParametrosCalificacionPage() {
                                     await updateSubtipo(data).unwrap();
                                 }}
                                 onDeleteSubtipo={async (id) => {
-                                    if (!(await confirmDelete('esta tipología tipo II'))) return;
                                     await deleteSubtipo(id).unwrap();
                                 }}
                             />
@@ -664,6 +666,7 @@ export default function ParametrosCalificacionPage() {
                                 onDelete={async (id) => {
                                     if (!(await confirmDelete('este objetivo'))) return;
                                     await deleteObjetivo(id).unwrap();
+                                    showEliminacionExitosa('El objetivo se eliminó correctamente.');
                                 }}
                             />
                         </TabPanel>
@@ -795,6 +798,7 @@ export default function ParametrosCalificacionPage() {
                             onDeleteTipo={async (tipoId) => {
                                 if (!(await confirmDelete('este tipo de impacto'))) return;
                                 await deleteImpactoTipo(tipoId).unwrap();
+                                showEliminacionExitosa('El tipo de impacto se eliminó correctamente.');
                             }}
                         />
                     </TabPanel>
@@ -896,6 +900,7 @@ export default function ParametrosCalificacionPage() {
                             onDelete={async (id) => {
                                 if (!(await confirmDelete('esta fórmula'))) return;
                                 setFormulas((prev) => prev.filter((f) => f.id !== id));
+                                showEliminacionExitosa('La fórmula se quitó del listado.');
                             }}
                         />
                     </TabPanel>

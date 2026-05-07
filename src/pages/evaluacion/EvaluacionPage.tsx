@@ -51,6 +51,7 @@ import {
 import { useGetRiesgosQuery, useCreateEvaluacionMutation } from '../../api/services/riesgosApi';
 import { useCalculosRiesgo } from '../../hooks/useCalculosRiesgo';
 import { useNotification } from '../../hooks/useNotification';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useProceso } from '../../contexts/ProcesoContext';
 import { DIMENSIONES_IMPACTO, LABELS_PROBABILIDAD, LABELS_IMPACTO } from '../../utils/constants';
 import { getRiskColor } from '../../app/theme/colors';
@@ -124,7 +125,8 @@ export default function EvaluacionPage() {
     { refetchOnMountOrArgChange: false }
   );
   const [createEvaluacion, { isLoading: isSaving }] = useCreateEvaluacionMutation();
-  const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
 
   const riesgos = riesgosData?.data || [];
   const [selectedRiesgo, setSelectedRiesgo] = useState<Riesgo | null>(null);
@@ -333,10 +335,11 @@ export default function EvaluacionPage() {
     setCausaDialogOpen(true);
   };
 
-  const handleEliminarCausa = (causaId: string) => {
+  const handleEliminarCausa = async (causaId: string) => {
+    if (!(await confirmDelete('esta causa'))) return;
     setCausas(causas.filter((c) => c.id !== causaId));
     setControles(controles.filter((c) => c.causaRiesgoId !== causaId));
-    showSuccess('Causa quitada de la lista. Guarde la evaluación para persistir.');
+    showEliminacionExitosa('La causa se quitó de la lista. Guarde la evaluación para persistir.');
   };
 
   const handleAgregarControl = () => {
@@ -441,13 +444,14 @@ export default function EvaluacionPage() {
     setControlDialogOpen(true);
   };
 
-  const handleEliminarControl = (controlId: string) => {
+  const handleEliminarControl = async (controlId: string) => {
     if (esRiesgoPositivo) {
       showError('Para riesgos con consecuencia positiva, los controles no aplican.');
       return;
     }
+    if (!(await confirmDelete('este control'))) return;
     setControles(controles.filter((c) => c.id !== controlId));
-    showSuccess('Control quitado de la lista. Guarde la evaluación para persistir.');
+    showEliminacionExitosa('El control se quitó de la lista. Guarde la evaluación para persistir.');
   };
 
   useEffect(() => {

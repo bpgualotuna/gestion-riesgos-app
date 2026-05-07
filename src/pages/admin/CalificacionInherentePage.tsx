@@ -45,6 +45,7 @@ import AppPageLayout from '../../components/layout/AppPageLayout';
 import PageLoadingSkeleton from '../../components/ui/PageLoadingSkeleton';
 import LoadingActionButton from '../../components/ui/LoadingActionButton';
 import { useNotification } from '../../hooks/useNotification';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { invalidarCache, getConfigActiva } from '../../services/calificacionInherenteService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUnsavedChanges, useFormChanges } from '../../hooks/useUnsavedChanges';
@@ -59,7 +60,8 @@ import {
 export default function CalificacionInherentePage() {
   const { puedeEditar } = useAuth();
   const canEdit = puedeEditar !== false;
-  const { showSuccess, showError } = useNotification();
+  const { confirmDelete } = useConfirm();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { data: config, isLoading, refetch } = useGetCalificacionInherenteActivaQuery();
   const { data: niveles } = useGetNivelesRiesgoQuery();
   const [updateConfig, { isLoading: isUpdating }] = useUpdateCalificacionInherenteMutation();
@@ -255,9 +257,11 @@ export default function CalificacionInherentePage() {
     });
   };
 
-  const handleEliminarExcepcion = (index: number) => {
+  const handleEliminarExcepcion = async (index: number) => {
+    if (!(await confirmDelete('esta excepción'))) return;
     const nuevas = formData.excepciones.filter((_, i) => i !== index);
     setFormData({ ...formData, excepciones: nuevas });
+    showEliminacionExitosa('La excepción se quitó del borrador. Guarde para persistir.');
   };
 
   const handleEditarExcepcion = (index: number) => {

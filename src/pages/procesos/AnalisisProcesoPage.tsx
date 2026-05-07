@@ -54,7 +54,7 @@ import LoadingActionButton from '../../components/ui/LoadingActionButton';
 export default function AnalisisProcesoPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
 
@@ -169,7 +169,7 @@ export default function AnalisisProcesoPage() {
               setInitialSavedFlujoGrama(null);
             }
             await updateProceso(payload).unwrap();
-            showSuccess('Archivo eliminado');
+            showEliminacionExitosa('El archivo se eliminó correctamente.');
           } else {
             const data = await res.json().catch(() => ({}));
             showError(data?.error || 'Error al eliminar el archivo');

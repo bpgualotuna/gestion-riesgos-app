@@ -40,7 +40,8 @@ const VirtualAssistantDemo: React.FC = React.memo(() => {
         position: 'fixed',
         bottom: { xs: 16, sm: 24 },
         right: { xs: 16, sm: 32 },
-        zIndex: 1000, // Reducido para no bloquear otros elementos de la UI
+        // Debe quedar por encima de drawers/appbar/contenido para evitar efecto "detrás".
+        zIndex: (theme) => theme.zIndex.modal + 2,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',

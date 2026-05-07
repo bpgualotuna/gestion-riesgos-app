@@ -3,10 +3,6 @@ import {
   Box,
   Card,
   CardContent,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   Tab,
   Tabs,
   Typography,
@@ -14,6 +10,7 @@ import {
 import { CLASIFICACION_RIESGO } from '../../utils/constants';
 import { colors } from '../../app/theme/colors';
 import { MAPA_POSITIVO_COLORES } from '../../utils/mapaPositivoPalette';
+import DashboardFiltros from '../../components/dashboard/DashboardFiltros';
 
 interface ProcesoBasico {
   id: string | number;
@@ -40,10 +37,10 @@ interface Props {
   setVistaMapaTab: (value: number) => void;
   clasificacion: string;
   setClasificacion: (value: string) => void;
-  filtroArea: string;
-  filtroProceso: string;
-  setFiltroArea: (value: string) => void;
-  setFiltroProceso: (value: string) => void;
+  filtroAreaNombres: string[];
+  filtroProcesoIds: string[];
+  setFiltroAreaNombres: (value: string[]) => void;
+  setFiltroProcesoIds: (value: string[]) => void;
   esSupervisorRiesgos: boolean;
   esDueñoProcesos: boolean;
   esGerenteGeneralDirector: boolean;
@@ -57,10 +54,10 @@ const MapaFiltersPanel: React.FC<Props> = ({
   setVistaMapaTab,
   clasificacion,
   setClasificacion,
-  filtroArea,
-  filtroProceso,
-  setFiltroArea,
-  setFiltroProceso,
+  filtroAreaNombres,
+  filtroProcesoIds,
+  setFiltroAreaNombres,
+  setFiltroProcesoIds,
   esSupervisorRiesgos,
   esDueñoProcesos,
   esGerenteGeneralDirector,
@@ -75,90 +72,46 @@ const MapaFiltersPanel: React.FC<Props> = ({
       esGerenteGeneralProceso) &&
     procesosPropios.length > 0;
 
-  const areaIdsUnicos = Array.from(
-    new Set(procesosPropios.map((p) => p.areaId).filter(Boolean)),
-  );
-
-  const procesosFiltradosPorArea = procesosPropios.filter(
-    (p) =>
-      !filtroArea ||
-      filtroArea === 'all' ||
-      String(p.areaId) === String(filtroArea),
-  );
-
   const esPositivo = vistaMapaTab === 1;
+  const procesosParaFiltro = React.useMemo(() => {
+    return procesosPropios.map((p) => {
+      const areaNombre =
+        p.areaNombre ??
+        areas.find((a) => String(a.id) === String(p.areaId))?.nombre ??
+        'Sin área';
+      return {
+        id: p.id,
+        nombre: etiquetaProcesoConSigla(p),
+        sigla: p.sigla ?? null,
+        areaNombre,
+      };
+    });
+  }, [areas, procesosPropios]);
 
   return (
     <>
       {/* 1. Filtros arriba */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Filtros
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            {mostrarFiltrosProceso ? (
-              <>
-                <FormControl sx={{ minWidth: 220 }}>
-                  <InputLabel>Área</InputLabel>
-                  <Select
-                    value={filtroArea || 'all'}
-                    onChange={(e) => {
-                      const value = String(e.target.value || 'all');
-                      setFiltroArea(value);
-                      setFiltroProceso('all');
-                    }}
-                    label="Área"
-                  >
-                    <MenuItem value="all">Todas las áreas</MenuItem>
-                    {areaIdsUnicos.map((areaId) => {
-                      const proceso = procesosPropios.find(
-                        (p) => p.areaId === areaId,
-                      );
-                      const area = areas.find((a) => a.id === areaId);
-                      return (
-                        <MenuItem key={String(areaId)} value={String(areaId)}>
-                          {area?.nombre ||
-                            proceso?.areaNombre ||
-                            `Área ${String(areaId)}`}
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-                <FormControl sx={{ minWidth: 280, maxWidth: '100%' }}>
-                  <InputLabel>Proceso</InputLabel>
-                  <Select
-                    value={filtroProceso || 'all'}
-                    onChange={(e) => setFiltroProceso(String(e.target.value))}
-                    label="Proceso"
-                    renderValue={(value) => {
-                      if (value === 'all' || value == null || value === '') {
-                        return 'Todos los procesos';
-                      }
-                      const p = procesosFiltradosPorArea.find((x) => String(x.id) === String(value));
-                      return p ? etiquetaProcesoConSigla(p) : String(value);
-                    }}
-                  >
-                    <MenuItem value="all">Todos los procesos</MenuItem>
-                    {procesosFiltradosPorArea.map((proceso) => (
-                      <MenuItem
-                        key={String(proceso.id)}
-                        value={String(proceso.id)}
-                      >
-                        {etiquetaProcesoConSigla(proceso)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </>
-            ) : (
+          {mostrarFiltrosProceso ? (
+            <DashboardFiltros
+              filtroAreaNombres={filtroAreaNombres}
+              onFiltroAreaNombresChange={setFiltroAreaNombres}
+              filtroProcesoIds={filtroProcesoIds}
+              onFiltroProcesoIdsChange={setFiltroProcesoIds}
+              filtroOrigen="all"
+              onFiltroOrigenChange={() => {}}
+              procesos={procesosParaFiltro}
+              ocultarFiltroOrigen
+            />
+          ) : (
+            <Box sx={{ px: 1, py: 0.5 }}>
               <Typography variant="body2" color="text.secondary">
                 Sin filtro por área/proceso en este rol; se muestran los riesgos
                 según sus permisos.
               </Typography>
-            )}
-          </Box>
+            </Box>
+          )}
         </CardContent>
       </Card>
 

@@ -126,7 +126,7 @@ const emptyItems = (): Record<CategoryKey, CaracteristicaItem[]> =>
 
 export default function ContextoExternoPage() {
   const dispatch = useDispatch<AppDispatch>();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
   const { setScreenContext } = useCoraIAContext(); // NUEVO: Hook de CORA IA
@@ -508,7 +508,7 @@ export default function ContextoExternoPage() {
       markAsSaved();
       await refetchProceso();
       patchFull();
-      showSuccess('Eliminado.');
+      showEliminacionExitosa('El registro se eliminó correctamente.');
     } catch {
       showError('Error al eliminar.');
     } finally {

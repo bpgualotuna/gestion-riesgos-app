@@ -183,7 +183,7 @@ export default function PlanAccionPage() {
   const { procesoSeleccionado, modoProceso } = useProceso();
   const { riesgoSeleccionado: riesgoSeleccionadoContext, iniciarVer } = useRiesgo();
   const { user } = useAuth();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   
   // Estado local para el riesgo seleccionado en esta página
@@ -382,7 +382,7 @@ export default function PlanAccionPage() {
   const handleEliminarPlan = async (planId: string) => {
     if (!(await confirmDelete('este plan de acción'))) return;
     setPlanesAccion(planesAccion.filter((plan) => plan.id !== planId));
-    showSuccess('Plan de acción eliminado exitosamente');
+    showEliminacionExitosa('El plan de acción se eliminó correctamente.');
   };
 
   const handleCrearTarea = (plan: PlanAccion) => {
@@ -514,7 +514,7 @@ export default function PlanAccionPage() {
         : plan
     );
     setPlanesAccion(planesActualizados);
-    showSuccess('Tarea eliminada exitosamente');
+    showEliminacionExitosa('La tarea se eliminó correctamente.');
   };
 
   // Validación removida - permite cargar sin proceso seleccionado

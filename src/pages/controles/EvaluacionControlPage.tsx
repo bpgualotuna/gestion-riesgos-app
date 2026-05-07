@@ -127,7 +127,7 @@ interface EvaluacionControl {
 
 export default function EvaluacionControlPage() {
   const { procesoSeleccionado } = useProceso();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
 
   const [evaluaciones, setEvaluaciones] = useState<EvaluacionControl[]>([]);
@@ -368,7 +368,7 @@ export default function EvaluacionControlPage() {
         gestion: null
       }).unwrap();
       setEvaluaciones(prev => prev.filter(e => e.id !== id));
-      showSuccess('Control eliminado');
+      showEliminacionExitosa('El control se eliminó correctamente.');
     } catch (error: any) {
       showError(error?.data?.error || error?.message || 'Error al eliminar el control');
     }

@@ -1,16 +1,20 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { flushSync } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { Box, Paper, Typography, IconButton, Skeleton } from '@mui/material';
 import { History as HistoryIcon, Add as AddIcon } from '@mui/icons-material';
 import { useCoraIA } from '../../hooks/useCoraIA';
 import { useCoraIAContext } from '../../contexts/CoraIAContext'; // NUEVO: Contexto global
 import { useAuth } from '../../contexts/AuthContext';
+import { swalConfirmEliminacion, swalExitoEliminacion } from '../../lib/swal';
 import CoraHistoryPanel, { CoraHistoryItem } from './CoraHistoryPanel';
 import CoraMessageList from './CoraMessageList';
 import CoraInputBar from './CoraInputBar';
+import { mergeCoraScreenContext } from '../../utils/coraScreenNavigation';
 
 const CoraChatWindow: React.FC = React.memo(() => {
   const {
+    conversationId,
     mensajes,
     loading,
     streaming,
@@ -21,8 +25,10 @@ const CoraChatWindow: React.FC = React.memo(() => {
     seleccionarConversacion,
     borrar,
     renombrar,
+    sincronizarSaludoNombre,
   } = useCoraIA();
   const { screenContext } = useCoraIAContext(); // NUEVO: Obtener contexto desde provider global
+  const { pathname } = useLocation();
   const { user } = useAuth();
 
   const [showHistory, setShowHistory] = useState(false);
@@ -43,10 +49,26 @@ const CoraChatWindow: React.FC = React.memo(() => {
     setShowHistory((prev) => !prev);
   }, [showHistory, cargarHistorial]);
 
+  const nombreCora = user?.fullName?.trim() || 'Usuario';
+
   const handleNewConversation = useCallback(() => {
-    limpiar();
+    limpiar(nombreCora);
     setShowHistory(false);
-  }, [limpiar]);
+  }, [limpiar, nombreCora]);
+
+  /** Chat nuevo sin conversación en servidor: asegura el saludo como primer mensaje del hilo. */
+  useEffect(() => {
+    if (loading || streaming) return;
+    if (conversationId !== undefined && conversationId !== '') return;
+    if (mensajes.length > 0) return;
+    limpiar(nombreCora);
+  }, [loading, streaming, conversationId, mensajes.length, nombreCora, limpiar]);
+
+  useEffect(() => {
+    const n = user?.fullName?.trim();
+    if (!n) return;
+    sincronizarSaludoNombre(n);
+  }, [user?.fullName, sincronizarSaludoNombre]);
 
   const handleSelectConversation = useCallback(async (id: string) => {
     flushSync(() => {
@@ -57,32 +79,57 @@ const CoraChatWindow: React.FC = React.memo(() => {
 
   const handleSend = useCallback(() => {
     if (!inputValue.trim() || loading || streaming) return;
-    console.log('🚀🚀🚀 [CORA ENVIANDO] Mensaje:', inputValue);
-    console.log('🚀🚀🚀 [CORA ENVIANDO] Contexto:', JSON.stringify(screenContext, null, 2));
-    enviarStream(inputValue, screenContext || undefined); // CORREGIDO: Pasar screenContext
+    const ctxMerged = mergeCoraScreenContext(pathname, screenContext);
+    enviarStream(inputValue, ctxMerged);
     setInputValue('');
-  }, [inputValue, loading, streaming, enviarStream, screenContext]);
+  }, [inputValue, loading, streaming, enviarStream, screenContext, pathname]);
 
   const handleDeleteHistory = useCallback(
     async (item: CoraHistoryItem) => {
+      const confirmDelete = await swalConfirmEliminacion(`la conversación "${item.title || 'sin título'}"`);
+      if (!confirmDelete) return;
       const ok = await borrar(item.id);
       if (ok) {
         const hist = await cargarHistorial();
         setHistoryList(hist);
+        await swalExitoEliminacion('La conversación se eliminó correctamente.');
       }
     },
     [borrar, cargarHistorial]
   );
 
+  const handleDeleteManyHistory = useCallback(
+    async (ids: string[]) => {
+      if (!ids.length) return false;
+      const confirmDelete = await swalConfirmEliminacion(`${ids.length} conversación(es)`);
+      if (!confirmDelete) return false;
+
+      const results = await Promise.allSettled(ids.map((id) => borrar(id)));
+      const okCount = results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
+      if (okCount > 0) {
+        const hist = await cargarHistorial();
+        setHistoryList(hist);
+        await swalExitoEliminacion(
+          okCount === ids.length
+            ? `Se eliminaron ${okCount} conversación(es) correctamente.`
+            : `Se eliminaron ${okCount} de ${ids.length} conversación(es).`,
+          1900
+        );
+        return true;
+      }
+      return false;
+    },
+    [borrar, cargarHistorial]
+  );
+
   const handleRenameHistory = useCallback(
-    async (item: CoraHistoryItem) => {
-      const nuevoTitulo = window.prompt('Nuevo título', item.title || '');
-      if (!nuevoTitulo?.trim()) return;
-      const ok = await renombrar(item.id, nuevoTitulo.trim());
+    async (item: CoraHistoryItem, newTitle: string) => {
+      const ok = await renombrar(item.id, newTitle.trim());
       if (ok) {
         const hist = await cargarHistorial();
         setHistoryList(hist);
       }
+      return ok;
     },
     [renombrar, cargarHistorial]
   );
@@ -163,6 +210,7 @@ const CoraChatWindow: React.FC = React.memo(() => {
           onSearchChange={setSearchText}
           onSelect={handleSelectConversation}
           onDelete={handleDeleteHistory}
+          onDeleteMany={handleDeleteManyHistory}
           onRename={handleRenameHistory}
         />
       ) : (
@@ -177,24 +225,6 @@ const CoraChatWindow: React.FC = React.memo(() => {
             </Box>
           ) : (
             <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {mensajes.length === 0 && (
-                <Box
-                  sx={{
-                    mt: 1,
-                    mb: 1,
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: '#f0f7ff',
-                    border: '1px solid #dbeafe',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-                    Hola <strong>{user?.fullName || 'Usuario'}</strong>, soy CORA. Estoy
-                    lista para ayudarte con tus riesgos y procesos. ¿En qué puedo apoyarte hoy?
-                  </Typography>
-                </Box>
-              )}
               <CoraMessageList
                 listEndRef={messagesEndRef}
                 mensajes={mensajes}

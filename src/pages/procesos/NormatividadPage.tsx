@@ -109,7 +109,7 @@ const NormatividadCard = memo(function NormatividadCard({
 });
 
 export default function NormatividadPage() {
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showEliminacionExitosa } = useNotification();
   const { confirmDelete } = useConfirm();
   const { procesoSeleccionado, modoProceso, isLoading: isLoadingProceso } = useProceso();
   const isReadOnly = modoProceso === 'visualizar';
@@ -210,14 +210,14 @@ export default function NormatividadPage() {
       await updateProceso({ id: String(procesoSeleccionado.id), normatividades: updatedList }).unwrap();
       setInitialNormatividades(updatedList);
       markAsSaved();
-      showSuccess('Normatividad eliminada correctamente');
+      showEliminacionExitosa('La normatividad se eliminó correctamente.');
     } catch {
       setNormatividades(normatividades);
       showError('Error al eliminar normatividad');
     } finally {
       setIsSaving(false);
     }
-  }, [procesoSeleccionado, normatividades, confirmDelete, updateProceso, markAsSaved, showSuccess, showError]);
+  }, [procesoSeleccionado, normatividades, confirmDelete, updateProceso, markAsSaved, showEliminacionExitosa, showError]);
 
   // Handlers para el diálogo de cambios no guardados
   const handleSaveFromDialog = async () => {

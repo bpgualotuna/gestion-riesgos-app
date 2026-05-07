@@ -83,7 +83,7 @@ function TabPanel(props: TabPanelProps) {
 
 export default function ProcesosDefinicionPage() {
     const { esAdmin, puedeEditar: puedeEditarAdmin } = useAuth();
-    const { showSuccess, showError } = useNotification();
+    const { showSuccess, showError, showEliminacionExitosa } = useNotification();
     const { confirmDelete } = useConfirm();
     const [currentTab, setCurrentTab] = useState(0);
 
@@ -287,7 +287,7 @@ export default function ProcesosDefinicionPage() {
         if (!(await confirmDelete('este proceso'))) return;
         try {
             await deleteProceso(String(id)).unwrap();
-            showSuccess('Proceso eliminado correctamente');
+            showEliminacionExitosa('El proceso se eliminó correctamente.');
         } catch (error) {
             showError((error as any)?.data?.error || 'Error al eliminar el proceso');
         }

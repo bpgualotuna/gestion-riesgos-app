@@ -142,8 +142,8 @@ export default function MapaPage() {
   const [clasificacion, setClasificacion] = useState<string>(CLASIFICACION_RIESGO.NEGATIVA);
   /** 0 consecuencias negativas, 1 positivas (pestañas del mapa). */
   const [vistaMapaTab, setVistaMapaTab] = useState(0);
-  const [filtroArea, setFiltroArea] = useState<string>('all');
-  const [filtroProceso, setFiltroProceso] = useState<string>('all');
+  const [filtroAreaNombres, setFiltroAreaNombres] = useState<string[]>([]);
+  const [filtroProcesoIds, setFiltroProcesoIds] = useState<string[]>([]);
   const [celdaSeleccionada, setCeldaSeleccionada] = useState<{ probabilidad: number; impacto: number } | null>(null);
   const [dialogoResumenAbierto, setDialogoResumenAbierto] = useState(false);
   const [dialogoDetalleRiesgoAbierto, setDialogoDetalleRiesgoAbierto] = useState(false);
@@ -188,7 +188,7 @@ export default function MapaPage() {
     setRiesgoSeleccionadoDetalle(null);
     setPuntoSeleccionadoDetalle(null);
     setRiesgosExpandidos({});
-  }, [filtroArea, filtroProceso, clasificacion]);
+  }, [filtroAreaNombres, filtroProcesoIds, clasificacion]);
 
   // CRÍTICO: Cerrar todos los diálogos cuando cambia la ruta (navegación)
   // Esto previene que los diálogos abiertos bloqueen la navegación
@@ -252,26 +252,17 @@ export default function MapaPage() {
     return [];
   }, [procesos, esSupervisorRiesgos, esDueñoProcesos, esGerenteGeneralDirector, esGerenteGeneralProceso, areasAsignadas, procesosAsignados, user]);
 
-  // Aplicar filtros de área y proceso si están seleccionados
-  // IMPORTANTE: Esta página tiene sus propios filtros, NO usa el filtro del header (procesoSeleccionado)
+  // Para mantener rendimiento y consistencia con dashboard: solo enviar procesoId al backend si hay 1 proceso seleccionado.
   const procesoIdFiltrado = useMemo(() => {
-    // Si hay filtro de proceso local, usarlo
-      if (filtroProceso && filtroProceso !== 'all') {
-      return String(filtroProceso);
-      }
-    // Si hay filtro de área pero no de proceso, no filtrar por procesoId aquí
-    // (se filtrará después en puntosFiltrados por área)
-      if (filtroArea && filtroArea !== 'all') {
-      return undefined; // Devolver undefined para filtrar después por área
+    if (filtroProcesoIds.length === 1) {
+      return String(filtroProcesoIds[0]);
     }
-    // Si no hay filtros locales, mostrar todos los procesos disponibles del usuario
-    // (NO usar procesoSeleccionado del header)
     return undefined;
-  }, [filtroProceso, filtroArea]);
+  }, [filtroProcesoIds]);
 
   // Cuando los filtros están en "all", NO enviar filtros al backend para obtener TODOS los riesgos
   const filtros: FiltrosRiesgo = {
-    procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
+    procesoId: procesoIdFiltrado,
   };
 
   const dispatch = useAppDispatch();
@@ -284,7 +275,7 @@ export default function MapaPage() {
   
   // Riesgos filtrados en backend por proceso/clasificación; pageSize acotado para no colgar la app
   const { data: riesgosData, isLoading: isLoadingRiesgos, error: errorRiesgos, refetch: refetchRiesgos } = useGetRiesgosQuery({
-    procesoId: (filtroProceso && filtroProceso !== 'all') ? procesoIdFiltrado : undefined,
+    procesoId: procesoIdFiltrado,
     includeCausas: true,
     pageSize: 500,
   }, {
@@ -296,7 +287,7 @@ export default function MapaPage() {
     dispatch(riesgosApi.util.invalidateTags(['Riesgo', 'Evaluacion', 'PuntosMapa']));
     refetchPuntos();
     refetchRiesgos();
-  }, [filtros.procesoId, filtroArea, filtroProceso, clasificacion, dispatch, refetchPuntos, refetchRiesgos]);
+  }, [filtros.procesoId, filtroAreaNombres, filtroProcesoIds, clasificacion, dispatch, refetchPuntos, refetchRiesgos]);
 
   // Escuchar eventos de actualización de riesgos para refrescar el mapa en tiempo real
   useEffect(() => {
@@ -338,16 +329,18 @@ export default function MapaPage() {
 
   /** IDs de proceso incluidos en el mapa según filtros (misma lógica que puntosFiltrados). */
   const procesosIdsMapa = useMemo(() => {
-    if (filtroProceso && filtroProceso !== 'all') {
-      const procesoFiltrado = procesosPropios.find((p) => String(p.id) === String(filtroProceso));
-      if (procesoFiltrado) return [String(filtroProceso)];
-      return [];
+    if (filtroProcesoIds.length > 0) {
+      const idsPermitidos = new Set(procesosPropios.map((p) => String(p.id)));
+      return filtroProcesoIds.filter((id) => idsPermitidos.has(String(id))).map(String);
     }
-    if (filtroArea && filtroArea !== 'all') {
-      return procesosPropios.filter((p) => String(p.areaId) === String(filtroArea)).map((p) => String(p.id));
+    if (filtroAreaNombres.length > 0) {
+      const areasSeleccionadas = new Set(filtroAreaNombres);
+      return procesosPropios
+        .filter((p) => p.areaNombre != null && areasSeleccionadas.has(String(p.areaNombre)))
+        .map((p) => String(p.id));
     }
     return procesosPropios.map((p) => String(p.id));
-  }, [filtroProceso, filtroArea, procesosPropios]);
+  }, [filtroProcesoIds, filtroAreaNombres, procesosPropios]);
 
   const procesosEnAlcanceMapa = useMemo(
     () =>
@@ -677,12 +670,10 @@ export default function MapaPage() {
   // NUEVO: useEffect para capturar contexto de pantalla para CORA IA (DESPUÉS de todos los useMemo)
   useEffect(() => {
     if (!setScreenContext) return;
-    const nombreArea = filtroArea === 'all'
-      ? 'Todas'
-      : areas.find(a => String(a.id) === filtroArea)?.nombre || 'N/A';
-    const nombreProceso = filtroProceso === 'all'
-      ? 'Todos'
-      : procesos.find(p => String(p.id) === filtroProceso)?.nombre || 'N/A';
+    const nombreArea =
+      filtroAreaNombres.length === 0 ? 'Todas' : `${filtroAreaNombres.length} seleccionada(s)`;
+    const nombreProceso =
+      filtroProcesoIds.length === 0 ? 'Todos' : `${filtroProcesoIds.length} seleccionado(s)`;
 
     const context: ScreenContext = {
       module: 'mapas',
@@ -712,13 +703,11 @@ export default function MapaPage() {
     setScreenContext,
     tipoMapaSeleccionado,
     clasificacion,
-    filtroArea,
-    filtroProceso,
+    filtroAreaNombres,
+    filtroProcesoIds,
     puntosFiltrados.length,
     estadisticasComparativas?.inherente?.total,
     estadisticasComparativas?.residual?.total,
-    areas,
-    procesos,
   ]);
 
   // isLoading state para la página completa
@@ -744,7 +733,7 @@ export default function MapaPage() {
   }
 
   // NOTA: Esta página NO usa procesoSeleccionado del header
-  // Tiene sus propios filtros (filtroArea, filtroProceso) que son independientes
+  // Tiene sus propios filtros locales (áreas y procesos múltiples) independientes
 
 
   /* Hook moved to top */
@@ -1273,10 +1262,10 @@ export default function MapaPage() {
               setVistaMapaTab={setVistaMapaTab}
               clasificacion={clasificacion}
               setClasificacion={setClasificacion}
-              filtroArea={filtroArea}
-              filtroProceso={filtroProceso}
-              setFiltroArea={(v) => setFiltroArea(v)}
-              setFiltroProceso={(v) => setFiltroProceso(v)}
+              filtroAreaNombres={filtroAreaNombres}
+              filtroProcesoIds={filtroProcesoIds}
+              setFiltroAreaNombres={setFiltroAreaNombres}
+              setFiltroProcesoIds={setFiltroProcesoIds}
               esSupervisorRiesgos={!!esSupervisorRiesgos}
               esDueñoProcesos={!!esDueñoProcesos}
               esGerenteGeneralDirector={!!esGerenteGeneralDirector}
@@ -2507,8 +2496,8 @@ export default function MapaPage() {
           matrizInherente={matrizInherente}
           matrizResidual={matrizResidual}
           procesos={procesos}
-          filtroArea={filtroArea}
-          filtroProceso={filtroProceso}
+          filtroArea={filtroAreaNombres}
+          filtroProceso={filtroProcesoIds}
           puntosFiltrados={puntosFiltrados}
           riesgosCompletos={riesgosCompletos}
           forzarInherenteSiPlanCausa={mapaOptsResidualPlan.forzarInherenteSiPlanCausa}

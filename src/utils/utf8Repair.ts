@@ -283,11 +283,12 @@ const SPANISH_ACCENT_GLITCHES: Array<[RegExp, string]> = [
   [/\bcondici\uFFFDn\b/gi, 'condición'],
 ];
 
-/** Nombres/apellidos frecuentes que llegan con carácter de reemplazo. */
+/**
+ * Nombres/apellidos frecuentes con ? o U+FFFD donde iba una tilde.
+ * No usar \b tras el glitch: ? no es \w en JS, así que "Jos? " no tenía borde de palabra antes del espacio.
+ */
 const PERSON_NAME_GLITCH_FIXES: Array<[RegExp, string]> = [
-  [/\bJos[\?\uFFFD]+\b/g, 'José'],
-  [/\bJos\uFFFD\b/g, 'José'],
-  [/\bJos\?\b/g, 'José'],
+  [/\bJos(?:\?|\uFFFD)+/gi, 'José'],
   [/\bMar[\?\uFFFD]+a\b/g, 'María'],
   [/\bMar\uFFFDa\b/g, 'María'],
   [/\bMar\?a\b/g, 'María'],
@@ -300,9 +301,7 @@ const PERSON_NAME_GLITCH_FIXES: Array<[RegExp, string]> = [
   [/\bRodr[\?\uFFFD]+guez\b/gi, 'Rodríguez'],
   [/\bRodr\uFFFDguez\b/gi, 'Rodríguez'],
   [/\bRodr\?guez\b/gi, 'Rodríguez'],
-  [/\bMaldonad[\?\uFFFD]+\b/gi, 'Maldonado'],
-  [/\bMaldonad\uFFFD\b/gi, 'Maldonado'],
-  [/\bMaldonad\?\b/gi, 'Maldonado'],
+  [/\bMaldonad(?:\?|\uFFFD)+/gi, 'Maldonado'],
 ];
 
 function applyArtifactFixes(s: string): string {
